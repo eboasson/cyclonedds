@@ -1895,6 +1895,7 @@ static void proxy_writer_add_connection (struct proxy_writer *pwr, struct reader
       m->in_sync = PRMSS_OUT_OF_SYNC;
     else
       m->in_sync = PRMSS_SYNC;
+    m->u.not_in_sync.last_deliv_seq = 0;
     m->u.not_in_sync.end_of_tl_seq = MAX_SEQ_NUMBER;
   }
   else if (!rd->handle_as_transient_local)
@@ -1910,6 +1911,7 @@ static void proxy_writer_add_connection (struct proxy_writer *pwr, struct reader
     /* transient-local reader; range of sequence numbers is already
        known */
     m->in_sync = PRMSS_OUT_OF_SYNC;
+    m->u.not_in_sync.last_deliv_seq = 0;
     m->u.not_in_sync.end_of_tl_seq = pwr->last_seq;
   }
   if (m->in_sync != PRMSS_SYNC)
@@ -4101,7 +4103,7 @@ int new_proxy_writer (const struct nn_guid *ppguid, const struct nn_guid *guid, 
   pwr->last_fragnum = ~0u;
   pwr->nackfragcount = 0;
   pwr->last_fragnum_reset = 0;
-  ddsrt_atomic_st32 (&pwr->next_deliv_seq_lowword, 1);
+  ddsrt_atomic_st64 (&pwr->last_deliv_seq, 0);
   if (is_builtin_entityid (pwr->e.guid.entityid, pwr->c.vendor)) {
     /* The DDSI built-in proxy writers always deliver
        asynchronously */
@@ -4171,7 +4173,7 @@ int new_proxy_writer (const struct nn_guid *ppguid, const struct nn_guid *guid, 
 void update_proxy_writer (struct proxy_writer *pwr, struct addrset *as, const struct dds_qos *xqos, nn_wctime_t timestamp)
 {
   struct reader * rd;
-  struct  pwr_rd_match * m;
+  struct pwr_rd_match * m;
   ddsrt_avl_iter_t iter;
 
   /* Update proxy writer endpoints (from SEDP alive) */

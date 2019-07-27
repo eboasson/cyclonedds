@@ -122,6 +122,7 @@ struct pwr_rd_match {
   enum pwr_rd_match_syncstate in_sync; /* whether in sync with the proxy writer */
   union {
     struct {
+      seqno_t last_deliv_seq;
       seqno_t end_of_tl_seq; /* when seq >= end_of_tl_seq, it's in sync, =0 when not tl */
       struct nn_reorder *reorder; /* can be done (mostly) per proxy writer, but that is harder; only when state=OUT_OF_SYNC */
     } not_in_sync;
@@ -348,7 +349,6 @@ struct proxy_writer {
   seqno_t last_seq; /* highest known seq published by the writer, not last delivered */
   uint32_t last_fragnum; /* last known frag for last_seq, or ~0u if last_seq not partial */
   nn_count_t nackfragcount; /* last nackfrag seq number */
-  ddsrt_atomic_uint32_t next_deliv_seq_lowword; /* lower 32-bits for next sequence number that will be delivered; for generating acks; 32-bit so atomic reads on all supported platforms */
   unsigned last_fragnum_reset: 1; /* iff set, heartbeat advertising last_seq as highest seq resets last_fragnum */
   unsigned deliver_synchronously: 1; /* iff 1, delivery happens straight from receive thread for non-historical data; else through delivery queue "dqueue" */
   unsigned have_seen_heartbeat: 1; /* iff 1, we have received at least on heartbeat from this proxy writer */
@@ -356,6 +356,7 @@ struct proxy_writer {
 #ifdef DDSI_INCLUDE_SSM
   unsigned supports_ssm: 1; /* iff 1, this proxy writer supports SSM */
 #endif
+  ddsrt_atomic_uint64_t last_deliv_seq; /* highest delivered sequence number (delivered to all that are in state SYNC or TLCATCHUP); atomic so proxy_writer lock not needed for updating from dqueue or reading for ACKs */
   struct nn_defrag *defrag; /* defragmenter for this proxy writer; FIXME: perhaps shouldn't be for historical data */
   struct nn_reorder *reorder; /* message reordering for this proxy writer, out-of-sync readers can have their own, see pwr_rd_match */
   struct nn_dqueue *dqueue; /* delivery queue for asynchronous delivery (historical data is always delivered asynchronously) */

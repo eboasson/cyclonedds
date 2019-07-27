@@ -75,16 +75,19 @@ Notes:
 
 static void deliver_user_data_synchronously (struct nn_rsample_chain *sc, const nn_guid_t *rdguid);
 
-static void maybe_set_reader_in_sync (struct proxy_writer *pwr, struct pwr_rd_match *wn, seqno_t last_deliv_seq)
+static void maybe_set_reader_in_sync (struct proxy_writer *pwr, struct pwr_rd_match *wn)
 {
+  seqno_t pwr_seq = (seqno_t) ddsrt_atomic_ld64 (&pwr->last_deliv_seq);
   switch (wn->in_sync)
   {
     case PRMSS_SYNC:
       assert(0);
       break;
     case PRMSS_TLCATCHUP:
-      if (last_deliv_seq >= wn->u.not_in_sync.end_of_tl_seq)
+      if (pwr_seq >= wn->u.not_in_sync.end_of_tl_seq)
       {
+        DDS_TRACE(" msr_in_sync("PGUIDFMT" %"PRId64" tlcatchup to in-sync)", PGUID (wn->rd_guid), pwr_seq);
+        fprintf (stderr, PGUIDFMT" %s in-sync\n", PGUID (wn->rd_guid), pwr->c.topic ? pwr->c.topic->name : "(null)");
         wn->in_sync = PRMSS_SYNC;
         if (--pwr->n_readers_out_of_sync == 0)
           local_reader_ary_setfastpath_ok (&pwr->rdary, true);
@@ -92,11 +95,11 @@ static void maybe_set_reader_in_sync (struct proxy_writer *pwr, struct pwr_rd_ma
       break;
     case PRMSS_OUT_OF_SYNC:
       assert (nn_reorder_next_seq (wn->u.not_in_sync.reorder) <= nn_reorder_next_seq (pwr->reorder));
-      if (pwr->have_seen_heartbeat && nn_reorder_next_seq (wn->u.not_in_sync.reorder) == nn_reorder_next_seq (pwr->reorder))
+      if (pwr->have_seen_heartbeat && wn->u.not_in_sync.last_deliv_seq == pwr_seq)
       {
-        DDS_TRACE(" msr_in_sync("PGUIDFMT" out-of-sync to tlcatchup)", PGUID (wn->rd_guid));
+        DDS_TRACE(" msr_in_sync("PGUIDFMT" %"PRId64" out-of-sync to tlcatchup)", PGUID (wn->rd_guid), pwr_seq);
         wn->in_sync = PRMSS_TLCATCHUP;
-        maybe_set_reader_in_sync (pwr, wn, last_deliv_seq);
+        maybe_set_reader_in_sync (pwr, wn);
       }
       break;
   }
@@ -1202,7 +1205,6 @@ static int handle_Heartbeat (struct receiver_state *rst, nn_etime_t tnow, struct
 
   {
     struct nn_rdata *gap;
-    struct pwr_rd_match *wn;
     struct nn_rsample_chain sc;
     int refc_adjust = 0;
     nn_reorder_result_t res;
@@ -1214,37 +1216,37 @@ static int handle_Heartbeat (struct receiver_state *rst, nn_etime_t tnow, struct
       else
         nn_dqueue_enqueue (pwr->dqueue, &sc, res);
     }
-    for (wn = ddsrt_avl_find_min (&pwr_readers_treedef, &pwr->readers); wn; wn = ddsrt_avl_find_succ (&pwr_readers_treedef, &pwr->readers, wn))
-      if (wn->in_sync != PRMSS_SYNC)
-      {
-        seqno_t last_deliv_seq = 0;
-        switch (wn->in_sync)
+    if (pwr->n_readers_out_of_sync > 0)
+    {
+      struct pwr_rd_match *wn;
+      for (wn = ddsrt_avl_find_min (&pwr_readers_treedef, &pwr->readers); wn; wn = ddsrt_avl_find_succ (&pwr_readers_treedef, &pwr->readers, wn))
+        if (wn->in_sync != PRMSS_SYNC)
         {
-          case PRMSS_SYNC:
-            assert(0);
-            break;
-          case PRMSS_TLCATCHUP:
-            last_deliv_seq = nn_reorder_next_seq (pwr->reorder) - 1;
-            break;
-          case PRMSS_OUT_OF_SYNC: {
-            struct nn_reorder *ro = wn->u.not_in_sync.reorder;
-            if ((res = nn_reorder_gap (&sc, ro, gap, 1, firstseq, &refc_adjust)) > 0)
-            {
-              if (pwr->deliver_synchronously)
-                deliver_user_data_synchronously (&sc, &wn->rd_guid);
-              else
-                nn_dqueue_enqueue1 (pwr->dqueue, &wn->rd_guid, &sc, res);
+          if (wn->u.not_in_sync.end_of_tl_seq == MAX_SEQ_NUMBER)
+          {
+            wn->u.not_in_sync.end_of_tl_seq = fromSN (msg->lastSN);
+            DDS_TRACE(" end-of-tl-seq(rd "PGUIDFMT" #%"PRId64")", PGUID(wn->rd_guid), wn->u.not_in_sync.end_of_tl_seq);
+          }
+          switch (wn->in_sync)
+          {
+            case PRMSS_SYNC:
+              assert(0);
+              break;
+            case PRMSS_TLCATCHUP:
+              break;
+            case PRMSS_OUT_OF_SYNC: {
+              struct nn_reorder *ro = wn->u.not_in_sync.reorder;
+              if ((res = nn_reorder_gap (&sc, ro, gap, 1, firstseq, &refc_adjust)) > 0)
+              {
+                if (pwr->deliver_synchronously)
+                  deliver_user_data_synchronously (&sc, &wn->rd_guid);
+                else
+                  nn_dqueue_enqueue1 (pwr->dqueue, &wn->rd_guid, &sc, res);
+              }
             }
-            last_deliv_seq = nn_reorder_next_seq (wn->u.not_in_sync.reorder) - 1;
           }
         }
-        if (wn->u.not_in_sync.end_of_tl_seq == MAX_SEQ_NUMBER)
-        {
-          wn->u.not_in_sync.end_of_tl_seq = fromSN (msg->lastSN);
-          DDS_TRACE(" end-of-tl-seq(rd "PGUIDFMT" #%"PRId64")", PGUID(wn->rd_guid), wn->u.not_in_sync.end_of_tl_seq);
-        }
-        maybe_set_reader_in_sync (pwr, wn, last_deliv_seq);
-      }
+    }
     nn_fragchain_adjust_refcount (gap, refc_adjust);
   }
 
@@ -1594,12 +1596,6 @@ static int handle_one_gap (struct proxy_writer *pwr, struct pwr_rd_match *wn, se
           gap_was_valuable = 1;
         break;
     }
-
-    /* Upon receipt of data a reader can only become in-sync if there
-       is something to deliver; for missing data, you just don't know.
-       The return value of reorder_gap _is_ sufficiently precise, but
-       why not simply check?  It isn't a very expensive test. */
-    maybe_set_reader_in_sync (pwr, wn, b-1);
   }
 
   return gap_was_valuable;
@@ -1859,14 +1855,6 @@ static int deliver_user_data (const struct nn_rsample_info *sampleinfo, const st
     return 0;
   }
 
-  /* NOTE: pwr->e.lock need not be held for correct processing (though
-     it may be useful to hold it for maintaining order all the way to
-     v_groupWrite): guid is constant, set_vmsg_header() explains about
-     the qos issue (and will have to deal with that); and
-     pwr->groupset takes care of itself.  FIXME: groupset may be
-     taking care of itself, but it is currently doing so in an
-     annoyingly simplistic manner ...  */
-
   /* FIXME: fragments are now handled by copying the message to
      freshly malloced memory (see defragment()) ... that'll have to
      change eventually */
@@ -1950,14 +1938,14 @@ static int deliver_user_data (const struct nn_rsample_info *sampleinfo, const st
       DDS_TRACE(" %"PRId64"=>EVERYONE\n", sampleinfo->seq);
 
       /* FIXME: pwr->rdary is an array of pointers to attached
-       readers.  There's only one thread delivering data for the
-       proxy writer (as long as there is only one receive thread),
-       so could get away with not locking at all, and doing safe
-       updates + GC of rdary instead.  */
+         readers.  There's only one thread delivering data for the
+         proxy writer (as long as there is only one receive thread),
+         so could get away with not locking at all, and doing safe
+         updates + GC of rdary instead.  */
 
       /* Retry loop, for re-delivery of rejected reliable samples. Is a
-       temporary hack till throttling back of writer is implemented
-       (with late acknowledgement of sample and nack). */
+         temporary hack till throttling back of writer is implemented
+         (with late acknowledgement of sample and nack). */
     retry:
 
       ddsrt_mutex_lock (&pwr->rdary.rdary_lock);
@@ -1981,13 +1969,13 @@ static int deliver_user_data (const struct nn_rsample_info *sampleinfo, const st
       else
       {
         /* When deleting, pwr is no longer accessible via the hash
-         tables, and consequently, a reader may be deleted without
-         it being possible to remove it from rdary. The primary
-         reason rdary exists is to avoid locking the proxy writer
-         but this is less of an issue when we are deleting it, so
-         we fall back to using the GUIDs so that we can deliver all
-         samples we received from it. As writer being deleted any
-         reliable samples that are rejected are simply discarded. */
+           tables, and consequently, a reader may be deleted without
+           it being possible to remove it from rdary. The primary
+           reason rdary exists is to avoid locking the proxy writer
+           but this is less of an issue when we are deleting it, so
+           we fall back to using the GUIDs so that we can deliver all
+           samples we received from it. As writer being deleted any
+           reliable samples that are rejected are simply discarded. */
         ddsrt_avl_iter_t it;
         struct pwr_rd_match *m;
         ddsrt_mutex_unlock (&pwr->rdary.rdary_lock);
@@ -2004,17 +1992,45 @@ static int deliver_user_data (const struct nn_rsample_info *sampleinfo, const st
         if (!pwr_locked) ddsrt_mutex_unlock (&pwr->e.lock);
       }
 
-      ddsrt_atomic_st32 (&pwr->next_deliv_seq_lowword, (uint32_t) (sampleinfo->seq + 1));
+      /* Because all data insertions and calls to maybe_set_reader_in_sync_locked for a given proxy
+         writer always happen either on the receive thread or on its delivery thread, there is
+         (today) exactly one case where last_deliv_seq is accessed by two threads simultaneously:
+         when the delivery queue is pushing data in while the ACK generation needs to know what to
+         ACK (and that only once the "late ack mode" becomes functional).
+
+         The update to the store has been performed, whether or not it is fully reflected in global
+         state yet), and ACK'ing a slightly older sample is also not a big deal every now and then.
+         The exact ordering of the last_deliv_seq update w.r.t. actually inserting the data is
+         therefore not so important.
+
+         Note that on a 32-bit platform it is likely that the operation gets emulated via a set of
+         mutexes, but the alternative would be to have an additional mutex in pwr itself, so that
+         seems like a reasonable trade-off. */
+      ddsrt_atomic_st64 (&pwr->last_deliv_seq, (uint64_t) sampleinfo->seq);
     }
     else
     {
-      struct reader *rd = ephash_lookup_reader_guid (rdguid);;
+      struct reader *rd = ephash_lookup_reader_guid (rdguid);
       DDS_TRACE(" %"PRId64"=>"PGUIDFMT"%s\n", sampleinfo->seq, PGUID (*rdguid), rd ? "" : "?");
       while (rd && ! (ddsi_plugin.rhc_plugin.rhc_store_fn) (rd->rhc, &pwr_info, payload, tk) && ephash_lookup_proxy_writer_guid (&pwr->e.guid))
       {
         if (pwr_locked) ddsrt_mutex_unlock (&pwr->e.lock);
         dds_sleepfor (DDS_MSECS (1));
         if (pwr_locked) ddsrt_mutex_lock (&pwr->e.lock);
+      }
+
+      /* FIXME: should perhaps split "deliver_user_data" into to-all and to-one variants, and always
+         hold pwr->e.lock in the latter */
+      {
+        struct pwr_rd_match *m;
+        if (!pwr_locked) ddsrt_mutex_lock (&pwr->e.lock);
+        if ((m = ddsrt_avl_lookup (&pwr_readers_treedef, &pwr->readers, rdguid)) != NULL && m->in_sync != PRMSS_SYNC)
+        {
+          assert (sampleinfo->seq > m->u.not_in_sync.last_deliv_seq);
+          m->u.not_in_sync.last_deliv_seq = sampleinfo->seq;
+          maybe_set_reader_in_sync (pwr, m);
+        }
+        if (!pwr_locked) ddsrt_mutex_unlock (&pwr->e.lock);
       }
     }
     ddsi_tkmap_instance_unref (tk);
@@ -2168,8 +2184,8 @@ static void handle_regular (struct receiver_state *rst, nn_etime_t tnow, struct 
          without pwr->e.lock held. */
       if (pwr->deliver_synchronously)
       {
-        /* FIXME: just in case the synchronous delivery runs into a delay caused
-           by the current mishandling of resource limits */
+        /* FIXME: trigger just in case the synchronous delivery runs into a delay caused by the
+           current mishandling of resource limits */
         if (*deferred_wakeup)
           dd_dqueue_enqueue_trigger (*deferred_wakeup);
         deliver_user_data_synchronously (&sc, NULL);
@@ -2215,7 +2231,6 @@ static void handle_regular (struct receiver_state *rst, nn_etime_t tnow, struct 
           default:
             assert (rres2 > 0);
             /* note: can't deliver to a reader, only to a group */
-            maybe_set_reader_in_sync (pwr, wn, sampleinfo->seq);
             reuse_rsample_dup = 0;
             /* No need to deliver old data to out-of-sync readers
                synchronously -- ordering guarantees don't change

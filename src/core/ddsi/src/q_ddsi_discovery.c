@@ -1889,7 +1889,7 @@ int builtins_dqueue_handler (const struct nn_rsample_info *sampleinfo, const str
   if (pwr)
   {
     /* No proxy writer for SPDP */
-    ddsrt_atomic_st32 (&pwr->next_deliv_seq_lowword, (uint32_t) (sampleinfo->seq + 1));
+    ddsrt_atomic_st64 (&pwr->last_deliv_seq, (uint64_t) sampleinfo->seq);
   }
   return 0;
 }
