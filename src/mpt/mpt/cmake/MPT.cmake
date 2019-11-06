@@ -168,6 +168,6 @@ function(add_mpt_executable TARGET)
     ${TARGET} "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.c" ${sources})
 
   target_include_directories(${TARGET} PRIVATE "${MPT_DIR}/include" "${MPT_BINARY_ROOT_DIR}/mpt/include")
-  target_link_libraries(${TARGET} PRIVATE ddsc)
+  target_link_libraries(${TARGET} PRIVATE cyclonedds)
 endfunction()
 

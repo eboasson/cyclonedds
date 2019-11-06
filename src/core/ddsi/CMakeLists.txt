@@ -128,10 +128,10 @@ install(
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
   COMPONENT dev)
 
-target_sources(ddsc
+target_sources(cyclonedds
   PRIVATE ${srcs_ddsi} ${hdrs_private_ddsi})
 
-target_include_directories(ddsc
+target_include_directories(cyclonedds
   PRIVATE "${CMAKE_CURRENT_LIST_DIR}/include")
 
 install(

@@ -16,5 +16,5 @@ idlc_generate(InitSampleDeliv_lib InitSampleDelivData.idl)
 add_executable(InitSampleDelivPub publisher.c)
 add_executable(InitSampleDelivSub subscriber.c)
 
-target_link_libraries(InitSampleDelivPub InitSampleDeliv_lib ddsc)
-target_link_libraries(InitSampleDelivSub InitSampleDeliv_lib ddsc)
+target_link_libraries(InitSampleDelivPub InitSampleDeliv_lib cyclonedds)
+target_link_libraries(InitSampleDelivSub InitSampleDeliv_lib cyclonedds)

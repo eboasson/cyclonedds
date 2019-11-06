@@ -19,4 +19,4 @@ add_cunit_executable(cunit_ddsi ${ddsi_test_sources})
 target_include_directories(
   cunit_ddsi PRIVATE
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../ddsi/include/>")
-target_link_libraries(cunit_ddsi PRIVATE ddsc)
+target_link_libraries(cunit_ddsi PRIVATE cyclonedds)

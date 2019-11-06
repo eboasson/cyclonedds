@@ -20,9 +20,9 @@ FUNCTION(PREPEND var prefix)
 ENDFUNCTION(PREPEND)
 
 if (BUILD_SHARED_LIBS OR NOT DEFINED BUILD_SHARED_LIBS)
-  add_library(ddsc SHARED)
+  add_library(cyclonedds SHARED)
 else()
-  add_library(ddsc)
+  add_library(cyclonedds)
 endif()
 
 add_definitions(-DDDSI_INCLUDE_NETWORK_PARTITIONS -DDDSI_INCLUDE_SSM)
@@ -43,9 +43,9 @@ if(ENABLE_SSL)
   find_package(OpenSSL)
   if(OPENSSL_FOUND)
     add_definitions(-DDDSI_INCLUDE_SSL)
-    target_link_libraries(ddsc PRIVATE OpenSSL::SSL)
+    target_link_libraries(cyclonedds PRIVATE OpenSSL::SSL)
     if(CMAKE_GENERATOR MATCHES "Visual Studio")
-      set_target_properties(ddsc PROPERTIES LINK_FLAGS "/ignore:4099")
+      set_target_properties(cyclonedds PROPERTIES LINK_FLAGS "/ignore:4099")
     endif()
     message(STATUS "Building with OpenSSL support")
   else()
@@ -56,24 +56,25 @@ endif()
 include(ddsi/CMakeLists.txt)
 include(ddsc/CMakeLists.txt)
 
-target_link_libraries(ddsc PRIVATE ddsrt)
+target_link_libraries(cyclonedds PRIVATE ddsrt)
 target_compile_definitions(
-  ddsc PUBLIC
+  cyclonedds PUBLIC
   $<BUILD_INTERFACE:$<TARGET_PROPERTY:ddsrt,INTERFACE_COMPILE_DEFINITIONS>>)
 target_include_directories(
-  ddsc PUBLIC
+  cyclonedds PUBLIC
   $<BUILD_INTERFACE:$<TARGET_PROPERTY:ddsrt,INTERFACE_INCLUDE_DIRECTORIES>>)
 
 # SOVERSION should increase on incompatible ABI change
-set_target_properties(ddsc PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
+set_target_properties(cyclonedds PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
 
 # Create a pseudo-target that other targets (i.e. examples, tests) can depend
 # on and can also be provided as import-target by a package-file when building
 # those targets outside the regular Cyclone build-tree (i.e. the installed tree)
-add_library(${PROJECT_NAME}::ddsc ALIAS ddsc)
+add_library(${PROJECT_NAME}::cyclonedds ALIAS cyclonedds)
+add_library(${PROJECT_NAME}::ddsc ALIAS cyclonedds)
 
 install(
-  TARGETS ddsc
+  TARGETS cyclonedds
   EXPORT "${PROJECT_NAME}"
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT lib
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT lib

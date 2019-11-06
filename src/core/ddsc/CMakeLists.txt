@@ -82,12 +82,12 @@ PREPEND(hdrs_private_ddsc "${CMAKE_CURRENT_LIST_DIR}/src"
 )
 
 generate_export_header(
-    ddsc
+    cyclonedds
     BASE_NAME DDS
     EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/include/cyclonedds/export.h"
 )
 
-target_sources(ddsc
+target_sources(cyclonedds
     PRIVATE
         ${srcs_ddsc}
         ${hdrs_private_ddsc}
@@ -104,7 +104,7 @@ redirect_header_directory("dds" "cyclonedds"
   SOURCE "${CMAKE_CURRENT_LIST_DIR}/include"
   DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/include")
 
-target_include_directories(ddsc
+target_include_directories(cyclonedds
     PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>"
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"

@@ -55,7 +55,7 @@ add_cunit_executable(cunit_ddsc ${ddsc_test_sources})
 target_include_directories(
   cunit_ddsc PRIVATE
   "$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/src/include/>")
-target_link_libraries(cunit_ddsc PRIVATE RoundTrip Space TypesArrayKey ddsc)
+target_link_libraries(cunit_ddsc PRIVATE RoundTrip Space TypesArrayKey cyclonedds)
 
 # Setup environment for config-tests
 get_test_property(CUnit_ddsc_config_simple_udp ENVIRONMENT CUnit_ddsc_config_simple_udp_env)
