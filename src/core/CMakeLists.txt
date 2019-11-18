@@ -56,7 +56,21 @@ endif()
 include(ddsi/CMakeLists.txt)
 include(ddsc/CMakeLists.txt)
 
-target_link_libraries(ddsc PRIVATE ddsrt)
+# Interface libraries don't seem to play nicely with static libraries when referenced in
+# the way one would expect to reference them:
+#
+#  target_link_libraries(ddsc PRIVATE ddsrt)
+#
+# results in:
+#
+#  CMake Error: install(EXPORT "CycloneDDS" ...) includes target "ddsc" which requires
+#    target "ddsrt" that is not in the export set.
+#
+# which is rather nonsensical because ddsrt doesn't really exist anyway.
+#
+# For some reason, this seems to work:
+target_sources(ddsc PRIVATE $<TARGET_PROPERTY:ddsrt,INTERFACE_SOURCES>)
+
 target_compile_definitions(
   ddsc PUBLIC
   $<BUILD_INTERFACE:$<TARGET_PROPERTY:ddsrt,INTERFACE_COMPILE_DEFINITIONS>>)
