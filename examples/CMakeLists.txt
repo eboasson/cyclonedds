@@ -14,6 +14,7 @@ set(CMAKE_INSTALL_EXAMPLESDIR "${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/examples
 add_subdirectory(helloworld)
 add_subdirectory(roundtrip)
 add_subdirectory(throughput)
+add_subdirectory(rawddsi)
 
 if (BUILD_DOCS)
   find_package(Sphinx REQUIRED)
