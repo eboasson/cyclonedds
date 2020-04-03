@@ -38,7 +38,7 @@ bool crypto_cipher_encrypt_data(
   ctx = EVP_CIPHER_CTX_new();
   if (!ctx)
   {
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_CIPHER_CTX_new failed: ");
+    DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_CIPHER_CTX_new failed");
     goto fail_ctx_new;
   }
 
@@ -47,7 +47,7 @@ bool crypto_cipher_encrypt_data(
   {
     if (!EVP_EncryptInit_ex(ctx, EVP_aes_128_gcm(), NULL, NULL, NULL))
     {
-      DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_EncryptInit_ex to set aes_128_gcm failed: ");
+      DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_EncryptInit_ex to set aes_128_gcm failed");
       goto fail_encrypt;
     }
   }
@@ -55,7 +55,7 @@ bool crypto_cipher_encrypt_data(
   {
     if (!EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), NULL, NULL, NULL))
     {
-      DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_EncryptInit_ex to set aes_256_gcm failed: ");
+      DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_EncryptInit_ex to set aes_256_gcm failed");
       goto fail_encrypt;
     }
   }
@@ -69,7 +69,7 @@ bool crypto_cipher_encrypt_data(
   /* Initialise key and IV */
   if (!EVP_EncryptInit_ex(ctx, NULL, NULL, session_key->data, iv))
   {
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_EncryptInit_ex failed: ");
+    DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_EncryptInit_ex failed");
     goto fail_encrypt;
   }
 
@@ -84,7 +84,7 @@ bool crypto_cipher_encrypt_data(
     /* Provide any AAD data */
     if (!EVP_EncryptUpdate(ctx, NULL, &len, aad, (int) aad_len))
     {
-      DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_EncryptUpdate to update aad failed: %s");
+      DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_EncryptUpdate to update aad failed");
       goto fail_encrypt;
     }
   }
@@ -100,7 +100,7 @@ bool crypto_cipher_encrypt_data(
     /* encrypt the message */
     if (!EVP_EncryptUpdate(ctx, encrypted, &len, data, (int) data_len))
     {
-      DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_EncryptUpdate update data failed: ");
+      DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_EncryptUpdate update data failed");
       goto fail_encrypt;
     }
     assert (len >= 0); /* conform openssl spec */
@@ -112,7 +112,7 @@ bool crypto_cipher_encrypt_data(
   {
     if (!EVP_EncryptFinal_ex(ctx, encrypted + len, &len))
     {
-      DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_EncryptFinal_ex to finalize encryption failed: ");
+      DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_EncryptFinal_ex to finalize encryption failed");
       goto fail_encrypt;
     }
     assert (len >= 0); /* conform openssl spec */
@@ -123,7 +123,7 @@ bool crypto_cipher_encrypt_data(
     unsigned char temp[32];
     if (!EVP_EncryptFinal_ex(ctx, temp, &len))
     {
-      DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_EncryptFinal_ex to finalize aad failed: ");
+      DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_EncryptFinal_ex to finalize aad failed");
       goto fail_encrypt;
     }
   }
@@ -131,7 +131,7 @@ bool crypto_cipher_encrypt_data(
   /* get the tag */
   if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, CRYPTO_HMAC_SIZE, tag->data))
   {
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_CIPHER_CTX_ctrl to get the tag failed: ");
+    DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_CIPHER_CTX_ctrl to get the tag failed");
     goto fail_encrypt;
   }
 
@@ -163,7 +163,7 @@ bool crypto_cipher_decrypt_data(
   ctx = EVP_CIPHER_CTX_new();
   if (!ctx)
   {
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_CIPHER_CTX_new failed: ");
+    DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_CIPHER_CTX_new failed");
     goto fail_ctx_new;
   }
 
@@ -172,7 +172,7 @@ bool crypto_cipher_decrypt_data(
   {
     if (EVP_DecryptInit_ex(ctx, EVP_aes_128_gcm(), NULL, NULL, NULL) != 1)
     {
-      DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_DecryptInit_ex to set aes_128_gcm failed: ");
+      DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_DecryptInit_ex to set aes_128_gcm failed");
       goto fail_decrypt;
     }
   }
@@ -194,7 +194,7 @@ bool crypto_cipher_decrypt_data(
   /* Initialise key and IV */
   if (EVP_DecryptInit_ex(ctx, NULL, NULL, session->key.data, iv) != 1)
   {
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_DecryptInit_ex to set aes_256_gcm failed: %s");
+    DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_DecryptInit_ex to set aes_256_gcm failed");
     goto fail_decrypt;
   }
 
@@ -204,7 +204,7 @@ bool crypto_cipher_decrypt_data(
     /* Provide any AAD data for signature */
     if (EVP_DecryptUpdate(ctx, NULL, &len, aad, (int) aad_len) != 1)
     {
-      DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_DecryptUpdate to update aad failed: ");
+      DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_DecryptUpdate to update aad failed");
       goto fail_decrypt;
     }
   }
@@ -212,7 +212,7 @@ bool crypto_cipher_decrypt_data(
   /* Set expected tag value. */
   if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, CRYPTO_HMAC_SIZE, tag->data) != 1)
   {
-    DDS_Security_Exception_set(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_CIPHER_CTX_ctrl to get tag failed: ");
+    DDS_Security_Exception_set(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_CIPHER_CTX_ctrl to get tag failed");
     goto fail_decrypt;
   }
 
@@ -221,7 +221,7 @@ bool crypto_cipher_decrypt_data(
     /* decrypt the message */
     if (EVP_DecryptUpdate(ctx, data, &len, encrypted, (int) encrypted_len) != 1)
     {
-      DDS_Security_Exception_set(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_DecryptUpdate update data failed: ");
+      DDS_Security_Exception_set(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_DecryptUpdate update data failed");
       goto fail_decrypt;
     }
     assert (len >= 0);
@@ -232,7 +232,7 @@ bool crypto_cipher_decrypt_data(
   {
     if (EVP_DecryptFinal_ex(ctx, data + len, &len) != 1)
     {
-      DDS_Security_Exception_set(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_DecryptFinal_ex to finalize decryption failed: ");
+      DDS_Security_Exception_set(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "EVP_DecryptFinal_ex to finalize decryption failed");
       goto fail_decrypt;
     }
     assert (len >= 0);

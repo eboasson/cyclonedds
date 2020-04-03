@@ -18,6 +18,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "dds/export.h"
+#include "dds/ddsrt/attributes.h"
 #include "dds/ddsrt/strtol.h"
 #include "dds/ddsrt/time.h"
 #include "dds/security/core/dds_security_types.h"
@@ -278,17 +279,28 @@ DDS_Security_Exception_set(
          int code,
          int minor_code,
          const char *fmt,
-         ...);
+         ...) ddsrt_attribute_format ((printf, 5, 6));
 
 
 #ifdef DDSI_INCLUDE_SSL
+DDS_EXPORT void
+DDS_Security_Exception_vset_with_openssl_error(
+         DDS_Security_SecurityException *ex,
+         const char *context,
+         int code,
+         int minor_code,
+         const char *fmt,
+         va_list ap);
+
 DDS_EXPORT void
 DDS_Security_Exception_set_with_openssl_error(
          DDS_Security_SecurityException *ex,
          const char *context,
          int code,
          int minor_code,
-         const char *fmt);
+         const char *fmt,
+         ...) ddsrt_attribute_format ((printf, 5, 6));
+
 #endif
 
 DDS_EXPORT void

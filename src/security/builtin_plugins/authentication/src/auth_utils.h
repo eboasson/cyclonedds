@@ -43,12 +43,11 @@ typedef struct {
 
 typedef unsigned char HashValue_t[SHA256_DIGEST_LENGTH];
 
-/* Return a string that contains an openssl error description
- * When a openssl function returns an error this function can be
- * used to retrieve a descriptive error string.
- * Note that the returned string should be freed.
- */
-char * get_openssl_error_message(void);
+DDS_Security_ValidationResult_t authexc (DDS_Security_SecurityException *ex, const char *fmt, ...) ddsrt_attribute_format ((printf, 2, 3));
+
+DDS_Security_ValidationResult_t auth_exc_code (DDS_Security_SecurityException *ex, int code, const char *fmt, ...) ddsrt_attribute_format ((printf, 3, 4));
+
+DDS_Security_ValidationResult_t authexc_ssl (DDS_Security_SecurityException *ex, const char *fmt, ...) ddsrt_attribute_format ((printf, 2, 3));
 
 /* Return the subject name of contained in a X509 certificate
  * Note that the returned string should be freed.

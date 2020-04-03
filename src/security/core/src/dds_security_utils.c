@@ -806,36 +806,40 @@ void DDS_Security_Exception_set (DDS_Security_SecurityException *ex, const char 
 }
 
 #ifdef DDSI_INCLUDE_SSL
-DDS_EXPORT void
-DDS_Security_Exception_set_with_openssl_error(
-    DDS_Security_SecurityException *ex,
-    const char *context,
-    int code,
-    int minor_code,
-    const char *error_area)
+DDS_EXPORT void DDS_Security_Exception_vset_with_openssl_error (DDS_Security_SecurityException *ex, const char *context, int code, int minor_code, const char *fmt, va_list args1)
 {
-    BIO *bio;
-    assert(context);
-    assert(error_area);
-    assert(ex);
-    DDSRT_UNUSED_ARG(context);
+  char *ssl_err = "BIO_new failed";
+  size_t ssl_errlen = strlen (ssl_err);
+  BIO *bio;
 
-    if ((bio = BIO_new(BIO_s_mem()))) {
-        ERR_print_errors(bio);
-        char *buf = NULL;
-        size_t len = (size_t)BIO_get_mem_data(bio, &buf);
-        size_t exception_msg_len = len + strlen(error_area) + 1;
-        char *str = ddsrt_malloc(exception_msg_len);
-        ddsrt_strlcpy(str, error_area, exception_msg_len);
-        memcpy(str + strlen(error_area), buf, len);
-        str[exception_msg_len - 1] = '\0';
-        ex->message = str;
-        ex->code = code;
-        ex->minor_code = minor_code;
-        BIO_free(bio);
-    } else {
-        DDS_Security_Exception_set(ex, context, code, minor_code, "BIO_new failed");
-    }
+  DDS_Security_Exception_vset (ex, context, code, minor_code, fmt, args1);
+  if ((bio = BIO_new (BIO_s_mem ())) != NULL)
+  {
+    ERR_print_errors (bio);
+    ssl_errlen = (size_t) BIO_get_mem_data (bio, &ssl_err);
+  }
+
+  char *new_ex_msg;
+  size_t ex_msg_len = strlen (ex->message);
+  if ((new_ex_msg = ddsrt_realloc (ex->message, ex_msg_len + 2 + ssl_errlen + 1)) != NULL)
+  {
+    ex->message = new_ex_msg;
+    ex->message[ex_msg_len + 0] = ':';
+    ex->message[ex_msg_len + 1] = ' ';
+    memcpy (ex->message + ex_msg_len + 2, ssl_err, ssl_errlen);
+    ex->message[ex_msg_len + 2 + ssl_errlen] = 0;
+  }
+
+  if (bio)
+    BIO_free (bio);
+}
+
+DDS_EXPORT void DDS_Security_Exception_set_with_openssl_error (DDS_Security_SecurityException *ex, const char *context, int code, int minor_code, const char *fmt, ...)
+{
+  va_list args1;
+  va_start(args1, fmt);
+  DDS_Security_Exception_vset_with_openssl_error(ex, context, code, minor_code, fmt, args1);
+  va_end(args1);
 }
 #endif
 

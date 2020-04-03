@@ -32,86 +32,93 @@
 #define SEQ_NOMATCH 0
 #define SEQ_MATCH 1
 
-bool ac_X509_certificate_from_data(const char *data, int len, X509 **x509Cert, DDS_Security_SecurityException *ex)
+bool ac_exc_code (DDS_Security_SecurityException *ex, int code, const char *fmt, ...)
 {
-  BIO *bio;
-  assert(data);
-  assert(len >= 0);
-  assert(x509Cert);
-
-  /* load certificate in buffer */
-  if ((bio = BIO_new_mem_buf((void *)data, len)) == NULL)
-  {
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_ALLOCATION_FAILED_CODE, 0, DDS_SECURITY_ERR_ALLOCATION_FAILED_MESSAGE ": ");
-    return false;
-  }
-  if ((*x509Cert = PEM_read_bio_X509(bio, NULL, NULL, NULL)) == NULL)
-  {
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_CERTIFICATE_CODE, 0, DDS_SECURITY_ERR_INVALID_CERTICICATE_MESSAGE ": ");
-    BIO_free(bio);
-    return false;
-  }
-  BIO_free(bio);
-  return true;
+  va_list ap;
+  va_start (ap, fmt);
+  DDS_Security_Exception_vset (ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, code, 1, fmt, ap);
+  va_end (ap);
+  return false;
 }
 
-static bool X509_certificate_from_file(const char *filename, X509 **x509Cert, DDS_Security_SecurityException *ex)
+bool ac_exc_ssl (DDS_Security_SecurityException *ex, int code, const char *fmt, ...)
+{
+  va_list ap;
+  va_start (ap, fmt);
+  DDS_Security_Exception_vset_with_openssl_error (ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, code, 1, fmt, ap);
+  va_end (ap);
+  return false;
+}
+
+bool ac_X509_certificate_from_data (const char *data, size_t len, X509 **x509Cert, DDS_Security_SecurityException *ex)
+{
+  BIO *bio;
+
+  if (len > INT_MAX)
+    GOTO_ERR_MSG (err_oversize, UNDEFINED, "oversize X509 certificate");
+  if ((bio = BIO_new_mem_buf ((void *) data, (int) len)) == NULL)
+    GOTO_SSLERR (err_bio_new, ALLOCATION_FAILED);
+  if ((*x509Cert = PEM_read_bio_X509 (bio, NULL, NULL, NULL)) == NULL)
+    GOTO_SSLERR (err_read_x509, INVALID_CERTIFICATE);
+  BIO_free (bio);
+  return true;
+
+err_read_x509:
+  BIO_free (bio);
+err_bio_new:
+err_oversize:
+  return false;
+}
+
+static bool X509_certificate_from_file (const char *filename, X509 **x509Cert, DDS_Security_SecurityException *ex)
 {
   DDSRT_WARNING_MSVC_OFF(4996);
   FILE *fp;
-  assert(filename);
-  assert(x509Cert);
 
-  /* Check if this is a valid file by getting its size. */
+  /* Check if this is a valid file by getting its size. FIXME: what problem does this solve? */
   if (ac_regular_file_size(filename) == 0)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE, 0, DDS_SECURITY_ERR_INVALID_FILE_PATH_MESSAGE, filename);
-    return false;
-  }
-  if ((fp = fopen(filename, "r")) == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE, 0, DDS_SECURITY_ERR_INVALID_FILE_PATH_MESSAGE, filename);
-    return false;
-  }
-  if ((*x509Cert = PEM_read_X509(fp, NULL, NULL, NULL)) == NULL)
-  {
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_CERTIFICATE_CODE, 0, DDS_SECURITY_ERR_INVALID_CERTICICATE_MESSAGE ": ");
-    fclose(fp);
-    return false;
-  }
-  fclose(fp);
+    GOTO_ERR_MSG (err_fopen, INVALID_FILE_PATH, DDS_SECURITY_ERR_INVALID_FILE_PATH_MESSAGE, filename);
+if ((fp = fopen (filename, "r")) == NULL)
+    GOTO_ERR_MSG (err_fopen, INVALID_FILE_PATH, DDS_SECURITY_ERR_INVALID_FILE_PATH_MESSAGE, filename);
+  if ((*x509Cert = PEM_read_X509 (fp, NULL, NULL, NULL)) == NULL)
+    GOTO_SSLERR (err_read_x509, INVALID_CERTIFICATE); // FIXME: why no file name here?
+  fclose (fp);
   return true;
+
+err_read_x509:
+  fclose (fp);
+err_fopen:
+  return false;
   DDSRT_WARNING_MSVC_ON(4996);
 }
 
 bool ac_X509_certificate_read(const char *data, X509 **x509Cert, DDS_Security_SecurityException *ex)
 {
-  bool result = false;
+  DDS_Security_config_item_prefix_t type;
   char *contents = NULL;
-  assert(data);
-  assert(x509Cert);
-
-  switch (DDS_Security_get_conf_item_type(data, &contents))
+  if ((type = DDS_Security_get_conf_item_type (data, &contents)) == DDS_SECURITY_CONFIG_ITEM_PREFIX_UNKNOWN)
+    return ac_exc_code (ex, DDS_SECURITY_ERR_CERTIFICATE_TYPE_NOT_SUPPORTED_CODE, DDS_SECURITY_ERR_CERTIFICATE_TYPE_NOT_SUPPORTED_MESSAGE);
+  else
   {
-  case DDS_SECURITY_CONFIG_ITEM_PREFIX_FILE:
-    result = X509_certificate_from_file(contents, x509Cert, ex);
-    break;
-  case DDS_SECURITY_CONFIG_ITEM_PREFIX_DATA:
-    result = ac_X509_certificate_from_data(contents, (int)strlen(contents), x509Cert, ex);
-    break;
-  case DDS_SECURITY_CONFIG_ITEM_PREFIX_PKCS11:
-    DDS_Security_Exception_set(
-        ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CERTIFICATE_TYPE_NOT_SUPPORTED_CODE, 0,
-        DDS_SECURITY_ERR_CERTIFICATE_TYPE_NOT_SUPPORTED_MESSAGE " (pkcs11)");
-    break;
-  default:
-    DDS_Security_Exception_set(
-        ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CERTIFICATE_TYPE_NOT_SUPPORTED_CODE, 0,
-        DDS_SECURITY_ERR_CERTIFICATE_TYPE_NOT_SUPPORTED_MESSAGE);
-    break;
+    bool result = false;
+    switch (type)
+    {
+      case DDS_SECURITY_CONFIG_ITEM_PREFIX_FILE:
+        result = X509_certificate_from_file (contents, x509Cert, ex);
+        break;
+      case DDS_SECURITY_CONFIG_ITEM_PREFIX_DATA:
+        result = ac_X509_certificate_from_data (contents, strlen (contents), x509Cert, ex);
+        break;
+      case DDS_SECURITY_CONFIG_ITEM_PREFIX_PKCS11:
+        result = ac_exc_code (ex, DDS_SECURITY_ERR_CERTIFICATE_TYPE_NOT_SUPPORTED_CODE, DDS_SECURITY_ERR_CERTIFICATE_TYPE_NOT_SUPPORTED_MESSAGE " (pkcs11)");
+        break;
+      case DDS_SECURITY_CONFIG_ITEM_PREFIX_UNKNOWN:
+        assert (0);
+        break;
+    }
+    ddsrt_free (contents);
+    return result;
   }
-  ddsrt_free(contents);
-  return result;
 }
 
 char *ac_get_certificate_subject_name(X509 *cert, DDS_Security_SecurityException *ex)
@@ -120,134 +127,93 @@ char *ac_get_certificate_subject_name(X509 *cert, DDS_Security_SecurityException
   BIO *bio;
   char *subject = NULL;
   char *pmem;
-  size_t sz;
-  assert(cert);
-  if (!(bio = BIO_new(BIO_s_mem())))
-  {
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_ALLOCATION_FAILED_CODE, 0, DDS_SECURITY_ERR_ALLOCATION_FAILED_MESSAGE ": ");
-    goto err_bio_alloc;
-  }
-  if (!(name = X509_get_subject_name(cert)))
-  {
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_SUBJECT_NAME_CODE, 0, DDS_SECURITY_ERR_INVALID_SUBJECT_NAME_MESSAGE ": ");
-    goto err_get_subject;
-  }
+  long lsz;
+
+  if ((bio = BIO_new (BIO_s_mem ())) == NULL)
+    GOTO_SSLERR (err_bio_new, ALLOCATION_FAILED);
+  if ((name = X509_get_subject_name (cert)) == NULL)
+    GOTO_SSLERR (err_get_x509_subject, INVALID_SUBJECT_NAME);
 
   /* TODO: check if this is the correct format of the subject name: check spec */
-  X509_NAME_print_ex(bio, name, 0, XN_FLAG_RFC2253);
+  X509_NAME_print_ex (bio, name, 0, XN_FLAG_RFC2253);
 
-  sz = (size_t) BIO_get_mem_data(bio, &pmem);
-  subject = ddsrt_malloc(sz + 1);
-
-  if (BIO_gets(bio, subject, (int)sz + 1) < 0)
-  {
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_SUBJECT_NAME_CODE, 0, DDS_SECURITY_ERR_INVALID_SUBJECT_NAME_MESSAGE ": ");
-    ddsrt_free(subject);
-    subject = NULL;
-  }
-  BIO_free(bio);
+  lsz = BIO_get_mem_data (bio, &pmem);
+  if (lsz < 0 || (uintmax_t) lsz >= SIZE_MAX || lsz >= INT_MAX)
+    GOTO_ERR_MSG (err_alloc_subject, UNDEFINED, "subject name has invalid size (%ld)", lsz);
+  const size_t sz = (size_t) lsz;
+  if ((subject = ddsrt_malloc (sz + 1)) == NULL)
+    GOTO_ERR (err_alloc_subject, ALLOCATION_FAILED);
+  if (BIO_gets (bio, subject, (int) sz + 1) <= 0)
+    GOTO_SSLERR (err_read_subject, INVALID_SUBJECT_NAME);
+  BIO_free (bio);
   return subject;
 
-err_get_subject:
-  BIO_free(bio);
-err_bio_alloc:
+err_read_subject:
+  ddsrt_free (subject);
+err_alloc_subject:
+err_get_x509_subject:
+  BIO_free (bio);
+err_bio_new:
   return NULL;
 }
 
-static bool PKCS7_document_from_data(const char *data, size_t len, PKCS7 **p7, BIO **bcont, DDS_Security_SecurityException *ex)
-{
-  BIO *bio;
-  assert(data);
-  assert(p7);
-  assert(bcont);
-
-  *bcont = NULL;
-  assert (len < INT32_MAX);
-  if ((bio = BIO_new_mem_buf((void *)data, (int)len)) == NULL)
-  {
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_ALLOCATION_FAILED_CODE, 0, DDS_SECURITY_ERR_ALLOCATION_FAILED_MESSAGE ": ");
-    return false;
-  }
-  if ((*p7 = SMIME_read_PKCS7(bio, bcont)) == NULL)
-  {
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_CODE, 0, DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_MESSAGE ": ");
-    BIO_free(bio);
-    return false;
-  }
-  BIO_free(bio);
-  return true;
-}
-
-static bool PKCS7_document_verify(PKCS7 *p7, X509 *cert, BIO *inbio, BIO **outbio, DDS_Security_SecurityException *ex)
-{
-  bool result = false;
-  X509_STORE *store = NULL;
-
-  assert(p7);
-  assert(cert);
-  assert(inbio);
-  assert(outbio);
-
-  if ((*outbio = BIO_new(BIO_s_mem())) == NULL)
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_ALLOCATION_FAILED_CODE, 0, DDS_SECURITY_ERR_ALLOCATION_FAILED_MESSAGE ": ");
-  else if ((store = X509_STORE_new()) == NULL)
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_ALLOCATION_FAILED_CODE, 0, DDS_SECURITY_ERR_ALLOCATION_FAILED_MESSAGE ": ");
-  else
-  {
-    X509_STORE_add_cert(store, cert);
-    if (PKCS7_verify(p7, NULL, store, inbio, *outbio, PKCS7_TEXT) != 1)
-      DDS_Security_Exception_set_with_openssl_error(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_CODE, 0, DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_MESSAGE ": ");
-    else
-      result = true;
-  }
-  if (store)
-    X509_STORE_free(store);
-  if (!result && *outbio)
-  {
-    BIO_free(*outbio);
-    *outbio = NULL;
-  }
-  return result;
-}
-
-bool ac_PKCS7_document_check(const char *data, size_t len, X509 *cert, char **document, DDS_Security_SecurityException *ex)
+bool ac_PKCS7_document_check (const char *data, size_t len, X509 *cert, char **document, DDS_Security_SecurityException *ex)
 {
   bool result = false;
   PKCS7 *p7;
-  BIO *bcont, *bdoc;
+  X509_STORE *store;
+  BIO *bio, *bcont, *bdoc;
   char *pmem;
-  size_t sz;
+  long lsz;
 
-  assert(data);
-  assert(cert);
-  assert(document);
+  if (len >= INT_MAX)
+    GOTO_ERR_MSG (err_bio_new0, UNDEFINED, "data length out of range (%zu)", len);
+  if ((bio = BIO_new_mem_buf ((void *) data, (int) len)) == NULL)
+    GOTO_SSLERR (err_bio_new0, ALLOCATION_FAILED);
+  bcont = NULL;
+  if ((p7 = SMIME_read_PKCS7 (bio, &bcont)) == NULL)
+    GOTO_SSLERR (err_read_pkcs7, INVALID_SMIME_DOCUMENT);
 
-  if (!PKCS7_document_from_data(data, len, &p7, &bcont, ex))
-    goto err_read_data;
+  if ((bdoc = BIO_new (BIO_s_mem ())) == NULL)
+    GOTO_SSLERR (err_bio_new1, ALLOCATION_FAILED);
+  if ((store = X509_STORE_new ()) == NULL)
+    GOTO_SSLERR (err_store_new, ALLOCATION_FAILED);
+  if (!X509_STORE_add_cert (store, cert))
+    GOTO_SSLERR_MSG (err_add_cert, UNDEFINED, "PKCS7_document_verify: failed to add cert to store");
+  if (!PKCS7_verify (p7, NULL, store, bcont, bdoc, PKCS7_TEXT))
+    GOTO_SSLERR (err_verify, INVALID_SMIME_DOCUMENT);
 
-  if (!PKCS7_document_verify(p7, cert, bcont, &bdoc, ex))
-    goto err_verify;
-
-  sz = (size_t) BIO_get_mem_data(bdoc, &pmem);
-  *document = ddsrt_malloc(sz + 1);
-  memcpy(*document, pmem, sz);
+  lsz = BIO_get_mem_data (bdoc, &pmem);
+  if (lsz < 0 || (uintmax_t) lsz >= SIZE_MAX || lsz >= INT_MAX)
+    GOTO_ERR_MSG (err_alloc_doc, UNDEFINED, "document has invalid size (%ld)", lsz);
+  const size_t sz = (size_t) lsz;
+  if ((*document = ddsrt_malloc (sz + 1)) == NULL)
+    GOTO_ERR (err_alloc_doc, ALLOCATION_FAILED);
+  memcpy (*document, pmem, sz);
   (*document)[sz] = '\0';
   result = true;
-  BIO_free(bdoc);
 
+err_alloc_doc:
 err_verify:
-  PKCS7_free(p7);
-  BIO_free(bcont);
-err_read_data:
+err_add_cert:
+  X509_STORE_free (store);
+err_store_new:
+  BIO_free (bdoc);
+err_bio_new1:
+  BIO_free (bcont);
+  PKCS7_free (p7);
+err_read_pkcs7:
+  BIO_free (bio);
+err_bio_new0:
   return result;
 }
 
-static bool string_to_properties(const char *str, DDS_Security_PropertySeq *properties)
+static bool string_to_properties (const char *str, DDS_Security_PropertySeq *properties)
 {
   char *copy = ddsrt_strdup (str), *cursor = copy, *tok;
   while ((tok = ddsrt_strsep (&cursor, ",/|")) != NULL)
   {
-    if (strlen(tok) == 0)
+    if (strlen (tok) == 0)
       continue;
     char *name = ddsrt_strsep (&tok, "=");
     if (name == NULL || tok == NULL || properties->_length >= properties->_maximum)
@@ -255,45 +221,39 @@ static bool string_to_properties(const char *str, DDS_Security_PropertySeq *prop
       ddsrt_free (copy);
       return false;
     }
-    properties->_buffer[properties->_length].name = ddsrt_strdup(name);
-    properties->_buffer[properties->_length].value = ddsrt_strdup(tok);
+    properties->_buffer[properties->_length].name = ddsrt_strdup (name);
+    properties->_buffer[properties->_length].value = ddsrt_strdup (tok);
     properties->_length++;
   }
   ddsrt_free (copy);
   return true;
 }
 
-bool ac_check_subjects_are_equal(const char *permissions_sn, const char *identity_sn)
+bool ac_check_subjects_are_equal (const char *permissions_sn, const char *identity_sn)
 {
   bool result = false;
   char *copy_idsn = ddsrt_strdup (identity_sn), *cursor_idsn = copy_idsn, *tok_idsn;
   DDS_Security_PropertySeq prop_pmsn;
   prop_pmsn._length = 0;
   prop_pmsn._maximum = 20;
-  prop_pmsn._buffer = ddsrt_malloc(prop_pmsn._maximum * sizeof(DDS_Security_Property_t));
-
-  if (!string_to_properties(permissions_sn, &prop_pmsn))
-    goto check_subj_equal_failed;
+  prop_pmsn._buffer = ddsrt_malloc (prop_pmsn._maximum * sizeof (*prop_pmsn._buffer));
+  if (!string_to_properties (permissions_sn, &prop_pmsn))
+    goto err;
 
   while ((tok_idsn = ddsrt_strsep (&cursor_idsn, ",/|")) != NULL)
   {
-    char *value_pmsn;
-    char *name_idsn = ddsrt_strsep (&tok_idsn, "=");
-    if (name_idsn == NULL || tok_idsn == NULL)
-      goto check_subj_equal_failed;
-    value_pmsn = DDS_Security_Property_get_value(&prop_pmsn, name_idsn);
-    if (value_pmsn == NULL || strcmp(tok_idsn, value_pmsn) != 0)
-    {
-      ddsrt_free(value_pmsn);
-      goto check_subj_equal_failed;
-    }
-    ddsrt_free(value_pmsn);
+    char *name_idsn;
+    if ((name_idsn = ddsrt_strsep (&tok_idsn, "=")) == NULL || tok_idsn == NULL)
+      goto err;
+    DDS_Security_Property_t const * const prop = DDS_Security_PropertySeq_find_property (&prop_pmsn, name_idsn);
+    if (prop == NULL || strcmp (tok_idsn, prop->value) != 0)
+      goto err;
   }
   result = true;
 
-check_subj_equal_failed:
-  ddsrt_free(copy_idsn);
-  DDS_Security_PropertySeq_deinit(&prop_pmsn);
+err:
+  ddsrt_free (copy_idsn);
+  DDS_Security_PropertySeq_deinit (&prop_pmsn);
   return result;
 }
 

@@ -64,7 +64,7 @@ crypto_calculate_key_impl(
   memcpy(&buffer[strlen(prefix) + key_bytes], &id, sizeof(id));
   if (HMAC(EVP_sha256(), master_key, (int)key_bytes, buffer, sz, md, NULL) == NULL)
   {
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "HMAC failed: ");
+    DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "HMAC failed");
     ddsrt_free (buffer);
     return false;
   }
@@ -144,7 +144,7 @@ crypto_hmac256(
   assert (key_size <= INT32_MAX);
   if (HMAC(EVP_sha256(), key, (int) key_size, data, data_size, md, NULL) == NULL)
   {
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, 0, "Failed to init hashing context: ");
+    DDS_Security_Exception_set_with_openssl_error(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, 0, "Failed to init hashing context");
     return NULL;
   }
   result = ddsrt_malloc(key_size);

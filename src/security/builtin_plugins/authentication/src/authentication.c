@@ -691,25 +691,25 @@ DDS_Security_ValidationResult_t validate_local_identity(dds_security_authenticat
 
   if (!instance || !local_identity_handle || !adjusted_participant_guid || !participant_qos || !candidate_participant_guid)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "validate_local_identity: Invalid parameter provided");
+    (void) authexc (ex, "validate_local_identity: Invalid parameter provided");
     goto err_bad_param;
   }
 
   if (!(identityCertPEM = DDS_Security_Property_get_value(&participant_qos->property.value, PROPERTY_IDENTITY_CERT)))
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "validate_local_identity: missing property '%s'", PROPERTY_IDENTITY_CERT);
+    (void) authexc (ex, "validate_local_identity: missing property '%s'", PROPERTY_IDENTITY_CERT);
     goto err_no_identity_cert;
   }
 
   if (!(identityCaPEM = DDS_Security_Property_get_value(&participant_qos->property.value, PROPERTY_IDENTITY_CA)))
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "validate_local_identity: missing property '%s'", PROPERTY_IDENTITY_CA);
+    (void) authexc (ex, "validate_local_identity: missing property '%s'", PROPERTY_IDENTITY_CA);
     goto err_no_identity_ca;
   }
 
   if (!(privateKeyPEM = DDS_Security_Property_get_value(&participant_qos->property.value, PROPERTY_PRIVATE_KEY)))
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "validate_local_identity: missing property '%s'", PROPERTY_PRIVATE_KEY);
+    (void) authexc (ex, "validate_local_identity: missing property '%s'", PROPERTY_PRIVATE_KEY);
     goto err_no_private_key;
   }
 
@@ -772,7 +772,7 @@ DDS_Security_ValidationResult_t validate_local_identity(dds_security_authenticat
 
   if ((certExpiry = get_certificate_expiry(identityCert)) == DDS_TIME_INVALID)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "Expiry date of the certificate is invalid");
+    (void) authexc (ex, "Expiry date of the certificate is invalid");
     goto err_verification_failed;
   }
   else if (certExpiry != DDS_NEVER)
@@ -814,7 +814,7 @@ DDS_Security_boolean get_identity_token(dds_security_authentication *instance, D
 
   if (!instance || !identity_token)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "get_identity_token: Invalid parameter provided");
+    (void) authexc (ex, "get_identity_token: Invalid parameter provided");
     goto err_bad_param;
   }
   memset(identity_token, 0, sizeof(*identity_token));
@@ -824,7 +824,7 @@ DDS_Security_boolean get_identity_token(dds_security_authentication *instance, D
   obj = security_object_find(impl->objectHash, handle);
   if (!obj || !security_object_valid(obj, SECURITY_OBJECT_KIND_LOCAL_IDENTITY))
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "get_identity_token: Invalid handle provided");
+    (void) authexc (ex, "get_identity_token: Invalid handle provided");
     goto err_inv_handle;
   }
   identity = (LocalIdentityInfo *)obj;
@@ -875,20 +875,20 @@ DDS_Security_boolean set_permissions_credential_and_token(dds_security_authentic
 
   if (!instance || handle == DDS_SECURITY_HANDLE_NIL || !permissions_credential || !permissions_token)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "get_identity_token: Invalid parameter provided");
+    (void) authexc (ex, "get_identity_token: Invalid parameter provided");
     return false;
   }
 
   if (!permissions_credential->class_id || strcmp(permissions_credential->class_id, ACCESS_PERMISSIONS_CREDENTIAL_TOKEN_ID) != 0)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "get_identity_token: Invalid parameter provided");
+    (void) authexc (ex, "get_identity_token: Invalid parameter provided");
     return false;
   }
 
   if (permissions_credential->properties._length == 0 || permissions_credential->properties._buffer[0].name == NULL
       || strcmp(permissions_credential->properties._buffer[0].name, ACCESS_PROPERTY_PERMISSION_DOCUMENT) != 0)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "get_identity_token: Invalid parameter provided");
+    (void) authexc (ex, "get_identity_token: Invalid parameter provided");
     return false;
   }
 
@@ -897,7 +897,7 @@ DDS_Security_boolean set_permissions_credential_and_token(dds_security_authentic
   if (!identity || !SECURITY_OBJECT_VALID(identity, SECURITY_OBJECT_KIND_LOCAL_IDENTITY))
   {
     ddsrt_mutex_unlock(&impl->lock);
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "get_identity_token: Invalid handle provided");
+    (void) authexc (ex, "get_identity_token: Invalid handle provided");
     return false;
   }
   identity->permissionsDocument = ddsrt_strdup(permissions_credential->properties._buffer[0].value ? permissions_credential->properties._buffer[0].value : "");
@@ -911,14 +911,14 @@ static DDS_Security_ValidationResult_t validate_remote_identity_token(const Loca
   DDSRT_UNUSED_ARG(localIdent);
   if (!token->class_id)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "remote identity token: class_id is empty");
+    (void) authexc (ex, "remote identity token: class_id is empty");
     return DDS_SECURITY_VALIDATION_FAILED;
   }
 
   size_t sz = strlen(AUTH_PROTOCOL_CLASS);
   if (strncmp(AUTH_PROTOCOL_CLASS, token->class_id, sz) != 0)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "remote identity token: class_id='%s' not supported", token->class_id);
+    (void) authexc (ex, "remote identity token: class_id='%s' not supported", token->class_id);
     return DDS_SECURITY_VALIDATION_FAILED;
   }
 
@@ -928,14 +928,14 @@ static DDS_Security_ValidationResult_t validate_remote_identity_token(const Loca
   DDSRT_WARNING_MSVC_OFF(4996);
   if (sscanf(ptr, ":%u.%u%1s", &major, &minor, postfix) != 2)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "remote identity token: class_id has wrong format");
+    (void) authexc (ex, "remote identity token: class_id has wrong format");
     return DDS_SECURITY_VALIDATION_FAILED;
   }
   DDSRT_WARNING_MSVC_ON(4996);
 
   if (major != AUTH_PROTOCOL_VERSION_MAJOR)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "remote identity token: version %u.%u not supported", major, minor);
+    (void) authexc (ex, "remote identity token: version %u.%u not supported", major, minor);
     return DDS_SECURITY_VALIDATION_FAILED;
   }
 
@@ -949,17 +949,17 @@ static DDS_Security_ValidationResult_t validate_auth_request_token(const DDS_Sec
   assert(token);
   if (!token->class_id)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "AuthRequestMessageToken invalid: missing class_id");
+    (void) authexc (ex, "AuthRequestMessageToken invalid: missing class_id");
     return DDS_SECURITY_VALIDATION_FAILED;
   }
   if (strncmp(token->class_id, AUTH_REQUEST_TOKEN_CLASS_ID, strlen(AUTH_REQUEST_TOKEN_CLASS_ID)) != 0)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "AuthRequestMessageToken invalid: class_id '%s' is invalid", token->class_id);
+    (void) authexc (ex, "AuthRequestMessageToken invalid: class_id '%s' is invalid", token->class_id);
     return DDS_SECURITY_VALIDATION_FAILED;
   }
   if (!token->binary_properties._buffer)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "AuthRequestMessageToken invalid: properties are missing");
+    (void) authexc (ex, "AuthRequestMessageToken invalid: properties are missing");
     return DDS_SECURITY_VALIDATION_FAILED;
   }
 
@@ -974,14 +974,14 @@ static DDS_Security_ValidationResult_t validate_auth_request_token(const DDS_Sec
   }
   if (!found)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "AuthRequestMessageToken invalid: future_challenge not found");
+    (void) authexc (ex, "AuthRequestMessageToken invalid: future_challenge not found");
     return DDS_SECURITY_VALIDATION_FAILED;
   }
 
   if (token->binary_properties._buffer[index].value._length != sizeof(AuthenticationChallenge)
       || !token->binary_properties._buffer[index].value._buffer)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "AuthRequestMessageToken invalid: future_challenge invalid size");
+    (void) authexc (ex, "AuthRequestMessageToken invalid: future_challenge invalid size");
     return DDS_SECURITY_VALIDATION_FAILED;
   }
 
@@ -1021,7 +1021,7 @@ DDS_Security_ValidationResult_t validate_remote_identity(dds_security_authentica
 
   if (!instance || !remote_identity_handle || !local_auth_request_token || !remote_identity_token || !remote_participant_guid)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "validate_remote_identity: Invalid parameter provided");
+    (void) authexc (ex, "validate_remote_identity: Invalid parameter provided");
     goto err_bad_param;
   }
 
@@ -1029,7 +1029,7 @@ DDS_Security_ValidationResult_t validate_remote_identity(dds_security_authentica
   obj = security_object_find(impl->objectHash, local_identity_handle);
   if (!obj || !security_object_valid(obj, SECURITY_OBJECT_KIND_LOCAL_IDENTITY))
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "validate_remote_identity: Invalid handle provided");
+    (void) authexc (ex, "validate_remote_identity: Invalid handle provided");
     goto err_inv_handle;
   }
   localIdent = (LocalIdentityInfo *)obj;
@@ -1064,7 +1064,7 @@ DDS_Security_ValidationResult_t validate_remote_identity(dds_security_authentica
     /* When the remote identity has already been validated before, check if the remote identity token matches with the existing one */
     if (!DDS_Security_DataHolder_equal(remoteIdent->remoteIdentityToken, remote_identity_token))
     {
-      DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "validate_remote_identity: remote_identity_token does not match with previously received one");
+      (void) authexc (ex, "validate_remote_identity: remote_identity_token does not match with previously received one");
       goto err_inv_duplicate;
     }
 
@@ -1127,7 +1127,7 @@ DDS_Security_ValidationResult_t begin_handshake_request(dds_security_authenticat
 
   if (!instance || !handshake_handle || !handshake_message || !serialized_local_participant_data)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "begin_handshake_request: Invalid parameter provided");
+    (void) authexc (ex, "begin_handshake_request: Invalid parameter provided");
     goto err_bad_param;
   }
 
@@ -1136,7 +1136,7 @@ DDS_Security_ValidationResult_t begin_handshake_request(dds_security_authenticat
   obj = security_object_find(impl->objectHash, initiator_identity_handle);
   if (!obj || !security_object_valid(obj, SECURITY_OBJECT_KIND_LOCAL_IDENTITY))
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "begin_handshake_request: Invalid initiator_identity_handle provided");
+    (void) authexc (ex, "begin_handshake_request: Invalid initiator_identity_handle provided");
     goto err_inv_handle;
   }
   localIdent = (LocalIdentityInfo *)obj;
@@ -1144,7 +1144,7 @@ DDS_Security_ValidationResult_t begin_handshake_request(dds_security_authenticat
   obj = security_object_find(impl->objectHash, replier_identity_handle);
   if (!obj || !security_object_valid(obj, SECURITY_OBJECT_KIND_REMOTE_IDENTITY))
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "begin_handshake_request: Invalid replier_identity_handle provided");
+    (void) authexc (ex, "begin_handshake_request: Invalid replier_identity_handle provided");
     goto err_inv_handle;
   }
   remoteIdent = (RemoteIdentityInfo *)obj;
@@ -1246,7 +1246,7 @@ static DDS_Security_ValidationResult_t validate_pdata(const DDS_Security_OctetSe
   DDS_Security_Deserializer deserializer = DDS_Security_Deserializer_new(seq->_buffer, seq->_length);
   if (!deserializer)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "begin_handshake_reply: c.pdata invalid encoding");
+    (void) authexc (ex, "begin_handshake_reply: c.pdata invalid encoding");
     goto failed_deser;
   }
 
@@ -1262,7 +1262,7 @@ static DDS_Security_ValidationResult_t validate_pdata(const DDS_Security_OctetSe
   DDS_Security_BuiltinTopicKeyBE(key, pdata->key);
   if (memcmp(key, aguid.prefix, 6) != 0)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "begin_handshake_reply: c.pdata contains incorrect participant guid");
+    (void) authexc (ex, "begin_handshake_reply: c.pdata contains incorrect participant guid");
     goto failed;
   }
   DDS_Security_ParticipantBuiltinTopicData_free(pdata);
@@ -1283,32 +1283,17 @@ enum handshake_token_type
   HS_TOKEN_FINAL
 };
 
-static DDS_Security_ValidationResult_t set_exception (DDS_Security_SecurityException *ex, const char *fmt, ...)
-  ddsrt_attribute_format ((printf, 2, 3)) ddsrt_attribute_warn_unused_result;
-
-static DDS_Security_ValidationResult_t set_exception (DDS_Security_SecurityException *ex, const char *fmt, ...)
-{
-  va_list ap;
-  va_start (ap, fmt);
-  DDS_Security_Exception_vset (ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, fmt, ap);
-  va_end (ap);
-  return DDS_SECURITY_VALIDATION_FAILED;
-}
-
 static const DDS_Security_BinaryProperty_t *find_required_binprop (const DDS_Security_HandshakeMessageToken *token, const char *name, DDS_Security_SecurityException *ex)
 {
-  DDS_Security_ValidationResult_t result;
   const DDS_Security_BinaryProperty_t *prop = DDS_Security_DataHolder_find_binary_property (token, name);
   if (prop == NULL)
   {
-    result = set_exception (ex, "process_handshake: HandshakeMessageToken property %s missing", name);
-    (void) result;
+    (void) authexc (ex, "process_handshake: HandshakeMessageToken property %s missing", name);
     return NULL;
   }
   else if (prop->value._length > INT_MAX)
   {
-    result = set_exception (ex, "process_handshake: HandshakeMessageToken property %s has unsupported size (%"PRIu32" bytes)", name, prop->value._length);
-    (void) result;
+    (void) authexc (ex, "process_handshake: HandshakeMessageToken property %s has unsupported size (%"PRIu32" bytes)", name, prop->value._length);
     return NULL;
   }
   return prop;
@@ -1316,13 +1301,10 @@ static const DDS_Security_BinaryProperty_t *find_required_binprop (const DDS_Sec
 
 static const DDS_Security_BinaryProperty_t *find_required_nonempty_binprop (const DDS_Security_HandshakeMessageToken *token, const char *name, DDS_Security_SecurityException *ex)
 {
-  DDS_Security_ValidationResult_t result;
   const DDS_Security_BinaryProperty_t *prop = find_required_binprop (token, name, ex);
-  if (prop != NULL && (prop->value._length == 0 || prop->value._buffer == NULL))
+  if (prop != NULL && prop->value._length == 0)
   {
-    // FIXME: _buffer == NULL check must go, that should've been guaranteed before
-    result = set_exception (ex, "process_handshake: HandshakeMessageToken property %s is empty", name);
-    (void) result;
+    (void) authexc (ex, "process_handshake: HandshakeMessageToken property %s is empty", name);
     return NULL;
   }
   return prop;
@@ -1330,12 +1312,10 @@ static const DDS_Security_BinaryProperty_t *find_required_nonempty_binprop (cons
 
 static const DDS_Security_BinaryProperty_t *find_required_binprop_exactsize (const DDS_Security_HandshakeMessageToken *token, const char *name, size_t size, DDS_Security_SecurityException *ex)
 {
-  DDS_Security_ValidationResult_t result;
   const DDS_Security_BinaryProperty_t *prop = find_required_binprop (token, name, ex);
   if (prop != NULL && prop->value._length != size)
   {
-    result = set_exception (ex, "process_handshake: HandshakeMessageToken property %s has wrong size (%"PRIu32" while expecting %"PRIuSIZE")", name, prop->value._length, size);
-    (void) result;
+    (void) authexc (ex, "process_handshake: HandshakeMessageToken property %s has wrong size (%"PRIu32" while expecting %"PRIuSIZE")", name, prop->value._length, size);
     return NULL;
   }
   return prop;
@@ -1396,7 +1376,7 @@ static DDS_Security_ValidationResult_t validate_handshake_token_impl (const DDS_
   assert (token_class_id);
 
   if (!token->class_id || strncmp (token_class_id, token->class_id, strlen (token_class_id)) != 0)
-    return set_exception (ex, "process_handshake: HandshakeMessageToken incorrect class_id: %s (expected %s)", token->class_id ? token->class_id : "NULL", token_class_id);
+    return authexc (ex, "process_handshake: HandshakeMessageToken incorrect class_id: %s (expected %s)", token->class_id ? token->class_id : "NULL", token_class_id);
 
   if (token_type == HS_TOKEN_REQ || token_type == HS_TOKEN_REPLY)
   {
@@ -1423,12 +1403,12 @@ static DDS_Security_ValidationResult_t validate_handshake_token_impl (const DDS_
     if ((c_dsign_algo = find_required_nonempty_binprop (token, "c.dsign_algo", ex)) == NULL)
       return DDS_SECURITY_VALIDATION_FAILED;
     if ((dsignAlgoKind = get_dsign_algo_from_octseq (&c_dsign_algo->value)) == AUTH_ALGO_KIND_UNKNOWN)
-      return set_exception (ex, "process_handshake: HandshakeMessageToken property c.dsign_algo not supported");
+      return authexc (ex, "process_handshake: HandshakeMessageToken property c.dsign_algo not supported");
 
     if ((c_kagree_algo = find_required_nonempty_binprop (token, "c.kagree_algo", ex)) == NULL)
       return DDS_SECURITY_VALIDATION_FAILED;
     if ((kagreeAlgoKind = get_kagree_algo_from_octseq (&c_kagree_algo->value)) == AUTH_ALGO_KIND_UNKNOWN)
-      return set_exception (ex, "process_handshake: HandshakeMessageToken property c.kagree_algo not supported");
+      return authexc (ex, "process_handshake: HandshakeMessageToken property c.kagree_algo not supported");
 
     /* calculate the hash value and set in handshake hash_c1 (req) or hash_c2 (reply) */
     const DDS_Security_BinaryProperty_t *binary_properties[] = { c_id, c_perm, c_pdata, c_dsign_algo, c_kagree_algo };
@@ -1467,7 +1447,7 @@ static DDS_Security_ValidationResult_t validate_handshake_token_impl (const DDS_
   if (relation->rchallenge)
   {
     if (memcmp (relation->rchallenge->value, rc->value._buffer, sizeof (AuthenticationChallenge)) != 0)
-      return set_exception (ex, "process_handshake: HandshakeMessageToken property challenge%d does not match future_challenge", (token_type == HS_TOKEN_REPLY) ? 2 : 1);
+      return authexc (ex, "process_handshake: HandshakeMessageToken property challenge%d does not match future_challenge", (token_type == HS_TOKEN_REPLY) ? 2 : 1);
   }
   else if (token_type != HS_TOKEN_FINAL)
   {
@@ -1481,7 +1461,7 @@ static DDS_Security_ValidationResult_t validate_handshake_token_impl (const DDS_
     /* hash_c1 should be set during req or reply token validation */
     assert (handshake->hash_c1 != NULL);
     if (hash_c1->value._length != sizeof (HashValue_t) || memcmp (hash_c1->value._buffer, handshake->hash_c1, sizeof (HashValue_t)) != 0)
-      return set_exception (ex, "process_handshake: HandshakeMessageToken property hash_c1 invalid");
+      return authexc (ex, "process_handshake: HandshakeMessageToken property hash_c1 invalid");
   }
 
   if (token_type == HS_TOKEN_REPLY || token_type == HS_TOKEN_FINAL)
@@ -1494,19 +1474,19 @@ static DDS_Security_ValidationResult_t validate_handshake_token_impl (const DDS_
     if ((hash_c2 = DDS_Security_DataHolder_find_binary_property (token, "hash_c2")))
     {
       if (hash_c2->value._length != sizeof (HashValue_t) || memcmp (hash_c2->value._buffer, handshake->hash_c2, sizeof (HashValue_t)) != 0)
-        return set_exception (ex, "process_handshake: HandshakeMessageToken property hash_c2 invalid");
+        return authexc (ex, "process_handshake: HandshakeMessageToken property hash_c2 invalid");
     }
     if (relation->lchallenge == NULL)
-      return set_exception (ex, "process_handshake: No future challenge exists for this token");
+      return authexc (ex, "process_handshake: No future challenge exists for this token");
     const DDS_Security_BinaryProperty_t *lc = (token_type == HS_TOKEN_REPLY) ? challenge1 : challenge2;
     if (memcmp (relation->lchallenge->value, lc->value._buffer, sizeof (AuthenticationChallenge)) != 0)
-      return set_exception (ex, "process_handshake: HandshakeMessageToken property challenge1 does not match future_challenge");
+      return authexc (ex, "process_handshake: HandshakeMessageToken property challenge1 does not match future_challenge");
   }
 
   if (token_type == HS_TOKEN_REQ)
   {
     if (!EVP_PKEY_up_ref (*pdhkey_req))
-      return set_exception (ex, "process_handshake: failed to increment refcount of DH key");
+      return authexc (ex, "process_handshake: failed to increment refcount of DH key");
     handshake->rdh = *pdhkey_req;
   }
 
@@ -1521,7 +1501,7 @@ static DDS_Security_ValidationResult_t validate_handshake_token_impl (const DDS_
     if (relation->remoteIdentity->identityCert)
       X509_free (relation->remoteIdentity->identityCert);
     if (!X509_up_ref (*identityCert))
-      return set_exception (ex, "process_handshake: failed to increment refcount of identity certificate");
+      return authexc (ex, "process_handshake: failed to increment refcount of identity certificate");
     relation->remoteIdentity->identityCert = *identityCert;
     relation->remoteIdentity->dsignAlgoKind = dsignAlgoKind;
     relation->remoteIdentity->kagreeAlgoKind = kagreeAlgoKind;
@@ -1532,7 +1512,7 @@ static DDS_Security_ValidationResult_t validate_handshake_token_impl (const DDS_
   {
     EVP_PKEY *public_key;
     if ((public_key = X509_get_pubkey (relation->remoteIdentity->identityCert)) == NULL)
-      return set_exception (ex, "X509_get_pubkey failed");
+      return authexc (ex, "X509_get_pubkey failed");
 
     DDS_Security_BinaryProperty_t hash_c1_val = {
       .name = "hash_c1", .value = { ._length = sizeof (handshake->hash_c1), ._buffer = handshake->hash_c1 }
@@ -1607,13 +1587,13 @@ DDS_Security_ValidationResult_t begin_handshake_reply(dds_security_authenticatio
 
   if (!instance || !handshake_handle || !handshake_message_out || !handshake_message_in || !serialized_local_participant_data)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "begin_handshake_reply: Invalid parameter provided");
+    (void) authexc (ex, "begin_handshake_reply: Invalid parameter provided");
     goto err_bad_param;
   }
 
   if (serialized_local_participant_data->_length == 0 || serialized_local_participant_data->_buffer == NULL)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "begin_handshake_reply: Invalid parameter provided");
+    (void) authexc (ex, "begin_handshake_reply: Invalid parameter provided");
     goto err_bad_param;
   }
 
@@ -1622,7 +1602,7 @@ DDS_Security_ValidationResult_t begin_handshake_reply(dds_security_authenticatio
   obj = security_object_find(impl->objectHash, replier_identity_handle);
   if (!obj || !security_object_valid(obj, SECURITY_OBJECT_KIND_LOCAL_IDENTITY))
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "begin_handshake_reply: Invalid replier_identity_handle provided");
+    (void) authexc (ex, "begin_handshake_reply: Invalid replier_identity_handle provided");
     goto err_inv_handle;
   }
   localIdent = (LocalIdentityInfo *)obj;
@@ -1630,7 +1610,7 @@ DDS_Security_ValidationResult_t begin_handshake_reply(dds_security_authenticatio
   obj = security_object_find(impl->objectHash, initiator_identity_handle);
   if (!obj || !security_object_valid(obj, SECURITY_OBJECT_KIND_REMOTE_IDENTITY))
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "begin_handshake_reply: Invalid initiator_identity_handle provided");
+    (void) authexc (ex, "begin_handshake_reply: Invalid initiator_identity_handle provided");
     goto err_inv_handle;
   }
   remoteIdent = (RemoteIdentityInfo *)obj;
@@ -1773,32 +1753,32 @@ static bool generate_shared_secret(const HandshakeInfo *handshake, unsigned char
 
   if (!(ctx = EVP_PKEY_CTX_new(handshake->ldh, NULL /* no engine */)))
   {
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "process_handshake: Shared secret failed to create context: ");
+    (void) authexc_ssl (ex, "process_handshake: Shared secret failed to create context");
     goto fail_ctx_new;
   }
 
   if (EVP_PKEY_derive_init(ctx) <= 0)
   {
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "process_handshake: Shared secret failed to initialize context: ");
+    (void) authexc_ssl (ex, "process_handshake: Shared secret failed to initialize context");
     goto fail_derive;
   }
   if (EVP_PKEY_derive_set_peer(ctx, handshake->rdh) <= 0)
   {
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "process_handshake: Shared secret failed to set peer key: ");
+    (void) authexc_ssl (ex, "process_handshake: Shared secret failed to set peer key");
     goto fail_derive;
   }
 
   /* Determine buffer length */
   if (EVP_PKEY_derive(ctx, NULL, &skeylen) <= 0)
   {
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "process_handshake:  Shared secret failed to determine key length: ");
+    (void) authexc_ssl (ex, "process_handshake:  Shared secret failed to determine key length");
     goto fail_derive;
   }
 
   secret = ddsrt_malloc(skeylen);
   if (EVP_PKEY_derive(ctx, secret, &skeylen) <= 0)
   {
-    DDS_Security_Exception_set_with_openssl_error(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "process_handshake: Could not compute the shared secret: ");
+    (void) authexc_ssl (ex, "process_handshake: Could not compute the shared secret");
     goto fail_derive;
   }
 
@@ -1833,7 +1813,7 @@ DDS_Security_ValidationResult_t process_handshake(dds_security_authentication *i
   /* validate provided arguments */
   if (!instance || !handshake_handle || !handshake_message_out || !handshake_message_in)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "process_handshake: Invalid parameter provided");
+    (void) authexc (ex, "process_handshake: Invalid parameter provided");
     goto err_bad_param;
   }
 
@@ -1843,7 +1823,7 @@ DDS_Security_ValidationResult_t process_handshake(dds_security_authentication *i
   obj = security_object_find(impl->objectHash, handshake_handle);
   if (!obj || !security_object_valid(obj, SECURITY_OBJECT_KIND_HANDSHAKE))
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "process_handshake: Invalid replier_identity_handle provided");
+    (void) authexc (ex, "process_handshake: Invalid replier_identity_handle provided");
     goto err_inv_handle;
   }
   handshake = (HandshakeInfo *)obj;
@@ -1954,7 +1934,7 @@ DDS_Security_ValidationResult_t process_handshake(dds_security_authentication *i
     dds_time_t cert_exp = get_certificate_expiry(handshake->relation->remoteIdentity->identityCert);
     if (cert_exp == DDS_TIME_INVALID)
     {
-      DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "Expiry date of the certificate is invalid");
+      (void) authexc (ex, "Expiry date of the certificate is invalid");
       goto err_invalid_expiry;
     }
     else if (cert_exp != DDS_NEVER)
@@ -1985,14 +1965,14 @@ DDS_Security_SharedSecretHandle get_shared_secret(dds_security_authentication *i
 
   if (!instance || !handshake_handle)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "return_handshake_handle: Invalid parameter provided");
+    (void) authexc (ex, "return_handshake_handle: Invalid parameter provided");
     goto err_bad_param;
   }
   ddsrt_mutex_lock(&impl->lock);
   obj = security_object_find(impl->objectHash, handshake_handle);
   if (!obj || !security_object_valid(obj, SECURITY_OBJECT_KIND_HANDSHAKE))
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "return_handshake_handle: Invalid handle provided");
+    (void) authexc (ex, "return_handshake_handle: Invalid handle provided");
     goto err_invalid_handle;
   }
   ddsrt_mutex_unlock(&impl->lock);
@@ -2016,7 +1996,7 @@ DDS_Security_boolean get_authenticated_peer_credential_token(dds_security_authen
 
   if (!instance || !handshake_handle || !peer_credential_token)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
+    (void) auth_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
     return false;
   }
 
@@ -2025,19 +2005,19 @@ DDS_Security_boolean get_authenticated_peer_credential_token(dds_security_authen
   handshake = (HandshakeInfo *)security_object_find(impl->objectHash, handshake_handle);
   if (!handshake || !SECURITY_OBJECT_VALID(handshake, SECURITY_OBJECT_KIND_HANDSHAKE))
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
+    (void) auth_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
     goto err_inv_handle;
   }
 
   if (!(identity_cert = handshake->relation->remoteIdentity->identityCert))
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_OPERATION_NOT_PERMITTED_CODE, 0, DDS_SECURITY_ERR_OPERATION_NOT_PERMITTED_MESSAGE);
+    (void) auth_exc_code (ex, DDS_SECURITY_ERR_OPERATION_NOT_PERMITTED_CODE, DDS_SECURITY_ERR_OPERATION_NOT_PERMITTED_MESSAGE);
     goto err_missing_attr;
   }
 
   if (!(permissions_doc = handshake->relation->remoteIdentity->permissionsDocument))
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_MISSING_REMOTE_PERMISSIONS_DOCUMENT_CODE, 0, DDS_SECURITY_ERR_MISSING_REMOTE_PERMISSIONS_DOCUMENT_MESSAGE);
+    (void) auth_exc_code (ex, DDS_SECURITY_ERR_MISSING_REMOTE_PERMISSIONS_DOCUMENT_CODE, DDS_SECURITY_ERR_MISSING_REMOTE_PERMISSIONS_DOCUMENT_MESSAGE);
     goto err_missing_attr;
   }
 
@@ -2095,7 +2075,7 @@ DDS_Security_boolean return_authenticated_peer_credential_token(dds_security_aut
 {
   if (!instance || !peer_credential_token)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
+    (void) auth_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
     return false;
   }
   DDS_Security_DataHolder_deinit((DDS_Security_DataHolder *)peer_credential_token);
@@ -2108,7 +2088,7 @@ DDS_Security_boolean return_handshake_handle(dds_security_authentication *instan
 
   if (!instance || !handshake_handle)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "return_handshake_handle: Invalid parameter provided");
+    (void) authexc (ex, "return_handshake_handle: Invalid parameter provided");
     goto err_bad_param;
   }
 
@@ -2116,7 +2096,7 @@ DDS_Security_boolean return_handshake_handle(dds_security_authentication *instan
   SecurityObject *obj = security_object_find(impl->objectHash, handshake_handle);
   if (!obj || !security_object_valid(obj, SECURITY_OBJECT_KIND_HANDSHAKE))
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "return_handshake_handle: Invalid handle provided");
+    (void) authexc (ex, "return_handshake_handle: Invalid handle provided");
     goto err_invalid_handle;
   }
   HandshakeInfo *handshake = (HandshakeInfo *)obj;
@@ -2180,7 +2160,7 @@ DDS_Security_boolean return_identity_handle(dds_security_authentication *instanc
 
   if (!instance || !identity_handle)
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "return_identity_handle: Invalid parameter provided");
+    (void) authexc (ex, "return_identity_handle: Invalid parameter provided");
     goto err_bad_param;
   }
 
@@ -2188,7 +2168,7 @@ DDS_Security_boolean return_identity_handle(dds_security_authentication *instanc
   ddsrt_mutex_lock(&impl->lock);
   if (!(obj = security_object_find(impl->objectHash, identity_handle)))
   {
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "return_identity_handle: Invalid handle provided");
+    (void) authexc (ex, "return_identity_handle: Invalid handle provided");
     goto failed;
   }
   switch (obj->kind)
@@ -2207,7 +2187,7 @@ DDS_Security_boolean return_identity_handle(dds_security_authentication *instanc
     security_object_free(obj);
     break;
   default:
-    DDS_Security_Exception_set(ex, DDS_AUTH_PLUGIN_CONTEXT, DDS_SECURITY_ERR_UNDEFINED_CODE, DDS_SECURITY_VALIDATION_FAILED, "return_identity_handle: Invalid handle provided");
+    (void) authexc (ex, "return_identity_handle: Invalid handle provided");
     goto failed;
   }
   ddsrt_mutex_unlock(&impl->lock);

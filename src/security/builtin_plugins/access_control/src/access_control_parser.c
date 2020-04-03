@@ -363,17 +363,17 @@ static void validate_domains(const struct domain_id_set *domains_set, DDS_Securi
   const struct domain_id_set *domain = domains_set;
   if (!domains_set)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, 0, "Found domain set in Governance file without domain ids.");
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, "Found domain set in Governance file without domain ids.");
     return;
   }
   while (domain != NULL && ex->code == 0)
   {
     if (!domain->min)
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, 0, "Found domain range in Governance file without minimum value.");
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, "Found domain range in Governance file without minimum value.");
     else if (!domain->max)
       ; /* The max isn't set with only an id (no range), so no error. */
     else if (domain->max->value < domain->min->value)
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, 0, "Found domain range in Governance file with invalid range min(%d) max(%d).", domain->min->value, domain->max->value);
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, "Found domain range in Governance file with invalid range min(%d) max(%d).", domain->min->value, domain->max->value);
     domain = (struct domain_id_set *)domain->node.next;
   }
 }
@@ -383,17 +383,17 @@ static void validate_topic_rules(const struct topic_rule *topic_rule, DDS_Securi
   while (topic_rule && ex->code == 0)
   {
     if (!topic_rule->data_protection_kind)
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, 0, "Found topic rule in Governance file without data_protection_kind");
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, "Found topic rule in Governance file without data_protection_kind");
     else if (!topic_rule->enable_discovery_protection)
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, 0, "Found topic rule in Governance file without enable_discovery_protection");
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, "Found topic rule in Governance file without enable_discovery_protection");
     else if (!topic_rule->enable_liveliness_protection)
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, 0, "Found topic rule in Governance file without enable_liveliness_protection");
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, "Found topic rule in Governance file without enable_liveliness_protection");
     else if (!topic_rule->enable_read_access_control)
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, 0, "Found topic rule in Governance file without enable_read_access_control");
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, "Found topic rule in Governance file without enable_read_access_control");
     else if (!topic_rule->enable_write_access_control)
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, 0, "Found topic rule in Governance file without enable_write_access_control");
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, "Found topic rule in Governance file without enable_write_access_control");
     else if (!topic_rule->metadata_protection_kind)
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, 0, "Found topic rule in Governance file without metadata_protection_kind");
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, "Found topic rule in Governance file without metadata_protection_kind");
     else
       topic_rule = (struct topic_rule *)topic_rule->node.next;
   }
@@ -404,23 +404,23 @@ static DDS_Security_boolean validate_rules(const struct domain_rule *rule, DDS_S
   while (rule && ex->code == 0)
   {
     if (!rule->domains)
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, 0, "Found rule in Governance file without domain ids.");
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, "Found rule in Governance file without domain ids.");
     else if (!rule->allow_unauthenticated_participants)
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, 0, "Found rule in Governance file without allow_unauthenticated_participants.");
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, "Found rule in Governance file without allow_unauthenticated_participants.");
     else if (!rule->enable_join_access_control)
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, 0, "Found rule in Governance file without enable_join_access_control.");
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, "Found rule in Governance file without enable_join_access_control.");
     else if (!rule->rtps_protection_kind)
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, 0, "Found rule in Governance file without rtps_protection_kind.");
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, "Found rule in Governance file without rtps_protection_kind.");
     else if (!rule->discovery_protection_kind)
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, 0, "Found rule in Governance file without discovery_protection_kind.");
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, "Found rule in Governance file without discovery_protection_kind.");
     else if (!rule->liveliness_protection_kind)
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, 0, "Found rule in Governance file without liveliness_protection_kind.");
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, "Found rule in Governance file without liveliness_protection_kind.");
     else
     {
       /* Last but not least, check the domain ids (ex is set when there's a failure) */
       validate_domains(rule->domains->domain_id_set, ex);
       if (!(rule->topic_access_rules && rule->topic_access_rules->topic_rule))
-        DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, 0, "Found rule in Governance file without topic_access_rules");
+        (void) ac_exc_code (ex, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, "Found rule in Governance file without topic_access_rules");
       else
       {
         validate_topic_rules(rule->topic_access_rules->topic_rule, ex);
@@ -437,13 +437,13 @@ static int validate_permissions_tree(const struct grant *grant, DDS_Security_Sec
   {
     xml_allow_deny_rule *allow_deny_rule;
     if (!grant->subject_name || !grant->subject_name->value)
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE, 0, "Found tree in Permissions file without subject name.");
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE, "Found tree in Permissions file without subject name.");
     else if (!grant->validity)
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE, 0, "Found tree in Permissions file without Validity.");
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE, "Found tree in Permissions file without Validity.");
     else if (!grant->validity->not_after || !grant->validity->not_after->value)
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE, 0, "Found tree in Permissions file without Validity/not_after.");
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE, "Found tree in Permissions file without Validity/not_after.");
     else if (!grant->validity->not_before || !grant->validity->not_before->value)
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE, 0, "Found tree in Permissions file without Validity/not_before.");
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE, "Found tree in Permissions file without Validity/not_before.");
     else
     {
       /*validate partitions*/
@@ -807,7 +807,7 @@ bool ac_parse_governance_xml(const char *xml, struct governance_parser **governa
     st = ddsrt_xmlp_new_string(xml, parser, &cb);
     if (ddsrt_xmlp_parse(st) != 0)
     {
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CAN_NOT_PARSE_GOVERNANCE_CODE, 0, DDS_SECURITY_ERR_CAN_NOT_PARSE_GOVERNANCE_MESSAGE);
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_CAN_NOT_PARSE_GOVERNANCE_CODE, DDS_SECURITY_ERR_CAN_NOT_PARSE_GOVERNANCE_MESSAGE);
       goto err_xml_parsing;
     }
 #if DEBUG_PARSER
@@ -820,14 +820,14 @@ bool ac_parse_governance_xml(const char *xml, struct governance_parser **governa
     }
     else
     {
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CAN_NOT_PARSE_GOVERNANCE_CODE, 0, DDS_SECURITY_ERR_CAN_NOT_PARSE_GOVERNANCE_MESSAGE);
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_CAN_NOT_PARSE_GOVERNANCE_CODE, DDS_SECURITY_ERR_CAN_NOT_PARSE_GOVERNANCE_MESSAGE);
       goto err_parser_content;
     }
     *governance_tree = parser;
   }
   else
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CAN_NOT_PARSE_GOVERNANCE_CODE, 0, DDS_SECURITY_ERR_CAN_NOT_PARSE_GOVERNANCE_MESSAGE);
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_CAN_NOT_PARSE_GOVERNANCE_CODE, DDS_SECURITY_ERR_CAN_NOT_PARSE_GOVERNANCE_MESSAGE);
     goto err_xml;
   }
   ddsrt_xmlp_free(st);
@@ -1071,7 +1071,7 @@ bool ac_parse_permissions_xml(const char *xml, struct permissions_parser **permi
     st = ddsrt_xmlp_new_string(xml, parser, &cb);
     if (ddsrt_xmlp_parse(st) != 0)
     {
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE, 0, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_MESSAGE);
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_MESSAGE);
       goto err_xml_parsing;
     }
 #if DEBUG_PARSER
@@ -1084,14 +1084,14 @@ bool ac_parse_permissions_xml(const char *xml, struct permissions_parser **permi
     }
     else
     {
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE, 0, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_MESSAGE);
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_MESSAGE);
       goto err_parser_content;
     }
     *permissions_tree = parser;
   }
   else
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE, 0, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_MESSAGE);
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_MESSAGE);
     goto err_xml;
   }
   ddsrt_xmlp_free(st);

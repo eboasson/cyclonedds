@@ -14,13 +14,29 @@
 
 #include <openssl/x509.h>
 #include "dds/ddsrt/types.h"
+#include "dds/ddsrt/attributes.h"
 #include "dds/security/dds_security_api.h"
 #include "dds/security/export.h"
 
 #define DDS_ACCESS_CONTROL_PLUGIN_CONTEXT "Access Control"
 
+#define GOTO_ERR_MSG(label, code, ...) do { \
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_##code##_CODE, __VA_ARGS__); \
+    goto label; \
+  } while (0)
+#define GOTO_SSLERR_MSG(label, code, ...) do { \
+    (void) ac_exc_ssl (ex, DDS_SECURITY_ERR_##code##_CODE, __VA_ARGS__); \
+    goto label; \
+  } while (0)
+#define GOTO_ERR(label, code) GOTO_ERR_MSG (label, code, DDS_SECURITY_ERR_##code##_MESSAGE)
+#define GOTO_SSLERR(label, code) GOTO_SSLERR_MSG (label, code, DDS_SECURITY_ERR_##code##_MESSAGE)
+
+bool ac_exc_code (DDS_Security_SecurityException *ex, int code, const char *fmt, ...) ddsrt_attribute_format ((printf, 3, 4));
+
+bool ac_exc_ssl (DDS_Security_SecurityException *ex, int code, const char *fmt, ...) ddsrt_attribute_format ((printf, 3, 4));
+
 bool ac_X509_certificate_read(const char *data, X509 **x509Cert, DDS_Security_SecurityException *ex);
-bool ac_X509_certificate_from_data(const char *data, int len, X509 **x509Cert, DDS_Security_SecurityException *ex);
+bool ac_X509_certificate_from_data(const char *data, size_t len, X509 **x509Cert, DDS_Security_SecurityException *ex);
 char *ac_get_certificate_subject_name(X509 *cert, DDS_Security_SecurityException *ex);
 bool ac_PKCS7_document_check(const char *data, size_t len, X509 *cert, char **document, DDS_Security_SecurityException *ex);
 bool ac_check_subjects_are_equal(const char *permissions_sn, const char *identity_sn);

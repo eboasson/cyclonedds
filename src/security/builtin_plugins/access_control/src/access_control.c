@@ -67,8 +67,7 @@ typedef enum TOPIC_TYPE
  * while giving only the interface definition to user
  */
 
-typedef struct dds_security_access_control_impl
-{
+typedef struct dds_security_access_control_impl {
   dds_security_access_control base;
   ddsrt_mutex_t lock;
 
@@ -82,7 +81,6 @@ typedef struct dds_security_access_control_impl
 
   struct dds_security_timed_cb_data *timed_callbacks;
   struct dds_security_timed_dispatcher_t *dispatcher;
-
 } dds_security_access_control_impl;
 
 static bool get_sec_attributes(dds_security_access_control_impl *ac, const DDS_Security_PermissionsHandle permissions_handle, const char *topic_name,
@@ -124,13 +122,13 @@ validate_local_permissions(
     const DDS_Security_Qos *participant_qos,
     DDS_Security_SecurityException *ex)
 {
-  dds_security_access_control_impl *ac = (dds_security_access_control_impl *)instance;
+  dds_security_access_control_impl * const ac = (dds_security_access_control_impl *) instance;
   local_participant_access_rights *rights;
   DDS_Security_PermissionsHandle permissions_handle = DDS_SECURITY_HANDLE_NIL;
 
-  if (!instance || !auth_plugin || identity_handle == DDS_SECURITY_HANDLE_NIL || !participant_qos)
+  if (instance == NULL || auth_plugin == NULL || identity_handle == DDS_SECURITY_HANDLE_NIL || participant_qos == NULL)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "validate_local_permissions: invalid parameter");
     return DDS_SECURITY_HANDLE_NIL;
   }
 
@@ -185,25 +183,24 @@ validate_remote_permissions(
     const DDS_Security_AuthenticatedPeerCredentialToken *remote_credential_token,
     DDS_Security_SecurityException *ex)
 {
-  dds_security_access_control_impl *ac = (dds_security_access_control_impl *)instance;
+  dds_security_access_control_impl * const ac = (dds_security_access_control_impl *) instance;
   local_participant_access_rights *local_rights;
   remote_participant_access_rights *remote_rights, *existing;
   DDS_Security_PermissionsHandle permissions_handle = DDS_SECURITY_HANDLE_NIL;
 
-  if (!instance || !auth_plugin || local_identity_handle == DDS_SECURITY_HANDLE_NIL || remote_identity_handle == DDS_SECURITY_HANDLE_NIL ||
-      !remote_permissions_token || !remote_permissions_token->class_id || !remote_credential_token)
+  if (instance == NULL || auth_plugin == NULL || local_identity_handle == DDS_SECURITY_HANDLE_NIL || remote_identity_handle == DDS_SECURITY_HANDLE_NIL || remote_permissions_token == NULL || remote_permissions_token->class_id == NULL || remote_credential_token == NULL)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "validate_remote_permissions: invalid parameter");
     return DDS_SECURITY_HANDLE_NIL;
   }
 
-  if (!(local_rights = find_local_rights_by_identity(ac, local_identity_handle)))
+  if ((local_rights = find_local_rights_by_identity(ac, local_identity_handle)) == NULL)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "validate_remote_permissions: rights not found");
     return DDS_SECURITY_HANDLE_NIL;
   }
 
-  if ((existing = find_remote_rights_by_identity(ac, remote_identity_handle)))
+  if ((existing = find_remote_rights_by_identity(ac, remote_identity_handle)) != NULL)
   {
     if (existing->local_rights->local_identity == local_identity_handle)
     {
@@ -250,7 +247,7 @@ check_create_participant(dds_security_access_control *instance,
                          const DDS_Security_Qos *participant_qos,
                          DDS_Security_SecurityException *ex)
 {
-  dds_security_access_control_impl *ac = (dds_security_access_control_impl *)instance;
+  dds_security_access_control_impl * const ac = (dds_security_access_control_impl *) instance;
   local_participant_access_rights *rights;
   struct domain_rule *domainRule = NULL;
   struct topic_rule *topicRule = NULL;
@@ -258,23 +255,17 @@ check_create_participant(dds_security_access_control *instance,
   DDS_Security_boolean result = false;
 
   if (instance == NULL || permissions_handle == DDS_SECURITY_HANDLE_NIL || participant_qos == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
-    return false;
-  }
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "check_create_participant: invalid parameter");
 
   /* Retrieve rights */
   if ((rights = find_local_access_rights(ac, permissions_handle)) == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, "Could not find local rights for the participant.");
-    return false;
-  }
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "check_create_participant: rights not found");
 
   /* Retrieve domain rules */
   domainRule = find_domain_rule_in_governance(rights->governance_tree->dds->domain_access_rules->domain_rule, domain_id);
   if (domainRule == NULL || domainRule->topic_access_rules == NULL || domainRule->topic_access_rules->topic_rule == NULL)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CAN_NOT_FIND_DOMAIN_IN_GOVERNANCE_CODE, 0, DDS_SECURITY_ERR_CAN_NOT_FIND_DOMAIN_IN_GOVERNANCE_MESSAGE, domain_id);
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_CAN_NOT_FIND_DOMAIN_IN_GOVERNANCE_CODE, DDS_SECURITY_ERR_CAN_NOT_FIND_DOMAIN_IN_GOVERNANCE_MESSAGE, domain_id);
     goto exit;
   }
 
@@ -318,45 +309,19 @@ check_create_datawriter(dds_security_access_control *instance,
                         const DDS_Security_DataTags *data_tag,
                         DDS_Security_SecurityException *ex)
 {
+  dds_security_access_control_impl * const ac = (dds_security_access_control_impl *) instance;
   DDS_Security_TopicSecurityAttributes topic_sec_attr;
   local_participant_access_rights *local_rights;
   DDS_Security_boolean result = false;
   DDSRT_UNUSED_ARG(data_tag);
 
-  if (instance == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, "Plugin instance not provided");
-    return false;
-  }
-  if (permissions_handle == DDS_SECURITY_HANDLE_NIL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, "Permissions handle not provided");
-    return false;
-  }
-  if (topic_name == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, "Topic name not provided");
-    return false;
-  }
-  if (writer_qos == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, "QoS not provided");
-    return false;
-  }
-  if (partition == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, "Partition not provided");
-    return false;
-  }
-  if ((local_rights = find_local_access_rights((dds_security_access_control_impl *)instance, permissions_handle)) == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, "Could not find rights material");
-    return false;
-  }
+  if (instance == NULL || permissions_handle == DDS_SECURITY_HANDLE_NIL || topic_name == NULL || writer_qos == NULL || partition == NULL)
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "check_create_datawriter: invalid parameter");
+  if ((local_rights = find_local_access_rights(ac, permissions_handle)) == NULL)
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "check_create_datawriter: rights not found");
   if (local_rights->domain_id != domain_id)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0,
-        "Given domain_id (%d) does not match the related participant domain_id (%d)\n", domain_id, local_rights->domain_id);
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "Given domain_id (%d) does not match the related participant domain_id (%d)\n", domain_id, local_rights->domain_id);
     goto exit;
   }
 
@@ -388,6 +353,7 @@ check_create_datareader(dds_security_access_control *instance,
                         const DDS_Security_DataTags *data_tag,
                         DDS_Security_SecurityException *ex)
 {
+  dds_security_access_control_impl * const ac = (dds_security_access_control_impl *) instance;
   DDS_Security_TopicSecurityAttributes topic_sec_attr;
   local_participant_access_rights *local_rights;
   DDS_Security_boolean result = false;
@@ -395,18 +361,12 @@ check_create_datareader(dds_security_access_control *instance,
   DDSRT_UNUSED_ARG(data_tag);
 
   if (instance == NULL || permissions_handle == DDS_SECURITY_HANDLE_NIL || topic_name == NULL || reader_qos == NULL || partition == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
-    return false;
-  }
-  if ((local_rights = find_local_access_rights((dds_security_access_control_impl *)instance, permissions_handle)) == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
-    return false;
-  }
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "check_create_datareader: invalid parameter");
+  if ((local_rights = find_local_access_rights(ac, permissions_handle)) == NULL)
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "check_create_datareader: rights not found");
   if (local_rights->domain_id != domain_id)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0,
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE,
         "Given domain_id (%d) does not match the related participant domain_id (%d)\n", domain_id, local_rights->domain_id);
     goto exit;
   }
@@ -435,24 +395,18 @@ check_create_topic(dds_security_access_control *instance,
                    const DDS_Security_DomainId domain_id, const char *topic_name,
                    const DDS_Security_Qos *qos, DDS_Security_SecurityException *ex)
 {
+  dds_security_access_control_impl * const ac = (dds_security_access_control_impl *) instance;
   DDS_Security_TopicSecurityAttributes topic_sec_attr;
   local_participant_access_rights *local_rights;
   DDS_Security_boolean result = false;
 
   if (instance == NULL || permissions_handle == DDS_SECURITY_HANDLE_NIL || qos == NULL || topic_name == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
-    return false;
-  }
-  if ((local_rights = find_local_access_rights((dds_security_access_control_impl *)instance, permissions_handle)) == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
-    return false;
-  }
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "check_create_topic: invalid parameter");
+  if ((local_rights = find_local_access_rights(ac, permissions_handle)) == NULL)
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "check_create_topic: rights not found");
   if (local_rights->domain_id != domain_id)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0,
-        "Given domain_id (%d) does not match the related participant domain_id (%d)\n", domain_id, local_rights->domain_id);
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "Given domain_id (%d) does not match the related participant domain_id (%d)\n", domain_id, local_rights->domain_id);
     goto exit;
   }
 
@@ -515,7 +469,7 @@ check_remote_participant(dds_security_access_control *instance,
                          const DDS_Security_ParticipantBuiltinTopicDataSecure *participant_data,
                          DDS_Security_SecurityException *ex)
 {
-  dds_security_access_control_impl *ac = (dds_security_access_control_impl *)instance;
+  dds_security_access_control_impl * const ac = (dds_security_access_control_impl *) instance;
   remote_participant_access_rights *remote_rights = NULL;
   DDS_Security_boolean isValid = false;
   DDS_Security_ParticipantSecurityAttributes participantSecurityAttributes;
@@ -525,17 +479,11 @@ check_remote_participant(dds_security_access_control *instance,
   DDS_Security_boolean result = false;
 
   if (instance == NULL || permissions_handle == DDS_SECURITY_HANDLE_NIL || participant_data == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
-    return false;
-  }
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "check_remote_participant: invalid parameter");
 
   /* retrieve the cached remote DomainParticipant Governance; the permissions_handle is associated with the remote participant */
   if ((remote_rights = find_remote_permissions_by_permissions_handle(ac, permissions_handle)) == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
-    return false;
-  }
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "check_remote_participant: rights not found");
 
   /* The local rights pointer is actually the local permissions handle. */
   local_permissions_handle = ACCESS_CONTROL_OBJECT_HANDLE(remote_rights->local_rights);
@@ -553,12 +501,12 @@ check_remote_participant(dds_security_access_control *instance,
   class_id_local_str = get_access_control_class_id(ACCESS_CONTROL_PERMISSIONS_CLASS_ID);
   if (compare_class_id_plugin_classname(class_id_remote_str, class_id_local_str) == false)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_CLASSNAME_CODE, 0, DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_CLASSNAME_MESSAGE);
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_CLASSNAME_CODE, DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_CLASSNAME_MESSAGE);
     goto exit_free_classid;
   }
   if (compare_class_id_major_ver(class_id_remote_str, class_id_local_str) == false)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_MAJORVERSION_CODE, 0, DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_MAJORVERSION_MESSAGE);
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_MAJORVERSION_CODE, DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_MAJORVERSION_MESSAGE);
     goto exit_free_classid;
   }
 
@@ -581,7 +529,7 @@ check_remote_datawriter(dds_security_access_control *instance,
                         const DDS_Security_PublicationBuiltinTopicDataSecure *publication_data,
                         DDS_Security_SecurityException *ex)
 {
-  dds_security_access_control_impl *ac = (dds_security_access_control_impl *)instance;
+  dds_security_access_control_impl * const ac = (dds_security_access_control_impl *) instance;
   DDS_Security_TopicSecurityAttributes topic_sec_attr;
   remote_participant_access_rights *remote_rights;
   DDS_Security_string class_id_remote_str;
@@ -589,15 +537,9 @@ check_remote_datawriter(dds_security_access_control *instance,
   DDS_Security_boolean result = false;
 
   if (instance == NULL || permissions_handle == DDS_SECURITY_HANDLE_NIL || publication_data == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
-    return false;
-  }
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "check_remote_datawriter: invalid parameter");
   if ((remote_rights = find_remote_permissions_by_permissions_handle(ac, permissions_handle)) == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
-    return false;
-  }
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "check_remote_datawriter: rights now found");
   if ((result = instance->get_topic_sec_attributes(instance, ACCESS_CONTROL_OBJECT_HANDLE(remote_rights->local_rights), publication_data->topic_name, &topic_sec_attr, ex)) == false)
     goto exit;
   if (topic_sec_attr.is_write_protected == false)
@@ -611,13 +553,13 @@ check_remote_datawriter(dds_security_access_control *instance,
   class_id_local_str = get_access_control_class_id(ACCESS_CONTROL_PERMISSIONS_CLASS_ID);
   if (compare_class_id_plugin_classname(class_id_remote_str, class_id_local_str) == false)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_CLASSNAME_CODE, 0,
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_CLASSNAME_CODE,
         DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_CLASSNAME_MESSAGE);
     goto exit_free_classid;
   }
   if (compare_class_id_major_ver(class_id_remote_str, class_id_local_str) == false)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_MAJORVERSION_CODE, 0,
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_MAJORVERSION_CODE,
         DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_MAJORVERSION_MESSAGE);
     goto exit_free_classid;
   }
@@ -641,7 +583,7 @@ check_remote_datareader(dds_security_access_control *instance,
                         DDS_Security_boolean *relay_only,
                         DDS_Security_SecurityException *ex)
 {
-  dds_security_access_control_impl *ac = (dds_security_access_control_impl *)instance;
+  dds_security_access_control_impl * const ac = (dds_security_access_control_impl *) instance;
   DDS_Security_TopicSecurityAttributes topic_sec_attr;
   remote_participant_access_rights *remote_rights;
   DDS_Security_string class_id_remote_str;
@@ -650,17 +592,11 @@ check_remote_datareader(dds_security_access_control *instance,
   DDS_Security_boolean result = false;
 
   if (instance == NULL || permissions_handle == DDS_SECURITY_HANDLE_NIL || subscription_data == NULL || relay_only == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
-    return false;
-  }
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "check_remote_datareader: invalid parameter");
 
   *relay_only = false;
   if ((remote_rights = find_remote_permissions_by_permissions_handle(ac, permissions_handle)) == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
-    return false;
-  }
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "check_remote_datareader: rights not found");
   if (!(instance->get_topic_sec_attributes(instance, ACCESS_CONTROL_OBJECT_HANDLE(remote_rights->local_rights), subscription_data->topic_name, &topic_sec_attr, ex)))
     goto exit;
   if (!topic_sec_attr.is_read_protected)
@@ -674,13 +610,13 @@ check_remote_datareader(dds_security_access_control *instance,
   class_id_local_str = get_access_control_class_id(ACCESS_CONTROL_PERMISSIONS_CLASS_ID);
   if (compare_class_id_plugin_classname(class_id_remote_str, class_id_local_str) == false)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_CLASSNAME_CODE, 0,
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_CLASSNAME_CODE,
         DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_CLASSNAME_MESSAGE);
     goto exit_free_classid;
   }
   if (compare_class_id_major_ver(class_id_remote_str, class_id_local_str) == false)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_MAJORVERSION_CODE, 0,
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_MAJORVERSION_CODE,
                                DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_MAJORVERSION_MESSAGE);
     ACCESS_CONTROL_OBJECT_RELEASE(remote_rights);
     goto exit_free_classid;
@@ -704,7 +640,7 @@ check_remote_topic(dds_security_access_control *instance,
                    const DDS_Security_TopicBuiltinTopicData *topic_data,
                    DDS_Security_SecurityException *ex)
 {
-  dds_security_access_control_impl *ac = (dds_security_access_control_impl *)instance;
+  dds_security_access_control_impl * const ac = (dds_security_access_control_impl *) instance;
   DDS_Security_TopicSecurityAttributes topic_sec_attr;
   remote_participant_access_rights *remote_rights;
   DDS_Security_string class_id_remote_str;
@@ -712,15 +648,9 @@ check_remote_topic(dds_security_access_control *instance,
   DDS_Security_boolean result = false;
 
   if (instance == NULL || permissions_handle == DDS_SECURITY_HANDLE_NIL || topic_data == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
-    return false;
-  }
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "check_remote_topic: invalid parameter");
   if ((remote_rights = find_remote_permissions_by_permissions_handle(ac, permissions_handle)) == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
-    return false;
-  }
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "check_remote_topic: rights not found");
   if ((result = instance->get_topic_sec_attributes(instance, ACCESS_CONTROL_OBJECT_HANDLE(remote_rights->local_rights), topic_data->name, &topic_sec_attr, ex)) == false)
     goto exit;
   if (!topic_sec_attr.is_read_protected || !topic_sec_attr.is_write_protected)
@@ -734,13 +664,13 @@ check_remote_topic(dds_security_access_control *instance,
   class_id_local_str = get_access_control_class_id(ACCESS_CONTROL_PERMISSIONS_CLASS_ID);
   if (!compare_class_id_plugin_classname(class_id_remote_str, class_id_local_str))
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_CLASSNAME_CODE, 0,
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_CLASSNAME_CODE,
       DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_CLASSNAME_MESSAGE);
     goto exit_free_classid;
   }
   if (!compare_class_id_major_ver(class_id_remote_str, class_id_local_str))
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_MAJORVERSION_CODE, 0,
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_MAJORVERSION_CODE,
       DDS_SECURITY_ERR_INCOMPATIBLE_REMOTE_PLUGIN_MAJORVERSION_MESSAGE);
     goto exit_free_classid;
   }
@@ -843,29 +773,14 @@ get_permissions_token(dds_security_access_control *instance,
                       const DDS_Security_PermissionsHandle handle,
                       DDS_Security_SecurityException *ex)
 {
+  dds_security_access_control_impl * const ac = (dds_security_access_control_impl *) instance;
   local_participant_access_rights *rights;
-  if (!ex)
+  if (ex == NULL)
     return false;
-  if (!instance)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, DDS_SECURITY_VALIDATION_FAILED, "get_permissions_token: No instance provided");
-    return false;
-  }
-  if (!permissions_token)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, DDS_SECURITY_VALIDATION_FAILED, "get_permissions_token: No permissions token provided");
-    return false;
-  }
-  if (handle == DDS_SECURITY_HANDLE_NIL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, DDS_SECURITY_VALIDATION_FAILED, "get_permissions_token: No permissions handle provided");
-    return false;
-  }
-  if ((rights = find_local_access_rights((dds_security_access_control_impl *)instance, handle)) == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, "get_permissions_token: Unused permissions handle provided");
-    return false;
-  }
+  if (instance == NULL || permissions_token == NULL || handle == DDS_SECURITY_HANDLE_NIL)
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "get_permissions_token: invalid parameter");
+  if ((rights = find_local_access_rights(ac, handle)) == NULL)
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "get_permissions_token: rights not found");
 
   ACCESS_CONTROL_OBJECT_RELEASE(rights);
   memset(permissions_token, 0, sizeof(*permissions_token));
@@ -880,30 +795,14 @@ get_permissions_credential_token(
     const DDS_Security_PermissionsHandle handle,
     DDS_Security_SecurityException *ex)
 {
-  dds_security_access_control_impl *ac = (dds_security_access_control_impl *)instance;
+  dds_security_access_control_impl * const ac = (dds_security_access_control_impl *) instance;
   local_participant_access_rights *rights;
-  if (!ex)
+  if (ex == NULL)
     return false;
-  if (!instance)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, DDS_SECURITY_VALIDATION_FAILED, "get_permissions_credential_token: No instance provided");
-    return false;
-  }
-  if (!permissions_credential_token)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, DDS_SECURITY_VALIDATION_FAILED, "get_permissions_credential_token: No permissions credential token provided");
-    return false;
-  }
-  if (handle == DDS_SECURITY_HANDLE_NIL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, DDS_SECURITY_VALIDATION_FAILED, "get_permissions_credential_token: No permissions handle provided");
-    return false;
-  }
+  if (instance == NULL || permissions_credential_token == NULL || handle == DDS_SECURITY_HANDLE_NIL)
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "get_permissions_credential_token: invalid parameter");
   if ((rights = find_local_access_rights(ac, handle)) == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, "get_permissions_credential_token: Unused permissions handle provided");
-    return false;
-  }
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "get_permissions_credential_token: rights not found");
 
   memset(permissions_credential_token, 0, sizeof(*permissions_credential_token));
   permissions_credential_token->class_id = ddsrt_strdup(ACCESS_PERMISSIONS_CREDENTIAL_TOKEN_ID);
@@ -923,7 +822,7 @@ set_listener(dds_security_access_control *instance,
 {
   DDSRT_UNUSED_ARG(ex);
 
-  dds_security_access_control_impl *ac = (dds_security_access_control_impl *)instance;
+  dds_security_access_control_impl * const ac = (dds_security_access_control_impl *) instance;
   if (listener)
     dds_security_timed_dispatcher_enable(ac->timed_callbacks, ac->dispatcher, (void *)listener);
   else
@@ -938,9 +837,11 @@ return_permissions_token(
     const DDS_Security_PermissionsToken *token,
     DDS_Security_SecurityException *ex)
 {
-  if (!instance || !token)
+  if (ex == NULL)
+    return false;
+  if (instance == NULL || token == NULL)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
     return false;
   }
   DDS_Security_DataHolder_deinit((DDS_Security_DataHolder *)token);
@@ -955,7 +856,7 @@ return_permissions_credential_token(
 {
   if (!instance || !permissions_credential_token)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
     return false;
   }
   DDS_Security_DataHolder_deinit((DDS_Security_DataHolder *)permissions_credential_token);
@@ -1096,21 +997,21 @@ get_participant_sec_attributes(
     DDS_Security_ParticipantSecurityAttributes *attributes,
     DDS_Security_SecurityException *ex)
 {
-  dds_security_access_control_impl *ac = (dds_security_access_control_impl *)instance;
+  dds_security_access_control_impl * const ac = (dds_security_access_control_impl *) instance;
   local_participant_access_rights *local_rights;
   struct domain_rule *found = NULL;
   DDS_Security_boolean result = false;
 
   if (instance == 0 || permissions_handle == DDS_SECURITY_HANDLE_NIL || attributes == NULL)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "get_participant_sec_attributes: invalid parameter");
     return false;
   }
 
   /* The local rights are actually the local permissions handle. Check that. */
   if ((local_rights = find_local_access_rights(ac, permissions_handle)) == NULL)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, "Invalid permissions handle");
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "get_participant_sec_attributes: rights not found");
     return false;
   }
   if ((found = find_domain_rule_in_governance(local_rights->governance_tree->dds->domain_access_rules->domain_rule, local_rights->domain_id)))
@@ -1120,7 +1021,7 @@ get_participant_sec_attributes(
   }
   else
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, 0, "Could not domain id within governance file.");
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, "get_participant_sec_attributes: domain not found in governance document");
   }
   ACCESS_CONTROL_OBJECT_RELEASE(local_rights);
   return result;
@@ -1268,37 +1169,15 @@ get_topic_sec_attributes(
     DDS_Security_TopicSecurityAttributes *attributes,
     DDS_Security_SecurityException *ex)
 {
-  dds_security_access_control_impl *ac = (dds_security_access_control_impl *)instance;
+  dds_security_access_control_impl * const ac = (dds_security_access_control_impl *) instance;
   local_participant_access_rights *rights;
   struct domain_rule *found;
   DDS_Security_boolean result = false;
 
-  if (instance == 0)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, "No plugin instance provided");
-    return false;
-  }
-  if (permissions_handle == DDS_SECURITY_HANDLE_NIL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, "No permissions handle provided");
-    return false;
-  }
-  if (topic_name == NULL || strlen(topic_name) == 0)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, "No topic name provided");
-    return false;
-  }
-  if (attributes == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, "No attributes provided");
-    return false;
-  }
-  rights = find_local_access_rights(ac, permissions_handle);
-  if (rights == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, "Unused permissions handle provided");
-    return false;
-  }
+  if (instance == NULL || permissions_handle == DDS_SECURITY_HANDLE_NIL || topic_name == NULL || strlen(topic_name) == 0 || attributes == NULL)
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "get_topic_sec_attributes: invalid parameter");
+  if ((rights = find_local_access_rights(ac, permissions_handle)) == NULL)
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "get_topic_sec_attributes: rights not found");
 
   memset(attributes, 0, sizeof(*attributes));
 
@@ -1322,12 +1201,12 @@ get_topic_sec_attributes(
     }
     else
     {
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CAN_NOT_FIND_TOPIC_IN_DOMAIN_CODE, 0, DDS_SECURITY_ERR_CAN_NOT_FIND_TOPIC_IN_DOMAIN_MESSAGE, topic_name, rights->domain_id);
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_CAN_NOT_FIND_TOPIC_IN_DOMAIN_CODE, DDS_SECURITY_ERR_CAN_NOT_FIND_TOPIC_IN_DOMAIN_MESSAGE, topic_name, rights->domain_id);
     }
   }
   else
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CAN_NOT_FIND_DOMAIN_IN_GOVERNANCE_CODE, 0, DDS_SECURITY_ERR_CAN_NOT_FIND_DOMAIN_IN_GOVERNANCE_MESSAGE, rights->domain_id);
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_CAN_NOT_FIND_DOMAIN_IN_GOVERNANCE_CODE, DDS_SECURITY_ERR_CAN_NOT_FIND_DOMAIN_IN_GOVERNANCE_MESSAGE, rights->domain_id);
   }
 
   ACCESS_CONTROL_OBJECT_RELEASE(rights);
@@ -1346,13 +1225,10 @@ get_datawriter_sec_attributes(
 {
   DDSRT_UNUSED_ARG(partition);
   DDSRT_UNUSED_ARG(data_tag);
-  dds_security_access_control_impl *ac = (dds_security_access_control_impl *)instance;
+  dds_security_access_control_impl * const ac = (dds_security_access_control_impl *) instance;
 
-  if (instance == 0 || permissions_handle == DDS_SECURITY_HANDLE_NIL || topic_name == 0 || strlen(topic_name) == 0 || attributes == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
-    return false;
-  }
+  if (instance == NULL || permissions_handle == DDS_SECURITY_HANDLE_NIL || topic_name == NULL || strlen(topic_name) == 0 || attributes == NULL)
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "get_datawriter_sec_attributes: invalid parameter");
   return get_sec_attributes(ac, permissions_handle, topic_name, attributes, ex);
 }
 
@@ -1368,13 +1244,10 @@ get_datareader_sec_attributes(
 {
   DDSRT_UNUSED_ARG(partition);
   DDSRT_UNUSED_ARG(data_tag);
-  dds_security_access_control_impl *ac = (dds_security_access_control_impl *)instance;
+  dds_security_access_control_impl * const ac = (dds_security_access_control_impl *) instance;
 
-  if (instance == 0 || permissions_handle == DDS_SECURITY_HANDLE_NIL || topic_name == 0 || strlen(topic_name) == 0 || attributes == NULL)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
-    return false;
-  }
+  if (instance == NULL || permissions_handle == DDS_SECURITY_HANDLE_NIL || topic_name == NULL || strlen(topic_name) == 0 || attributes == NULL)
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "get_datareader_sec_attributes: invalid parameter");
   return get_sec_attributes(ac, permissions_handle, topic_name, attributes, ex);
 }
 
@@ -1436,14 +1309,11 @@ return_permissions_handle(
     const DDS_Security_PermissionsHandle permissions_handle,
     DDS_Security_SecurityException *ex)
 {
-  dds_security_access_control_impl *ac = (dds_security_access_control_impl *)instance;
+  dds_security_access_control_impl * const ac = (dds_security_access_control_impl *) instance;
   AccessControlObject *object;
 
-  if (!instance || !permissions_handle)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
-    return false;
-  }
+  if (instance == NULL || permissions_handle == DDS_SECURITY_HANDLE_NIL)
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "return_permissions_handle: invalid parameter");
 
 #ifdef ACCESS_CONTROL_USE_ONE_PERMISSION
   ddsrt_mutex_lock(&ac->lock);
@@ -1465,10 +1335,7 @@ return_permissions_handle(
 
   object = access_control_table_find(ac->remote_permissions, permissions_handle);
   if (!object)
-  {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
-    return false;
-  }
+    return ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "return_permissions_handle: rights not found");
 
   access_control_table_remove_object(ac->remote_permissions, object);
   access_control_object_release(object);
@@ -1479,50 +1346,49 @@ int init_access_control(const char *argument, void **context)
 {
   DDSRT_UNUSED_ARG(argument);
 
-  dds_security_access_control_impl *access_control = ddsrt_malloc(sizeof(*access_control));
-  memset(access_control, 0, sizeof(*access_control));
+  dds_security_access_control_impl * const ac = ddsrt_malloc(sizeof(*ac));
+  memset(ac, 0, sizeof(*ac));
 
-
-  access_control->timed_callbacks = dds_security_timed_cb_new();
-  access_control->dispatcher = dds_security_timed_dispatcher_new(access_control->timed_callbacks);
-  access_control->base.validate_local_permissions = &validate_local_permissions;
-  access_control->base.validate_remote_permissions = &validate_remote_permissions;
-  access_control->base.check_create_participant = &check_create_participant;
-  access_control->base.check_create_datawriter = &check_create_datawriter;
-  access_control->base.check_create_datareader = &check_create_datareader;
-  access_control->base.check_create_topic = &check_create_topic;
-  access_control->base.check_local_datawriter_register_instance = &check_local_datawriter_register_instance;
-  access_control->base.check_local_datawriter_dispose_instance = &check_local_datawriter_dispose_instance;
-  access_control->base.check_remote_participant = &check_remote_participant;
-  access_control->base.check_remote_datawriter = &check_remote_datawriter;
-  access_control->base.check_remote_datareader = &check_remote_datareader;
-  access_control->base.check_remote_topic = &check_remote_topic;
-  access_control->base.check_local_datawriter_match = &check_local_datawriter_match;
-  access_control->base.check_local_datareader_match = &check_local_datareader_match;
-  access_control->base.check_remote_datawriter_register_instance = &check_remote_datawriter_register_instance;
-  access_control->base.check_remote_datawriter_dispose_instance = &check_remote_datawriter_dispose_instance;
-  access_control->base.get_permissions_token = &get_permissions_token;
-  access_control->base.get_permissions_credential_token = &get_permissions_credential_token;
-  access_control->base.set_listener = &set_listener;
-  access_control->base.return_permissions_token = &return_permissions_token;
-  access_control->base.return_permissions_credential_token = &return_permissions_credential_token;
-  access_control->base.get_participant_sec_attributes = &get_participant_sec_attributes;
-  access_control->base.get_topic_sec_attributes = &get_topic_sec_attributes;
-  access_control->base.get_datawriter_sec_attributes = &get_datawriter_sec_attributes;
-  access_control->base.get_datareader_sec_attributes = &get_datareader_sec_attributes;
-  access_control->base.return_participant_sec_attributes = &return_participant_sec_attributes;
-  access_control->base.return_topic_sec_attributes = &return_topic_sec_attributes;
-  access_control->base.return_datawriter_sec_attributes = &return_datawriter_sec_attributes;
-  access_control->base.return_datareader_sec_attributes = &return_datareader_sec_attributes;
-  access_control->base.return_permissions_handle = &return_permissions_handle;
-  ddsrt_mutex_init(&access_control->lock);
+  ac->timed_callbacks = dds_security_timed_cb_new();
+  ac->dispatcher = dds_security_timed_dispatcher_new(ac->timed_callbacks);
+  ac->base.validate_local_permissions = &validate_local_permissions;
+  ac->base.validate_remote_permissions = &validate_remote_permissions;
+  ac->base.check_create_participant = &check_create_participant;
+  ac->base.check_create_datawriter = &check_create_datawriter;
+  ac->base.check_create_datareader = &check_create_datareader;
+  ac->base.check_create_topic = &check_create_topic;
+  ac->base.check_local_datawriter_register_instance = &check_local_datawriter_register_instance;
+  ac->base.check_local_datawriter_dispose_instance = &check_local_datawriter_dispose_instance;
+  ac->base.check_remote_participant = &check_remote_participant;
+  ac->base.check_remote_datawriter = &check_remote_datawriter;
+  ac->base.check_remote_datareader = &check_remote_datareader;
+  ac->base.check_remote_topic = &check_remote_topic;
+  ac->base.check_local_datawriter_match = &check_local_datawriter_match;
+  ac->base.check_local_datareader_match = &check_local_datareader_match;
+  ac->base.check_remote_datawriter_register_instance = &check_remote_datawriter_register_instance;
+  ac->base.check_remote_datawriter_dispose_instance = &check_remote_datawriter_dispose_instance;
+  ac->base.get_permissions_token = &get_permissions_token;
+  ac->base.get_permissions_credential_token = &get_permissions_credential_token;
+  ac->base.set_listener = &set_listener;
+  ac->base.return_permissions_token = &return_permissions_token;
+  ac->base.return_permissions_credential_token = &return_permissions_credential_token;
+  ac->base.get_participant_sec_attributes = &get_participant_sec_attributes;
+  ac->base.get_topic_sec_attributes = &get_topic_sec_attributes;
+  ac->base.get_datawriter_sec_attributes = &get_datawriter_sec_attributes;
+  ac->base.get_datareader_sec_attributes = &get_datareader_sec_attributes;
+  ac->base.return_participant_sec_attributes = &return_participant_sec_attributes;
+  ac->base.return_topic_sec_attributes = &return_topic_sec_attributes;
+  ac->base.return_datawriter_sec_attributes = &return_datawriter_sec_attributes;
+  ac->base.return_datareader_sec_attributes = &return_datareader_sec_attributes;
+  ac->base.return_permissions_handle = &return_permissions_handle;
+  ddsrt_mutex_init(&ac->lock);
 
 #ifdef ACCESS_CONTROL_USE_ONE_PERMISSION
-  access_control->local_access_rights = NULL;
+  ac->local_access_rights = NULL;
 #else
   access_control->local_permissions = access_control_table_new();
 #endif
-  access_control->remote_permissions = access_control_table_new();
+  ac->remote_permissions = access_control_table_new();
 
   OpenSSL_add_all_algorithms();
   OpenSSL_add_all_ciphers();
@@ -1530,7 +1396,7 @@ int init_access_control(const char *argument, void **context)
   ERR_load_BIO_strings();
   ERR_load_crypto_strings();
 
-  *context = access_control;
+  *context = ac;
   return 0;
 }
 
@@ -1550,7 +1416,7 @@ get_sec_attributes(
   memset(attributes, 0, sizeof(DDS_Security_EndpointSecurityAttributes));
   if ((rights = find_local_access_rights(ac, permissions_handle)) == NULL)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, "Invalid permissions handle");
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, "get_sec_attributes: rights not found");
     return false;
   }
 
@@ -1598,7 +1464,7 @@ get_sec_attributes(
       }
       else
       {
-        DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CAN_NOT_FIND_DOMAIN_IN_GOVERNANCE_CODE, 0, DDS_SECURITY_ERR_CAN_NOT_FIND_DOMAIN_IN_GOVERNANCE_MESSAGE, rights->domain_id);
+        (void) ac_exc_code (ex, DDS_SECURITY_ERR_CAN_NOT_FIND_DOMAIN_IN_GOVERNANCE_CODE, DDS_SECURITY_ERR_CAN_NOT_FIND_DOMAIN_IN_GOVERNANCE_MESSAGE, rights->domain_id);
         result = false;
       }
       attributes->is_read_protected = false;
@@ -1666,12 +1532,12 @@ get_sec_attributes(
       }
       else
       {
-        DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CAN_NOT_FIND_TOPIC_IN_DOMAIN_CODE, 0, DDS_SECURITY_ERR_CAN_NOT_FIND_TOPIC_IN_DOMAIN_MESSAGE, topic_name, rights->domain_id);
+        (void) ac_exc_code (ex, DDS_SECURITY_ERR_CAN_NOT_FIND_TOPIC_IN_DOMAIN_CODE, DDS_SECURITY_ERR_CAN_NOT_FIND_TOPIC_IN_DOMAIN_MESSAGE, topic_name, rights->domain_id);
       }
     }
     else
     {
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CAN_NOT_FIND_DOMAIN_IN_GOVERNANCE_CODE, 0, DDS_SECURITY_ERR_CAN_NOT_FIND_DOMAIN_IN_GOVERNANCE_MESSAGE, rights->domain_id);
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_CAN_NOT_FIND_DOMAIN_IN_GOVERNANCE_CODE, DDS_SECURITY_ERR_CAN_NOT_FIND_DOMAIN_IN_GOVERNANCE_MESSAGE, rights->domain_id);
     }
   }
   ACCESS_CONTROL_OBJECT_RELEASE(rights);
@@ -1939,13 +1805,13 @@ is_allowed_by_permissions(struct permissions_parser *permissions,
       dds_time_t tnow = dds_time();
       if (tnow <= DDS_Security_parse_xml_date(permissions_grant->validity->not_before->value))
       {
-        DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_VALIDITY_PERIOD_NOT_STARTED_CODE, 0,
+        (void) ac_exc_code (ex, DDS_SECURITY_ERR_VALIDITY_PERIOD_NOT_STARTED_CODE,
             DDS_SECURITY_ERR_VALIDITY_PERIOD_NOT_STARTED_MESSAGE, permissions_grant->subject_name->value, permissions_grant->validity->not_before->value);
         return false;
       }
       if (tnow >= DDS_Security_parse_xml_date(permissions_grant->validity->not_after->value))
       {
-        DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_VALIDITY_PERIOD_EXPIRED_CODE, 0,
+        (void) ac_exc_code (ex, DDS_SECURITY_ERR_VALIDITY_PERIOD_EXPIRED_CODE,
             DDS_SECURITY_ERR_VALIDITY_PERIOD_EXPIRED_MESSAGE, permissions_grant->subject_name->value, permissions_grant->validity->not_after->value);
         return false;
       }
@@ -1974,7 +1840,7 @@ is_allowed_by_permissions(struct permissions_parser *permissions,
                   return true;
                 if (current_rule->rule_type == DENY_RULE)
                 {
-                  DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_ACCESS_DENIED_CODE, 0, "%s found in deny_rule.", topic_name);
+                  (void) ac_exc_code (ex, DDS_SECURITY_ERR_ACCESS_DENIED_CODE, "%s found in deny_rule.", topic_name);
                   return false;
                 }
               }
@@ -1988,13 +1854,13 @@ is_allowed_by_permissions(struct permissions_parser *permissions,
       /* If nothing found but the grant matches, return the default value */
       if (permissions_grant->default_action == NULL)
       {
-        DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_ACCESS_DENIED_CODE, 0, "No rule found for %s", topic_name ? topic_name : "participant");
+        (void) ac_exc_code (ex, DDS_SECURITY_ERR_ACCESS_DENIED_CODE, "No rule found for %s", topic_name ? topic_name : "participant");
         return false;
       }
 
       if (strcmp(permissions_grant->default_action->value, "ALLOW") != 0)
       {
-        DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_ACCESS_DENIED_CODE, 0, "%s denied by default rule", topic_name ? topic_name : "participant");
+        (void) ac_exc_code (ex, DDS_SECURITY_ERR_ACCESS_DENIED_CODE, "%s denied by default rule", topic_name ? topic_name : "participant");
         return false;
       }
 
@@ -2003,7 +1869,7 @@ is_allowed_by_permissions(struct permissions_parser *permissions,
     permissions_grant = (struct grant *)permissions_grant->node.next;
   }
 
-  DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CAN_NOT_FIND_PERMISSIONS_GRANT_CODE, 0, DDS_SECURITY_ERR_CAN_NOT_FIND_PERMISSIONS_GRANT_MESSAGE);
+  (void) ac_exc_code (ex, DDS_SECURITY_ERR_CAN_NOT_FIND_PERMISSIONS_GRANT_CODE, DDS_SECURITY_ERR_CAN_NOT_FIND_PERMISSIONS_GRANT_MESSAGE);
   return false;
 }
 
@@ -2053,7 +1919,7 @@ read_document_from_file(
 
   if ((*doc) == NULL)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE, 0, DDS_SECURITY_ERR_INVALID_FILE_PATH_MESSAGE, (filename ? filename : "NULL"));
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE, DDS_SECURITY_ERR_INVALID_FILE_PATH_MESSAGE, (filename ? filename : "NULL"));
     return false;
   }
   return true;
@@ -2079,7 +1945,7 @@ read_document(
     ddsrt_free(data);
     break;
   default:
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_URI_TYPE_NOT_SUPPORTED_CODE, 0, DDS_SECURITY_ERR_URI_TYPE_NOT_SUPPORTED_MESSAGE, doc_uri);
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_URI_TYPE_NOT_SUPPORTED_CODE, DDS_SECURITY_ERR_URI_TYPE_NOT_SUPPORTED_MESSAGE, doc_uri);
     return false;
   }
   return result;
@@ -2099,7 +1965,7 @@ validate_subject_name_in_permissions(struct permissions_parser *permissions_tree
   *permission_subject_name = NULL;
   if (permissions_tree == NULL || permissions_tree->dds == NULL || permissions_tree->dds->permissions == NULL || permissions_tree->dds->permissions->grant == NULL)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, DDS_SECURITY_ERR_INVALID_PARAMETER_MESSAGE);
     return false;
   }
 
@@ -2112,13 +1978,13 @@ validate_subject_name_in_permissions(struct permissions_parser *permissions_tree
       dds_time_t tnow = dds_time ();
       if (tnow <= DDS_Security_parse_xml_date(permissions_grant->validity->not_before->value))
       {
-        DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_VALIDITY_PERIOD_NOT_STARTED_CODE, 0,
+        (void) ac_exc_code (ex, DDS_SECURITY_ERR_VALIDITY_PERIOD_NOT_STARTED_CODE,
             DDS_SECURITY_ERR_VALIDITY_PERIOD_NOT_STARTED_MESSAGE, permissions_grant->subject_name->value, permissions_grant->validity->not_before->value);
         return false;
       }
       if (tnow >= DDS_Security_parse_xml_date(permissions_grant->validity->not_after->value))
       {
-        DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_VALIDITY_PERIOD_EXPIRED_CODE, 0,
+        (void) ac_exc_code (ex, DDS_SECURITY_ERR_VALIDITY_PERIOD_EXPIRED_CODE,
             DDS_SECURITY_ERR_VALIDITY_PERIOD_EXPIRED_MESSAGE, permissions_grant->subject_name->value, permissions_grant->validity->not_after->value);
         return false;
       }
@@ -2132,7 +1998,7 @@ validate_subject_name_in_permissions(struct permissions_parser *permissions_tree
     permissions_grant = (struct grant *)permissions_grant->node.next;
   }
 
-  DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_SUBJECT_NAME_CODE, 0,
+  (void) ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_SUBJECT_NAME_CODE,
       DDS_SECURITY_ERR_INVALID_SUBJECT_NAME_MESSAGE);
   return false;
 }
@@ -2167,7 +2033,7 @@ check_and_create_local_participant_rights(
   identity_cert_data = DDS_Security_Property_get_value(&participant_qos->property.value, QOS_PROPERTY_IDENTITY_CERT);
   if (!identity_cert_data)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_MISSING_PROPERTY_CODE, 0,
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_MISSING_PROPERTY_CODE,
         DDS_SECURITY_ERR_MISSING_PROPERTY_MESSAGE, QOS_PROPERTY_IDENTITY_CERT);
     goto err_no_identity_cert;
   }
@@ -2180,21 +2046,21 @@ check_and_create_local_participant_rights(
 
   if (!(governance_uri = DDS_Security_Property_get_value(&participant_qos->property.value, QOS_PROPERTY_GOVERNANCE_DOCUMENT)))
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_MISSING_PROPERTY_CODE, 0,
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_MISSING_PROPERTY_CODE,
         DDS_SECURITY_ERR_MISSING_PROPERTY_MESSAGE, QOS_PROPERTY_GOVERNANCE_DOCUMENT);
     goto err_no_governance;
   }
 
   if (!(permissions_uri = DDS_Security_Property_get_value(&participant_qos->property.value, QOS_PROPERTY_PERMISSIONS_DOCUMENT)))
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_MISSING_PROPERTY_CODE, 0,
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_MISSING_PROPERTY_CODE,
         DDS_SECURITY_ERR_MISSING_PROPERTY_MESSAGE, QOS_PROPERTY_PERMISSIONS_DOCUMENT);
     goto err_no_permissions;
   }
 
   if (!(permission_ca_data = DDS_Security_Property_get_value(&participant_qos->property.value, QOS_PROPERTY_PERMISSIONS_CA)))
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_MISSING_PROPERTY_CODE, 0,
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_MISSING_PROPERTY_CODE,
         DDS_SECURITY_ERR_MISSING_PROPERTY_MESSAGE, QOS_PROPERTY_PERMISSIONS_CA);
     goto err_no_permission_ca;
   }
@@ -2231,8 +2097,7 @@ check_and_create_local_participant_rights(
 
     if ((pdlen = strlen(permission_document)) == 0)
     {
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PERMISSION_DOCUMENT_PROPERTY_CODE,
-          DDS_SECURITY_VALIDATION_FAILED, DDS_SECURITY_ERR_INVALID_PERMISSION_DOCUMENT_PROPERTY_MESSAGE);
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PERMISSION_DOCUMENT_PROPERTY_CODE, DDS_SECURITY_ERR_INVALID_PERMISSION_DOCUMENT_PROPERTY_MESSAGE);
       goto err_read_perm_doc;
     }
 
@@ -2242,8 +2107,7 @@ check_and_create_local_participant_rights(
 
     if ((gvlen = strlen(governance_document)) == 0)
     {
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_GOVERNANCE_DOCUMENT_PROPERTY_CODE,
-          DDS_SECURITY_VALIDATION_FAILED, DDS_SECURITY_ERR_INVALID_GOVERNANCE_DOCUMENT_PROPERTY_MESSAGE);
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_GOVERNANCE_DOCUMENT_PROPERTY_CODE, DDS_SECURITY_ERR_INVALID_GOVERNANCE_DOCUMENT_PROPERTY_MESSAGE);
       goto err_read_gov_doc;
     }
 
@@ -2276,7 +2140,7 @@ check_and_create_local_participant_rights(
   }
   else
   { /*one of them is not empty but the others */
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, DDS_SECURITY_VALIDATION_FAILED,
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE,
         "Governance, Permissions and Permissions CA properties do not exist properly. Either all must be empty or all must be valid");
     goto err_inv_properties;
   }
@@ -2330,20 +2194,17 @@ check_and_create_remote_participant_rights(
   remote_permissions *permissions = NULL;
   char *permission_subject = NULL;
   dds_time_t permission_expiry = DDS_TIME_INVALID;
-  size_t len;
 
   /* Retrieve the remote identity certificate from the remote_credential_token */
   identity_cert_property = DDS_Security_DataHolder_find_property(remote_credential_token, "c.id");
   if (!identity_cert_property || !identity_cert_property->value)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_MISSING_PROPERTY_CODE, 0,
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_MISSING_PROPERTY_CODE,
         DDS_SECURITY_ERR_MISSING_PROPERTY_MESSAGE, "c.id");
     goto err_no_identity_cert;
   }
 
-  len = strlen(identity_cert_property->value);
-  assert (len <= INT32_MAX);
-  if (!ac_X509_certificate_from_data(identity_cert_property->value, (int) len, &identity_cert, ex))
+  if (!ac_X509_certificate_from_data(identity_cert_property->value, strlen (identity_cert_property->value), &identity_cert, ex))
     goto err_inv_identity_cert;
 
   if (!(identity_subject = ac_get_certificate_subject_name(identity_cert, ex)))
@@ -2353,7 +2214,7 @@ check_and_create_remote_participant_rights(
   permission_doc_property = DDS_Security_DataHolder_find_property(remote_credential_token, "c.perm");
   if (!permission_doc_property || !permission_doc_property->value)
   {
-    DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_MISSING_PROPERTY_CODE, 0, DDS_SECURITY_ERR_MISSING_PROPERTY_MESSAGE, "c.perm");
+    (void) ac_exc_code (ex, DDS_SECURITY_ERR_MISSING_PROPERTY_CODE, DDS_SECURITY_ERR_MISSING_PROPERTY_MESSAGE, "c.perm");
     goto err_inv_perm_doc;
   }
 
@@ -2368,7 +2229,7 @@ check_and_create_remote_participant_rights(
     }
     else
     {
-      DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_PERMISSION_DOCUMENT_PROPERTY_CODE, 0, DDS_SECURITY_ERR_INVALID_PERMISSION_DOCUMENT_PROPERTY_MESSAGE);
+      (void) ac_exc_code (ex, DDS_SECURITY_ERR_INVALID_PERMISSION_DOCUMENT_PROPERTY_CODE, DDS_SECURITY_ERR_INVALID_PERMISSION_DOCUMENT_PROPERTY_MESSAGE);
       goto err_inv_perm_doc;
     }
   }
@@ -2455,22 +2316,22 @@ get_topic_type(
 
 int finalize_access_control(void *context)
 {
-  dds_security_access_control_impl *access_control = context;
-  if (access_control)
+  dds_security_access_control_impl * const ac = context;
+  if (ac)
   {
 
-    dds_security_timed_dispatcher_free(access_control->timed_callbacks, access_control->dispatcher);
-    dds_security_timed_cb_free(access_control->timed_callbacks);
+    dds_security_timed_dispatcher_free(ac->timed_callbacks, ac->dispatcher);
+    dds_security_timed_cb_free(ac->timed_callbacks);
 
-    access_control_table_free(access_control->remote_permissions);
+    access_control_table_free(ac->remote_permissions);
 #ifdef ACCESS_CONTROL_USE_ONE_PERMISSION
-    if (access_control->local_access_rights)
-      access_control_object_free((AccessControlObject *)access_control->local_access_rights);
+    if (ac->local_access_rights)
+      access_control_object_free((AccessControlObject *)ac->local_access_rights);
 #else
     access_control_table_free(access_control->local_permissions);
 #endif
-    ddsrt_mutex_destroy(&access_control->lock);
-    ddsrt_free(access_control);
+    ddsrt_mutex_destroy(&ac->lock);
+    ddsrt_free(ac);
   }
   EVP_cleanup();
   CRYPTO_cleanup_all_ex_data();
