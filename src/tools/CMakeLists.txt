@@ -12,6 +12,4 @@
 set(CMAKE_INSTALL_TOOLSDIR "${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/tools")
 add_subdirectory(pubsub)
 add_subdirectory(ddsls)
-if(BUILD_IDLC)
-  add_subdirectory(ddsperf)
-endif()
+add_subdirectory(ddsperf)
