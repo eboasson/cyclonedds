@@ -944,6 +944,18 @@ void ddsi_set_deafmute (struct ddsi_domaingv *gv, bool deaf, bool mute, int64_t 
   GVLOGDISC ("\n");
 }
 
+static int f (uint8_t x)
+{
+  return (x + x > (uint8_t)255);
+}
+static int g (uint8_t x)
+{
+#define x2 x*x
+#define x4 x2*x2
+#define x8 x4*x4
+  return (x8 >= (uint8_t)0);
+}
+
 int rtps_init (struct ddsi_domaingv *gv)
 {
   uint32_t port_disc_uc = 0;
@@ -1438,6 +1450,8 @@ int rtps_init (struct ddsi_domaingv *gv)
 
   if (reset_deaf_mute_time.v < DDS_NEVER)
     qxev_callback (gv->xevents, reset_deaf_mute_time, reset_deaf_mute, gv);
+
+  printf ("%d %d\n", f ((uint8_t) gv->config.xmit_lossiness), g ((uint8_t) gv->config.xmit_lossiness));
   return 0;
 
 err_mc_conn:
