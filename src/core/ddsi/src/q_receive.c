@@ -1548,7 +1548,7 @@ static int handle_NackFrag (struct receiver_state *rst, ddsrt_etime_t tnow, cons
       if (nn_bitset_isset (msg->fragmentNumberState.numbits, msg->bits, i))
       {
         struct nn_xmsg *reply;
-        if (create_fragment_message (wr, seq, sample.plist, sample.serdata, base + i, prd, &reply, 0) < 0)
+        if (create_fragment_message (wr, seq, sample.plist, sample.serdata, base + i, prd, &reply, 0, 0) < 0)
           enqueued = 0;
         else
           enqueued = qxev_msg_rexmit_wrlock_held (wr->evq, reply, 0);

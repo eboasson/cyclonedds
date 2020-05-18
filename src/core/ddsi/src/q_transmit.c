@@ -512,7 +512,7 @@ static dds_return_t create_fragment_message_simple (struct writer *wr, seqno_t s
   return 0;
 }
 
-dds_return_t create_fragment_message (struct writer *wr, seqno_t seq, const struct ddsi_plist *plist, struct ddsi_serdata *serdata, unsigned fragnum, struct proxy_reader *prd, struct nn_xmsg **pmsg, int isnew)
+dds_return_t create_fragment_message (struct writer *wr, seqno_t seq, const struct ddsi_plist *plist, struct ddsi_serdata *serdata, unsigned fragnum, struct proxy_reader *prd, struct nn_xmsg **pmsg, int isnew, unsigned adv_fragnum)
 {
   /* We always fragment into FRAGMENT_SIZEd fragments, which are near
      the smallest allowed fragment size & can't be bothered (yet) to
@@ -633,13 +633,13 @@ dds_return_t create_fragment_message (struct writer *wr, seqno_t seq, const stru
       fraglen = (uint32_t)(size - fragstart);
     ddcmn->octetsToInlineQos = (unsigned short) ((char*) (frag+1) - ((char*) &ddcmn->octetsToInlineQos + 2));
 
-    if (wr->reliable && (!isnew || fragstart + fraglen == ddsi_serdata_size (serdata)))
+    if (wr->reliable && (!isnew || adv_fragnum != UINT32_MAX))
     {
       /* only set for final fragment for new messages; for rexmits we
          want it set for all so we can do merging. FIXME: I guess the
          writer should track both seq_xmit and the fragment number
          ... */
-      nn_xmsg_setwriterseq_fragid (*pmsg, &wr->e.guid, seq, fragnum + frag->fragmentsInSubmessage - 1);
+      nn_xmsg_setwriterseq_fragid (*pmsg, &wr->e.guid, seq, isnew ? adv_fragnum : fragnum + frag->fragmentsInSubmessage - 1);
     }
   }
 
@@ -806,8 +806,8 @@ static void transmit_sample_lgmsg_unlocked (struct nn_xpack *xp, struct writer *
 #endif
   assert(xp);
   assert((wr->heartbeat_xevent != NULL) == (whcst != NULL));
-
-  for (uint32_t i = 0; i < nfrags; i++)
+  const uint32_t nfrags_lim = nfrags < 100 ? nfrags : 100;
+  for (uint32_t i = 0; i < nfrags_lim; i++)
   {
     struct nn_xmsg *fmsg = NULL;
     struct nn_xmsg *hmsg = NULL;
@@ -821,7 +821,7 @@ static void transmit_sample_lgmsg_unlocked (struct nn_xpack *xp, struct writer *
        we haven't yet completed transmitting a fragmented message, add
        a HeartbeatFrag. */
     ddsrt_mutex_lock (&wr->e.lock);
-    ret = create_fragment_message (wr, seq, plist, serdata, i, prd, &fmsg, isnew);
+    ret = create_fragment_message (wr, seq, plist, serdata, i, prd, &fmsg, isnew, (i + 1) == nfrags_lim ? nfrags-1 : UINT32_MAX);
     if (ret >= 0)
     {
       if (nfrags > 1 && i + 1 < nfrags)
@@ -914,6 +914,8 @@ int enqueue_sample_wrlock_held (struct writer *wr, seqno_t seq, const struct dds
     /* end-of-transaction messages are empty, but still need to be sent */
     nfrags = 1;
   }
+  if (!isnew && nfrags > 1)
+    nfrags = 1;
   for (i = 0; i < nfrags && enqueued; i++)
   {
     struct nn_xmsg *fmsg = NULL;
@@ -922,7 +924,7 @@ int enqueue_sample_wrlock_held (struct writer *wr, seqno_t seq, const struct dds
        eventually we'll have to retry.  But if a packet went out and
        we haven't yet completed transmitting a fragmented message, add
        a HeartbeatFrag. */
-    if (create_fragment_message (wr, seq, plist, serdata, i, prd, &fmsg, isnew) >= 0)
+    if (create_fragment_message (wr, seq, plist, serdata, i, prd, &fmsg, isnew, (i+1) == nfrags ? i : UINT32_MAX) >= 0)
     {
       if (nfrags > 1 && i + 1 < nfrags)
         create_HeartbeatFrag (wr, seq, i, prd, &hmsg);
