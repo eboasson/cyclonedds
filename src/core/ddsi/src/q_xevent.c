@@ -46,6 +46,8 @@
 
 #include "dds/ddsi/sysdeps.h"
 
+#define HACKED_PRINTFS 0
+
 #define EVQTRACE(...) DDS_CTRACE (&evq->gv->logconfig, __VA_ARGS__)
 
 /* This is absolute bottom for signed integers, where -x = x and yet x
@@ -1053,6 +1055,10 @@ static void handle_xevk_acknack (struct nn_xpack *xp, struct xevent *ev, ddsrt_m
     }
     else if (nack_seq)
     {
+#if HACKED_PRINTFS
+      if (!is_builtin_endpoint(pwr->e.guid.entityid, NN_VENDORID_ECLIPSE) && pwr->have_seen_heartbeat)
+        printf ("%"PRId64".%09"PRId64" sending nack seq %"PRId64" frag %"PRIu32"\n", tnow.v / DDS_NSECS_IN_SEC, tnow.v % DDS_NSECS_IN_SEC, nack_seq, nack_frag);
+#endif
       rwn->t_last_nack = tnow;
       rwn->seq_last_nack = nack_seq;
       /* If NACKing, make sure we don't give up too soon: even though

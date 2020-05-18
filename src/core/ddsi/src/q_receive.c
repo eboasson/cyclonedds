@@ -59,6 +59,8 @@
 #include "dds/ddsi/sysdeps.h"
 #include "dds__whc.h"
 
+#define HACKED_PRINTFS 0
+
 /*
 Notes:
 
@@ -709,6 +711,22 @@ static int handle_AckNack (struct receiver_state *rst, ddsrt_etime_t tnow, const
   src.entityid = msg->readerId;
   dst.prefix = rst->dst_guid_prefix;
   dst.entityid = msg->writerId;
+
+#if HACKED_PRINTFS
+  if (!is_builtin_endpoint(src.entityid, NN_VENDORID_ECLIPSE) && (fromSN (msg->readerSNState.bitmap_base) > 1 || (msg->readerSNState.numbits > 0 && nn_bitset_isset (msg->readerSNState.numbits, msg->bits, 0))))
+  {
+    ddsrt_mtime_t tnow_mt = ddsrt_time_monotonic();
+    char buf[4096];
+    int pos = 0;
+    pos += snprintf (buf + pos, sizeof (buf) - (size_t) pos, "%"PRId64".%09"PRId64" ACKNACK(%s#%"PRId32":%"PRId64"/%"PRIu32":", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC, msg->smhdr.flags & ACKNACK_FLAG_FINAL ? "F" : "",
+    *countp, fromSN (msg->readerSNState.bitmap_base), msg->readerSNState.numbits);
+    for (uint32_t i = 0; i < msg->readerSNState.numbits; i++)
+      if ((size_t) pos < sizeof (buf))
+        pos += snprintf (buf + pos, sizeof (buf) - (size_t) pos, "%c", nn_bitset_isset (msg->readerSNState.numbits, msg->bits, i) ? '1' : '0');
+    printf ("%s)\n", buf);
+  }
+#endif
+
   RSTTRACE ("ACKNACK(%s#%"PRId32":%"PRId64"/%"PRIu32":", msg->smhdr.flags & ACKNACK_FLAG_FINAL ? "F" : "",
             *countp, fromSN (msg->readerSNState.bitmap_base), msg->readerSNState.numbits);
   for (uint32_t i = 0; i < msg->readerSNState.numbits; i++)
@@ -1012,6 +1030,13 @@ static int handle_AckNack (struct receiver_state *rst, ddsrt_etime_t tnow, const
   if (msgs_sent && max_seq_in_reply < max_seq_available)
   {
     RSTTRACE (" rexmit#%"PRIu32" maxseq:%"PRId64"<%"PRId64"<=%"PRId64"", msgs_sent, max_seq_in_reply, seq_xmit, wr->seq);
+#if HACKED_PRINTFS
+    if (!is_builtin_endpoint(src.entityid, NN_VENDORID_ECLIPSE))
+    {
+      ddsrt_mtime_t tnow_mt = ddsrt_time_monotonic();
+      printf ("%"PRId64".%09"PRId64" force hearbeat to peer (0)\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC);
+    }
+#endif
     force_heartbeat_to_peer (wr, &whcst, prd, 1);
     hb_sent_in_response = 1;
 
@@ -1025,7 +1050,16 @@ static int handle_AckNack (struct receiver_state *rst, ddsrt_etime_t tnow, const
   /* If "final" flag not set, we must respond with a heartbeat. Do it
      now if we haven't done so already */
   if (!(msg->smhdr.flags & ACKNACK_FLAG_FINAL) && !hb_sent_in_response)
+  {
+#if HACKED_PRINTFS
+    if (!is_builtin_endpoint(src.entityid, NN_VENDORID_ECLIPSE))
+    {
+      ddsrt_mtime_t tnow_mt = ddsrt_time_monotonic();
+      printf ("%"PRId64".%09"PRId64" force hearbeat to peer (1)\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC);
+    }
+#endif
     force_heartbeat_to_peer (wr, &whcst, prd, 0);
+  }
   RSTTRACE (")");
  out:
   ddsrt_mutex_unlock (&wr->e.lock);
@@ -1133,11 +1167,17 @@ static void handle_Heartbeat_helper (struct pwr_rd_match * const wn, struct hand
     if (last_seq > refseq)
     {
       RSTTRACE ("/NAK");
-      if (arg->tnow_mt.v >= wn->t_last_nack.v + rst->gv->config.nack_delay || refseq >= wn->seq_last_nack)
+#if HACKED_PRINTFS
+      if (!is_builtin_endpoint(pwr->e.guid.entityid, NN_VENDORID_ECLIPSE))
+        printf ("%"PRId64".%09"PRId64" HB now: last %"PRId64" ref %"PRId64" prev: dt %.3fms %"PRId64"/%"PRIu32"\n",
+                arg->tnow_mt.v / DDS_NSECS_IN_SEC, arg->tnow_mt.v % DDS_NSECS_IN_SEC,
+                last_seq, refseq, (double) (arg->tnow_mt.v - wn->t_last_nack.v) / 1e6, wn->seq_last_nack, wn->seq_last_nackfrag);
+#endif
+      if (arg->tnow_mt.v >= ddsrt_mtime_add_duration (wn->t_last_nack, rst->gv->config.nack_delay).v || refseq >= wn->seq_last_nack)
         tsched = arg->tnow_mt;
       else
       {
-        tsched.v = arg->tnow_mt.v + rst->gv->config.nack_delay;
+        tsched = ddsrt_mtime_add_duration (arg->tnow_mt, rst->gv->config.nack_delay);
         RSTTRACE ("d");
       }
     }
@@ -1147,6 +1187,10 @@ static void handle_Heartbeat_helper (struct pwr_rd_match * const wn, struct hand
     }
     if (resched_xevent_if_earlier (wn->acknack_xevent, tsched))
     {
+#if HACKED_PRINTFS
+      if (!is_builtin_endpoint(pwr->e.guid.entityid, NN_VENDORID_ECLIPSE))
+        printf ("%"PRId64".%09"PRId64" HB: NACK resched %.3fms\n", arg->tnow_mt.v / DDS_NSECS_IN_SEC, arg->tnow_mt.v % DDS_NSECS_IN_SEC, (double) (tsched.v - arg->tnow_mt.v) / 1e6);
+#endif
       if (rst->gv->config.meas_hb_to_ack_latency && arg->timestamp.v)
         wn->hb_timestamp = arg->timestamp;
     }
@@ -1177,6 +1221,14 @@ static int handle_Heartbeat (struct receiver_state *rst, ddsrt_etime_t tnow, str
   src.entityid = msg->writerId;
   dst.prefix = rst->dst_guid_prefix;
   dst.entityid = msg->readerId;
+
+#if HACKED_PRINTFS
+  if (!is_builtin_endpoint(src.entityid, NN_VENDORID_ECLIPSE) && firstseq <= lastseq)
+  {
+    ddsrt_mtime_t tnow_mt = ddsrt_time_monotonic ();
+    printf("%"PRId64".%09"PRId64" HEARTBEAT(%s%s#%"PRId32":%"PRId64"..%"PRId64")\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC, msg->smhdr.flags & HEARTBEAT_FLAG_FINAL ? "F" : "", msg->smhdr.flags & HEARTBEAT_FLAG_LIVELINESS ? "L" : "", msg->count, firstseq, lastseq);
+  }
+#endif
 
   RSTTRACE ("HEARTBEAT(%s%s#%"PRId32":%"PRId64"..%"PRId64" ", msg->smhdr.flags & HEARTBEAT_FLAG_FINAL ? "F" : "",
     msg->smhdr.flags & HEARTBEAT_FLAG_LIVELINESS ? "L" : "", msg->count, firstseq, lastseq);
@@ -1358,6 +1410,13 @@ static int handle_HeartbeatFrag (struct receiver_state *rst, UNUSED_ARG(ddsrt_et
   dst.prefix = rst->dst_guid_prefix;
   dst.entityid = msg->readerId;
 
+#if HACKED_PRINTFS
+  {
+    ddsrt_mtime_t tnow_mt = ddsrt_time_monotonic();
+    printf("%"PRId64".%09"PRId64" HBFRAG(#%"PRId32":%"PRId64"/[1,%u])\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC, msg->count, seq, fragnum+1);
+  }
+#endif
+
   RSTTRACE ("HEARTBEATFRAG(#%"PRId32":%"PRId64"/[1,%u]", msg->count, seq, fragnum+1);
   if (!rst->forme)
   {
@@ -1480,6 +1539,19 @@ static int handle_NackFrag (struct receiver_state *rst, ddsrt_etime_t tnow, cons
   dst.prefix = rst->dst_guid_prefix;
   dst.entityid = msg->writerId;
 
+#if HACKED_PRINTFS
+  {
+    ddsrt_mtime_t tnow_mt = ddsrt_time_monotonic();
+    char buf[4096];
+    int pos = 0;
+    pos += snprintf (buf + pos, sizeof (buf) - (size_t) pos, "%"PRId64".%09"PRId64" NACKFRAG(#%"PRId32":%"PRId64"/%u/%"PRIu32":", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC, *countp, seq, msg->fragmentNumberState.bitmap_base, msg->fragmentNumberState.numbits);
+    for (uint32_t i = 0; i < msg->fragmentNumberState.numbits; i++)
+      if ((size_t) pos < sizeof (buf))
+        pos += snprintf (buf + pos, sizeof (buf) - (size_t) pos, "%c", nn_bitset_isset (msg->fragmentNumberState.numbits, msg->bits, i) ? '1' : '0');
+    printf ("%s)\n", buf);
+  }
+#endif
+
   RSTTRACE ("NACKFRAG(#%"PRId32":%"PRId64"/%u/%"PRIu32":", *countp, seq, msg->fragmentNumberState.bitmap_base, msg->fragmentNumberState.numbits);
   for (uint32_t i = 0; i < msg->fragmentNumberState.numbits; i++)
     RSTTRACE ("%c", nn_bitset_isset (msg->fragmentNumberState.numbits, msg->bits, i) ? '1' : '0');
@@ -1582,6 +1654,13 @@ static int handle_NackFrag (struct receiver_state *rst, ddsrt_etime_t tnow, cons
        hearbeats will go out at a reasonably high rate for a while */
     struct whc_state whcst;
     whc_get_state(wr->whc, &whcst);
+#if HACKED_PRINTFS
+    if (!is_builtin_endpoint(src.entityid, NN_VENDORID_ECLIPSE))
+    {
+      ddsrt_mtime_t tnow_mt = ddsrt_time_monotonic();
+      printf ("%"PRId64".%09"PRId64" force hearbeat to peer (2)\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC);
+    }
+#endif
     force_heartbeat_to_peer (wr, &whcst, prd, 1);
     writer_hbcontrol_note_asyncwrite (wr, ddsrt_time_monotonic ());
   }
