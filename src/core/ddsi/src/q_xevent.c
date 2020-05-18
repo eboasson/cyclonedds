@@ -827,14 +827,15 @@ static seqno_t next_deliv_seq (const struct proxy_writer *pwr, const seqno_t nex
   return next_deliv_seq;
 }
 
-static void add_AckNack (struct nn_xmsg *msg, struct proxy_writer *pwr, struct pwr_rd_match *rwn, seqno_t *nack_seq)
+static void add_AckNack (struct nn_xmsg *msg, struct proxy_writer *pwr, struct pwr_rd_match *rwn, seqno_t *nack_seq, uint32_t *nack_frag)
 {
   /* If pwr->have_seen_heartbeat == 0, no heartbeat has been received
      by this proxy writer yet, so we'll be sending a pre-emptive
      AckNack.  NACKing data now will most likely cause another NACK
      upon reception of the first heartbeat, and so cause the data to
      be resent twice. */
-  const unsigned max_numbits = 256; /* as spec'd */
+  const unsigned max_numbits = 100;
+
   int notail = 0; /* all known missing ones are nack'd */
   struct nn_reorder *reorder;
   AckNack_t *an;
@@ -850,6 +851,9 @@ static void add_AckNack (struct nn_xmsg *msg, struct proxy_writer *pwr, struct p
   int nackfrag_numbits;
   seqno_t nackfrag_seq = 0;
   seqno_t bitmap_base;
+
+  DDSRT_STATIC_ASSERT (CHAR_BIT * sizeof (nackfrag.bits) == NN_FRAGMENT_NUMBER_SET_MAX_BITS);
+  assert (0 < max_numbits && max_numbits <= NN_FRAGMENT_NUMBER_SET_MAX_BITS);
 
   ASSERT_MUTEX_HELD (pwr->e.lock);
 
