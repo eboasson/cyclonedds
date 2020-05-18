@@ -919,7 +919,37 @@ static void add_AckNack (struct nn_xmsg *msg, struct proxy_writer *pwr, struct p
      Who cares about an answer to an acknowledgment!? -- actually,
      that'd a very useful feature in combination with directed
      heartbeats, or somesuch, to get reliability guarantees. */
-  *nack_seq = (numbits > 0) ? base + numbits : 0;
+  const seqno_t local_nack_seq = (numbits > 0 || nackfrag_numbits > 0) ? base + numbits : 0;
+  const uint32_t local_nack_frag = (nackfrag_numbits > 0) ? nackfrag.set.bitmap_base + nackfrag.set.numbits - 1 : UINT32_MAX;
+
+  /* Suppress a NACK if we're still waiting for the result of the previous NACK (this is mostly for
+     the case the reader explicitly asks for an ACK).
+     FIXME: this function is supposed to add an ACKNACK, not to figure out if it is allowed to do so */
+  if (local_nack_seq > rwn->seq_last_nack || (local_nack_seq == rwn->seq_last_nack && local_nack_frag > rwn->seq_last_nackfrag) ||
+      ddsrt_time_monotonic ().v > ddsrt_mtime_add_duration (rwn->t_last_nack, pwr->e.gv->config.nack_delay).v)
+  {
+    /* A NACK for something not previously NACK'd or NackDelay passed */
+    *nack_seq = local_nack_seq;
+    *nack_frag = local_nack_frag;
+  }
+  else
+  {
+    /* Overlap between this NACK and the previous one and NackDelay has not yet passed: clear numbits and
+       nackfrag_numbits to turn the NACK into an ACK and pretend to the caller nothing scary is going on. */
+#if HACKED_PRINTFS
+    if ((numbits > 0 || nackfrag_numbits > 0) && !is_builtin_endpoint(pwr->e.guid.entityid, NN_VENDORID_ECLIPSE) && pwr->have_seen_heartbeat)
+    {
+      ddsrt_mtime_t tnow = ddsrt_time_monotonic ();
+      printf ("%"PRId64".%09"PRId64" suppressing nack seq/frag %"PRId64"/%"PRIu32" prev %"PRId64"/%"PRIu32" dt %.3fms\n", tnow.v / DDS_NSECS_IN_SEC, tnow.v % DDS_NSECS_IN_SEC, local_nack_seq, local_nack_frag, rwn->seq_last_nack, rwn->seq_last_nackfrag, (double) (tnow.v - rwn->t_last_nack.v) / 1e6);
+    }
+#endif
+
+    numbits = 0;
+    nackfrag_numbits = 0;
+    *nack_seq = 0;
+    *nack_frag = 0;
+  }
+
   if (!pwr->have_seen_heartbeat) {
     /* We must have seen a heartbeat for us to consider setting FINAL */
   } else if (*nack_seq && base + numbits <= last_seq) {
@@ -1024,6 +1054,7 @@ static void handle_xevk_acknack (struct nn_xpack *xp, struct xevent *ev, ddsrt_m
   {
     struct participant *pp = NULL;
     seqno_t nack_seq;
+    uint32_t nack_frag;
 
     if (q_omg_proxy_participant_is_secure(pwr->c.proxypp))
     {
@@ -1046,7 +1077,7 @@ static void handle_xevk_acknack (struct nn_xpack *xp, struct xevent *ev, ddsrt_m
       nn_xmsg_add_timestamp (msg, rwn->hb_timestamp);
       rwn->hb_timestamp.v = 0;
     }
-    add_AckNack (msg, pwr, rwn, &nack_seq);
+    add_AckNack (msg, pwr, rwn, &nack_seq, &nack_frag);
     if (nn_xmsg_size(msg) == 0)
     {
       /* No AckNack added. */
@@ -1061,6 +1092,7 @@ static void handle_xevk_acknack (struct nn_xpack *xp, struct xevent *ev, ddsrt_m
 #endif
       rwn->t_last_nack = tnow;
       rwn->seq_last_nack = nack_seq;
+      rwn->seq_last_nackfrag = nack_frag;
       /* If NACKing, make sure we don't give up too soon: even though
          we're not allowed to send an ACKNACK unless in response to a
          HEARTBEAT, I've seen too many cases of not sending an NACK

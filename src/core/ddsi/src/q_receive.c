@@ -1124,6 +1124,29 @@ struct handle_Heartbeat_helper_arg {
   ddsrt_mtime_t tnow_mt;
 };
 
+static bool sched_nack_for_missing_fragments (struct proxy_writer * const pwr, struct pwr_rd_match const * const m, seqno_t seq, uint32_t maxfragnum, ddsrt_mtime_t tnow_mt, ddsrt_mtime_t *tsched)
+{
+  // tsched only updated if stuff missing
+  DDSRT_STATIC_ASSERT ((NN_FRAGMENT_NUMBER_SET_MAX_BITS % 32) == 0);
+  struct {
+    struct nn_fragment_number_set_header set;
+    uint32_t bits[NN_FRAGMENT_NUMBER_SET_MAX_BITS / 32];
+  } nackfrag;
+  if (nn_defrag_nackmap (pwr->defrag, seq, maxfragnum, &nackfrag.set, nackfrag.bits, NN_FRAGMENT_NUMBER_SET_MAX_BITS) <= 0)
+    return false;
+#if HACKED_PRINTFS
+  printf ("%"PRId64".%09"PRId64" %s now: %"PRId64"/%"PRIu32" prev: dt %.3fms %"PRId64"/%"PRIu32"\n",
+          tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC,
+          (maxfragnum == UINT32_MAX) ? "HB" : "HBFRAG", seq, nackfrag.set.bitmap_base, (double) (tnow_mt.v - m->t_last_nack.v) / 1e6, m->seq_last_nack, m->seq_last_nackfrag);
+#endif
+  if (tnow_mt.v >= ddsrt_mtime_add_duration (m->t_last_nack, pwr->e.gv->config.nack_delay).v ||
+      seq > m->seq_last_nack || (seq == m->seq_last_nack && nackfrag.set.bitmap_base > m->seq_last_nackfrag))
+    *tsched = tnow_mt;
+  else
+    *tsched = ddsrt_mtime_add_duration (tnow_mt, pwr->e.gv->config.nack_delay);
+  return true;
+}
+
 static void handle_Heartbeat_helper (struct pwr_rd_match * const wn, struct handle_Heartbeat_helper_arg * const arg)
 {
   struct receiver_state * const rst = arg->rst;
@@ -1175,6 +1198,8 @@ static void handle_Heartbeat_helper (struct pwr_rd_match * const wn, struct hand
 #endif
       if (arg->tnow_mt.v >= ddsrt_mtime_add_duration (wn->t_last_nack, rst->gv->config.nack_delay).v || refseq >= wn->seq_last_nack)
         tsched = arg->tnow_mt;
+      else if (sched_nack_for_missing_fragments (pwr, wn, refseq + 1, UINT32_MAX, arg->tnow_mt, &tsched))
+        RSTTRACE ("/nackfrag");
       else
       {
         tsched = ddsrt_mtime_add_duration (arg->tnow_mt, rst->gv->config.nack_delay);
@@ -1501,19 +1526,11 @@ static int handle_HeartbeatFrag (struct receiver_state *rst, UNUSED_ARG(ddsrt_et
       RSTTRACE (" no interested reliable readers");
     else
     {
-      /* Check if we are missing something */
-      DDSRT_STATIC_ASSERT ((NN_FRAGMENT_NUMBER_SET_MAX_BITS % 32) == 0);
-      struct {
-        struct nn_fragment_number_set_header set;
-        uint32_t bits[NN_FRAGMENT_NUMBER_SET_MAX_BITS / 32];
-      } nackfrag;
-      if (nn_defrag_nackmap (pwr->defrag, seq, fragnum, &nackfrag.set, nackfrag.bits, NN_FRAGMENT_NUMBER_SET_MAX_BITS) > 0)
+      ddsrt_mtime_t tsched;
+      if (sched_nack_for_missing_fragments (pwr, m, seq, fragnum, ddsrt_time_monotonic (), &tsched))
       {
-        /* Yes we are (note that this potentially also happens for
-           samples we no longer care about) */
-        int64_t delay = rst->gv->config.nack_delay;
         RSTTRACE ("/nackfrag");
-        (void) resched_xevent_if_earlier (m->acknack_xevent, ddsrt_mtime_add_duration (ddsrt_time_monotonic(), delay));
+        (void) resched_xevent_if_earlier (m->acknack_xevent, tsched);
       }
     }
   }
