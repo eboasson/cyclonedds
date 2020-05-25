@@ -15,7 +15,7 @@
 #ifdef DDSI_INCLUDE_SSL
 
 #ifdef _WIN32
-/* supposedly WinSock2 must be included before openssl headers otherwise winsock will be used */
+/* WinSock2 must be included before openssl 1.0.2 headers otherwise winsock will be used */
 #include <WinSock2.h>
 #endif
 #include <openssl/ssl.h>

@@ -806,7 +806,7 @@ static void transmit_sample_lgmsg_unlocked (struct nn_xpack *xp, struct writer *
 #endif
   assert(xp);
   assert((wr->heartbeat_xevent != NULL) == (whcst != NULL));
-  const uint32_t nfrags_lim = nfrags < 100 ? nfrags : 100;
+  const uint32_t nfrags_lim = nfrags < 50 ? nfrags : 50;
   for (uint32_t i = 0; i < nfrags_lim; i++)
   {
     struct nn_xmsg *fmsg = NULL;

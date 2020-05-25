@@ -1047,6 +1047,44 @@ CU_Test(ddsc_waitset_triggering, on_reader, .init=ddsc_waitset_attached_init, .f
 /*************************************************************************************************/
 
 
+/**************************************************************************************************
+ *
+ * This will check if waitset returns immediately when data has already been written related to an attached reader.
+ *
+ * In short:
+ * 1) Attach the reader to the waitset
+ * 2) A different thread will call dds_waitset_wait. This should block because the reader
+ *    hasn't got data yet. We also want it to block to know for sure that it'll wake up.
+ * 3) Write data. This should unblock the other thread that was waiting on the waitset.
+ * 4) A new dds_waitset_wait should return immediately because the status of the reader hasn't
+ *    changed after the first trigger (it didn't read the data).
+ *
+ *************************************************************************************************/
+/*************************************************************************************************/
+CU_Test(ddsc_waitset_triggering, attach_after_trigger, .init=ddsc_waitset_init, .fini=ddsc_waitset_attached_fini)
+{
+    RoundTripModule_DataType sample;
+    dds_attach_t triggered;
+    dds_return_t ret;
+
+    memset(&sample, 0, sizeof(RoundTripModule_DataType));
+
+    /* Only interested in data_available for this test. */
+    ret = dds_set_status_mask(reader, DDS_DATA_AVAILABLE_STATUS);
+    CU_ASSERT_EQUAL_FATAL(ret, DDS_RETCODE_OK);
+
+    ret = dds_write(writer, &sample);
+    CU_ASSERT_EQUAL_FATAL(ret, DDS_RETCODE_OK);
+    ret = dds_triggered(reader);
+    CU_ASSERT_NOT_EQUAL_FATAL(ret, 0);
+
+    ret = dds_waitset_attach (waitset, reader, 314);
+    CU_ASSERT_EQUAL_FATAL(ret, DDS_RETCODE_OK);
+    ret = dds_waitset_wait(waitset, &triggered, 1, 0);
+    CU_ASSERT_EQUAL_FATAL(ret, 1);
+    CU_ASSERT_EQUAL_FATAL(triggered, 314);
+}
+/*************************************************************************************************/
 
 
 /**************************************************************************************************

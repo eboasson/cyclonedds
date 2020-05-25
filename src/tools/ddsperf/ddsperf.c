@@ -2036,7 +2036,7 @@ int main (int argc, char *argv[])
     snprintf (tpname_ping, sizeof (tpname_ping), "DDSPerf%cPing%s", reliable ? 'R' : 'U', tp_suf);
     snprintf (tpname_pong, sizeof (tpname_pong), "DDSPerf%cPong%s", reliable ? 'R' : 'U', tp_suf);
     qos = dds_create_qos ();
-    dds_qset_reliability (qos, reliable ? DDS_RELIABILITY_RELIABLE : DDS_RELIABILITY_BEST_EFFORT, DDS_SECS (1));
+    dds_qset_reliability (qos, reliable ? DDS_RELIABILITY_RELIABLE : DDS_RELIABILITY_BEST_EFFORT, DDS_SECS (10));
     if ((tp_data = dds_create_topic (dp, tp_desc, tpname_data, qos, NULL)) < 0)
       error2 ("dds_create_topic(%s) failed: %d\n", tpname_data, (int) tp_data);
     if ((tp_ping = dds_create_topic (dp, tp_desc, tpname_ping, qos, NULL)) < 0)
@@ -2303,7 +2303,7 @@ int main (int argc, char *argv[])
       if (tnow > tnext + DDS_MSECS (500))
         tnext = tnow + DDS_SECS (1);
       else
-        tnext += DDS_SECS (1);
+        tnext += DDS_SECS (10);
 
       if (rss_init == 0.0 && matchcount >= minmatch && output)
         rss_init = record_cputime_read_rss (cputime_state);
