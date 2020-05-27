@@ -257,7 +257,8 @@ static dds_return_t set_rcvbuf (struct ddsi_domaingv const * const gv, ddsrt_soc
   uint32_t socket_min_rcvbuf_size;
   dds_return_t rc;
 
-  socket_min_rcvbuf_size = min_size->isdefault ? 1048576 : min_size->value;
+  //socket_min_rcvbuf_size = min_size->isdefault ? 1048576 : min_size->value;
+  socket_min_rcvbuf_size = 131072;
   rc = ddsrt_getsockopt (sock, SOL_SOCKET, SO_RCVBUF, &size, &optlen);
   if (rc == DDS_RETCODE_BAD_PARAMETER)
   {
@@ -271,7 +272,7 @@ static dds_return_t set_rcvbuf (struct ddsi_domaingv const * const gv, ddsrt_soc
     return rc;
   }
 
-  if (size < socket_min_rcvbuf_size)
+  if (1||size < socket_min_rcvbuf_size)
   {
     /* make sure the receive buffersize is at least the minimum required */
     size = socket_min_rcvbuf_size;

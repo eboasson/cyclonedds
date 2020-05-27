@@ -189,9 +189,12 @@ struct eseq_stat {
   uint32_t last_size;
 
   /* stats printer state */
-  uint64_t nrecv_ref;
-  uint64_t nlost_ref;
-  uint64_t nrecv_bytes_ref;
+  struct {
+    uint64_t nrecv;
+    uint64_t nlost;
+    uint64_t nrecv_bytes;
+  } ref[10];
+  unsigned refidx;
 };
 
 struct eseq_admin {
@@ -1376,30 +1379,39 @@ static bool print_stats (dds_time_t tref, dds_time_t tnow, dds_time_t tprev, str
   if (submode != SM_NONE)
   {
     struct eseq_admin * const ea = &eseq_admin;
-    uint64_t tot_nrecv = 0, tot_nlost = 0, nrecv = 0, nrecv_bytes = 0, nlost = 0;
+    uint64_t tot_nrecv = 0, tot_nlost = 0, nlost = 0;
+    uint64_t nrecv = 0, nrecv_bytes = 0;
+    uint64_t nrecv10s = 0, nrecv10s_bytes = 0;
     uint32_t last_size = 0;
     ddsrt_mutex_lock (&ea->lock);
     for (uint32_t i = 0; i < ea->nph; i++)
     {
       struct eseq_stat * const x = &ea->stats[i];
+      unsigned refidx1s = (x->refidx == 0) ? (unsigned) (sizeof (x->ref) / sizeof (x->ref[0]) - 1) : (x->refidx - 1);
+      unsigned refidx10s = x->refidx;
       tot_nrecv += x->nrecv;
       tot_nlost += x->nlost;
-      nrecv += x->nrecv - x->nrecv_ref;
-      nlost += x->nlost - x->nlost_ref;
-      nrecv_bytes += x->nrecv_bytes - x->nrecv_bytes_ref;
+      nrecv += x->nrecv - x->ref[refidx1s].nrecv;
+      nlost += x->nlost - x->ref[refidx1s].nlost;
+      nrecv_bytes += x->nrecv_bytes - x->ref[refidx1s].nrecv_bytes;
+      nrecv10s += x->nrecv - x->ref[refidx10s].nrecv;
+      nrecv10s_bytes += x->nrecv_bytes - x->ref[refidx10s].nrecv_bytes;
       last_size = x->last_size;
-      x->nrecv_ref = x->nrecv;
-      x->nlost_ref = x->nlost;
-      x->nrecv_bytes_ref = x->nrecv_bytes;
+      x->ref[x->refidx].nrecv = x->nrecv;
+      x->ref[x->refidx].nlost = x->nlost;
+      x->ref[x->refidx].nrecv_bytes = x->nrecv_bytes;
+      if (++x->refidx == (unsigned) (sizeof (x->ref) / sizeof (x->ref[0])))
+        x->refidx = 0;
     }
     ddsrt_mutex_unlock (&ea->lock);
 
-    if (nrecv > 0)
+    if (nrecv > 0 || 1)
     {
       const double dt = (double) (tnow - tprev);
-      printf ("%s size %"PRIu32" total %"PRIu64" lost %"PRIu64" delta %"PRIu64" lost %"PRIu64" rate %.2f kS/s %.2f Mb/s\n",
+      printf ("%s size %"PRIu32" total %"PRIu64" lost %"PRIu64" delta %"PRIu64" lost %"PRIu64" rate %.2f kS/s %.2f Mb/s (%.2f kS/s %.2f Mb/s)\n",
               prefix, last_size, tot_nrecv, tot_nlost, nrecv, nlost,
-              (double) nrecv * 1e6 / dt, (double) nrecv_bytes * 8 * 1e3 / dt);
+              (double) nrecv * 1e6 / dt, (double) nrecv_bytes * 8 * 1e3 / dt,
+              (double) nrecv10s * 1e6 / (10 * dt), (double) nrecv10s_bytes * 8 * 1e3 / (10 * dt));
       output = true;
     }
   }
@@ -1884,10 +1896,11 @@ int main (int argc, char *argv[])
   ddsrt_thread_t sigtid;
 #endif
   char netload_if[256];
-  double netload_bw = 0;
+  double netload_bw = -1;
   ddsrt_threadattr_init (&attr);
 
   argv0 = argv[0];
+  setlinebuf(stdout);
 
   while ((opt = getopt (argc, argv, "cd:D:i:n:k:uLK:T:Q:R:h")) != EOF)
   {
@@ -1898,10 +1911,14 @@ int main (int argc, char *argv[])
       case 'd': {
         char *col;
         (void) ddsrt_strlcpy (netload_if, optarg, sizeof (netload_if));
-        if ((col = strrchr (netload_if, ':')) == NULL || col == netload_if ||
-            (sscanf (col+1, "%lf%n", &netload_bw, &pos) != 1 || (col+1)[pos] != 0))
-          error3 ("-d %s: expected DEVICE:BANDWIDTH\n", optarg);
-        *col = 0;
+        if ((col = strrchr (netload_if, ':')) == NULL)
+          netload_bw = 0;
+        else
+        {
+          if (col == netload_if || (sscanf (col+1, "%lf%n", &netload_bw, &pos) != 1 || (col+1)[pos] != 0))
+            error3 ("-d %s: expected DEVICE:BANDWIDTH\n", optarg);
+          *col = 0;
+        }
         break;
       }
       case 'D': dur = atof (optarg); if (dur <= 0) dur = HUGE_VAL; break;
@@ -1972,7 +1989,7 @@ int main (int argc, char *argv[])
     baggagesize -= 12;
 
   struct record_netload_state *netload_state;
-  if (netload_bw <= 0)
+  if (netload_bw < 0)
     netload_state = NULL;
   else if ((netload_state = record_netload_new (netload_if, netload_bw)) == NULL)
     error3 ("can't get network utilization information for device %s\n", netload_if);
@@ -2303,7 +2320,7 @@ int main (int argc, char *argv[])
       if (tnow > tnext + DDS_MSECS (500))
         tnext = tnow + DDS_SECS (1);
       else
-        tnext += DDS_SECS (10);
+        tnext += DDS_SECS (1);
 
       if (rss_init == 0.0 && matchcount >= minmatch && output)
         rss_init = record_cputime_read_rss (cputime_state);

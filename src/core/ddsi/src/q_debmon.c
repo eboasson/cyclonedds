@@ -276,7 +276,7 @@ static int print_proxy_participants (struct thread_state1 * const ts1, struct dd
         for (m = ddsrt_avl_iter_first (&wr_readers_treedef, &w->readers, &rdit); m; m = ddsrt_avl_iter_next (&rdit))
         {
           x += cpf (conn, "    rd "PGUIDFMT" (nack %"PRId64" frag %"PRIu32" %"PRId64")\n",
-                    PGUID (m->rd_guid), m->seq_last_nack, m->seq_last_nackfrag, m->t_last_nack.v);
+                    PGUID (m->rd_guid), m->last_nack.seq_end, m->last_nack.frag_end, m->t_last_nack.v);
           switch (m->in_sync)
           {
             case PRMSS_SYNC:

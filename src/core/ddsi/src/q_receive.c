@@ -527,28 +527,6 @@ int add_Gap (struct nn_xmsg *msg, struct writer *wr, struct proxy_reader *prd, s
   return 0;
 }
 
-static void force_heartbeat_to_peer (struct writer *wr, const struct whc_state *whcst, struct proxy_reader *prd, int hbansreq)
-{
-  struct nn_xmsg *m;
-
-  ASSERT_MUTEX_HELD (&wr->e.lock);
-  assert (wr->reliable);
-
-  m = nn_xmsg_new (wr->e.gv->xmsgpool, &wr->e.guid, wr->c.pp, 0, NN_XMSG_KIND_CONTROL);
-  if (nn_xmsg_setdstPRD (m, prd) < 0)
-  {
-    /* If we don't have an address, give up immediately */
-    nn_xmsg_free (m);
-    return;
-  }
-
-  /* Send a Heartbeat just to this peer */
-  add_Heartbeat (m, wr, whcst, hbansreq, 0, prd->e.guid.entityid, 0);
-  ETRACE (wr, "force_heartbeat_to_peer: "PGUIDFMT" -> "PGUIDFMT" - queue for transmit\n",
-          PGUID (wr->e.guid), PGUID (prd->e.guid));
-  qxev_msg (wr->evq, m);
-}
-
 static seqno_t grow_gap_to_next_seq (const struct writer *wr, seqno_t seq)
 {
   seqno_t next_seq = whc_next_seq (wr->whc, seq - 1);
@@ -683,7 +661,63 @@ struct nn_xmsg * nn_gap_info_create_gap(struct writer *wr, struct proxy_reader *
   return m;
 }
 
-static int handle_AckNack (struct receiver_state *rst, ddsrt_etime_t tnow, const AckNack_t *msg, ddsrt_wctime_t timestamp, SubmessageKind_t prev_smid)
+struct defer_hb_state {
+  struct nn_xmsg *m;
+  struct xeventq *evq;
+  uint64_t wr_iid;
+  uint64_t prd_iid;
+};
+
+static void defer_heartbeat_to_peer (struct writer *wr, const struct whc_state *whcst, struct proxy_reader *prd, int hbansreq, struct defer_hb_state *defer_hb_state)
+{
+  ETRACE (wr, "defer_heartbeat_to_peer: "PGUIDFMT" -> "PGUIDFMT" - queue for transmit\n", PGUID (wr->e.guid), PGUID (prd->e.guid));
+
+  if (defer_hb_state->m != NULL)
+  {
+    if (wr->e.iid == defer_hb_state->wr_iid && prd->e.iid == defer_hb_state->prd_iid)
+      return;
+    qxev_msg (wr->evq, defer_hb_state->m);
+  }
+
+  ASSERT_MUTEX_HELD (&wr->e.lock);
+  assert (wr->reliable);
+
+  defer_hb_state->m = nn_xmsg_new (wr->e.gv->xmsgpool, &wr->e.guid, wr->c.pp, 0, NN_XMSG_KIND_CONTROL);
+  if (nn_xmsg_setdstPRD (defer_hb_state->m, prd) < 0)
+  {
+    /* If we don't have an address, give up immediately */
+    nn_xmsg_free (defer_hb_state->m);
+    defer_hb_state->m = NULL;
+  }
+
+  /* Send a Heartbeat just to this peer */
+  add_Heartbeat (defer_hb_state->m, wr, whcst, hbansreq, 0, prd->e.guid.entityid, 0);
+  defer_hb_state->evq = wr->evq;
+}
+
+static void force_heartbeat_to_peer (struct writer *wr, const struct whc_state *whcst, struct proxy_reader *prd, int hbansreq, struct defer_hb_state *defer_hb_state)
+{
+  defer_heartbeat_to_peer (wr, whcst, prd, hbansreq, defer_hb_state);
+  qxev_msg (wr->evq, defer_hb_state->m);
+  defer_hb_state->m = NULL;
+}
+
+static void defer_hb_state_init (struct defer_hb_state *defer_hb_state)
+{
+  defer_hb_state->m = NULL;
+}
+
+static void defer_hb_state_fini (struct ddsi_domaingv * const gv, struct defer_hb_state *defer_hb_state)
+{
+  if (defer_hb_state->m)
+  {
+    GVTRACE ("send_deferred_heartbeat: %"PRIx64" -> %"PRIx64" - queue for transmit\n", defer_hb_state->wr_iid, defer_hb_state->prd_iid);
+    qxev_msg (defer_hb_state->evq, defer_hb_state->m);
+    defer_hb_state->m = NULL;
+  }
+}
+
+static int handle_AckNack (struct receiver_state *rst, ddsrt_etime_t tnow, const AckNack_t *msg, ddsrt_wctime_t timestamp, SubmessageKind_t prev_smid, struct defer_hb_state *defer_hb_state)
 {
   struct proxy_reader *prd;
   struct wr_prd_match *rn;
@@ -883,13 +917,13 @@ static int handle_AckNack (struct receiver_state *rst, ddsrt_etime_t tnow, const
     if (WHCST_ISEMPTY(&whcst))
     {
       RSTTRACE (" whc-empty ");
-      force_heartbeat_to_peer (wr, &whcst, prd, 0);
+      force_heartbeat_to_peer (wr, &whcst, prd, 0, defer_hb_state);
       hb_sent_in_response = 1;
     }
     else
     {
       RSTTRACE (" rebase ");
-      force_heartbeat_to_peer (wr, &whcst, prd, 0);
+      force_heartbeat_to_peer (wr, &whcst, prd, 0, defer_hb_state);
       hb_sent_in_response = 1;
       numbits = rst->gv->config.accelerate_rexmit_block_size;
       seqbase = whcst.min_seq;
@@ -1034,10 +1068,11 @@ static int handle_AckNack (struct receiver_state *rst, ddsrt_etime_t tnow, const
     if (!is_builtin_endpoint(src.entityid, NN_VENDORID_ECLIPSE))
     {
       ddsrt_mtime_t tnow_mt = ddsrt_time_monotonic();
-      printf ("%"PRId64".%09"PRId64" force hearbeat to peer (0)\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC);
+      printf ("%"PRId64".%09"PRId64" force heartbeat to peer (0)\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC);
     }
 #endif
-    force_heartbeat_to_peer (wr, &whcst, prd, 1);
+
+    defer_heartbeat_to_peer (wr, &whcst, prd, 0, defer_hb_state);
     hb_sent_in_response = 1;
 
     /* The primary purpose of hbcontrol_note_asyncwrite is to ensure
@@ -1055,10 +1090,10 @@ static int handle_AckNack (struct receiver_state *rst, ddsrt_etime_t tnow, const
     if (!is_builtin_endpoint(src.entityid, NN_VENDORID_ECLIPSE))
     {
       ddsrt_mtime_t tnow_mt = ddsrt_time_monotonic();
-      printf ("%"PRId64".%09"PRId64" force hearbeat to peer (1)\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC);
+      printf ("%"PRId64".%09"PRId64" force heartbeat to peer (1)\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC);
     }
 #endif
-    force_heartbeat_to_peer (wr, &whcst, prd, 0);
+    defer_heartbeat_to_peer (wr, &whcst, prd, 0, defer_hb_state);
   }
   RSTTRACE (")");
  out:
@@ -1122,29 +1157,155 @@ struct handle_Heartbeat_helper_arg {
   ddsrt_wctime_t timestamp;
   ddsrt_etime_t tnow;
   ddsrt_mtime_t tnow_mt;
+  bool ignore_nackdelay;
 };
 
-static bool sched_nack_for_missing_fragments (struct proxy_writer * const pwr, struct pwr_rd_match const * const m, seqno_t seq, uint32_t maxfragnum, ddsrt_mtime_t tnow_mt, ddsrt_mtime_t *tsched)
+enum needs_nack {
+  NEEDS_NACK_NO,
+  NEEDS_NACK_NOW,
+  NEEDS_NACK_DELAY
+};
+
+static enum needs_nack sched_nack_for_missing_fragments (struct proxy_writer * const pwr, struct pwr_rd_match const * const m, seqno_t seq, uint32_t maxfragnum, ddsrt_mtime_t tnow_mt, bool ignore_nackdelay)
 {
-  // tsched only updated if stuff missing
   DDSRT_STATIC_ASSERT ((NN_FRAGMENT_NUMBER_SET_MAX_BITS % 32) == 0);
   struct {
     struct nn_fragment_number_set_header set;
     uint32_t bits[NN_FRAGMENT_NUMBER_SET_MAX_BITS / 32];
   } nackfrag;
-  if (nn_defrag_nackmap (pwr->defrag, seq, maxfragnum, &nackfrag.set, nackfrag.bits, NN_FRAGMENT_NUMBER_SET_MAX_BITS) <= 0)
-    return false;
+  const seqno_t last_seq = m->filtered ? m->last_seq : pwr->last_seq;
+
 #if HACKED_PRINTFS
-  printf ("%"PRId64".%09"PRId64" %s now: %"PRId64"/%"PRIu32" prev: dt %.3fms %"PRId64"/%"PRIu32"\n",
-          tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC,
-          (maxfragnum == UINT32_MAX) ? "HB" : "HBFRAG", seq, nackfrag.set.bitmap_base, (double) (tnow_mt.v - m->t_last_nack.v) / 1e6, m->seq_last_nack, m->seq_last_nackfrag);
+  // missing_frags was > 0: but -1 means we don't know
+  const int missing_frag_info1 = (nn_defrag_nackmap (pwr->defrag, seq, maxfragnum, &nackfrag.set, nackfrag.bits, NN_FRAGMENT_NUMBER_SET_MAX_BITS) != 0);
+  if (!is_builtin_endpoint(pwr->e.guid.entityid, NN_VENDORID_ECLIPSE))
+    printf ("%"PRId64".%09"PRId64" sched_nack_for_missing_fragments (last %"PRId64" seq %"PRId64" missing_frags %d last_nack %"PRId64"/%"PRIu32" .. %"PRId64"/%"PRIu32"\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC, last_seq, last_seq, missing_frag_info1, m->last_nack.seq_base, m->last_nack.frag_base, m->last_nack.seq_end, m->last_nack.frag_end);
 #endif
-  if (tnow_mt.v >= ddsrt_mtime_add_duration (m->t_last_nack, pwr->e.gv->config.nack_delay).v ||
-      seq > m->seq_last_nack || (seq == m->seq_last_nack && nackfrag.set.bitmap_base > m->seq_last_nackfrag))
-    *tsched = tnow_mt;
+
+  if (seq > last_seq)
+  {
+    // nothing to be NACK'd: we are simply expecting the writer's next-to-be-published sample
+#if HACKED_PRINTFS
+    if (!is_builtin_endpoint(pwr->e.guid.entityid, NN_VENDORID_ECLIPSE))
+      printf ("%"PRId64".%09"PRId64" no nack needed (%"PRId64" > %"PRId64")\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC, seq, last_seq);
+#endif
+    return NEEDS_NACK_NO;
+  }
+
+  const int missing_frag_info = nn_defrag_nackmap (pwr->defrag, seq, maxfragnum, &nackfrag.set, nackfrag.bits, NN_FRAGMENT_NUMBER_SET_MAX_BITS);
+  if (seq == last_seq && missing_frag_info == 0)
+  {
+    // nothing to be NACK'd: we are trying to get the latest known sample, but we're not missing any
+    // fragments that the heartbeats say we should have (if it isn't fragmented, nn_defrag_nackmap
+    // would have returned -1 and so we'd claim there to be missing fragments)
+#if HACKED_PRINTFS
+    if (!is_builtin_endpoint(pwr->e.guid.entityid, NN_VENDORID_ECLIPSE))
+      printf ("%"PRId64".%09"PRId64" no nack needed (%"PRId64" > %"PRId64")\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC, seq, last_seq);
+#endif
+    return NEEDS_NACK_NO;
+  }
+
+  bool progress;
+  if (seq > m->last_nack.seq_end)
+  {
+    // we are expecting something beyond what we last ACK'd, so there's progress in recovering and
+    // the next NACK should go out asap
+#if HACKED_PRINTFS
+    if (!is_builtin_endpoint(pwr->e.guid.entityid, NN_VENDORID_ECLIPSE))
+      printf ("%"PRId64".%09"PRId64" got everything, progress (%"PRId64" > %"PRId64")\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC, seq, m->last_nack.seq_end);
+#endif
+    progress = true;
+  }
+  else if (seq < m->last_nack.seq_end || (seq == m->last_nack.seq_end && missing_frag_info < 0))
+  {
+    // we are expecting an unfragmented sample (or one of unknown fragmentation) covered by the
+    // most recent NACK: if "ignore_nackdelay" is we treat this as progress, else we don't.  If
+    // the caller manages to correctly distinguish between hearbeats at the end of a retransmit
+    // and those sent independently of those, this allows us to quickly make progress even when
+    // the retransmit doesn't cover all that we asked for.
+#if HACKED_PRINTFS
+    if (!is_builtin_endpoint(pwr->e.guid.entityid, NN_VENDORID_ECLIPSE))
+      printf ("%"PRId64".%09"PRId64" nothing interesting (%"PRId64" < %"PRId64")\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC, seq, m->last_nack.seq_base);
+#endif
+    progress = (seq > m->last_nack.seq_base && ignore_nackdelay);
+  }
+  else if (missing_frag_info == 0)
+  {
+    // seq = last_nack.seq_end, we are defragmenting the sample but no fragments are missing, a
+    // case that can occur if a HEARTBEATFRAG is received for that sample (Cyclone DDS does not
+    // send those - at this time - but another implementation might.
+    //
+    // As the writer is telling us the remainder is not yet available, we should NACK.
+#if HACKED_PRINTFS
+    if (!is_builtin_endpoint(pwr->e.guid.entityid, NN_VENDORID_ECLIPSE))
+      printf ("%"PRId64".%09"PRId64" no interesting fragments (%"PRId64" < %"PRId64")\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC, seq, m->last_nack.seq_end);
+#endif
+    // progress = false;
+    return NEEDS_NACK_NO;
+  }
   else
-    *tsched = ddsrt_mtime_add_duration (tnow_mt, pwr->e.gv->config.nack_delay);
-  return true;
+  {
+    // seq == m->last_nack.seq_end, missing_frag_info > 0: we're missing fragments starting
+    // at nackfrag.set.bitmap_base, and so we have progress if this fragment is beyond what
+    // we can reasonably expect (frag_base / frag_end, depending on whether we got here for
+    // a heartbeat sent at the end of retransmitting fragments or one sent randomly.
+    progress = (nackfrag.set.bitmap_base > (ignore_nackdelay ? m->last_nack.frag_base : m->last_nack.frag_end));
+#if HACKED_PRINTFS
+    if (!is_builtin_endpoint(pwr->e.guid.entityid, NN_VENDORID_ECLIPSE))
+    {
+      if (progress)
+        printf ("%"PRId64".%09"PRId64" got everything, progress (%"PRId64" == %"PRId64" frag %"PRIu32" > %"PRIu32")\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC, seq, m->last_nack.seq_end, nackfrag.set.bitmap_base, m->last_nack.frag_end);
+      else
+        printf ("%"PRId64".%09"PRId64" nothing interesting (%"PRId64" < %"PRId64" frag %"PRIu32" <= %"PRIu32")\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC, seq, m->last_nack.seq_end, nackfrag.set.bitmap_base, m->last_nack.frag_end);
+    }
+#endif
+  }
+
+  if (progress || tnow_mt.v >= ddsrt_mtime_add_duration (m->t_last_nack, pwr->e.gv->config.nack_delay).v)
+    return NEEDS_NACK_NOW;
+  else
+    return NEEDS_NACK_DELAY;
+}
+
+static bool sched_acknack_if_needed (struct proxy_writer * const pwr, struct pwr_rd_match * const m, seqno_t seq, uint32_t maxfragnum, ddsrt_mtime_t tnow_mt, bool ignore_nackdelay, bool response_required)
+{
+  /* if no ACKNACK event, nothing to do */
+  if (m->acknack_xevent == NULL)
+    return false;
+
+  ddsrt_mtime_t tsched = DDSRT_MTIME_NEVER;
+  const enum needs_nack needs_nack = sched_nack_for_missing_fragments (pwr, m, seq, maxfragnum, tnow_mt, ignore_nackdelay);
+  switch (needs_nack)
+  {
+    case NEEDS_NACK_NO:
+      break;
+    case NEEDS_NACK_NOW:
+      ETRACE (pwr, "/NAK");
+      tsched = tnow_mt;
+      m->t_earliest_nack.v = 0;
+      break;
+    case NEEDS_NACK_DELAY:
+      ETRACE (pwr, "/NAKd");
+      tsched = ddsrt_mtime_add_duration (tnow_mt, pwr->e.gv->config.nack_delay);
+      break;
+  }
+  if (response_required)
+    tsched = tnow_mt;
+#if HACKED_PRINTFS
+  if (needs_nack != NEEDS_NACK_NO && !is_builtin_endpoint(pwr->e.guid.entityid, NN_VENDORID_ECLIPSE))
+  {
+    const seqno_t last_seq = m->filtered ? m->last_seq : pwr->last_seq;
+    printf ("%"PRId64".%09"PRId64" HB now: last %"PRId64" ref %"PRId64" prev: dt %.3fms %"PRId64"/%"PRIu32"\n",
+            tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC,
+            last_seq, seq-1, (double) (tnow_mt.v - m->t_last_nack.v) / 1e6, m->last_nack.seq_end, m->last_nack.frag_end);
+  }
+#endif
+  const bool isresched = !!resched_xevent_if_earlier (m->acknack_xevent, tsched);
+#if HACKED_PRINTFS
+  if (isresched && !is_builtin_endpoint(pwr->e.guid.entityid, NN_VENDORID_ECLIPSE))
+    printf ("%"PRId64".%09"PRId64" HB: NACK resched %.3fms\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC, (double) (tsched.v - tnow_mt.v) / 1e6);
+#endif
+  return isresched;
 }
 
 static void handle_Heartbeat_helper (struct pwr_rd_match * const wn, struct handle_Heartbeat_helper_arg * const arg)
@@ -1152,7 +1313,7 @@ static void handle_Heartbeat_helper (struct pwr_rd_match * const wn, struct hand
   struct receiver_state * const rst = arg->rst;
   Heartbeat_t const * const msg = arg->msg;
   struct proxy_writer * const pwr = arg->pwr;
-  seqno_t refseq, last_seq;
+  seqno_t refseq;
 
   ASSERT_MUTEX_HELD (&pwr->e.lock);
 
@@ -1167,10 +1328,10 @@ static void handle_Heartbeat_helper (struct pwr_rd_match * const wn, struct hand
      Ack/Nack unfortunately depends on whether the reader is in
      sync. */
   if (wn->in_sync != PRMSS_OUT_OF_SYNC && !wn->filtered)
-    refseq = nn_reorder_next_seq (pwr->reorder) - 1;
+    refseq = nn_reorder_next_seq (pwr->reorder);
   else
-    refseq = nn_reorder_next_seq (wn->u.not_in_sync.reorder) - 1;
-  RSTTRACE (" "PGUIDFMT"@%"PRId64"%s", PGUID (wn->rd_guid), refseq, (wn->in_sync == PRMSS_SYNC) ? "(sync)" : (wn->in_sync == PRMSS_TLCATCHUP) ? "(tlcatchup)" : "");
+    refseq = nn_reorder_next_seq (wn->u.not_in_sync.reorder);
+  RSTTRACE (" "PGUIDFMT"@%"PRId64"%s", PGUID (wn->rd_guid), refseq - 1, (wn->in_sync == PRMSS_SYNC) ? "(sync)" : (wn->in_sync == PRMSS_TLCATCHUP) ? "(tlcatchup)" : "");
 
   /* Reschedule AckNack transmit if deemed appropriate; unreliable
      readers have acknack_xevent == NULL and can't do this.
@@ -1179,46 +1340,10 @@ static void handle_Heartbeat_helper (struct pwr_rd_match * const wn, struct hand
      sync -- indeed, we could simply ignore the destination address in
      the messages we receive and only ever nack each sequence number
      once, regardless of which readers care about it. */
-  if (wn->acknack_xevent)
+  if (sched_acknack_if_needed (pwr, wn, refseq, UINT32_MAX, arg->tnow_mt, arg->ignore_nackdelay, !(msg->smhdr.flags & HEARTBEAT_FLAG_FINAL)))
   {
-    ddsrt_mtime_t tsched = DDSRT_MTIME_NEVER;
-
-    if (wn->filtered)
-      last_seq = wn->last_seq;
-    else
-      last_seq = pwr->last_seq;
-    if (last_seq > refseq)
-    {
-      RSTTRACE ("/NAK");
-#if HACKED_PRINTFS
-      if (!is_builtin_endpoint(pwr->e.guid.entityid, NN_VENDORID_ECLIPSE))
-        printf ("%"PRId64".%09"PRId64" HB now: last %"PRId64" ref %"PRId64" prev: dt %.3fms %"PRId64"/%"PRIu32"\n",
-                arg->tnow_mt.v / DDS_NSECS_IN_SEC, arg->tnow_mt.v % DDS_NSECS_IN_SEC,
-                last_seq, refseq, (double) (arg->tnow_mt.v - wn->t_last_nack.v) / 1e6, wn->seq_last_nack, wn->seq_last_nackfrag);
-#endif
-      if (arg->tnow_mt.v >= ddsrt_mtime_add_duration (wn->t_last_nack, rst->gv->config.nack_delay).v || refseq >= wn->seq_last_nack)
-        tsched = arg->tnow_mt;
-      else if (sched_nack_for_missing_fragments (pwr, wn, refseq + 1, UINT32_MAX, arg->tnow_mt, &tsched))
-        RSTTRACE ("/nackfrag");
-      else
-      {
-        tsched = ddsrt_mtime_add_duration (arg->tnow_mt, rst->gv->config.nack_delay);
-        RSTTRACE ("d");
-      }
-    }
-    else if (!(msg->smhdr.flags & HEARTBEAT_FLAG_FINAL))
-    {
-      tsched = arg->tnow_mt;
-    }
-    if (resched_xevent_if_earlier (wn->acknack_xevent, tsched))
-    {
-#if HACKED_PRINTFS
-      if (!is_builtin_endpoint(pwr->e.guid.entityid, NN_VENDORID_ECLIPSE))
-        printf ("%"PRId64".%09"PRId64" HB: NACK resched %.3fms\n", arg->tnow_mt.v / DDS_NSECS_IN_SEC, arg->tnow_mt.v % DDS_NSECS_IN_SEC, (double) (tsched.v - arg->tnow_mt.v) / 1e6);
-#endif
-      if (rst->gv->config.meas_hb_to_ack_latency && arg->timestamp.v)
-        wn->hb_timestamp = arg->timestamp;
-    }
+    if (pwr->e.gv->config.meas_hb_to_ack_latency && arg->timestamp.v)
+      wn->hb_timestamp = arg->timestamp;
   }
 }
 
@@ -1251,7 +1376,7 @@ static int handle_Heartbeat (struct receiver_state *rst, ddsrt_etime_t tnow, str
   if (!is_builtin_endpoint(src.entityid, NN_VENDORID_ECLIPSE) && firstseq <= lastseq)
   {
     ddsrt_mtime_t tnow_mt = ddsrt_time_monotonic ();
-    printf("%"PRId64".%09"PRId64" HEARTBEAT(%s%s#%"PRId32":%"PRId64"..%"PRId64")\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC, msg->smhdr.flags & HEARTBEAT_FLAG_FINAL ? "F" : "", msg->smhdr.flags & HEARTBEAT_FLAG_LIVELINESS ? "L" : "", msg->count, firstseq, lastseq);
+    printf("%"PRId64".%09"PRId64" HEARTBEAT(%s%s#%"PRId32":%"PRId64"..%"PRId64") %s\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC, msg->smhdr.flags & HEARTBEAT_FLAG_FINAL ? "F" : "", msg->smhdr.flags & HEARTBEAT_FLAG_LIVELINESS ? "L" : "", msg->count, firstseq, lastseq, (dst.entityid.u != NN_ENTITYID_UNKNOWN) ? "directed" : "broadcast");
   }
 #endif
 
@@ -1415,6 +1540,7 @@ static int handle_Heartbeat (struct receiver_state *rst, ddsrt_etime_t tnow, str
   arg.timestamp = timestamp;
   arg.tnow = tnow;
   arg.tnow_mt = ddsrt_time_monotonic ();
+  arg.ignore_nackdelay = (dst.entityid.u != NN_ENTITYID_UNKNOWN && vendor_is_eclipse (rst->vendor));
   handle_forall_destinations (&dst, pwr, (ddsrt_avl_walk_t) handle_Heartbeat_helper, &arg);
   RSTTRACE (")");
 
@@ -1434,6 +1560,7 @@ static int handle_HeartbeatFrag (struct receiver_state *rst, UNUSED_ARG(ddsrt_et
   src.entityid = msg->writerId;
   dst.prefix = rst->dst_guid_prefix;
   dst.entityid = msg->readerId;
+  const bool ignore_nackdelay = (dst.entityid.u != NN_ENTITYID_UNKNOWN && vendor_is_eclipse (rst->vendor));
 
 #if HACKED_PRINTFS
   {
@@ -1479,6 +1606,12 @@ static int handle_HeartbeatFrag (struct receiver_state *rst, UNUSED_ARG(ddsrt_et
     pwr->last_fragnum_reset = 0;
   }
 
+  if (!pwr->have_seen_heartbeat)
+  {
+    ddsrt_mutex_unlock(&pwr->e.lock);
+    return 1;
+  }
+
   /* Defragmenting happens at the proxy writer, readers have nothing
      to do with it.  Here we immediately respond with a NackFrag if we
      discover a missing fragment, which differs significantly from
@@ -1492,54 +1625,73 @@ static int handle_HeartbeatFrag (struct receiver_state *rst, UNUSED_ARG(ddsrt_et
 
     if (nn_reorder_wantsample (pwr->reorder, seq))
     {
-      /* Pick an arbitrary reliable reader's guid for the response --
-         assuming a reliable writer -> unreliable reader is rare, and
-         so scanning the readers is acceptable if the first guess
-         fails */
-      m = ddsrt_avl_root_non_empty (&pwr_readers_treedef, &pwr->readers);
-      if (m->acknack_xevent == NULL)
+      if (ignore_nackdelay)
       {
-        m = ddsrt_avl_find_min (&pwr_readers_treedef, &pwr->readers);
-        while (m && m->acknack_xevent == NULL)
-          m = ddsrt_avl_find_succ (&pwr_readers_treedef, &pwr->readers, m);
+        /* Cyclone currently only ever sends a HEARTBEAT(FRAG) with the
+           destination entity id set AFTER retransmitting any samples
+           that reader requested.  So it makes sense to only interpret
+           those for that reader, and to suppress the NackDelay in a
+           response to it.  But it better be a reliable reader! */
+        m = ddsrt_avl_lookup (&pwr_readers_treedef, &pwr->readers, &dst);
+        if (m && m->acknack_xevent == NULL)
+          m = NULL;
+      }
+      else
+      {
+        /* Pick an arbitrary reliable reader's guid for the response --
+           assuming a reliable writer -> unreliable reader is rare, and
+           so scanning the readers is acceptable if the first guess
+           fails */
+        m = ddsrt_avl_root_non_empty (&pwr_readers_treedef, &pwr->readers);
+        if (m->acknack_xevent == NULL)
+        {
+          m = ddsrt_avl_find_min (&pwr_readers_treedef, &pwr->readers);
+          while (m && m->acknack_xevent == NULL)
+            m = ddsrt_avl_find_succ (&pwr_readers_treedef, &pwr->readers, m);
+        }
       }
     }
     else if (seq < nn_reorder_next_seq (pwr->reorder))
     {
-      /* Check out-of-sync readers -- should add a bit to cheaply test
-         whether there are any (usually there aren't) */
-      m = ddsrt_avl_find_min (&pwr_readers_treedef, &pwr->readers);
-      while (m)
+      if (ignore_nackdelay)
       {
-        if ((m->in_sync == PRMSS_OUT_OF_SYNC) && m->acknack_xevent != NULL && nn_reorder_wantsample (m->u.not_in_sync.reorder, seq))
+        m = ddsrt_avl_lookup (&pwr_readers_treedef, &pwr->readers, &dst);
+        if (m && !(m->in_sync == PRMSS_OUT_OF_SYNC && m->acknack_xevent != NULL && nn_reorder_wantsample (m->u.not_in_sync.reorder, seq)))
         {
-          /* If reader is out-of-sync, and reader is realiable, and
+          /* Ignore if reader is happy or not best-effort */
+          m = NULL;
+        }
+      }
+      else
+      {
+        /* Check out-of-sync readers -- should add a bit to cheaply test
+         whether there are any (usually there aren't) */
+        m = ddsrt_avl_find_min (&pwr_readers_treedef, &pwr->readers);
+        while (m)
+        {
+          if (m->in_sync == PRMSS_OUT_OF_SYNC && m->acknack_xevent != NULL && nn_reorder_wantsample (m->u.not_in_sync.reorder, seq))
+          {
+            /* If reader is out-of-sync, and reader is realiable, and
              reader still wants this particular sample, then use this
              reader to decide which fragments to nack */
-          break;
+            break;
+          }
+          m = ddsrt_avl_find_succ (&pwr_readers_treedef, &pwr->readers, m);
         }
-        m = ddsrt_avl_find_succ (&pwr_readers_treedef, &pwr->readers, m);
       }
     }
 
     if (m == NULL)
       RSTTRACE (" no interested reliable readers");
     else
-    {
-      ddsrt_mtime_t tsched;
-      if (sched_nack_for_missing_fragments (pwr, m, seq, fragnum, ddsrt_time_monotonic (), &tsched))
-      {
-        RSTTRACE ("/nackfrag");
-        (void) resched_xevent_if_earlier (m->acknack_xevent, tsched);
-      }
-    }
+      sched_acknack_if_needed (pwr, m, seq, fragnum, ddsrt_time_monotonic (), ignore_nackdelay, false);
   }
   RSTTRACE (")");
   ddsrt_mutex_unlock (&pwr->e.lock);
   return 1;
 }
 
-static int handle_NackFrag (struct receiver_state *rst, ddsrt_etime_t tnow, const NackFrag_t *msg, SubmessageKind_t prev_smid)
+static int handle_NackFrag (struct receiver_state *rst, ddsrt_etime_t tnow, const NackFrag_t *msg, SubmessageKind_t prev_smid, struct defer_hb_state *defer_hb_state)
 {
   struct proxy_reader *prd;
   struct wr_prd_match *rn;
@@ -1675,10 +1827,10 @@ static int handle_NackFrag (struct receiver_state *rst, ddsrt_etime_t tnow, cons
     if (!is_builtin_endpoint(src.entityid, NN_VENDORID_ECLIPSE))
     {
       ddsrt_mtime_t tnow_mt = ddsrt_time_monotonic();
-      printf ("%"PRId64".%09"PRId64" force hearbeat to peer (2)\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC);
+      printf ("%"PRId64".%09"PRId64" force heartbeat to peer (2)\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC);
     }
 #endif
-    force_heartbeat_to_peer (wr, &whcst, prd, 1);
+    defer_heartbeat_to_peer (wr, &whcst, prd, 0, defer_hb_state);
     writer_hbcontrol_note_asyncwrite (wr, ddsrt_time_monotonic ());
   }
 
@@ -2893,6 +3045,7 @@ static int handle_submsg_sequence
   unsigned char * end = msg + len;
   struct nn_dqueue *deferred_wakeup = NULL;
   SubmessageKind_t prev_smid = SMID_PAD;
+  struct defer_hb_state defer_hb_state;
 
   /* Receiver state is dynamically allocated with lifetime bound to
      the message.  Updates cause a new copy to be created if the
@@ -2922,6 +3075,7 @@ static int handle_submsg_sequence
   rst_live = 0;
   ts_for_latmeas = 0;
   timestamp = DDSRT_WCTIME_INVALID;
+  defer_hb_state_init (&defer_hb_state);
 
   assert (thread_is_asleep ());
   thread_state_awake_fixed_domain (ts1);
@@ -2976,7 +3130,7 @@ static int handle_submsg_sequence
         state = "parse:acknack";
         if (!valid_AckNack (rst, &sm->acknack, submsg_size, byteswap))
           goto malformed;
-        handle_AckNack (rst, tnowE, &sm->acknack, ts_for_latmeas ? timestamp : DDSRT_WCTIME_INVALID, prev_smid);
+        handle_AckNack (rst, tnowE, &sm->acknack, ts_for_latmeas ? timestamp : DDSRT_WCTIME_INVALID, prev_smid, &defer_hb_state);
         ts_for_latmeas = 0;
         break;
       case SMID_HEARTBEAT:
@@ -3039,7 +3193,7 @@ static int handle_submsg_sequence
         state = "parse:nackfrag";
         if (!valid_NackFrag (&sm->nackfrag, submsg_size, byteswap))
           goto malformed;
-        handle_NackFrag (rst, tnowE, &sm->nackfrag, prev_smid);
+        handle_NackFrag (rst, tnowE, &sm->nackfrag, prev_smid, &defer_hb_state);
         ts_for_latmeas = 0;
         break;
       case SMID_HEARTBEAT_FRAG:
@@ -3188,6 +3342,7 @@ static int handle_submsg_sequence
   }
   thread_state_asleep (ts1);
   assert (thread_is_asleep ());
+  defer_hb_state_fini (gv, &defer_hb_state);
   if (deferred_wakeup)
     dd_dqueue_enqueue_trigger (deferred_wakeup);
   return 0;
@@ -3198,6 +3353,7 @@ malformed:
 malformed_asleep:
   assert (thread_is_asleep ());
   malformed_packet_received (rst->gv, msg, submsg, len, state, state_smkind, hdr->vendorid);
+  defer_hb_state_fini (gv, &defer_hb_state);
   if (deferred_wakeup)
     dd_dqueue_enqueue_trigger (deferred_wakeup);
   return -1;
