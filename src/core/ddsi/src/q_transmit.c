@@ -550,7 +550,7 @@ dds_return_t create_fragment_message (struct writer *wr, seqno_t seq, const stru
     return DDS_RETCODE_BAD_PARAMETER;
   }
 
-  fragging = (gv->config.fragment_size < size);
+  fragging = (nfrags * (uint32_t) gv->config.fragment_size < size);
 
   /* INFO_TS: 12 bytes, DataFrag_t: 36 bytes, expected inline QoS: 32 => should be single chunk */
   if ((*pmsg = nn_xmsg_new (gv->xmsgpool, &wr->e.guid, wr->c.pp, sizeof (InfoTimestamp_t) + sizeof (DataFrag_t) + expected_inline_qos_size, xmsg_kind)) == NULL)
@@ -897,6 +897,14 @@ static void transmit_sample_unlocks_wr (struct nn_xpack *xp, struct writer *wr, 
     if (hbansreq >= 2)
       nn_xpack_send (xp, true);
   }
+}
+
+void enqueue_spdp_sample_wrlock_held (struct writer *wr, seqno_t seq, struct ddsi_serdata *serdata, struct proxy_reader *prd)
+{
+  assert (wr->e.guid.entityid.u == NN_ENTITYID_SPDP_BUILTIN_PARTICIPANT_WRITER);
+  struct nn_xmsg *msg = NULL;
+  if (create_fragment_message(wr, seq, NULL, serdata, 0, UINT16_MAX, prd, &msg, 1, UINT32_MAX) >= 0)
+    qxev_msg (wr->evq, msg);
 }
 
 int enqueue_sample_wrlock_held (struct writer *wr, seqno_t seq, const struct ddsi_plist *plist, struct ddsi_serdata *serdata, struct proxy_reader *prd, int isnew)
@@ -1374,7 +1382,10 @@ static int write_sample_eot (struct thread_state1 * const ts1, struct nn_xpack *
     {
       if (wr->heartbeat_xevent)
         writer_hbcontrol_note_asyncwrite (wr, tnow);
-      enqueue_sample_wrlock_held (wr, seq, plist, serdata, NULL, 1);
+      if (wr->e.guid.entityid.u == NN_ENTITYID_SPDP_BUILTIN_PARTICIPANT_WRITER)
+        enqueue_spdp_sample_wrlock_held(wr, seq, serdata, NULL);
+      else
+        enqueue_sample_wrlock_held (wr, seq, plist, serdata, NULL, 1);
       ddsrt_mutex_unlock (&wr->e.lock);
     }
 
