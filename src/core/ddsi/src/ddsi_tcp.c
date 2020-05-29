@@ -1143,6 +1143,12 @@ static int ddsi_tcp_is_valid_port (ddsi_tran_factory_t fact, uint32_t port)
   return (port <= 65535);
 }
 
+static uint32_t ddsi_tcp_receive_buffer_size (ddsi_tran_factory_t fact)
+{
+  (void) fact;
+  return 0;
+}
+
 int ddsi_tcp_init (struct ddsi_domaingv *gv)
 {
   struct ddsi_tran_factory_tcp *fact = ddsrt_malloc (sizeof (*fact));
@@ -1168,6 +1174,7 @@ int ddsi_tcp_init (struct ddsi_domaingv *gv)
   fact->fact.m_is_ssm_mcaddr_fn = ddsi_tcp_is_ssm_mcaddr;
   fact->fact.m_is_nearby_address_fn = ddsi_tcp_is_nearby_address;
   fact->fact.m_is_valid_port_fn = ddsi_tcp_is_valid_port;
+  fact->fact.m_receive_buffer_size_fn = ddsi_tcp_receive_buffer_size;
   ddsi_factory_add (gv, &fact->fact);
 
 #if DDSRT_HAVE_IPV6
