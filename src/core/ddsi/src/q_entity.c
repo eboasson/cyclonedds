@@ -1740,10 +1740,12 @@ static void rebuild_writer_addrset (struct writer *wr)
     wr->rexmit_burst_size_limit = 1024;
   if (wr->rexmit_burst_size_limit > wr->e.gv->config.max_rexmit_burst_size)
     wr->rexmit_burst_size_limit = wr->e.gv->config.max_rexmit_burst_size;
+  if (wr->rexmit_burst_size_limit > UINT32_MAX - UINT16_MAX)
+    wr->rexmit_burst_size_limit = UINT32_MAX - UINT16_MAX;
 
   const uint64_t limit64 = (uint64_t) wr->e.gv->config.init_transmit_extra_pct * (uint64_t) min_receive_buffer_size / 100;
-  if (limit64 > UINT32_MAX)
-    wr->init_burst_size_limit = UINT32_MAX;
+  if (limit64 > UINT32_MAX - UINT16_MAX)
+    wr->init_burst_size_limit = UINT32_MAX - UINT16_MAX;
   else if (limit64 < wr->rexmit_burst_size_limit)
     wr->init_burst_size_limit = wr->rexmit_burst_size_limit;
   else
@@ -3628,7 +3630,8 @@ static void new_writer_guid_common_init (struct writer *wr, const struct ddsi_se
   wr->force_md5_keyhash = 0;
   wr->alive = 1;
   wr->alive_vclock = 0;
-  wr->rexmit_burst_size_limit = UINT32_MAX;
+  wr->init_burst_size_limit = UINT32_MAX - UINT16_MAX;
+  wr->rexmit_burst_size_limit = UINT32_MAX - UINT16_MAX;
 
   wr->status_cb = status_cb;
   wr->status_cb_entity = status_entity;

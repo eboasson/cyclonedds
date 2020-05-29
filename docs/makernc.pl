@@ -72,6 +72,7 @@ my %typehint2xmltype =
    "duration_100ms_1hr" => "String",
    "duration_us_1s" => "String",
    "memsize" => "String",
+   "memsize16" => "String",
    "bandwidth" => "String",
    "standards_conformance" => "Enum",
    "locators" => "Enum",
@@ -99,6 +100,7 @@ my %typehint2unit =
    "duration_us_1s" => "duration",
    "bandwidth" => "bandwidth",
    "memsize" => "memsize",
+   "memsize16" => "memsize",
    "maybe_memsize" => "memsize",
    "maybe_duration_inf" => "duration_inf");
 

@@ -542,7 +542,7 @@ dds_return_t create_fragment_message (struct writer *wr, seqno_t seq, const stru
 
   ASSERT_MUTEX_HELD (&wr->e.lock);
 
-  if (fragnum * gv->config.fragment_size >= size && size > 0)
+  if (fragnum * (uint32_t) gv->config.fragment_size >= size && size > 0)
   {
     /* This is the first chance to detect an attempt at retransmitting
        an non-existent fragment, which a malicious (or buggy) remote
@@ -618,11 +618,11 @@ dds_return_t create_fragment_message (struct writer *wr, seqno_t seq, const stru
 
     frag->fragmentStartingNum = fragnum + 1;
     frag->fragmentsInSubmessage = nfrags;
-    frag->fragmentSize = (unsigned short) gv->config.fragment_size;
+    frag->fragmentSize = gv->config.fragment_size;
     frag->sampleSize = (uint32_t) size;
 
-    fragstart = fragnum * gv->config.fragment_size;
-    fraglen = gv->config.fragment_size * frag->fragmentsInSubmessage;
+    fragstart = fragnum * (uint32_t) gv->config.fragment_size;
+    fraglen = (uint32_t) gv->config.fragment_size * (uint32_t) frag->fragmentsInSubmessage;
     if (fragstart + fraglen > size)
       fraglen = (uint32_t) (size - fragstart);
     ddcmn->octetsToInlineQos = (unsigned short) ((char*) (frag+1) - ((char*) &ddcmn->octetsToInlineQos + 2));
@@ -867,6 +867,8 @@ static void transmit_sample_unlocks_wr (struct nn_xpack *xp, struct writer *wr, 
   {
     ddsrt_mutex_unlock (&wr->e.lock);
     const uint32_t nfrags = (sz + gv->config.fragment_size - 1) / gv->config.fragment_size;
+    assert (wr->init_burst_size_limit <= UINT32_MAX - UINT16_MAX);
+    assert (wr->rexmit_burst_size_limit <= UINT32_MAX - UINT16_MAX);
     const uint32_t max_burst_size = isnew ? wr->init_burst_size_limit : wr->rexmit_burst_size_limit;
     uint32_t nfrags_lim;
     if (sz <= max_burst_size || wr->num_reliable_readers != wr->num_readers)
