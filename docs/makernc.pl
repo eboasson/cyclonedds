@@ -60,7 +60,6 @@ my %typehint2xmltype =
    "int" => "Int",
    "int32" => "Int",
    "uint" => "Int",
-   "uint32" => "Int",
    "natint" => "Int",
    "natint_255" => "Int",
    "domainId" => "String",

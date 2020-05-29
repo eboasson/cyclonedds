@@ -665,7 +665,7 @@ of which the size is at least the minimum of 1025 and FragmentSize.</p>
 
 <p>The unit must be specified explicitly. Recognised units: B (bytes), kB
 & KiB (2<sup>10</sup> bytes), MB & MiB (2<sup>20</sup> bytes), GB & GiB
-(2<sup>30</sup> bytes).</p><p>The default value is: &quot;1280
+(2<sup>30</sup> bytes).</p><p>The default value is: &quot;1400
 B&quot;.</p>""" ] ]
         element FragmentSize {
           memsize
@@ -684,9 +684,28 @@ Internal/FragmentSize.</p>
 
 <p>The unit must be specified explicitly. Recognised units: B (bytes), kB
 & KiB (2<sup>10</sup> bytes), MB & MiB (2<sup>20</sup> bytes), GB & GiB
-(2<sup>30</sup> bytes).</p><p>The default value is: &quot;4096
+(2<sup>30</sup> bytes).</p><p>The default value is: &quot;14720
 B&quot;.</p>""" ] ]
         element MaxMessageSize {
+          memsize
+        }?
+        & [ a:documentation [ xml:lang="en" """
+<p>This element specifies the maximum size of the UDP payload that
+Cyclone DDS will generate. Cyclone DDS will try to maintain this limit
+within the bounds of the DDSI specification, which means that in some
+cases (especially for very low values of MaxMessageSize) larger payloads
+may sporadically be observed (currently up to 1192 B).</p>
+
+<p>On some networks it may be necessary to set this item to keep the
+packetsize below the MTU to prevent IP fragmentation. In those cases, it
+is generally advisable to also consider reducing
+Internal/FragmentSize.</p>
+
+<p>The unit must be specified explicitly. Recognised units: B (bytes), kB
+& KiB (2<sup>10</sup> bytes), MB & MiB (2<sup>20</sup> bytes), GB & GiB
+(2<sup>30</sup> bytes).</p><p>The default value is: &quot;1456
+B&quot;.</p>""" ] ]
+        element MaxRexmitMessageSize {
           memsize
         }?
         & [ a:documentation [ xml:lang="en" """
@@ -816,6 +835,33 @@ compliant. See also Internal/ConservativeBuiltinReaderStartup.</p><p>The
 default value is: &quot;writers&quot;.</p>""" ] ]
         element BuiltinEndpointSet {
           ("full"|"writers"|"minimal")
+        }?
+        & [ a:documentation [ xml:lang="en" """
+<p>Options for configuring limits on the size of transmit bursts.</p>""" ] ]
+        element BurstSize {
+          [ a:documentation [ xml:lang="en" """
+<p>This element specifies how much more than the (presumed or discovered)
+receive buffer size may be sent when transmitting a sample for the first
+time, expressed as a percentage; the remainder will then be handled via
+retransmits. Usually the receivers can keep up with transmitter, at least
+on average, and so generally it is better to hope for the best and
+recover. Besides, the retransmits will be unicast, and so any multicast
+advantage will be lost as well.</p><p>The default value is:
+&quot;4294967295&quot;.</p>""" ] ]
+          element MaxInitTransmit {
+            xsd:integer
+          }?
+          & [ a:documentation [ xml:lang="en" """
+<p>This element specifies the amount of data to be retransmitted in
+response to one NACK.</p>
+
+<p>The unit must be specified explicitly. Recognised units: B (bytes), kB
+& KiB (2<sup>10</sup> bytes), MB & MiB (2<sup>20</sup> bytes), GB & GiB
+(2<sup>30</sup> bytes).</p><p>The default value is: &quot;1
+MiB&quot;.</p>""" ] ]
+          element MaxRexmit {
+            memsize
+          }?
         }?
         & [ a:documentation [ xml:lang="en" """
 <p>The ControlTopic element allows configured whether Cyclone DDS
@@ -968,7 +1014,7 @@ sample that may need to be retransmitted.</p>
 
 <p>The unit must be specified explicitly. Recognised units: B (bytes), kB
 & KiB (2<sup>10</sup> bytes), MB & MiB (2<sup>20</sup> bytes), GB & GiB
-(2<sup>30</sup> bytes).</p><p>The default value is: &quot;50
+(2<sup>30</sup> bytes).</p><p>The default value is: &quot;512
 kB&quot;.</p>""" ] ]
         element MaxQueuedRexmitBytes {
           memsize
@@ -1279,7 +1325,7 @@ this size.</p>
 
 <p>The unit must be specified explicitly. Recognised units: B (bytes), kB
 & KiB (2<sup>10</sup> bytes), MB & MiB (2<sup>20</sup> bytes), GB & GiB
-(2<sup>30</sup> bytes).</p><p>The default value is: &quot;100
+(2<sup>30</sup> bytes).</p><p>The default value is: &quot;500
 kB&quot;.</p>""" ] ]
           element WhcHigh {
             memsize

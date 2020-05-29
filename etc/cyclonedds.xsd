@@ -776,6 +776,7 @@ settings.&lt;/p&gt;</xs:documentation>
         <xs:element minOccurs="0" ref="config:ExternalNetworkMask"/>
         <xs:element minOccurs="0" ref="config:FragmentSize"/>
         <xs:element minOccurs="0" ref="config:MaxMessageSize"/>
+        <xs:element minOccurs="0" ref="config:MaxRexmitMessageSize"/>
         <xs:element minOccurs="0" ref="config:MulticastRecvNetworkInterfaceAddresses"/>
         <xs:element minOccurs="0" ref="config:MulticastTimeToLive"/>
         <xs:element minOccurs="0" ref="config:NetworkInterfaceAddress"/>
@@ -879,7 +880,7 @@ of which the size is at least the minimum of 1025 and FragmentSize.&lt;/p&gt;
 
 &lt;p&gt;The unit must be specified explicitly. Recognised units: B (bytes), kB
 &amp; KiB (2&lt;sup&gt;10&lt;/sup&gt; bytes), MB &amp; MiB (2&lt;sup&gt;20&lt;/sup&gt; bytes), GB &amp; GiB
-(2&lt;sup&gt;30&lt;/sup&gt; bytes).&lt;/p&gt;&lt;p&gt;The default value is: &amp;quot;1280
+(2&lt;sup&gt;30&lt;/sup&gt; bytes).&lt;/p&gt;&lt;p&gt;The default value is: &amp;quot;1400
 B&amp;quot;.&lt;/p&gt;</xs:documentation>
     </xs:annotation>
   </xs:element>
@@ -899,7 +900,27 @@ Internal/FragmentSize.&lt;/p&gt;
 
 &lt;p&gt;The unit must be specified explicitly. Recognised units: B (bytes), kB
 &amp; KiB (2&lt;sup&gt;10&lt;/sup&gt; bytes), MB &amp; MiB (2&lt;sup&gt;20&lt;/sup&gt; bytes), GB &amp; GiB
-(2&lt;sup&gt;30&lt;/sup&gt; bytes).&lt;/p&gt;&lt;p&gt;The default value is: &amp;quot;4096
+(2&lt;sup&gt;30&lt;/sup&gt; bytes).&lt;/p&gt;&lt;p&gt;The default value is: &amp;quot;14720
+B&amp;quot;.&lt;/p&gt;</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="MaxRexmitMessageSize" type="config:memsize">
+    <xs:annotation>
+      <xs:documentation>
+&lt;p&gt;This element specifies the maximum size of the UDP payload that
+Cyclone DDS will generate. Cyclone DDS will try to maintain this limit
+within the bounds of the DDSI specification, which means that in some
+cases (especially for very low values of MaxMessageSize) larger payloads
+may sporadically be observed (currently up to 1192 B).&lt;/p&gt;
+
+&lt;p&gt;On some networks it may be necessary to set this item to keep the
+packetsize below the MTU to prevent IP fragmentation. In those cases, it
+is generally advisable to also consider reducing
+Internal/FragmentSize.&lt;/p&gt;
+
+&lt;p&gt;The unit must be specified explicitly. Recognised units: B (bytes), kB
+&amp; KiB (2&lt;sup&gt;10&lt;/sup&gt; bytes), MB &amp; MiB (2&lt;sup&gt;20&lt;/sup&gt; bytes), GB &amp; GiB
+(2&lt;sup&gt;30&lt;/sup&gt; bytes).&lt;/p&gt;&lt;p&gt;The default value is: &amp;quot;1456
 B&amp;quot;.&lt;/p&gt;</xs:documentation>
     </xs:annotation>
   </xs:element>
@@ -1010,6 +1031,7 @@ reserved. This includes renaming or moving options.&lt;/p&gt;</xs:documentation>
         <xs:element minOccurs="0" ref="config:AssumeMulticastCapable"/>
         <xs:element minOccurs="0" ref="config:AutoReschedNackDelay"/>
         <xs:element minOccurs="0" ref="config:BuiltinEndpointSet"/>
+        <xs:element minOccurs="0" ref="config:BurstSize"/>
         <xs:element minOccurs="0" ref="config:ControlTopic"/>
         <xs:element minOccurs="0" ref="config:DDSI2DirectMaxThreads"/>
         <xs:element minOccurs="0" ref="config:DefragReliableMaxSamples"/>
@@ -1115,6 +1137,43 @@ default value is: &amp;quot;writers&amp;quot;.&lt;/p&gt;</xs:documentation>
         <xs:enumeration value="minimal"/>
       </xs:restriction>
     </xs:simpleType>
+  </xs:element>
+  <xs:element name="BurstSize">
+    <xs:annotation>
+      <xs:documentation>
+&lt;p&gt;Options for configuring limits on the size of transmit bursts.&lt;/p&gt;</xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:all>
+        <xs:element minOccurs="0" ref="config:MaxInitTransmit"/>
+        <xs:element minOccurs="0" ref="config:MaxRexmit"/>
+      </xs:all>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="MaxInitTransmit" type="xs:integer">
+    <xs:annotation>
+      <xs:documentation>
+&lt;p&gt;This element specifies how much more than the (presumed or discovered)
+receive buffer size may be sent when transmitting a sample for the first
+time, expressed as a percentage; the remainder will then be handled via
+retransmits. Usually the receivers can keep up with transmitter, at least
+on average, and so generally it is better to hope for the best and
+recover. Besides, the retransmits will be unicast, and so any multicast
+advantage will be lost as well.&lt;/p&gt;&lt;p&gt;The default value is:
+&amp;quot;4294967295&amp;quot;.&lt;/p&gt;</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="MaxRexmit" type="config:memsize">
+    <xs:annotation>
+      <xs:documentation>
+&lt;p&gt;This element specifies the amount of data to be retransmitted in
+response to one NACK.&lt;/p&gt;
+
+&lt;p&gt;The unit must be specified explicitly. Recognised units: B (bytes), kB
+&amp; KiB (2&lt;sup&gt;10&lt;/sup&gt; bytes), MB &amp; MiB (2&lt;sup&gt;20&lt;/sup&gt; bytes), GB &amp; GiB
+(2&lt;sup&gt;30&lt;/sup&gt; bytes).&lt;/p&gt;&lt;p&gt;The default value is: &amp;quot;1
+MiB&amp;quot;.&lt;/p&gt;</xs:documentation>
+    </xs:annotation>
   </xs:element>
   <xs:element name="ControlTopic">
     <xs:annotation>
@@ -1304,7 +1363,7 @@ sample that may need to be retransmitted.&lt;/p&gt;
 
 &lt;p&gt;The unit must be specified explicitly. Recognised units: B (bytes), kB
 &amp; KiB (2&lt;sup&gt;10&lt;/sup&gt; bytes), MB &amp; MiB (2&lt;sup&gt;20&lt;/sup&gt; bytes), GB &amp; GiB
-(2&lt;sup&gt;30&lt;/sup&gt; bytes).&lt;/p&gt;&lt;p&gt;The default value is: &amp;quot;50
+(2&lt;sup&gt;30&lt;/sup&gt; bytes).&lt;/p&gt;&lt;p&gt;The default value is: &amp;quot;512
 kB&amp;quot;.&lt;/p&gt;</xs:documentation>
     </xs:annotation>
   </xs:element>
@@ -1688,7 +1747,7 @@ this size.&lt;/p&gt;
 
 &lt;p&gt;The unit must be specified explicitly. Recognised units: B (bytes), kB
 &amp; KiB (2&lt;sup&gt;10&lt;/sup&gt; bytes), MB &amp; MiB (2&lt;sup&gt;20&lt;/sup&gt; bytes), GB &amp; GiB
-(2&lt;sup&gt;30&lt;/sup&gt; bytes).&lt;/p&gt;&lt;p&gt;The default value is: &amp;quot;100
+(2&lt;sup&gt;30&lt;/sup&gt; bytes).&lt;/p&gt;&lt;p&gt;The default value is: &amp;quot;500
 kB&amp;quot;.&lt;/p&gt;</xs:documentation>
     </xs:annotation>
   </xs:element>
