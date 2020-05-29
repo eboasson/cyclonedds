@@ -129,7 +129,7 @@ struct wr_prd_match {
   seqno_t max_seq; /* sort-of highest ack'd seq nr in subtree (see augment function) */
   seqno_t seq; /* highest acknowledged seq nr */
   seqno_t last_seq; /* highest seq send to this reader used when filter is applied */
-  int32_t num_reliable_readers_where_seq_equals_max;
+  uint32_t num_reliable_readers_where_seq_equals_max;
   ddsi_guid_t arbitrary_unacked_reader;
   nn_count_t next_acknack; /* next acceptable acknack sequence number */
   nn_count_t next_nackfrag; /* next acceptable nackfrag sequence number */
@@ -301,7 +301,7 @@ struct writer
   ddsrt_etime_t t_rexmit_end; /* time of last 1->0 transition of "retransmitting" */
   ddsrt_etime_t t_whc_high_upd; /* time "whc_high" was last updated for controlled ramp-up of throughput */
   uint32_t num_readers; /* total number of matching PROXY readers */
-  int32_t num_reliable_readers; /* number of matching reliable PROXY readers */
+  uint32_t num_reliable_readers; /* number of matching reliable PROXY readers */
   ddsrt_avl_tree_t readers; /* all matching PROXY readers, see struct wr_prd_match */
   ddsrt_avl_tree_t local_readers; /* all matching LOCAL readers, see struct wr_rd_match */
 #ifdef DDSI_INCLUDE_NETWORK_PARTITIONS
