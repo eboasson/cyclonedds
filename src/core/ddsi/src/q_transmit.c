@@ -218,7 +218,9 @@ struct nn_xmsg *writer_hbcontrol_create_heartbeat (struct writer *wr, const stru
 #ifdef DDSI_INCLUDE_NETWORK_PARTITIONS
     nn_xmsg_setencoderid (msg, wr->partition_id);
 #endif
-    add_Heartbeat (msg, wr, whcst, hbansreq, 0, prd_guid->entityid, issync);
+    // send to all readers in the participant: whether or not the entityid is set affects
+    // the retransmit requests
+    add_Heartbeat (msg, wr, whcst, hbansreq, 0, to_entityid (NN_ENTITYID_UNKNOWN), issync);
   }
 
   /* It is possible that the encoding removed the submessage(s). */

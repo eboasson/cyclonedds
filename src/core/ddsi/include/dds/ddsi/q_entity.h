@@ -149,6 +149,13 @@ enum pwr_rd_match_syncstate {
   PRMSS_OUT_OF_SYNC /* not in sync with proxy writer */
 };
 
+struct last_nack_summary {
+  seqno_t seq_end; /* last seq for which we requested a retransmit */
+  seqno_t seq_base;
+  uint32_t frag_end; /* last fragnum of seq_last_nack for which requested a retransmit */
+  uint32_t frag_base;
+};
+
 struct pwr_rd_match {
   ddsrt_avl_node_t avlnode;
   ddsi_guid_t rd_guid;
@@ -157,9 +164,10 @@ struct pwr_rd_match {
   nn_count_t next_heartbeat; /* next acceptable heartbeat (see also add_proxy_writer_to_reader) */
   ddsrt_wctime_t hb_timestamp; /* time of most recent heartbeat that rescheduled the ack event */
   ddsrt_etime_t t_heartbeat_accepted; /* (local) time a heartbeat was last accepted */
-  ddsrt_mtime_t t_last_nack; /* (local) time we last sent a NACK */  /* FIXME: probably elapsed time is better */
-  seqno_t seq_last_nack; /* last seq for which we requested a retransmit */
+  ddsrt_mtime_t t_last_nack; /* (local) time we last sent a NACK */
+  ddsrt_mtime_t t_earliest_nack; /* (local) time we may again send a NACK */
   seqno_t last_seq; /* last known sequence number from this writer */
+  struct last_nack_summary last_nack;
   struct xevent *acknack_xevent; /* entry in xevent queue for sending acknacks */
   enum pwr_rd_match_syncstate in_sync; /* whether in sync with the proxy writer */
   unsigned filtered:1;

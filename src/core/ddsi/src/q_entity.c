@@ -2525,7 +2525,11 @@ static void proxy_writer_add_connection (struct proxy_writer *pwr, struct reader
   m->hb_timestamp.v = 0;
   m->t_heartbeat_accepted.v = 0;
   m->t_last_nack.v = 0;
-  m->seq_last_nack = 0;
+  m->t_earliest_nack.v = 0;
+  m->last_nack.seq_end = 0;
+  m->last_nack.seq_base = 0;
+  m->last_nack.frag_end = UINT32_MAX;
+  m->last_nack.frag_base = 0;
   m->last_seq = 0;
   m->filtered = 0;
 

@@ -825,7 +825,7 @@ static seqno_t next_deliv_seq (const struct proxy_writer *pwr, const seqno_t nex
   return next_deliv_seq;
 }
 
-static void add_AckNack (struct nn_xmsg *msg, struct proxy_writer *pwr, struct pwr_rd_match *rwn, seqno_t *nack_seq)
+static bool add_AckNack (struct nn_xmsg *msg, const struct proxy_writer *pwr, const struct pwr_rd_match *rwn, bool repeat_nack_allowed, struct last_nack_summary *nack_summary)
 {
   /* If pwr->have_seen_heartbeat == 0, no heartbeat has been received
      by this proxy writer yet, so we'll be sending a pre-emptive
@@ -838,7 +838,7 @@ static void add_AckNack (struct nn_xmsg *msg, struct proxy_writer *pwr, struct p
   AckNack_t *an;
   struct nn_xmsg_marker sm_marker;
   uint32_t i, numbits;
-  seqno_t base, last_seq;
+  seqno_t base;
 
   DDSRT_STATIC_ASSERT ((NN_FRAGMENT_NUMBER_SET_MAX_BITS % 32) == 0);
   struct {
@@ -849,10 +849,12 @@ static void add_AckNack (struct nn_xmsg *msg, struct proxy_writer *pwr, struct p
   seqno_t nackfrag_seq = 0;
   seqno_t bitmap_base;
 
+  DDSRT_STATIC_ASSERT (CHAR_BIT * sizeof (nackfrag.bits) == NN_FRAGMENT_NUMBER_SET_MAX_BITS);
+  assert (0 < max_numbits && max_numbits <= NN_FRAGMENT_NUMBER_SET_MAX_BITS);
+
   ASSERT_MUTEX_HELD (pwr->e.lock);
 
-  /* if in sync, look at proxy writer status, else look at
-     proxy-writer--reader match status */
+  /* if in sync, look at proxy writer status, else look at proxy-writer--reader match status */
   if (rwn->in_sync != PRMSS_OUT_OF_SYNC && !rwn->filtered)
   {
     reorder = pwr->reorder;
@@ -871,24 +873,18 @@ static void add_AckNack (struct nn_xmsg *msg, struct proxy_writer *pwr, struct p
     bitmap_base = nn_reorder_next_seq (reorder);
   }
 
-  if (rwn->filtered)
-    last_seq = rwn->last_seq;
-  else
-    last_seq = pwr->last_seq;
-
   an = nn_xmsg_append (msg, &sm_marker, ACKNACK_SIZE_MAX);
   nn_xmsg_submsg_init (msg, sm_marker, SMID_ACKNACK);
   an->readerId = nn_hton_entityid (rwn->rd_guid.entityid);
   an->writerId = nn_hton_entityid (pwr->e.guid.entityid);
 
-  /* Make bitmap; note that we've made sure to have room for the
-     maximum bitmap size. */
+  /* Make bitmap; note that we've made sure to have room for the maximum bitmap size. */
+  const seqno_t last_seq = rwn->filtered ? rwn->last_seq : pwr->last_seq;
   numbits = nn_reorder_nackmap (reorder, bitmap_base, last_seq, &an->readerSNState, an->bits, max_numbits, notail);
   base = fromSN (an->readerSNState.bitmap_base);
 
-  /* Scan through bitmap, cutting it off at the first missing sample
-     that the defragmenter knows about. Then note the sequence number
-     & add a NACKFRAG for that sample */
+  /* Scan through bitmap, cutting it off at the first missing sample that the defragmenter
+     knows about. Then note the sequence number & add a NACKFRAG for that sample */
   nackfrag_numbits = -1;
   for (i = 0; i < numbits && nackfrag_numbits < 0; i++)
   {
@@ -902,9 +898,9 @@ static void add_AckNack (struct nn_xmsg *msg, struct proxy_writer *pwr, struct p
       fragnum = UINT32_MAX;
     nackfrag_numbits = nn_defrag_nackmap (pwr->defrag, nackfrag_seq, fragnum, &nackfrag.set, nackfrag.bits, max_numbits);
   }
-  if (nackfrag_numbits >= 0) {
-    /* Cut the NACK short, NACKFRAG will be added after the NACK's is
-       properly formatted */
+  if (nackfrag_numbits >= 0)
+  {
+    /* Cut the NACK short, NACKFRAG will be added after the NACK is properly formatted */
     assert (i > 0);
     an->readerSNState.numbits = numbits = i - 1;
   }
@@ -917,18 +913,45 @@ static void add_AckNack (struct nn_xmsg *msg, struct proxy_writer *pwr, struct p
      Who cares about an answer to an acknowledgment!? -- actually,
      that'd a very useful feature in combination with directed
      heartbeats, or somesuch, to get reliability guarantees. */
-  *nack_seq = (numbits > 0) ? base + numbits : 0;
-  if (!pwr->have_seen_heartbeat) {
-    /* We must have seen a heartbeat for us to consider setting FINAL */
-  } else if (*nack_seq && base + numbits <= last_seq) {
-    /* If it's a NACK and it doesn't cover samples all the way up to
-       the highest known sequence number, there's some reason to expect
-       we may to do another round.  For which we need a Heartbeat.
+  const seqno_t local_nack_seq = (numbits > 0 || nackfrag_numbits > 0) ? base + numbits : 0;
+  const uint32_t local_nack_frag = (nackfrag_numbits > 0) ? nackfrag.set.bitmap_base + nackfrag.set.numbits - 1 : UINT32_MAX;
+  bool response_required = !pwr->have_seen_heartbeat;
+  bool is_nack;
 
-       Note: last_seq exists, base is first in bitmap, numbits is
-       length of bitmap, hence less-than-or-equal. */
-  } else {
-    /* An ACK or we think we'll get everything now. */
+  nack_summary->seq_end = local_nack_seq;
+  nack_summary->frag_end = local_nack_frag;
+  nack_summary->seq_base = base;
+  nack_summary->frag_base = (nackfrag_numbits > 0) ? nackfrag.set.bitmap_base : 0;
+
+  /* Suppress a NACK if we're still waiting for the result of the previous NACK (this is mostly for
+     the case the reader explicitly asks for an ACK).
+     FIXME: this function is supposed to add an ACKNACK, not to figure out if it is allowed to do so */
+  if (local_nack_seq == 0)
+    is_nack = false;
+  else if (local_nack_seq > rwn->last_nack.seq_end || (local_nack_seq == rwn->last_nack.seq_end && local_nack_frag > rwn->last_nack.frag_end) || repeat_nack_allowed)
+  {
+    /* A NACK for something not previously NACK'd or NackDelay passed, update nack_{seq,frag} to reflect
+       the changed state */
+    //response_required = true;
+    is_nack = true;
+  }
+  else if ((base > rwn->last_nack.seq_base || (base == rwn->last_nack.seq_base && nackfrag_numbits > 0 && nackfrag.set.bitmap_base > rwn->last_nack.frag_base)))
+  {
+    /* If allowing a NACK through only because it the heartbeat was directed, don't request a response
+       to avoid a feedback loop (the trouble is that we do require another one ...) */
+    is_nack = true;
+  }
+  else
+  {
+    /* Overlap between this NACK and the previous one and NackDelay has not yet passed: clear numbits and
+       nackfrag_numbits to turn the NACK into an ACK and pretend to the caller nothing scary is going on. */
+    numbits = 0;
+    nackfrag_numbits = 0;
+    is_nack = false;
+  }
+
+  if (!response_required) {
+    /* An ACK or we think we'll get everything now, or we are trying to avoid a feedback loops. */
     an->smhdr.flags |= ACKNACK_FLAG_FINAL;
   }
 
@@ -936,7 +959,7 @@ static void add_AckNack (struct nn_xmsg *msg, struct proxy_writer *pwr, struct p
     /* Count field is at a variable offset ... silly DDSI spec. */
     nn_count_t *countp =
       (nn_count_t *) ((char *) an + offsetof (AckNack_t, bits) + NN_SEQUENCE_NUMBER_SET_BITS_SIZE (an->readerSNState.numbits));
-    *countp = ++rwn->count;
+    *countp = rwn->count;
 
     /* Reset submessage size, now that we know the real size, and update
        the offset to the next submessage. */
@@ -974,7 +997,7 @@ static void add_AckNack (struct nn_xmsg *msg, struct proxy_writer *pwr, struct p
     {
       nn_count_t *countp =
         (nn_count_t *) ((char *) nf + offsetof (NackFrag_t, bits) + NN_FRAGMENT_NUMBER_SET_BITS_SIZE (nf->fragmentNumberState.numbits));
-      *countp = ++pwr->nackfragcount;
+      *countp = pwr->nackfragcount;
       nn_xmsg_submsg_setnext (msg, sm_marker);
 
       ETRACE (pwr, " + nackfrag #%"PRId32":%"PRId64"/%u/%"PRIu32":", *countp, fromSN (nf->writerSN), nf->fragmentNumberState.bitmap_base, nf->fragmentNumberState.numbits);
@@ -987,6 +1010,7 @@ static void add_AckNack (struct nn_xmsg *msg, struct proxy_writer *pwr, struct p
   }
 
   ETRACE (pwr, "\n");
+  return is_nack;
 }
 
 static void handle_xevk_acknack (struct nn_xpack *xp, struct xevent *ev, ddsrt_mtime_t tnow)
@@ -1021,7 +1045,6 @@ static void handle_xevk_acknack (struct nn_xpack *xp, struct xevent *ev, ddsrt_m
   if (addrset_any_uc (pwr->c.as, &loc) || addrset_any_mc (pwr->c.as, &loc))
   {
     struct participant *pp = NULL;
-    seqno_t nack_seq;
 
     if (q_omg_proxy_participant_is_secure(pwr->c.proxypp))
     {
@@ -1044,26 +1067,36 @@ static void handle_xevk_acknack (struct nn_xpack *xp, struct xevent *ev, ddsrt_m
       nn_xmsg_add_timestamp (msg, rwn->hb_timestamp);
       rwn->hb_timestamp.v = 0;
     }
-    add_AckNack (msg, pwr, rwn, &nack_seq);
-    if (nn_xmsg_size(msg) == 0)
+
+    struct last_nack_summary nack_summary;
+    const bool is_nack = add_AckNack (msg, pwr, rwn, tnow.v >= rwn->t_earliest_nack.v, &nack_summary);
+    if (nn_xmsg_size (msg) == 0)
     {
       /* No AckNack added. */
       nn_xmsg_free(msg);
       msg = NULL;
     }
-    else if (nack_seq)
+    else
     {
-      rwn->t_last_nack = tnow;
-      rwn->seq_last_nack = nack_seq;
-      /* If NACKing, make sure we don't give up too soon: even though
-         we're not allowed to send an ACKNACK unless in response to a
-         HEARTBEAT, I've seen too many cases of not sending an NACK
-         because the writing side got confused ...  Better to recover
-         eventually. */
-      (void) resched_xevent_if_earlier (ev, ddsrt_mtime_add_duration (tnow, gv->config.auto_resched_nack_delay));
+      rwn->count++;
+      if (is_nack)
+      {
+        if (nack_summary.frag_end != UINT32_MAX)
+          pwr->nackfragcount++;
+
+        rwn->last_nack = nack_summary;
+        rwn->t_last_nack = tnow;
+        rwn->t_earliest_nack = ddsrt_mtime_add_duration (tnow, gv->config.nack_delay);
+        /* If NACKing, make sure we don't give up too soon: even though
+           we're not allowed to send an ACKNACK unless in response to a
+           HEARTBEAT, I've seen too many cases of not sending an NACK
+           because the writing side got confused ...  Better to recover
+           eventually. */
+        (void) resched_xevent_if_earlier (ev, ddsrt_mtime_add_duration (tnow, gv->config.auto_resched_nack_delay));
+      }
+      GVTRACE ("send acknack(rd "PGUIDFMT" -> pwr "PGUIDFMT")\n",
+               PGUID (ev->u.acknack.rd_guid), PGUID (ev->u.acknack.pwr_guid));
     }
-    GVTRACE ("send acknack(rd "PGUIDFMT" -> pwr "PGUIDFMT")\n",
-             PGUID (ev->u.acknack.rd_guid), PGUID (ev->u.acknack.pwr_guid));
   }
   else
   {
