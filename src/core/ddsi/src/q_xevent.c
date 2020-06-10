@@ -825,7 +825,13 @@ static seqno_t next_deliv_seq (const struct proxy_writer *pwr, const seqno_t nex
   return next_deliv_seq;
 }
 
-static bool add_AckNack (struct nn_xmsg *msg, const struct proxy_writer *pwr, const struct pwr_rd_match *rwn, bool repeat_nack_allowed, struct last_nack_summary *nack_summary)
+enum add_AckNack_result {
+  AANR_ACK,             //!< sending an ACK and there's nothing to NACK
+  AANR_SUPPRESSED_NACK, //!< sending an ACK even though there are things to NACK
+  AANR_NACK             //!< sending a NACK
+};
+
+static enum add_AckNack_result add_AckNack (struct nn_xmsg *msg, const struct proxy_writer *pwr, const struct pwr_rd_match *rwn, bool repeat_nack_allowed, struct last_nack_summary *nack_summary)
 {
   /* If pwr->have_seen_heartbeat == 0, no heartbeat has been received
      by this proxy writer yet, so we'll be sending a pre-emptive
@@ -916,7 +922,7 @@ static bool add_AckNack (struct nn_xmsg *msg, const struct proxy_writer *pwr, co
   const seqno_t local_nack_seq = (numbits > 0 || nackfrag_numbits > 0) ? base + numbits : 0;
   const uint32_t local_nack_frag = (nackfrag_numbits > 0) ? nackfrag.set.bitmap_base + nackfrag.set.numbits - 1 : UINT32_MAX;
   bool response_required = !pwr->have_seen_heartbeat;
-  bool is_nack;
+  enum add_AckNack_result result;
 
   nack_summary->seq_end = local_nack_seq;
   nack_summary->frag_end = local_nack_frag;
@@ -927,19 +933,22 @@ static bool add_AckNack (struct nn_xmsg *msg, const struct proxy_writer *pwr, co
      the case the reader explicitly asks for an ACK).
      FIXME: this function is supposed to add an ACKNACK, not to figure out if it is allowed to do so */
   if (local_nack_seq == 0)
-    is_nack = false;
+  {
+    // All expected samples & fragments received
+    result = AANR_ACK;
+  }
   else if (local_nack_seq > rwn->last_nack.seq_end || (local_nack_seq == rwn->last_nack.seq_end && local_nack_frag > rwn->last_nack.frag_end) || repeat_nack_allowed)
   {
     /* A NACK for something not previously NACK'd or NackDelay passed, update nack_{seq,frag} to reflect
        the changed state */
     //response_required = true;
-    is_nack = true;
+    result = AANR_NACK;
   }
   else if ((base > rwn->last_nack.seq_base || (base == rwn->last_nack.seq_base && nackfrag_numbits > 0 && nackfrag.set.bitmap_base > rwn->last_nack.frag_base)))
   {
     /* If allowing a NACK through only because it the heartbeat was directed, don't request a response
        to avoid a feedback loop (the trouble is that we do require another one ...) */
-    is_nack = true;
+    result = AANR_NACK;
   }
   else
   {
@@ -947,7 +956,7 @@ static bool add_AckNack (struct nn_xmsg *msg, const struct proxy_writer *pwr, co
        nackfrag_numbits to turn the NACK into an ACK and pretend to the caller nothing scary is going on. */
     numbits = 0;
     nackfrag_numbits = 0;
-    is_nack = false;
+    result = AANR_SUPPRESSED_NACK;
   }
 
   if (!response_required) {
@@ -1010,7 +1019,7 @@ static bool add_AckNack (struct nn_xmsg *msg, const struct proxy_writer *pwr, co
   }
 
   ETRACE (pwr, "\n");
-  return is_nack;
+  return result;
 }
 
 static void handle_xevk_acknack (struct nn_xpack *xp, struct xevent *ev, ddsrt_mtime_t tnow)
@@ -1064,33 +1073,40 @@ static void handle_xevk_acknack (struct nn_xpack *xp, struct xevent *ev, ddsrt_m
   }
 
   struct last_nack_summary nack_summary;
-  const bool is_nack = add_AckNack (msg, pwr, rwn, tnow.v >= rwn->t_earliest_nack.v, &nack_summary);
+  const enum add_AckNack_result aanr = add_AckNack (msg, pwr, rwn, tnow.v >= rwn->t_earliest_nack.v, &nack_summary);
   if (nn_xmsg_size (msg) == 0)
   {
-    /* No AckNack added. */
-    nn_xmsg_free(msg);
+    // attempting to encode the message may cause it to be dropped
+    nn_xmsg_free (msg);
     msg = NULL;
   }
   else
   {
     rwn->count++;
-    if (is_nack)
+    switch (aanr)
     {
-      if (nack_summary.frag_end != UINT32_MAX)
-        pwr->nackfragcount++;
+      case AANR_ACK:
+        break;
+      case AANR_NACK:
+        if (nack_summary.frag_end != UINT32_MAX)
+          pwr->nackfragcount++;
 
-      rwn->last_nack = nack_summary;
-      rwn->t_last_nack = tnow;
-      rwn->t_earliest_nack = ddsrt_mtime_add_duration (tnow, gv->config.nack_delay);
-      /* If NACKing, make sure we don't give up too soon: even though
-       we're not allowed to send an ACKNACK unless in response to a
-       HEARTBEAT, I've seen too many cases of not sending an NACK
-       because the writing side got confused ...  Better to recover
-       eventually. */
-      (void) resched_xevent_if_earlier (ev, ddsrt_mtime_add_duration (tnow, gv->config.auto_resched_nack_delay));
+        rwn->last_nack = nack_summary;
+        rwn->t_last_nack = tnow;
+        rwn->t_earliest_nack = ddsrt_mtime_add_duration (tnow, gv->config.nack_delay);
+        /* If NACKing, make sure we don't give up too soon: even though
+           we're not allowed to send an ACKNACK unless in response to a
+           HEARTBEAT, I've seen too many cases of not sending an NACK
+           because the writing side got confused ...  Better to recover
+           eventually. */
+        (void) resched_xevent_if_earlier (ev, ddsrt_mtime_add_duration (tnow, gv->config.auto_resched_nack_delay));
+        break;
+      case AANR_SUPPRESSED_NACK:
+        assert (tnow.v < rwn->t_earliest_nack.v);
+        (void) resched_xevent_if_earlier (ev, rwn->t_earliest_nack);
+        break;
     }
-    GVTRACE ("send acknack(rd "PGUIDFMT" -> pwr "PGUIDFMT")\n",
-             PGUID (ev->u.acknack.rd_guid), PGUID (ev->u.acknack.pwr_guid));
+    GVTRACE ("send acknack(rd "PGUIDFMT" -> pwr "PGUIDFMT")\n", PGUID (ev->u.acknack.rd_guid), PGUID (ev->u.acknack.pwr_guid));
   }
 
   if (!pwr->have_seen_heartbeat && tnow.v - rwn->tcreate.v <= DDS_SECS (300))

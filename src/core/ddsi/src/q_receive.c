@@ -1214,6 +1214,8 @@ static bool sched_acknack_if_needed (struct proxy_writer * const pwr, struct pwr
   switch (needs_nack)
   {
     case NEEDS_NACK_NO:
+      if (response_required)
+        tsched = tnow_mt;
       break;
     case NEEDS_NACK_NOW:
       ETRACE (pwr, "/NAK");
@@ -1221,12 +1223,13 @@ static bool sched_acknack_if_needed (struct proxy_writer * const pwr, struct pwr
       m->t_earliest_nack.v = 0;
       break;
     case NEEDS_NACK_DELAY:
+      // if "response_required" is set, the writer is also requesting an ACK; we'll
+      // just delay it, because it is unlikely to make a material difference to the
+      // writer anyway (still not everything acknowledged and retransmits pending).
       ETRACE (pwr, "/NAKd");
       tsched = ddsrt_mtime_add_duration (tnow_mt, pwr->e.gv->config.nack_delay);
       break;
   }
-  if (response_required)
-    tsched = tnow_mt;
   const bool isresched = !!resched_xevent_if_earlier (m->acknack_xevent, tsched);
   return isresched;
 }
