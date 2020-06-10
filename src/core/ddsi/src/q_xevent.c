@@ -1028,7 +1028,6 @@ static void handle_xevk_acknack (struct nn_xpack *xp, struct xevent *ev, ddsrt_m
   struct proxy_writer *pwr;
   struct nn_xmsg *msg;
   struct pwr_rd_match *rwn;
-  nn_locator_t loc;
 
   if ((pwr = entidx_lookup_proxy_writer_guid (gv->entity_index, &ev->u.acknack.pwr_guid)) == NULL)
   {
@@ -1042,67 +1041,56 @@ static void handle_xevk_acknack (struct nn_xpack *xp, struct xevent *ev, ddsrt_m
     return;
   }
 
-  if (addrset_any_uc (pwr->c.as, &loc) || addrset_any_mc (pwr->c.as, &loc))
+  struct participant *pp = NULL;
+  if (q_omg_proxy_participant_is_secure (pwr->c.proxypp))
   {
-    struct participant *pp = NULL;
+    struct reader *rd = entidx_lookup_reader_guid(pwr->e.gv->entity_index, &ev->u.acknack.rd_guid);
+    if (rd)
+      pp = rd->c.pp;
+  }
 
-    if (q_omg_proxy_participant_is_secure(pwr->c.proxypp))
-    {
-      struct reader *rd = entidx_lookup_reader_guid(pwr->e.gv->entity_index, &ev->u.acknack.rd_guid);
+  if ((msg = nn_xmsg_new (gv->xmsgpool, &ev->u.acknack.rd_guid, pp, ACKNACK_SIZE_MAX, NN_XMSG_KIND_CONTROL)) == NULL)
+    goto outofmem;
+  nn_xmsg_setdstPWR (msg, pwr);
+  if (gv->config.meas_hb_to_ack_latency && rwn->hb_timestamp.v)
+  {
+    /* If HB->ACK latency measurement is enabled, and we have a
+       timestamp available, add it and clear the time stamp.  There
+       is no real guarantee that the two match, but I haven't got a
+       solution for that yet ...  If adding the time stamp fails,
+       too bad, but no reason to get worried. */
+    nn_xmsg_add_timestamp (msg, rwn->hb_timestamp);
+    rwn->hb_timestamp.v = 0;
+  }
 
-      if (rd)
-        pp = rd->c.pp;
-    }
-
-    if ((msg = nn_xmsg_new (gv->xmsgpool, &ev->u.acknack.rd_guid, pp, ACKNACK_SIZE_MAX, NN_XMSG_KIND_CONTROL)) == NULL)
-      goto outofmem;
-    nn_xmsg_setdst1 (gv, msg, &ev->u.acknack.pwr_guid.prefix, &loc);
-    if (gv->config.meas_hb_to_ack_latency && rwn->hb_timestamp.v)
-    {
-      /* If HB->ACK latency measurement is enabled, and we have a
-         timestamp available, add it and clear the time stamp.  There
-         is no real guarantee that the two match, but I haven't got a
-         solution for that yet ...  If adding the time stamp fails,
-         too bad, but no reason to get worried. */
-      nn_xmsg_add_timestamp (msg, rwn->hb_timestamp);
-      rwn->hb_timestamp.v = 0;
-    }
-
-    struct last_nack_summary nack_summary;
-    const bool is_nack = add_AckNack (msg, pwr, rwn, tnow.v >= rwn->t_earliest_nack.v, &nack_summary);
-    if (nn_xmsg_size (msg) == 0)
-    {
-      /* No AckNack added. */
-      nn_xmsg_free(msg);
-      msg = NULL;
-    }
-    else
-    {
-      rwn->count++;
-      if (is_nack)
-      {
-        if (nack_summary.frag_end != UINT32_MAX)
-          pwr->nackfragcount++;
-
-        rwn->last_nack = nack_summary;
-        rwn->t_last_nack = tnow;
-        rwn->t_earliest_nack = ddsrt_mtime_add_duration (tnow, gv->config.nack_delay);
-        /* If NACKing, make sure we don't give up too soon: even though
-           we're not allowed to send an ACKNACK unless in response to a
-           HEARTBEAT, I've seen too many cases of not sending an NACK
-           because the writing side got confused ...  Better to recover
-           eventually. */
-        (void) resched_xevent_if_earlier (ev, ddsrt_mtime_add_duration (tnow, gv->config.auto_resched_nack_delay));
-      }
-      GVTRACE ("send acknack(rd "PGUIDFMT" -> pwr "PGUIDFMT")\n",
-               PGUID (ev->u.acknack.rd_guid), PGUID (ev->u.acknack.pwr_guid));
-    }
+  struct last_nack_summary nack_summary;
+  const bool is_nack = add_AckNack (msg, pwr, rwn, tnow.v >= rwn->t_earliest_nack.v, &nack_summary);
+  if (nn_xmsg_size (msg) == 0)
+  {
+    /* No AckNack added. */
+    nn_xmsg_free(msg);
+    msg = NULL;
   }
   else
   {
-    GVTRACE ("skip acknack(rd "PGUIDFMT" -> pwr "PGUIDFMT"): no address\n",
+    rwn->count++;
+    if (is_nack)
+    {
+      if (nack_summary.frag_end != UINT32_MAX)
+        pwr->nackfragcount++;
+
+      rwn->last_nack = nack_summary;
+      rwn->t_last_nack = tnow;
+      rwn->t_earliest_nack = ddsrt_mtime_add_duration (tnow, gv->config.nack_delay);
+      /* If NACKing, make sure we don't give up too soon: even though
+       we're not allowed to send an ACKNACK unless in response to a
+       HEARTBEAT, I've seen too many cases of not sending an NACK
+       because the writing side got confused ...  Better to recover
+       eventually. */
+      (void) resched_xevent_if_earlier (ev, ddsrt_mtime_add_duration (tnow, gv->config.auto_resched_nack_delay));
+    }
+    GVTRACE ("send acknack(rd "PGUIDFMT" -> pwr "PGUIDFMT")\n",
              PGUID (ev->u.acknack.rd_guid), PGUID (ev->u.acknack.pwr_guid));
-    msg = NULL;
   }
 
   if (!pwr->have_seen_heartbeat && tnow.v - rwn->tcreate.v <= DDS_SECS (300))
@@ -1565,20 +1553,14 @@ void qxev_prd_entityid (struct proxy_reader *prd, const ddsi_guid_t *guid)
   if (! gv->xevents->tev_conn->m_connless)
   {
     msg = nn_xmsg_new (gv->xmsgpool, guid, NULL, sizeof (EntityId_t), NN_XMSG_KIND_CONTROL);
-    if (nn_xmsg_setdstPRD (msg, prd) == 0)
-    {
-      GVTRACE ("  qxev_prd_entityid (%"PRIx32":%"PRIx32":%"PRIx32")\n", PGUIDPREFIX (guid->prefix));
-      nn_xmsg_add_entityid (msg);
-      ddsrt_mutex_lock (&gv->xevents->lock);
-      ev = qxev_common_nt (gv->xevents, XEVK_ENTITYID);
-      ev->u.entityid.msg = msg;
-      qxev_insert_nt (ev);
-      ddsrt_mutex_unlock (&gv->xevents->lock);
-    }
-    else
-    {
-      nn_xmsg_free (msg);
-    }
+    nn_xmsg_setdstPRD (msg, prd);
+    GVTRACE ("  qxev_prd_entityid (%"PRIx32":%"PRIx32":%"PRIx32")\n", PGUIDPREFIX (guid->prefix));
+    nn_xmsg_add_entityid (msg);
+    ddsrt_mutex_lock (&gv->xevents->lock);
+    ev = qxev_common_nt (gv->xevents, XEVK_ENTITYID);
+    ev->u.entityid.msg = msg;
+    qxev_insert_nt (ev);
+    ddsrt_mutex_unlock (&gv->xevents->lock);
   }
 }
 
@@ -1593,20 +1575,14 @@ void qxev_pwr_entityid (struct proxy_writer *pwr, const ddsi_guid_t *guid)
   if (! pwr->evq->tev_conn->m_connless)
   {
     msg = nn_xmsg_new (gv->xmsgpool, guid, NULL, sizeof (EntityId_t), NN_XMSG_KIND_CONTROL);
-    if (nn_xmsg_setdstPWR (msg, pwr) == 0)
-    {
-      GVTRACE ("  qxev_pwr_entityid (%"PRIx32":%"PRIx32":%"PRIx32")\n", PGUIDPREFIX (guid->prefix));
-      nn_xmsg_add_entityid (msg);
-      ddsrt_mutex_lock (&pwr->evq->lock);
-      ev = qxev_common_nt (pwr->evq, XEVK_ENTITYID);
-      ev->u.entityid.msg = msg;
-      qxev_insert_nt (ev);
-      ddsrt_mutex_unlock (&pwr->evq->lock);
-    }
-    else
-    {
-      nn_xmsg_free (msg);
-    }
+    nn_xmsg_setdstPWR (msg, pwr);
+    GVTRACE ("  qxev_pwr_entityid (%"PRIx32":%"PRIx32":%"PRIx32")\n", PGUIDPREFIX (guid->prefix));
+    nn_xmsg_add_entityid (msg);
+    ddsrt_mutex_lock (&pwr->evq->lock);
+    ev = qxev_common_nt (pwr->evq, XEVK_ENTITYID);
+    ev->u.entityid.msg = msg;
+    qxev_insert_nt (ev);
+    ddsrt_mutex_unlock (&pwr->evq->lock);
   }
 }
 

@@ -634,26 +634,19 @@ struct nn_xmsg * nn_gap_info_create_gap(struct writer *wr, struct proxy_reader *
   nn_xmsg_setencoderid (m, wr->partition_id);
 #endif
 
-  if (nn_xmsg_setdstPRD (m, prd) < 0)
+  nn_xmsg_setdstPRD (m, prd);
+  add_Gap (m, wr, prd, gi->gapstart, gi->gapend, gi->gapnumbits, gi->gapbits);
+  if (nn_xmsg_size(m) == 0)
   {
     nn_xmsg_free (m);
     m = NULL;
   }
   else
   {
-    add_Gap (m, wr, prd, gi->gapstart, gi->gapend, gi->gapnumbits, gi->gapbits);
-    if (nn_xmsg_size(m) == 0)
-    {
-      nn_xmsg_free (m);
-      m = NULL;
-    }
-    else
-    {
-      unsigned i;
-      ETRACE (wr, " FXGAP%"PRId64"..%"PRId64"/%d:", gi->gapstart, gi->gapend, gi->gapnumbits);
-      for (i = 0; i < gi->gapnumbits; i++)
-        ETRACE (wr, "%c", nn_bitset_isset (gi->gapnumbits, gi->gapbits, i) ? '1' : '0');
-    }
+    unsigned i;
+    ETRACE (wr, " FXGAP%"PRId64"..%"PRId64"/%d:", gi->gapstart, gi->gapend, gi->gapnumbits);
+    for (i = 0; i < gi->gapnumbits; i++)
+      ETRACE (wr, "%c", nn_bitset_isset (gi->gapnumbits, gi->gapbits, i) ? '1' : '0');
   }
 
   return m;
@@ -681,14 +674,7 @@ static void defer_heartbeat_to_peer (struct writer *wr, const struct whc_state *
   assert (wr->reliable);
 
   defer_hb_state->m = nn_xmsg_new (wr->e.gv->xmsgpool, &wr->e.guid, wr->c.pp, 0, NN_XMSG_KIND_CONTROL);
-  if (nn_xmsg_setdstPRD (defer_hb_state->m, prd) < 0)
-  {
-    /* If we don't have an address, give up immediately */
-    nn_xmsg_free (defer_hb_state->m);
-    defer_hb_state->m = NULL;
-  }
-
-  /* Send a Heartbeat just to this peer */
+  nn_xmsg_setdstPRD (defer_hb_state->m, prd);
   add_Heartbeat (defer_hb_state->m, wr, whcst, hbansreq, 0, prd->e.guid.entityid, 0);
   defer_hb_state->evq = wr->evq;
   defer_hb_state->wr_iid = wr->e.iid;
@@ -1718,15 +1704,10 @@ static int handle_NackFrag (struct receiver_state *rst, ddsrt_etime_t tnow, cons
 #ifdef DDSI_INCLUDE_NETWORK_PARTITIONS
     nn_xmsg_setencoderid (m, wr->partition_id);
 #endif
-    if (nn_xmsg_setdstPRD (m, prd) < 0)
-      nn_xmsg_free (m);
-    else
-    {
-      /* length-1 bitmap with the bit clear avoids the illegal case of a
-       length-0 bitmap */
-      add_Gap (m, wr, prd, seq, seq+1, 1, &zero);
-      qxev_msg (wr->evq, m);
-    }
+    nn_xmsg_setdstPRD (m, prd);
+    /* length-1 bitmap with the bit clear avoids the illegal case of a length-0 bitmap */
+    add_Gap (m, wr, prd, seq, seq+1, 1, &zero);
+    qxev_msg (wr->evq, m);
   }
   if (seq <= writer_read_seq_xmit (wr))
   {
