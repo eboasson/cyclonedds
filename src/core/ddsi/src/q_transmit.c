@@ -770,13 +770,12 @@ static int must_skip_frag (const char *frags_to_skip, unsigned frag)
 }
 #endif
 
-static void transmit_sample_lgmsg_unlocked (struct nn_xpack *xp, struct writer *wr, const struct whc_state *whcst, seqno_t seq, const struct ddsi_plist *plist, struct ddsi_serdata *serdata, struct proxy_reader *prd, int isnew, uint32_t nfrags, uint32_t nfrags_lim)
+static void transmit_sample_lgmsg_unlocks_wr (struct nn_xpack *xp, struct writer *wr, seqno_t seq, const struct ddsi_plist *plist, struct ddsi_serdata *serdata, struct proxy_reader *prd, int isnew, uint32_t nfrags, uint32_t nfrags_lim)
 {
 #if 0
   const char *frags_to_skip = getenv ("SKIPFRAGS");
 #endif
   assert(xp);
-  assert((wr->heartbeat_xevent != NULL) == (whcst != NULL));
   assert(0 < nfrags_lim && nfrags_lim <= nfrags);
   uint32_t nf_in_submsg = isnew ? (wr->e.gv->config.max_msg_size / wr->e.gv->config.fragment_size) : 1;
   if (nf_in_submsg == 0)
@@ -792,6 +791,7 @@ static void transmit_sample_lgmsg_unlocked (struct nn_xpack *xp, struct writer *
     if (must_skip_frag (frags_to_skip, i))
       continue;
 #endif
+
     if (nf_in_submsg > nfrags_lim - i)
       nf_in_submsg = nfrags_lim - i;
 
@@ -799,34 +799,18 @@ static void transmit_sample_lgmsg_unlocked (struct nn_xpack *xp, struct writer *
        eventually we'll have to retry.  But if a packet went out and
        we haven't yet completed transmitting a fragmented message, add
        a HeartbeatFrag. */
-    ddsrt_mutex_lock (&wr->e.lock);
     ret = create_fragment_message (wr, seq, plist, serdata, i, (uint16_t) nf_in_submsg, prd, &fmsg, isnew, i + nf_in_submsg == nfrags_lim ? nfrags - 1 : UINT32_MAX);
-    if (ret >= 0)
+    if (ret >= 0 && i + nf_in_submsg < nfrags_lim && wr->heartbeat_xevent)
     {
-      if (nfrags > 1 && i + 1 < nfrags)
-        create_HeartbeatFrag (wr, seq, i, prd, &hmsg);
+      // more fragment messages to come
+      create_HeartbeatFrag (wr, seq, i + nf_in_submsg - 1, prd, &hmsg);
     }
     ddsrt_mutex_unlock (&wr->e.lock);
 
     if(fmsg) nn_xpack_addmsg (xp, fmsg, 0);
     if(hmsg) nn_xpack_addmsg (xp, hmsg, 0);
-  }
 
-  /* Note: wr->heartbeat_xevent != NULL <=> wr is reliable */
-  if (wr->heartbeat_xevent)
-  {
-    struct nn_xmsg *msg = NULL;
-    int hbansreq;
-    assert (whcst != NULL);
     ddsrt_mutex_lock (&wr->e.lock);
-    msg = writer_hbcontrol_piggyback (wr, whcst, serdata->twrite, nn_xpack_packetid (xp), &hbansreq);
-    ddsrt_mutex_unlock (&wr->e.lock);
-    if (msg)
-    {
-      nn_xpack_addmsg (xp, msg, 0);
-      if (hbansreq >= 2)
-        nn_xpack_send (xp, true);
-    }
   }
 }
 
@@ -834,7 +818,8 @@ static void transmit_sample_unlocks_wr (struct nn_xpack *xp, struct writer *wr, 
 {
   /* on entry: &wr->e.lock held; on exit: lock no longer held */
   struct ddsi_domaingv const * const gv = wr->e.gv;
-  struct nn_xmsg *fmsg;
+  struct nn_xmsg *hmsg = NULL;
+  int hbansreq = 0;
   uint32_t sz;
   assert(xp);
   assert((wr->heartbeat_xevent != NULL) == (whcst != NULL));
@@ -842,42 +827,33 @@ static void transmit_sample_unlocks_wr (struct nn_xpack *xp, struct writer *wr, 
   sz = ddsi_serdata_size (serdata);
   if (sz > gv->config.fragment_size || !isnew || plist != NULL || prd != NULL || q_omg_writer_is_submessage_protected(wr))
   {
-    ddsrt_mutex_unlock (&wr->e.lock);
-    const uint32_t nfrags = (sz + gv->config.fragment_size - 1) / gv->config.fragment_size;
     assert (wr->init_burst_size_limit <= UINT32_MAX - UINT16_MAX);
     assert (wr->rexmit_burst_size_limit <= UINT32_MAX - UINT16_MAX);
     const uint32_t max_burst_size = isnew ? wr->init_burst_size_limit : wr->rexmit_burst_size_limit;
+    const uint32_t nfrags = (sz + gv->config.fragment_size - 1) / gv->config.fragment_size;
     uint32_t nfrags_lim;
     if (sz <= max_burst_size || wr->num_reliable_readers != wr->num_readers)
       nfrags_lim = nfrags; // if it fits or if there are best-effort readers, send it in its entirety
     else
       nfrags_lim = (max_burst_size + gv->config.fragment_size - 1) / gv->config.fragment_size;
-    transmit_sample_lgmsg_unlocked (xp, wr, whcst, seq, plist, serdata, prd, isnew, nfrags, nfrags_lim);
-    return;
-  }
-  else if (create_fragment_message_simple (wr, seq, serdata, &fmsg) < 0)
-  {
-    ddsrt_mutex_unlock (&wr->e.lock);
-    return;
+
+    transmit_sample_lgmsg_unlocks_wr (xp, wr, seq, plist, serdata, prd, isnew, nfrags, nfrags_lim);
   }
   else
   {
-    int hbansreq = 0;
-    struct nn_xmsg *hmsg;
-
-    /* Note: wr->heartbeat_xevent != NULL <=> wr is reliable */
-    if (wr->heartbeat_xevent)
-      hmsg = writer_hbcontrol_piggyback (wr, whcst, serdata->twrite, nn_xpack_packetid (xp), &hbansreq);
-    else
-      hmsg = NULL;
-
-    ddsrt_mutex_unlock (&wr->e.lock);
-    nn_xpack_addmsg (xp, fmsg, 0);
-    if(hmsg)
-      nn_xpack_addmsg (xp, hmsg, 0);
-    if (hbansreq >= 2)
-      nn_xpack_send (xp, true);
+    struct nn_xmsg *fmsg;
+    if (create_fragment_message_simple (wr, seq, serdata, &fmsg) >= 0)
+      nn_xpack_addmsg (xp, fmsg, 0);
   }
+
+  if (wr->heartbeat_xevent)
+    hmsg = writer_hbcontrol_piggyback (wr, whcst, serdata->twrite, nn_xpack_packetid (xp), &hbansreq);
+  ddsrt_mutex_unlock (&wr->e.lock);
+
+  if(hmsg)
+    nn_xpack_addmsg (xp, hmsg, 0);
+  if (hbansreq >= 2)
+    nn_xpack_send (xp, true);
 }
 
 void enqueue_spdp_sample_wrlock_held (struct writer *wr, seqno_t seq, struct ddsi_serdata *serdata, struct proxy_reader *prd)
