@@ -1359,18 +1359,11 @@ static int handle_Heartbeat (struct receiver_state *rst, ddsrt_etime_t tnow, str
   if (lastseq > pwr->last_seq)
   {
     pwr->last_seq = lastseq;
-    pwr->last_fragnum = ~0u;
-    pwr->last_fragnum_reset = 0;
+    pwr->last_fragnum = UINT32_MAX;
   }
-  else if (pwr->last_fragnum != ~0u && lastseq == pwr->last_seq)
+  else if (pwr->last_fragnum != UINT32_MAX && lastseq == pwr->last_seq)
   {
-    if (!pwr->last_fragnum_reset)
-      pwr->last_fragnum_reset = 1;
-    else
-    {
-      pwr->last_fragnum = ~0u;
-      pwr->last_fragnum_reset = 0;
-    }
+    pwr->last_fragnum = UINT32_MAX;
   }
 
   nn_defrag_notegap (pwr->defrag, 1, firstseq);
@@ -1509,12 +1502,10 @@ static int handle_HeartbeatFrag (struct receiver_state *rst, UNUSED_ARG(ddsrt_et
   {
     pwr->last_seq = seq;
     pwr->last_fragnum = fragnum;
-    pwr->last_fragnum_reset = 0;
   }
   else if (seq == pwr->last_seq && fragnum > pwr->last_fragnum)
   {
     pwr->last_fragnum = fragnum;
-    pwr->last_fragnum_reset = 0;
   }
 
   if (!pwr->have_seen_heartbeat)
@@ -1970,8 +1961,7 @@ static int handle_Gap (struct receiver_state *rst, ddsrt_etime_t tnow, struct nn
   if (listbase + last_included_rel > pwr->last_seq)
   {
     pwr->last_seq = listbase + last_included_rel;
-    pwr->last_fragnum = ~0u;
-    pwr->last_fragnum_reset = 0;
+    pwr->last_fragnum = UINT32_MAX;
   }
 
   if (wn && wn->filtered)
@@ -2323,7 +2313,7 @@ static void clean_defrag (struct proxy_writer *pwr)
 }
 
 static void handle_regular (struct receiver_state *rst, ddsrt_etime_t tnow, struct nn_rmsg *rmsg, const Data_DataFrag_common_t *msg, const struct nn_rsample_info *sampleinfo,
-    uint32_t fragnum, struct nn_rdata *rdata, struct nn_dqueue **deferred_wakeup, bool renew_manbypp_lease)
+    uint32_t max_fragnum_in_msg, struct nn_rdata *rdata, struct nn_dqueue **deferred_wakeup, bool renew_manbypp_lease)
 {
   struct proxy_writer *pwr;
   struct nn_rsample *rsample;
@@ -2396,13 +2386,11 @@ static void handle_regular (struct receiver_state *rst, ddsrt_etime_t tnow, stru
   if (sampleinfo->seq > pwr->last_seq)
   {
     pwr->last_seq = sampleinfo->seq;
-    pwr->last_fragnum = fragnum;
-    pwr->last_fragnum_reset = 0;
+    pwr->last_fragnum = max_fragnum_in_msg;
   }
-  else if (sampleinfo->seq == pwr->last_seq && fragnum > pwr->last_fragnum)
+  else if (sampleinfo->seq == pwr->last_seq && max_fragnum_in_msg > pwr->last_fragnum)
   {
-    pwr->last_fragnum = fragnum;
-    pwr->last_fragnum_reset = 0;
+    pwr->last_fragnum = max_fragnum_in_msg;
   }
 
   clean_defrag (pwr);
@@ -2674,12 +2662,12 @@ static int handle_Data (struct receiver_state *rst, ddsrt_etime_t tnow, struct n
           renew_manbypp_lease = false;
         /* fall through */
         default:
-          handle_regular (rst, tnow, rmsg, &msg->x, sampleinfo, ~0u, rdata, deferred_wakeup, renew_manbypp_lease);
+          handle_regular (rst, tnow, rmsg, &msg->x, sampleinfo, UINT32_MAX, rdata, deferred_wakeup, renew_manbypp_lease);
       }
     }
     else
     {
-      handle_regular (rst, tnow, rmsg, &msg->x, sampleinfo, ~0u, rdata, deferred_wakeup, true);
+      handle_regular (rst, tnow, rmsg, &msg->x, sampleinfo, UINT32_MAX, rdata, deferred_wakeup, true);
     }
   }
   RSTTRACE (")");

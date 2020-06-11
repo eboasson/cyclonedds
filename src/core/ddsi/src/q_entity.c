@@ -5480,9 +5480,8 @@ int new_proxy_writer (struct ddsi_domaingv *gv, const struct ddsi_guid *ppguid, 
   pwr->n_reliable_readers = 0;
   pwr->n_readers_out_of_sync = 0;
   pwr->last_seq = 0;
-  pwr->last_fragnum = ~0u;
+  pwr->last_fragnum = UINT32_MAX;
   pwr->nackfragcount = 0;
-  pwr->last_fragnum_reset = 0;
   pwr->alive = 1;
   pwr->alive_vclock = 0;
   pwr->filtered = 0;
