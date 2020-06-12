@@ -1153,8 +1153,8 @@ static enum needs_nack sched_nack_for_missing_fragments (struct proxy_writer * c
     return NEEDS_NACK_NO;
   }
 
-  const int missing_frag_info = nn_defrag_nackmap (pwr->defrag, seq, maxfragnum, &nackfrag.set, nackfrag.bits, NN_FRAGMENT_NUMBER_SET_MAX_BITS);
-  if (seq == last_seq && missing_frag_info == 0)
+  const enum nn_defrag_nackmap_result nackfrag_needed = nn_defrag_nackmap (pwr->defrag, seq, maxfragnum, &nackfrag.set, nackfrag.bits, NN_FRAGMENT_NUMBER_SET_MAX_BITS);
+  if (seq == last_seq && nackfrag_needed == DEFRAG_NACKMAP_ALL_ADVERTISED_FRAGMENTS_KNOWN)
   {
     // nothing to be NACK'd: we are trying to get the latest known sample, but we're not missing any
     // fragments that the heartbeats say we should have (if it isn't fragmented, nn_defrag_nackmap
@@ -1169,22 +1169,22 @@ static enum needs_nack sched_nack_for_missing_fragments (struct proxy_writer * c
     // the next NACK should go out asap
     progress = true;
   }
-  else if (seq < m->last_nack.seq_end || (seq == m->last_nack.seq_end && missing_frag_info < 0))
+  else if (seq < m->last_nack.seq_end || (seq == m->last_nack.seq_end && nackfrag_needed == DEFRAG_NACKMAP_UNKNOWN_SAMPLE))
   {
     // we are expecting an unfragmented sample (or one of unknown fragmentation) covered by the
-    // most recent NACK: if "ignore_nackdelay" is we treat this as progress, else we don't.  If
+    // most recent NACK: if "ignore_nackdelay" is true, we treat this as progress; if not, we don't.  If
     // the caller manages to correctly distinguish between hearbeats at the end of a retransmit
     // and those sent independently of those, this allows us to quickly make progress even when
     // the retransmit doesn't cover all that we asked for.
     progress = (seq > m->last_nack.seq_base && ignore_nackdelay);
   }
-  else if (missing_frag_info == 0)
+  else if (nackfrag_needed == DEFRAG_NACKMAP_ALL_ADVERTISED_FRAGMENTS_KNOWN)
   {
     // seq = last_nack.seq_end, we are defragmenting the sample but no fragments are missing, a
     // case that can occur if a HEARTBEATFRAG is received for that sample (Cyclone DDS does not
     // send those - at this time - but another implementation might.
     //
-    // As the writer is telling us the remainder is not yet available, we should NACK.
+    // As the writer is telling us the remainder is not yet available, we should not NACK.
     // progress = false;
     return NEEDS_NACK_NO;
   }
@@ -1266,7 +1266,10 @@ static void handle_Heartbeat_helper (struct pwr_rd_match * const wn, struct hand
      sync -- indeed, we could simply ignore the destination address in
      the messages we receive and only ever nack each sequence number
      once, regardless of which readers care about it. */
-  if (sched_acknack_if_needed (pwr, wn, refseq, UINT32_MAX, arg->tnow_mt, arg->ignore_nackdelay, !(msg->smhdr.flags & HEARTBEAT_FLAG_FINAL)))
+  const bool response_required = !(msg->smhdr.flags & HEARTBEAT_FLAG_FINAL);
+  if (response_required)
+    wn->ack_requested = 1;
+  if (sched_acknack_if_needed (pwr, wn, refseq, UINT32_MAX, arg->tnow_mt, arg->ignore_nackdelay, response_required))
   {
     if (pwr->e.gv->config.meas_hb_to_ack_latency && arg->timestamp.v)
       wn->hb_timestamp = arg->timestamp;

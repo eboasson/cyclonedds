@@ -223,7 +223,15 @@ struct nn_defrag *nn_defrag_new (const struct ddsrt_log_cfg *logcfg, enum nn_def
 void nn_defrag_free (struct nn_defrag *defrag);
 struct nn_rsample *nn_defrag_rsample (struct nn_defrag *defrag, struct nn_rdata *rdata, const struct nn_rsample_info *sampleinfo);
 void nn_defrag_notegap (struct nn_defrag *defrag, seqno_t min, seqno_t maxp1);
-int nn_defrag_nackmap (struct nn_defrag *defrag, seqno_t seq, uint32_t maxfragnum, struct nn_fragment_number_set_header *map, uint32_t *mapbits, uint32_t maxsz);
+
+enum nn_defrag_nackmap_result {
+  DEFRAG_NACKMAP_UNKNOWN_SAMPLE,
+  DEFRAG_NACKMAP_ALL_ADVERTISED_FRAGMENTS_KNOWN,
+  DEFRAG_NACKMAP_FRAGMENTS_MISSING
+};
+
+enum nn_defrag_nackmap_result nn_defrag_nackmap (struct nn_defrag *defrag, seqno_t seq, uint32_t maxfragnum, struct nn_fragment_number_set_header *map, uint32_t *mapbits, uint32_t maxsz);
+
 void nn_defrag_prune (struct nn_defrag *defrag, ddsi_guid_prefix_t *dst, seqno_t min);
 
 struct nn_reorder *nn_reorder_new (const struct ddsrt_log_cfg *logcfg, enum nn_reorder_mode mode, uint32_t max_samples, bool late_ack_mode);

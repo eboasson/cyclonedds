@@ -828,8 +828,118 @@ static seqno_t next_deliv_seq (const struct proxy_writer *pwr, const seqno_t nex
 enum add_AckNack_result {
   AANR_ACK,             //!< sending an ACK and there's nothing to NACK
   AANR_SUPPRESSED_NACK, //!< sending an ACK even though there are things to NACK
-  AANR_NACK             //!< sending a NACK
+  AANR_NACK,            //!< sending a NACK, possibly also a NACKFRAG
+  AANR_NACKFRAG_ONLY    //!< sending only a NACKFRAG
 };
+
+static void add_AckNack_getsource (const struct proxy_writer *pwr, const struct pwr_rd_match *rwn, struct nn_reorder **reorder, seqno_t *bitmap_base, int *notail)
+{
+  /* if in sync, look at proxy writer status, else look at proxy-writer--reader match status */
+  if (rwn->in_sync == PRMSS_OUT_OF_SYNC || rwn->filtered)
+  {
+    *reorder = rwn->u.not_in_sync.reorder;
+    *bitmap_base = nn_reorder_next_seq (*reorder);
+    *notail = 0;
+  }
+  else
+  {
+    *reorder = pwr->reorder;
+    if (!pwr->e.gv->config.late_ack_mode)
+    {
+      *bitmap_base = nn_reorder_next_seq (*reorder);
+      *notail = 0;
+    }
+    else
+    {
+      *bitmap_base = next_deliv_seq (pwr, nn_reorder_next_seq (*reorder));
+      *notail = nn_dqueue_is_full (pwr->dqueue);
+    }
+  }
+}
+
+DDSRT_STATIC_ASSERT ((NN_FRAGMENT_NUMBER_SET_MAX_BITS % 32) == 0);
+struct add_AckNack_nackfrag_info {
+  seqno_t seq;
+  struct nn_fragment_number_set_header set;
+  uint32_t bits[NN_FRAGMENT_NUMBER_SET_MAX_BITS / 32];
+};
+
+static bool add_AckNack_makebitmaps (const struct proxy_writer *pwr, const struct pwr_rd_match *rwn, AckNack_t *an, struct add_AckNack_nackfrag_info *nackfrag)
+{
+  struct nn_reorder *reorder;
+  seqno_t bitmap_base;
+  int notail; /* notail = false: all known missing ones are nack'd */
+  add_AckNack_getsource (pwr, rwn, &reorder, &bitmap_base, &notail);
+
+  /* Make bitmap; note that we've made sure to have room for the maximum bitmap size. */
+  const seqno_t last_seq = rwn->filtered ? rwn->last_seq : pwr->last_seq;
+  const uint32_t numbits = nn_reorder_nackmap (reorder, bitmap_base, last_seq, &an->readerSNState, an->bits, NN_SEQUENCE_NUMBER_SET_MAX_BITS, notail);
+  if (numbits == 0)
+  {
+    nackfrag->seq = 0;
+    return false;
+  }
+
+  const seqno_t base = fromSN (an->readerSNState.bitmap_base);
+
+  /* Scan through bitmap, cutting it off at the first missing sample that the defragmenter
+     knows about. Then note the sequence number & add a NACKFRAG for that sample */
+  nackfrag->seq = 0;
+  for (uint32_t i = 0; i < numbits; i++)
+  {
+    if (!nn_bitset_isset (numbits, an->bits, i))
+      continue;
+
+    const seqno_t seq = base + i;
+    const uint32_t fragnum = (seq == last_seq) ? pwr->last_fragnum : UINT32_MAX;
+    if (nn_defrag_nackmap (pwr->defrag, seq, fragnum, &nackfrag->set, nackfrag->bits, NN_FRAGMENT_NUMBER_SET_MAX_BITS) == DEFRAG_NACKMAP_FRAGMENTS_MISSING)
+    {
+      /* Cut the NACK short, NACKFRAG will be added after the NACK is properly formatted */
+      nackfrag->seq = seq;
+      an->readerSNState.numbits = i;
+      break;
+    }
+  }
+  return true;
+}
+
+static void add_NackFrag (struct nn_xmsg *msg, const struct proxy_writer *pwr, const struct pwr_rd_match *rwn, const struct add_AckNack_nackfrag_info *nackfrag_info)
+{
+  struct nn_xmsg_marker sm_marker;
+  NackFrag_t *nf;
+
+  assert (nackfrag_info->set.numbits > 0 && nackfrag_info->set.numbits <= NN_FRAGMENT_NUMBER_SET_MAX_BITS);
+  nf = nn_xmsg_append (msg, &sm_marker, NACKFRAG_SIZE (nackfrag_info->set.numbits));
+
+  nn_xmsg_submsg_init (msg, sm_marker, SMID_NACK_FRAG);
+  nf->readerId = nn_hton_entityid (rwn->rd_guid.entityid);
+  nf->writerId = nn_hton_entityid (pwr->e.guid.entityid);
+  nf->writerSN = toSN (nackfrag_info->seq);
+
+  // We use 0-based fragment numbers, but externally have to provide 1-based fragment numbers */
+  nf->fragmentNumberState.bitmap_base = nackfrag_info->set.bitmap_base + 1;
+  nf->fragmentNumberState.numbits = nackfrag_info->set.numbits;
+  memcpy (nf->bits, nackfrag_info->bits, NN_FRAGMENT_NUMBER_SET_BITS_SIZE (nackfrag_info->set.numbits));
+
+  // Count field is at a variable offset ... silly DDSI spec
+  nn_count_t * const countp =
+    (nn_count_t *) ((char *) nf + offsetof (NackFrag_t, bits) + NN_FRAGMENT_NUMBER_SET_BITS_SIZE (nf->fragmentNumberState.numbits));
+  *countp = pwr->nackfragcount;
+
+  nn_xmsg_submsg_setnext (msg, sm_marker);
+
+  if (pwr->e.gv->logconfig.c.mask & DDS_LC_TRACE)
+  {
+    ETRACE (pwr, "nackfrag #%"PRId32":%"PRId64"/%u/%"PRIu32":",
+            pwr->nackfragcount, fromSN (nf->writerSN),
+            nf->fragmentNumberState.bitmap_base, nf->fragmentNumberState.numbits);
+    for (uint32_t ui = 0; ui != nf->fragmentNumberState.numbits; ui++)
+      ETRACE (pwr, "%c", nn_bitset_isset (nf->fragmentNumberState.numbits, nf->bits, ui) ? '1' : '0');
+  }
+
+  // Encode the sub-message when needed
+  encode_datareader_submsg (msg, sm_marker, pwr, &rwn->rd_guid);
+}
 
 static enum add_AckNack_result add_AckNack (struct nn_xmsg *msg, const struct proxy_writer *pwr, const struct pwr_rd_match *rwn, bool repeat_nack_allowed, struct last_nack_summary *nack_summary)
 {
@@ -838,186 +948,120 @@ static enum add_AckNack_result add_AckNack (struct nn_xmsg *msg, const struct pr
      AckNack.  NACKing data now will most likely cause another NACK
      upon reception of the first heartbeat, and so cause the data to
      be resent twice. */
-  const unsigned max_numbits = 256; /* as spec'd */
-  int notail = 0; /* all known missing ones are nack'd */
-  struct nn_reorder *reorder;
+  const bool response_required = !pwr->have_seen_heartbeat;
   AckNack_t *an;
   struct nn_xmsg_marker sm_marker;
-  uint32_t i, numbits;
-  seqno_t base;
 
-  DDSRT_STATIC_ASSERT ((NN_FRAGMENT_NUMBER_SET_MAX_BITS % 32) == 0);
-  struct {
-    struct nn_fragment_number_set_header set;
-    uint32_t bits[NN_FRAGMENT_NUMBER_SET_MAX_BITS / 32];
-  } nackfrag;
-  int nackfrag_numbits;
-  seqno_t nackfrag_seq = 0;
-  seqno_t bitmap_base;
+  struct add_AckNack_nackfrag_info nackfrag_info;
+  enum add_AckNack_result result;
 
-  DDSRT_STATIC_ASSERT (CHAR_BIT * sizeof (nackfrag.bits) == NN_FRAGMENT_NUMBER_SET_MAX_BITS);
-  assert (0 < max_numbits && max_numbits <= NN_FRAGMENT_NUMBER_SET_MAX_BITS);
+  DDSRT_STATIC_ASSERT (CHAR_BIT * sizeof (nackfrag_info.bits) == NN_FRAGMENT_NUMBER_SET_MAX_BITS);
 
   ASSERT_MUTEX_HELD (pwr->e.lock);
-
-  /* if in sync, look at proxy writer status, else look at proxy-writer--reader match status */
-  if (rwn->in_sync != PRMSS_OUT_OF_SYNC && !rwn->filtered)
-  {
-    reorder = pwr->reorder;
-    if (!pwr->e.gv->config.late_ack_mode)
-      bitmap_base = nn_reorder_next_seq (reorder);
-    else
-    {
-      bitmap_base = next_deliv_seq (pwr, nn_reorder_next_seq (reorder));
-      if (nn_dqueue_is_full (pwr->dqueue))
-        notail = 1;
-    }
-  }
-  else
-  {
-    reorder = rwn->u.not_in_sync.reorder;
-    bitmap_base = nn_reorder_next_seq (reorder);
-  }
 
   an = nn_xmsg_append (msg, &sm_marker, ACKNACK_SIZE_MAX);
   nn_xmsg_submsg_init (msg, sm_marker, SMID_ACKNACK);
   an->readerId = nn_hton_entityid (rwn->rd_guid.entityid);
   an->writerId = nn_hton_entityid (pwr->e.guid.entityid);
 
-  /* Make bitmap; note that we've made sure to have room for the maximum bitmap size. */
-  const seqno_t last_seq = rwn->filtered ? rwn->last_seq : pwr->last_seq;
-  numbits = nn_reorder_nackmap (reorder, bitmap_base, last_seq, &an->readerSNState, an->bits, max_numbits, notail);
-  base = fromSN (an->readerSNState.bitmap_base);
-
-  /* Scan through bitmap, cutting it off at the first missing sample that the defragmenter
-     knows about. Then note the sequence number & add a NACKFRAG for that sample */
-  nackfrag_numbits = -1;
-  for (i = 0; i < numbits && nackfrag_numbits < 0; i++)
-  {
-    uint32_t fragnum;
-    nackfrag_seq = base + i;
-    if (!nn_bitset_isset (numbits, an->bits, i))
-      continue;
-    if (nackfrag_seq == last_seq)
-      fragnum = pwr->last_fragnum;
-    else
-      fragnum = UINT32_MAX;
-    nackfrag_numbits = nn_defrag_nackmap (pwr->defrag, nackfrag_seq, fragnum, &nackfrag.set, nackfrag.bits, max_numbits);
-  }
-  if (nackfrag_numbits >= 0)
-  {
-    /* Cut the NACK short, NACKFRAG will be added after the NACK is properly formatted */
-    assert (i > 0);
-    an->readerSNState.numbits = numbits = i - 1;
-  }
-
-  /* Let caller know whether it is a nack, and, in steady state, set
-     final to prevent a response if it isn't.  The initial
-     (pre-emptive) acknack is different: it'd be nice to get a
-     heartbeat in response.
-
-     Who cares about an answer to an acknowledgment!? -- actually,
-     that'd a very useful feature in combination with directed
-     heartbeats, or somesuch, to get reliability guarantees. */
-  const seqno_t local_nack_seq = (numbits > 0 || nackfrag_numbits > 0) ? base + numbits : 0;
-  const uint32_t local_nack_frag = (nackfrag_numbits > 0) ? nackfrag.set.bitmap_base + nackfrag.set.numbits - 1 : UINT32_MAX;
-  bool response_required = !pwr->have_seen_heartbeat;
-  enum add_AckNack_result result;
-
-  nack_summary->seq_end = local_nack_seq;
-  nack_summary->frag_end = local_nack_frag;
-  nack_summary->seq_base = base;
-  nack_summary->frag_base = (nackfrag_numbits > 0) ? nackfrag.set.bitmap_base : 0;
-
-  /* Suppress a NACK if we're still waiting for the result of the previous NACK (this is mostly for
-     the case the reader explicitly asks for an ACK).
-     FIXME: this function is supposed to add an ACKNACK, not to figure out if it is allowed to do so */
-  if (local_nack_seq == 0)
-  {
-    // All expected samples & fragments received
+  if (!add_AckNack_makebitmaps (pwr, rwn, an, &nackfrag_info))
     result = AANR_ACK;
-  }
-  else if (local_nack_seq > rwn->last_nack.seq_end || (local_nack_seq == rwn->last_nack.seq_end && local_nack_frag > rwn->last_nack.frag_end) || repeat_nack_allowed)
+  else
   {
-    /* A NACK for something not previously NACK'd or NackDelay passed, update nack_{seq,frag} to reflect
-       the changed state */
-    //response_required = true;
-    result = AANR_NACK;
+    const seqno_t base = fromSN (an->readerSNState.bitmap_base);
+    assert (base >= 1 && (an->readerSNState.numbits > 0 || nackfrag_info.seq > 0));
+    assert (nackfrag_info.seq == 0 || nackfrag_info.set.numbits > 0);
+    const seqno_t local_nack_seq = base + an->readerSNState.numbits;
+    const uint32_t local_nack_frag = (nackfrag_info.seq > 0) ? nackfrag_info.set.bitmap_base + nackfrag_info.set.numbits - 1 : UINT32_MAX;
+
+    /* Let caller know whether it is a nack, and, in steady state, set
+       final to prevent a response if it isn't.  The initial
+       (pre-emptive) acknack is different: it'd be nice to get a
+       heartbeat in response.
+
+       Who cares about an answer to an acknowledgment!? -- actually,
+       that'd a very useful feature in combination with directed
+       heartbeats, or somesuch, to get reliability guarantees. */
+    nack_summary->seq_end = local_nack_seq;
+    nack_summary->frag_end = local_nack_frag;
+    nack_summary->seq_base = base;
+    nack_summary->frag_base = (nackfrag_info.seq > 0) ? nackfrag_info.set.bitmap_base : 0;
+
+#if HACKED_PRINTFS
+    ddsrt_mtime_t tnow_mt = ddsrt_time_monotonic ();
+#endif
+
+    if (local_nack_seq > rwn->last_nack.seq_end || (local_nack_seq == rwn->last_nack.seq_end && local_nack_frag > rwn->last_nack.frag_end) || repeat_nack_allowed)
+    {
+      // A NACK for something not previously NACK'd or NackDelay passed, update nack_{seq,frag} to reflect
+      // the changed state
+      result = AANR_NACK;
+    }
+    else if ((base > rwn->last_nack.seq_base || (base == rwn->last_nack.seq_base && nackfrag_info.seq > 0 && nackfrag_info.set.bitmap_base > rwn->last_nack.frag_base)))
+    {
+      // If allowing a NACK through only because it the heartbeat was directed, don't request a response
+      // to avoid a feedback loop (the trouble is that we do require another one ...)
+      result = AANR_NACK;
+    }
+    else
+    {
+      // Overlap between this NACK and the previous one and NackDelay has not yet passed: clear numbits and
+      // nackfrag_numbits to turn the NACK into an ACK and pretend to the caller nothing scary is going on.
+#if HACKED_PRINTFS
+      if ((numbits > 0 || nackfrag_numbits > 0) && !is_builtin_endpoint(pwr->e.guid.entityid, NN_VENDORID_ECLIPSE) && pwr->have_seen_heartbeat)
+      {
+        printf ("%"PRId64".%09"PRId64" suppressing nack seq/frag %"PRId64"/%"PRIu32" prev %"PRId64"/%"PRIu32" dt %.3fms\n", tnow_mt.v / DDS_NSECS_IN_SEC, tnow_mt.v % DDS_NSECS_IN_SEC, local_nack_seq, local_nack_frag, rwn->last_nack.seq_end, rwn->last_nack.frag_end, (double) (tnow_mt.v - rwn->t_last_nack.v) / 1e6);
+      }
+#endif
+
+      an->readerSNState.numbits = 0;
+      nackfrag_info.seq = 0;
+      result = AANR_SUPPRESSED_NACK;
+    }
   }
-  else if ((base > rwn->last_nack.seq_base || (base == rwn->last_nack.seq_base && nackfrag_numbits > 0 && nackfrag.set.bitmap_base > rwn->last_nack.frag_base)))
+
+  if (an->readerSNState.numbits == 0 && nackfrag_info.seq > 0 && !(response_required || rwn->ack_requested))
   {
-    /* If allowing a NACK through only because it the heartbeat was directed, don't request a response
-       to avoid a feedback loop (the trouble is that we do require another one ...) */
-    result = AANR_NACK;
+    // if we are not NACK'ing full samples and we are NACK'ing fragments, skip the ACKNACK submessage if we
+    // have no interest in a HEARTBEAT and the writer hasn't asked for an ACKNACK since the last one we sent.
+    nn_xmsg_shrink (msg, sm_marker, 0);
+    result = AANR_NACKFRAG_ONLY;
   }
   else
   {
-    /* Overlap between this NACK and the previous one and NackDelay has not yet passed: clear numbits and
-       nackfrag_numbits to turn the NACK into an ACK and pretend to the caller nothing scary is going on. */
-    numbits = 0;
-    nackfrag_numbits = 0;
-    result = AANR_SUPPRESSED_NACK;
-  }
+    // set FINAL flag late, in case it is decided that the "response_required" flag
+    // should be set depending on the exact AckNack/NackFrag generated
+    if (!response_required)
+      an->smhdr.flags |= ACKNACK_FLAG_FINAL;
 
-  if (!response_required) {
-    /* An ACK or we think we'll get everything now, or we are trying to avoid a feedback loops. */
-    an->smhdr.flags |= ACKNACK_FLAG_FINAL;
-  }
-
-  {
-    /* Count field is at a variable offset ... silly DDSI spec. */
-    nn_count_t *countp =
-      (nn_count_t *) ((char *) an + offsetof (AckNack_t, bits) + NN_SEQUENCE_NUMBER_SET_BITS_SIZE (an->readerSNState.numbits));
+    // Count field is at a variable offset ... silly DDSI spec
+    nn_count_t * const countp =
+    (nn_count_t *) ((char *) an + offsetof (AckNack_t, bits) + NN_SEQUENCE_NUMBER_SET_BITS_SIZE (an->readerSNState.numbits));
     *countp = rwn->count;
-
-    /* Reset submessage size, now that we know the real size, and update
-       the offset to the next submessage. */
+    // Reset submessage size, now that we know the real size, and update the offset to the next submessage.
     nn_xmsg_shrink (msg, sm_marker, ACKNACK_SIZE (an->readerSNState.numbits));
     nn_xmsg_submsg_setnext (msg, sm_marker);
 
-    ETRACE (pwr, "acknack "PGUIDFMT" -> "PGUIDFMT": #%"PRId32":%"PRId64"/%"PRIu32":",
-            PGUID (rwn->rd_guid), PGUID (pwr->e.guid), rwn->count,
-            base, an->readerSNState.numbits);
-    for (uint32_t ui = 0; ui != an->readerSNState.numbits; ui++)
-      ETRACE (pwr, "%c", nn_bitset_isset (numbits, an->bits, ui) ? '1' : '0');
-
-    /* Encode the sub-message when needed. */
-    encode_datareader_submsg(msg, sm_marker, pwr, &rwn->rd_guid);
-  }
-
-  if (nackfrag_numbits > 0)
-  {
-    NackFrag_t *nf;
-
-    /* We use 0-based fragment numbers, but externally have to provide
-       1-based fragment numbers */
-    assert ((unsigned) nackfrag_numbits == nackfrag.set.numbits);
-
-    nf = nn_xmsg_append (msg, &sm_marker, NACKFRAG_SIZE ((unsigned) nackfrag_numbits));
-
-    nn_xmsg_submsg_init (msg, sm_marker, SMID_NACK_FRAG);
-    nf->readerId = nn_hton_entityid (rwn->rd_guid.entityid);
-    nf->writerId = nn_hton_entityid (pwr->e.guid.entityid);
-    nf->writerSN = toSN (nackfrag_seq);
-    nf->fragmentNumberState.bitmap_base = nackfrag.set.bitmap_base + 1;
-    nf->fragmentNumberState.numbits = nackfrag.set.numbits;
-    memcpy (nf->bits, nackfrag.bits, NN_FRAGMENT_NUMBER_SET_BITS_SIZE (nackfrag_numbits));
-
+    if (pwr->e.gv->logconfig.c.mask & DDS_LC_TRACE)
     {
-      nn_count_t *countp =
-        (nn_count_t *) ((char *) nf + offsetof (NackFrag_t, bits) + NN_FRAGMENT_NUMBER_SET_BITS_SIZE (nf->fragmentNumberState.numbits));
-      *countp = pwr->nackfragcount;
-      nn_xmsg_submsg_setnext (msg, sm_marker);
-
-      ETRACE (pwr, " + nackfrag #%"PRId32":%"PRId64"/%u/%"PRIu32":", *countp, fromSN (nf->writerSN), nf->fragmentNumberState.bitmap_base, nf->fragmentNumberState.numbits);
-      for (uint32_t ui = 0; ui != nf->fragmentNumberState.numbits; ui++)
-        ETRACE (pwr, "%c", nn_bitset_isset (nf->fragmentNumberState.numbits, nf->bits, ui) ? '1' : '0');
+      ETRACE (pwr, "acknack "PGUIDFMT" -> "PGUIDFMT": %s#%"PRId32":%"PRId64"/%"PRIu32":",
+              PGUID (rwn->rd_guid), PGUID (pwr->e.guid),
+              response_required ? "" : "F", rwn->count,
+              fromSN (an->readerSNState.bitmap_base), an->readerSNState.numbits);
+      for (uint32_t ui = 0; ui != an->readerSNState.numbits; ui++)
+        ETRACE (pwr, "%c", nn_bitset_isset (an->readerSNState.numbits, an->bits, ui) ? '1' : '0');
     }
 
-    /* Encode the sub-message when needed. */
-    encode_datareader_submsg(msg, sm_marker, pwr, &rwn->rd_guid);
+    // Encode the sub-message when needed
+    encode_datareader_submsg (msg, sm_marker, pwr, &rwn->rd_guid);
   }
 
+  if (nackfrag_info.seq > 0)
+  {
+    if (result != AANR_NACKFRAG_ONLY)
+      ETRACE (pwr, " + ");
+    add_NackFrag (msg, pwr, rwn, &nackfrag_info);
+  }
   ETRACE (pwr, "\n");
   return result;
 }
@@ -1086,11 +1130,15 @@ static void handle_xevk_acknack (struct nn_xpack *xp, struct xevent *ev, ddsrt_m
     switch (aanr)
     {
       case AANR_ACK:
+        rwn->ack_requested = 0;
         break;
       case AANR_NACK:
+      case AANR_NACKFRAG_ONLY:
         if (nack_summary.frag_end != UINT32_MAX)
           pwr->nackfragcount++;
 
+        if (aanr != AANR_NACKFRAG_ONLY)
+          rwn->ack_requested = 0;
         rwn->last_nack = nack_summary;
         rwn->t_last_nack = tnow;
         rwn->t_earliest_nack = ddsrt_mtime_add_duration (tnow, gv->config.nack_delay);
@@ -1103,6 +1151,7 @@ static void handle_xevk_acknack (struct nn_xpack *xp, struct xevent *ev, ddsrt_m
         break;
       case AANR_SUPPRESSED_NACK:
         assert (tnow.v < rwn->t_earliest_nack.v);
+        rwn->ack_requested = 0;
         (void) resched_xevent_if_earlier (ev, rwn->t_earliest_nack);
         break;
     }

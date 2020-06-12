@@ -170,7 +170,8 @@ struct pwr_rd_match {
   struct last_nack_summary last_nack;
   struct xevent *acknack_xevent; /* entry in xevent queue for sending acknacks */
   enum pwr_rd_match_syncstate in_sync; /* whether in sync with the proxy writer */
-  unsigned filtered:1;
+  unsigned ack_requested : 1; /* set on receipt of HEARTBEAT with FINAL clear, cleared on sending an ACKNACK */
+  unsigned filtered : 1;
   union {
     struct {
       seqno_t end_of_tl_seq; /* when seq >= end_of_tl_seq, it's in sync, =0 when not tl */

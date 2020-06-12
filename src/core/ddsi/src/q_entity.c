@@ -2592,6 +2592,7 @@ static void proxy_writer_add_connection (struct proxy_writer *pwr, struct reader
     local_reader_ary_setfastpath_ok (&pwr->rdary, false);
   }
   m->count = init_count;
+  m->ack_requested = 0;
   /* Spec says we may send a pre-emptive AckNack (8.4.2.3.4), hence we
      schedule it for the configured delay. From then on it it'll keep
      sending pre-emptive ones until the proxy writer receives a heartbeat.
