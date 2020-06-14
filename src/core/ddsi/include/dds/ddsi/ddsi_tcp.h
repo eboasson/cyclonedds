@@ -45,7 +45,7 @@ struct ddsi_ssl_plugins
 extern "C" {
 #endif
 
-int ddsi_tcp_init (struct ddsi_domaingv *gv);
+DDS_EXPORT int ddsi_tcp_init (struct ddsi_domaingv *gv);
 
 #if defined (__cplusplus)
 }
