@@ -49,8 +49,8 @@ typedef struct ddsi_udp_tran_factory {
   struct ddsi_tran_factory fact;
 
   // actual minimum receive buffer size in use
-  ddsrt_mutex_t lock;
-  uint32_t receive_buf_size;
+  // atomically loaded/stored so we don't have to lie about constness
+  ddsrt_atomic_uint32_t receive_buf_size;
 } *ddsi_udp_tran_factory_t;
 
 static void addr_to_loc (const struct ddsi_tran_factory *tran, nn_locator_t *dst, const union addr *src)
@@ -495,10 +495,15 @@ static dds_return_t ddsi_udp_create_conn (ddsi_tran_conn_t *conn_out, ddsi_tran_
 
   if ((rc = set_rcvbuf (gv, sock, &gv->config.socket_min_rcvbuf_size)) < 0)
     goto fail_w_socket;
-  ddsrt_mutex_lock (&fact->lock);
-  if (0 < rc && (uint32_t) rc < fact->receive_buf_size)
-    fact->receive_buf_size = (uint32_t) rc;
-  ddsrt_mutex_unlock (&fact->lock);
+  if (rc > 0) {
+    // set fact->receive_buf_size to the smallest observed value
+    uint32_t old;
+    do {
+      old = ddsrt_atomic_ld32 (&fact->receive_buf_size);
+      if ((uint32_t) rc >= old)
+        break;
+    } while (!ddsrt_atomic_cas32 (&fact->receive_buf_size, old, (uint32_t) rc));
+  }
 
   if (set_sndbuf (gv, sock, gv->config.socket_min_sndbuf_size) != DDS_RETCODE_OK)
     goto fail_w_socket;
@@ -672,7 +677,7 @@ static void ddsi_udp_release_conn (ddsi_tran_conn_t conn_cmn)
   ddsrt_free (conn_cmn);
 }
 
-static int ddsi_udp_is_mcaddr (const ddsi_tran_factory_t tran, const nn_locator_t *loc)
+static int ddsi_udp_is_mcaddr (const struct ddsi_tran_factory *tran, const nn_locator_t *loc)
 {
   (void) tran;
   switch (loc->kind)
@@ -698,7 +703,7 @@ static int ddsi_udp_is_mcaddr (const ddsi_tran_factory_t tran, const nn_locator_
 }
 
 #ifdef DDSI_INCLUDE_SSM
-static int ddsi_udp_is_ssm_mcaddr (const ddsi_tran_factory_t tran, const nn_locator_t *loc)
+static int ddsi_udp_is_ssm_mcaddr (const struct ddsi_tran_factory *tran, const nn_locator_t *loc)
 {
   (void) tran;
   switch (loc->kind)
@@ -720,7 +725,7 @@ static int ddsi_udp_is_ssm_mcaddr (const ddsi_tran_factory_t tran, const nn_loca
 }
 #endif
 
-static enum ddsi_locator_from_string_result mcgen_address_from_string (ddsi_tran_factory_t tran, nn_locator_t *loc, const char *str)
+static enum ddsi_locator_from_string_result mcgen_address_from_string (const struct ddsi_tran_factory *tran, nn_locator_t *loc, const char *str)
 {
   // check for UDPv4MCGEN string, be lazy and refuse to recognize as a MCGEN form if there's anything "wrong" with it
   DDSRT_WARNING_MSVC_OFF(4996);
@@ -769,7 +774,7 @@ static enum ddsi_locator_from_string_result mcgen_address_from_string (ddsi_tran
   DDSRT_WARNING_MSVC_ON(4996);
 }
 
-static enum ddsi_locator_from_string_result ddsi_udp_address_from_string (ddsi_tran_factory_t tran, nn_locator_t *loc, const char *str)
+static enum ddsi_locator_from_string_result ddsi_udp_address_from_string (const struct ddsi_tran_factory *tran, nn_locator_t *loc, const char *str)
 {
   if (tran->m_kind == TRANS_UDP && mcgen_address_from_string (tran, loc, str) == AFSR_OK)
     return AFSR_OK;
@@ -810,24 +815,19 @@ static void ddsi_udp_fini (ddsi_tran_factory_t fact_cmn)
   struct ddsi_udp_tran_factory *fact = (struct ddsi_udp_tran_factory *) fact_cmn;
   struct ddsi_domaingv const * const gv = fact->fact.gv;
   GVLOG (DDS_LC_CONFIG, "udp finalized\n");
-  ddsrt_mutex_destroy (&fact->lock);
   ddsrt_free (fact);
 }
 
-static int ddsi_udp_is_valid_port (ddsi_tran_factory_t fact, uint32_t port)
+static int ddsi_udp_is_valid_port (const struct ddsi_tran_factory *fact, uint32_t port)
 {
   (void) fact;
   return (port <= 65535);
 }
 
-static uint32_t ddsi_udp_receive_buffer_size (ddsi_tran_factory_t fact_cmn)
+static uint32_t ddsi_udp_receive_buffer_size (const struct ddsi_tran_factory *fact_cmn)
 {
-  struct ddsi_udp_tran_factory *fact = (struct ddsi_udp_tran_factory *) fact_cmn;
-  uint32_t sz;
-  ddsrt_mutex_lock (&fact->lock);
-  sz = fact->receive_buf_size;
-  ddsrt_mutex_unlock (&fact->lock);
-  return sz;
+  const struct ddsi_udp_tran_factory *fact = (const struct ddsi_udp_tran_factory *) fact_cmn;
+  return ddsrt_atomic_ld32 (&fact->receive_buf_size);
 }
 
 int ddsi_udp_init (struct ddsi_domaingv*gv)
@@ -863,8 +863,7 @@ int ddsi_udp_init (struct ddsi_domaingv*gv)
     fact->fact.m_default_spdp_address = "udp6/ff02::ffff:239.255.0.1";
   }
 #endif
-  ddsrt_mutex_init (&fact->lock);
-  fact->receive_buf_size = UINT32_MAX;
+  ddsrt_atomic_st32 (&fact->receive_buf_size, UINT32_MAX);
 
   ddsi_factory_add (gv, &fact->fact);
   GVLOG (DDS_LC_CONFIG, "udp initialized\n");
