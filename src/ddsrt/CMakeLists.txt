@@ -152,8 +152,9 @@ list(APPEND sources
 # that the network stack to be used is lwIP as opposed to the target native
 # network stack. In order to mix-and-match various compilers, architectures,
 # operating systems, etc input from the build system is required.
-foreach(feature atomics cdtors environ heap ifaddrs random rusage
-        sockets string sync threads time md5 process netstat dynlib filesystem)
+foreach(feature atomics cdtors dynlib environ events filesystem
+                heap ifaddrs md5 netstat process random rusage
+                sockets string sync threads time)
   if(EXISTS "${include_path}/dds/ddsrt/${feature}.h")
     list(APPEND headers "${include_path}/dds/ddsrt/${feature}.h")
     file(GLOB_RECURSE

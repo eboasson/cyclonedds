@@ -776,6 +776,7 @@ static void wait_for_receive_threads (struct ddsi_domaingv *gv)
        dropping the packets until the user approves. */
     GVWARNING ("wait_for_receive_threads: failed to schedule periodic triggering of the receive threads to deal with packet loss\n");
   }
+
   for (uint32_t i = 0; i < gv->n_recv_threads; i++)
   {
     if (gv->recv_threads[i].ts)
@@ -949,7 +950,7 @@ static int setup_and_start_recv_threads (struct ddsi_domaingv *gv)
     }
     if (gv->recv_threads[i].arg.mode == RTM_MANY)
     {
-      if ((gv->recv_threads[i].arg.u.many.ws = os_sockWaitsetNew ()) == NULL)
+      if ((gv->recv_threads[i].arg.u.many.eq = ddsrt_event_queue_create ()) == NULL)
       {
         GVERROR ("rtps_init: can't allocate sock waitset for thread %s\n", gv->recv_threads[i].name);
         goto fail;
@@ -969,8 +970,8 @@ fail:
   wait_for_receive_threads (gv);
   for (uint32_t i = 0; i < gv->n_recv_threads; i++)
   {
-    if (gv->recv_threads[i].arg.mode == RTM_MANY && gv->recv_threads[i].arg.u.many.ws)
-      os_sockWaitsetFree (gv->recv_threads[i].arg.u.many.ws);
+    if (gv->recv_threads[i].arg.mode == RTM_MANY && gv->recv_threads[i].arg.u.many.eq)
+      ddsrt_event_queue_delete(gv->recv_threads[i].arg.u.many.eq);
     if (gv->recv_threads[i].arg.rbpool)
       nn_rbufpool_free (gv->recv_threads[i].arg.rbpool);
   }
@@ -1910,7 +1911,7 @@ void rtps_fini (struct ddsi_domaingv *gv)
   for (uint32_t i = 0; i < gv->n_recv_threads; i++)
   {
     if (gv->recv_threads[i].arg.mode == RTM_MANY)
-      os_sockWaitsetFree (gv->recv_threads[i].arg.u.many.ws);
+      ddsrt_event_queue_delete(gv->recv_threads[i].arg.u.many.eq);
     nn_rbufpool_free (gv->recv_threads[i].arg.rbpool);
   }
 

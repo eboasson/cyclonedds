@@ -18,6 +18,7 @@
 #include "dds/ddsrt/atomics.h"
 #include "dds/ddsi/q_protocol.h"
 #include "dds/ddsi/q_config.h"
+#include "dds/ddsrt/events.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -135,6 +136,8 @@ struct ddsi_tran_conn
   ddsi_tran_factory_t m_factory;
   ddsi_tran_listener_t m_listener;
   ddsi_tran_conn_t m_conn;
+  ddsrt_event_t m_event;
+  ddsi_guid_prefix_t* m_guid_prefix;
 };
 
 struct ddsi_tran_listener

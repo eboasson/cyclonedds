@@ -17,6 +17,7 @@ list(APPEND sources
   "atomics.c"
   "dynlib.c"
   "environ.c"
+  "events.c"
   "heap.c"
   "ifaddrs.c"
   "sync.c"
