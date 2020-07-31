@@ -2039,6 +2039,8 @@ read_document_from_file(
     DDS_Security_Exception_set(ex, DDS_ACCESS_CONTROL_PLUGIN_CONTEXT, DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE, 0, DDS_SECURITY_ERR_INVALID_FILE_PATH_MESSAGE, (filename ? filename : "NULL"));
     return false;
   }
+
+  fprintf(stderr, "%s\n", *doc);
   return true;
   DDSRT_WARNING_MSVC_ON(4996);
 }
