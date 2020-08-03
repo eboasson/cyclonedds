@@ -47,18 +47,6 @@ extern "C" {
 //#define DDSRT_EVENT_FLAG_TIMEOUT (1u<<4)
   /**< notification of ip address change on the resource*/
 //#define DDSRT_EVENT_FLAG_IP_CHANGE (1u<<5)  
-  /**< user custom flag 0*/
-#define DDSRT_EVENT_FLAG_USER_0 (1u<<31) 
-  /**< user custom flag 1*/
-#define DDSRT_EVENT_FLAG_USER_1 (1u<<30) 
-  /**< user custom flag 2*/
-#define DDSRT_EVENT_FLAG_USER_2 (1u<<29) 
-  /**< user custom flag 3*/
-#define DDSRT_EVENT_FLAG_USER_3 (1u<<28) 
-  /**< user custom flag 4*/
-#define DDSRT_EVENT_FLAG_USER_4 (1u<<27) 
-  /**< user custom flag 5*/
-#define DDSRT_EVENT_FLAG_USER_5 (1u<<26) 
 ///@}
 
   /**
@@ -66,6 +54,7 @@ extern "C" {
   */
  typedef enum ddsrt_event_type {
     DDSRT_EVENT_TYPE_UNSET, /**< uninitialized state*/
+    DDSRT_EVENT_TYPE_INTERNAL, /**< for internal use by the event queue implementation */
     DDSRT_EVENT_TYPE_SOCKET /**< indicating a socket type connection*/
     /*,
     DDSRT_EVENT_TYPE_FILE,
@@ -83,8 +72,12 @@ extern "C" {
     ddsrt_atomic_uint32_t triggered; /**< Trigger status after a call to ddsrt_event_queue_wait.*/
     union {
       struct { ddsrt_socket_t sock; } socket;
+      unsigned char opaque[8];
+
       /*struct ddsrt_event_file file;  this is for future expansion to be able to register events on files*/
       /*struct ddsrt_event_ifaddr ifaddr; this is for future expansion to be able to register IP address changes*/
+      void *align_ptr;
+      uint64_t align_u64;
     } u; /**< Container for the object being watched.*/
     void* parent; /**< Pointer to parent object, if any.*/
   };
@@ -175,16 +168,6 @@ extern "C" {
   * @param[in,out] evt Pointer to the event to add.
   */
   DDS_EXPORT void ddsrt_event_queue_add(ddsrt_event_queue_t* queue, ddsrt_event_t* evt) ddsrt_nonnull_all;
-
-  /**
-  * @brief Filters events from the queue.
-  *
-  * Will remove all events from the queue which do not have one of the bits of include set in flags.
-  *
-  * @param[in,out] queue The queue to filter for events.
-  * @param[in] include Events with one or more the flag bits set to this will remain in the queue.
-  */
-  DDS_EXPORT void ddsrt_event_queue_filter(ddsrt_event_queue_t* queue, uint32_t include) ddsrt_nonnull((1));
 
   /**
   * @brief Removes all registered events from the queue.

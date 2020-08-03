@@ -26,7 +26,7 @@
 /**
 * @brief Posix implementation of ddsrt_event_queue.
 *
-* This implementation uses the ddsrt_select function to set the rfds set of file descriptors 
+* This implementation uses the ddsrt_select function to set the rfds set of file descriptors
 * for sockets which have data available for reading. If this not implemented under the light-
 * weight IP stack, then interuption of a wait using a trigger on a self socket.
 */
@@ -274,24 +274,8 @@ void ddsrt_event_queue_add(ddsrt_event_queue_t* queue, ddsrt_event_t* evt)
     queue->cevents += EVENTS_CONTAINER_DELTA;
     ddsrt_realloc(queue->events, sizeof(ddsrt_event_t*) * queue->cevents);
   }
-  
+
   queue->events[queue->nevents++] = evt;
-  ddsrt_mutex_unlock(&queue->lock);
-}
-
-void ddsrt_event_queue_filter(ddsrt_event_queue_t* queue, uint32_t include)
-{
-  ddsrt_mutex_lock(&queue->lock);
-
-  size_t i = 0;
-  while (i < queue->nevents)
-  {
-    ddsrt_event_t** qe = queue->events + i++;
-    if (((*qe)->flags & include) == 0x0)
-      *qe = queue->events[--queue->nevents];
-  }
-  queue->ievents = SIZE_MAX;
-
   ddsrt_mutex_unlock(&queue->lock);
 }
 

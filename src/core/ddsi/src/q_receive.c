@@ -3473,14 +3473,14 @@ void trigger_recv_threads (const struct ddsi_domaingv *gv)
   }
 }
 
-static void register_uc_mc (struct ddsi_domaingv* gv, ddsrt_event_queue_t* eq)
+static void register_fixed_connections (struct ddsi_domaingv* gv, ddsrt_event_queue_t* eq)
 {
   if (gv->m_factory->m_connless)
   {
-    recv_thread_waitset_add_conn(eq, gv->disc_conn_uc);
-    recv_thread_waitset_add_conn(eq, gv->data_conn_uc);
-    recv_thread_waitset_add_conn(eq, gv->disc_conn_mc);
-    recv_thread_waitset_add_conn(eq, gv->data_conn_mc);
+    recv_thread_waitset_add_conn (eq, gv->disc_conn_uc);
+    recv_thread_waitset_add_conn (eq, gv->data_conn_uc);
+    recv_thread_waitset_add_conn (eq, gv->disc_conn_mc);
+    recv_thread_waitset_add_conn (eq, gv->data_conn_mc);
   }
 }
 
@@ -3507,28 +3507,23 @@ uint32_t recv_thread (void *vrecv_thread_arg)
   {
     struct local_participant_set lps;
     local_participant_set_init (&lps, &gv->participant_set_generation);
-    register_uc_mc (gv, waitset);
+    register_fixed_connections (gv, waitset);
 
     while (ddsrt_atomic_ld32 (&gv->rtps_keepgoing))
     {
-      int rebuildws = 0;
       LOG_THREAD_CPUTIME (&gv->logconfig, next_thread_cputime);
+
       if (gv->config.many_sockets_mode != MSM_MANY_UNICAST)
       {
         /* no other sockets to check */
       }
       else if (ddsrt_atomic_ld32 (&gv->participant_set_generation) != lps.gen)
       {
-        rebuildws = 1;
-      }
-
-      if (rebuildws && waitset && gv->config.many_sockets_mode == MSM_MANY_UNICAST)
-      {
         /* first rebuild local participant set - unless someone's toggling "deafness", this
-         only happens when the participant set has changed, so might as well rebuild it */
+           only happens when the participant set has changed, so might as well rebuild it */
         rebuild_local_participant_set (ts1, gv, &lps);
-        ddsrt_event_queue_clear(waitset);
-        register_uc_mc(gv, waitset);
+        ddsrt_event_queue_clear (waitset);
+        register_fixed_connections (gv, waitset);
         for (uint32_t i = 0; i < lps.nps; i++)
         {
           if (lps.ps[i])
@@ -3536,13 +3531,12 @@ uint32_t recv_thread (void *vrecv_thread_arg)
         }
       }
 
-      if (DDS_RETCODE_OK == ddsrt_event_queue_wait (waitset,DDS_INFINITY))
+      if (DDS_RETCODE_OK == ddsrt_event_queue_wait (waitset, DDS_INFINITY))
       {
         ddsrt_event_t* evt;
         while ((evt = ddsrt_event_queue_next (waitset)) != NULL)
         {
-          if (0x0 == (ddsrt_atomic_ld32(&evt->triggered) & DDSRT_EVENT_FLAG_READ) ||
-              DDSRT_EVENT_TYPE_SOCKET != evt->type || NULL == evt->parent)
+          if (DDSRT_EVENT_TYPE_SOCKET != evt->type)
             continue;
           ddsi_tran_conn_t conn = evt->parent;
           /* Process message and clean out connection if failed or closed */
