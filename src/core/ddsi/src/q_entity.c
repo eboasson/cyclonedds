@@ -900,7 +900,7 @@ dds_return_t new_participant_guid (ddsi_guid_t *ppguid, struct ddsi_domaingv *gv
   else
   {
     const ddsi_tran_qos_t qos = { .m_purpose = DDSI_TRAN_QOS_RECV_UC, .m_diffserv = 0 };
-    if (ddsi_factory_create_conn (&ppconn, gv->m_factory, 0, &qos) != DDS_RETCODE_OK)
+    if (ddsi_factory_create_conn (&ppconn, gv->m_factory, 0, &qos, &ppguid->prefix) != DDS_RETCODE_OK)
     {
       GVERROR ("new_participant("PGUIDFMT", %x) failed: could not create network endpoint\n", PGUID (*ppguid), flags);
       return DDS_RETCODE_OUT_OF_RESOURCES;

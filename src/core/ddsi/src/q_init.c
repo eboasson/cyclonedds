@@ -106,7 +106,7 @@ static enum make_uc_sockets_ret make_uc_sockets (struct ddsi_domaingv *gv, uint3
     return MUSRET_INVALID_PORTS;
 
   const ddsi_tran_qos_t qos = { .m_purpose = DDSI_TRAN_QOS_RECV_UC, .m_diffserv = 0 };
-  rc = ddsi_factory_create_conn (&gv->disc_conn_uc, gv->m_factory, *pdisc, &qos);
+  rc = ddsi_factory_create_conn (&gv->disc_conn_uc, gv->m_factory, *pdisc, &qos, NULL);
   if (rc != DDS_RETCODE_OK)
     goto fail_disc;
 
@@ -114,7 +114,7 @@ static enum make_uc_sockets_ret make_uc_sockets (struct ddsi_domaingv *gv, uint3
     gv->data_conn_uc = gv->disc_conn_uc;
   else
   {
-    rc = ddsi_factory_create_conn (&gv->data_conn_uc, gv->m_factory, *pdata, &qos);
+    rc = ddsi_factory_create_conn (&gv->data_conn_uc, gv->m_factory, *pdata, &qos, NULL);
     if (rc != DDS_RETCODE_OK)
       goto fail_data;
   }
@@ -703,7 +703,7 @@ int create_multicast_sockets (struct ddsi_domaingv *gv)
              gv->config.extDomainId.value, port);
     goto err_disc;
   }
-  if (ddsi_factory_create_conn (&disc, gv->m_factory, port, &qos) != DDS_RETCODE_OK)
+  if (ddsi_factory_create_conn (&disc, gv->m_factory, port, &qos, NULL) != DDS_RETCODE_OK)
     goto err_disc;
   if (gv->config.many_sockets_mode == MSM_NO_UNICAST)
   {
@@ -719,7 +719,7 @@ int create_multicast_sockets (struct ddsi_domaingv *gv)
                gv->config.extDomainId.value, port);
       goto err_disc;
     }
-    if (ddsi_factory_create_conn (&data, gv->m_factory, port, &qos) != DDS_RETCODE_OK)
+    if (ddsi_factory_create_conn (&data, gv->m_factory, port, &qos, NULL) != DDS_RETCODE_OK)
       goto err_data;
   }
 
@@ -1414,7 +1414,7 @@ int rtps_init (struct ddsi_domaingv *gv)
   {
     const ddsi_tran_qos_t qos = { .m_purpose = DDSI_TRAN_QOS_XMIT, .m_diffserv = 0 };
     dds_return_t rc;
-    rc = ddsi_factory_create_conn (&gv->xmit_conn, gv->m_factory, 0, &qos);
+    rc = ddsi_factory_create_conn (&gv->xmit_conn, gv->m_factory, 0, &qos, NULL);
     if (rc != DDS_RETCODE_OK)
       goto err_mc_conn;
   }

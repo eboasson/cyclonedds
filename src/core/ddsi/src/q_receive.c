@@ -2844,7 +2844,6 @@ static int handle_submsg_sequence
   ddsrt_wctime_t tnowWC,
   ddsrt_etime_t tnowE,
   const ddsi_guid_prefix_t * const src_prefix,
-  const ddsi_guid_prefix_t * const dst_prefix,
   unsigned char * const msg /* NOT const - we may byteswap it */,
   const size_t len,
   unsigned char * submsg /* aliases somewhere in msg */,
@@ -2869,13 +2868,10 @@ static int handle_submsg_sequence
      current one is "live", i.e., possibly referenced by a
      submessage (for now, only Data(Frag)). */
   rst = nn_rmsg_alloc (rmsg, sizeof (*rst));
-  memset (rst, 0, sizeof (*rst));
   rst->conn = conn;
   rst->src_guid_prefix = *src_prefix;
-  if (dst_prefix)
-  {
-    rst->dst_guid_prefix = *dst_prefix;
-  }
+  rst->dst_guid_prefix = conn->m_guid_prefix;
+  rst->reply_locators = NULL;
   /* "forme" is a whether the current submessage is intended for this
      instance of DDSI2 and is roughly equivalent to
        (dst_prefix == 0) ||
@@ -2996,7 +2992,7 @@ static int handle_submsg_sequence
         if (!valid_InfoDST (&sm->infodst, submsg_size, byteswap))
           goto malformed;
         rst = rst_cow_if_needed (&rst_live, rmsg, rst);
-        handle_InfoDST (rst, &sm->infodst, dst_prefix);
+        handle_InfoDST (rst, &sm->infodst, &conn->m_guid_prefix);
         /* no effect on ts_for_latmeas */
         break;
       case SMID_INFO_REPLY:
@@ -3176,7 +3172,7 @@ malformed_asleep:
   return -1;
 }
 
-static bool do_packet (struct thread_state1 * const ts1, struct ddsi_domaingv *gv, ddsi_tran_conn_t conn, const ddsi_guid_prefix_t *guidprefix, struct nn_rbufpool *rbpool)
+static bool do_packet (struct thread_state1 * const ts1, struct ddsi_domaingv *gv, ddsi_tran_conn_t conn, struct nn_rbufpool *rbpool)
 {
   /* UDP max packet size is 64kB */
 
@@ -3290,7 +3286,7 @@ static bool do_packet (struct thread_state1 * const ts1, struct ddsi_domaingv *g
       nn_rtps_msg_state_t res = decode_rtps_message (ts1, gv, &rmsg, &hdr, &buff, &sz, rbpool, conn->m_stream);
       if (res != NN_RTPS_MSG_STATE_ERROR)
       {
-        handle_submsg_sequence (ts1, gv, conn, &srcloc, ddsrt_time_wallclock (), ddsrt_time_elapsed (), &hdr->guid_prefix, guidprefix, buff, (size_t) sz, buff + RTPS_MESSAGE_HEADER_SIZE, rmsg, res == NN_RTPS_MSG_STATE_ENCODED);
+        handle_submsg_sequence (ts1, gv, conn, &srcloc, ddsrt_time_wallclock (), ddsrt_time_elapsed (), &hdr->guid_prefix, buff, (size_t) sz, buff + RTPS_MESSAGE_HEADER_SIZE, rmsg, res == NN_RTPS_MSG_STATE_ENCODED);
       }
       else
       {
@@ -3385,7 +3381,6 @@ static void rebuild_local_participant_set (struct thread_state1 * const ts1, str
     else
     {
       lps->ps[lps->nps] = pp->m_conn;
-      lps->ps[lps->nps]->m_guid_prefix = &(pp->e.guid.prefix);
       GVTRACE ("  pp "PGUIDFMT" handle %"PRIdSOCK"\n", PGUID (pp->e.guid), ddsi_conn_handle (pp->m_conn));
       lps->nps++;
     }
@@ -3447,7 +3442,6 @@ static void recv_thread_waitset_add_conn (ddsrt_event_queue_t *eq, ddsi_tran_con
   for (uint32_t i = 0; i < gv->n_recv_threads; i++)
     if (gv->recv_threads[i].arg.mode == RTM_SINGLE && gv->recv_threads[i].arg.u.single.conn == conn)
       return;
-  conn->m_guid_prefix = NULL;
   ddsrt_event_queue_add(eq, &conn->m_event);
 }
 
@@ -3506,7 +3500,7 @@ uint32_t recv_thread (void *vrecv_thread_arg)
     while (ddsrt_atomic_ld32 (&gv->rtps_keepgoing))
     {
       LOG_THREAD_CPUTIME (&gv->logconfig, next_thread_cputime);
-      (void) do_packet (ts1, gv, conn, NULL, rbpool);
+      (void) do_packet (ts1, gv, conn, rbpool);
     }
   }
   else
@@ -3552,7 +3546,7 @@ uint32_t recv_thread (void *vrecv_thread_arg)
             continue;
           ddsi_tran_conn_t conn = evt->parent;
           /* Process message and clean out connection if failed or closed */
-          if (!do_packet (ts1, gv, conn, conn->m_guid_prefix, rbpool) && !conn->m_connless)
+          if (!do_packet (ts1, gv, conn, rbpool) && !conn->m_connless)
             ddsi_conn_free (conn);
         }
       }

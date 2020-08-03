@@ -174,7 +174,7 @@ static int ddsi_raweth_conn_locator (ddsi_tran_factory_t fact, ddsi_tran_base_t 
   return ret;
 }
 
-static dds_return_t ddsi_raweth_create_conn (ddsi_tran_conn_t *conn_out, ddsi_tran_factory_t fact, uint32_t port, const struct ddsi_tran_qos *qos)
+static dds_return_t ddsi_raweth_create_conn (ddsi_tran_conn_t *conn_out, ddsi_tran_factory_t fact, uint32_t port, const struct ddsi_tran_qos *qos, const ddsi_guid_prefix_t *guidprefix)
 {
   ddsrt_socket_t sock;
   dds_return_t rc;
@@ -219,7 +219,7 @@ static dds_return_t ddsi_raweth_create_conn (ddsi_tran_conn_t *conn_out, ddsi_tr
   memset (uc, 0, sizeof (*uc));
   uc->m_sock = sock;
   uc->m_ifindex = addr.sll_ifindex;
-  ddsi_factory_conn_init (fact, &uc->m_base);
+  ddsi_factory_conn_init (fact, &uc->m_base, guidprefix);
   uc->m_base.m_base.m_port = port;
   uc->m_base.m_base.m_trantype = DDSI_TRAN_CONN;
   uc->m_base.m_base.m_multicast = mcast;
@@ -228,8 +228,7 @@ static dds_return_t ddsi_raweth_create_conn (ddsi_tran_conn_t *conn_out, ddsi_tr
   uc->m_base.m_read_fn = ddsi_raweth_conn_read;
   uc->m_base.m_write_fn = ddsi_raweth_conn_write;
   uc->m_base.m_disable_multiplexing_fn = 0;
-  ddsrt_event_socket_init(&uc->m_base.m_event, ddsi_conn_handle(&uc->m_base), DDSRT_EVENT_FLAG_READ);
-  uc->m_base.m_event.parent = &uc->m_base;
+  ddsrt_event_socket_init(&uc->m_base.m_event, &uc->m_base, ddsi_conn_handle(&uc->m_base), DDSRT_EVENT_FLAG_READ);
 
   DDS_CTRACE (&fact->gv->logconfig, "ddsi_raweth_create_conn %s socket %d port %u\n", mcast ? "multicast" : "unicast", uc->m_sock, uc->m_base.m_base.m_port);
   *conn_out = &uc->m_base;

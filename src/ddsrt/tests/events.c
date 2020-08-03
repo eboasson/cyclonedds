@@ -156,7 +156,7 @@ CU_Test(ddsrt_event, event_create)
   ddsrt_socket_t sock = 123;
   uint32_t flags = DDSRT_EVENT_FLAG_READ;
   ddsrt_event_t evt;
-  ddsrt_event_socket_init(&evt, sock, flags);
+  ddsrt_event_socket_init(&evt, NULL, sock, flags);
   CU_ASSERT_EQUAL(evt.flags, DDSRT_EVENT_FLAG_READ);
   CU_ASSERT_EQUAL(ddsrt_atomic_ld32(&evt.triggered), DDSRT_EVENT_FLAG_UNSET);
   CU_ASSERT_EQUAL(evt.type, DDSRT_EVENT_TYPE_SOCKET);
@@ -189,9 +189,9 @@ CU_Test(ddsrt_event, queue_add_remove_event)
   uint32_t flags = DDSRT_EVENT_FLAG_READ;
 
   ddsrt_event_t evt1, evt2, evt3;
-  ddsrt_event_socket_init(&evt1, p1[0], flags);
-  ddsrt_event_socket_init(&evt2, p2[0], flags);
-  ddsrt_event_socket_init(&evt3, p3[0], flags);
+  ddsrt_event_socket_init(&evt1, NULL, p1[0], flags);
+  ddsrt_event_socket_init(&evt2, NULL, p2[0], flags);
+  ddsrt_event_socket_init(&evt3, NULL, p3[0], flags);
 
   //adding events
   ddsrt_event_queue_add(q, &evt1);
@@ -271,7 +271,7 @@ CU_Test(ddsrt_event, queue_wait)
 
   /*create event for p*/
   ddsrt_event_t evt;
-  ddsrt_event_socket_init(&evt, p[0], DDSRT_EVENT_FLAG_READ);
+  ddsrt_event_socket_init(&evt, NULL, p[0], DDSRT_EVENT_FLAG_READ);
   ddsrt_event_queue_add(q, &evt);
 
   /*single pipe generating events*/
@@ -285,7 +285,7 @@ CU_Test(ddsrt_event, queue_wait)
 
   /*create event for p2*/
   ddsrt_event_t evt2;
-  ddsrt_event_socket_init(&evt2, p2[0], DDSRT_EVENT_FLAG_READ);
+  ddsrt_event_socket_init(&evt2, NULL, p2[0], DDSRT_EVENT_FLAG_READ);
   ddsrt_event_queue_add(q, &evt2);
 
   /*two pipes generating events*/
@@ -314,7 +314,7 @@ CU_Test(ddsrt_event, queue_signal)
 
   /*create event for p*/
   ddsrt_event_t evt;
-  ddsrt_event_socket_init(&evt, p[0], DDSRT_EVENT_FLAG_READ);
+  ddsrt_event_socket_init(&evt, NULL, p[0], DDSRT_EVENT_FLAG_READ);
   ddsrt_event_queue_add(q, &evt);
 
   ddsrt_thread_t thr1, thr2, thr3;

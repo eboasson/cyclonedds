@@ -31,7 +31,7 @@ extern inline uint32_t ddsi_receive_buffer_size (const struct ddsi_tran_factory 
 extern inline ddsrt_socket_t ddsi_conn_handle (ddsi_tran_conn_t conn);
 extern inline int ddsi_conn_locator (ddsi_tran_conn_t conn, nn_locator_t * loc);
 extern inline ddsrt_socket_t ddsi_tran_handle (ddsi_tran_base_t base);
-extern inline dds_return_t ddsi_factory_create_conn (ddsi_tran_conn_t *conn, ddsi_tran_factory_t factory, uint32_t port, const struct ddsi_tran_qos *qos);
+extern inline dds_return_t ddsi_factory_create_conn (ddsi_tran_conn_t *conn, ddsi_tran_factory_t factory, uint32_t port, const struct ddsi_tran_qos *qos, const ddsi_guid_prefix_t *guidprefix);
 extern inline int ddsi_listener_locator (ddsi_tran_listener_t listener, nn_locator_t * loc);
 extern inline int ddsi_listener_listen (ddsi_tran_listener_t listener);
 extern inline ddsi_tran_conn_t ddsi_listener_accept (ddsi_tran_listener_t listener);
@@ -158,7 +158,7 @@ void ddsi_conn_add_ref (ddsi_tran_conn_t conn)
   ddsrt_atomic_inc32 (&conn->m_count);
 }
 
-void ddsi_factory_conn_init (const struct ddsi_tran_factory *factory, ddsi_tran_conn_t conn)
+void ddsi_factory_conn_init (const struct ddsi_tran_factory *factory, ddsi_tran_conn_t conn, const ddsi_guid_prefix_t *guidprefix)
 {
   ddsrt_atomic_st32 (&conn->m_count, 1);
   conn->m_connless = factory->m_connless;
@@ -166,7 +166,10 @@ void ddsi_factory_conn_init (const struct ddsi_tran_factory *factory, ddsi_tran_
   conn->m_factory = (struct ddsi_tran_factory *) factory;
   conn->m_base.gv = factory->gv;
   ddsrt_event_socket_null(&conn->m_event);
-  conn->m_guid_prefix = NULL;
+  if (guidprefix)
+    conn->m_guid_prefix = *guidprefix;
+  else
+    memset (&conn->m_guid_prefix, 0, sizeof (conn->m_guid_prefix));
 }
 
 void ddsi_conn_disable_multiplexing (ddsi_tran_conn_t conn)

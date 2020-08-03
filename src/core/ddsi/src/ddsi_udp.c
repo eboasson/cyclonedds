@@ -435,7 +435,7 @@ static dds_return_t set_mc_options_transmit_ipv4 (struct ddsi_domaingv const * c
   return DDS_RETCODE_OK;
 }
 
-static dds_return_t ddsi_udp_create_conn (ddsi_tran_conn_t *conn_out, ddsi_tran_factory_t fact_cmn, uint32_t port, const ddsi_tran_qos_t *qos)
+static dds_return_t ddsi_udp_create_conn (ddsi_tran_conn_t *conn_out, ddsi_tran_factory_t fact_cmn, uint32_t port, const ddsi_tran_qos_t *qos, const ddsi_guid_prefix_t *guidprefix)
 {
   struct ddsi_udp_tran_factory *fact = (struct ddsi_udp_tran_factory *) fact_cmn;
   struct ddsi_domaingv const * const gv = fact->fact.gv;
@@ -571,7 +571,7 @@ static dds_return_t ddsi_udp_create_conn (ddsi_tran_conn_t *conn_out, ddsi_tran_
   WSAEventSelect (conn->m_sock, conn->m_sockEvent, FD_WRITE);
 #endif
 
-  ddsi_factory_conn_init (&fact->fact, &conn->m_base);
+  ddsi_factory_conn_init (&fact->fact, &conn->m_base, guidprefix);
   conn->m_base.m_base.m_port = get_socket_port (gv, sock);
   conn->m_base.m_base.m_trantype = DDSI_TRAN_CONN;
   conn->m_base.m_base.m_multicast = (qos->m_purpose == DDSI_TRAN_QOS_RECV_MC);
@@ -581,8 +581,7 @@ static dds_return_t ddsi_udp_create_conn (ddsi_tran_conn_t *conn_out, ddsi_tran_
   conn->m_base.m_write_fn = ddsi_udp_conn_write;
   conn->m_base.m_disable_multiplexing_fn = ddsi_udp_disable_multiplexing;
   conn->m_base.m_locator_fn = ddsi_udp_conn_locator;
-  ddsrt_event_socket_init(&conn->m_base.m_event, ddsi_conn_handle(&conn->m_base), DDSRT_EVENT_FLAG_READ);
-  conn->m_base.m_event.parent = &conn->m_base;
+  ddsrt_event_socket_init(&conn->m_base.m_event, &conn->m_base, ddsi_conn_handle(&conn->m_base), DDSRT_EVENT_FLAG_READ);
 
   GVTRACE ("ddsi_udp_create_conn %s socket %"PRIdSOCK" port %"PRIu32"\n", purpose_str, conn->m_sock, conn->m_base.m_base.m_port);
   *conn_out = &conn->m_base;

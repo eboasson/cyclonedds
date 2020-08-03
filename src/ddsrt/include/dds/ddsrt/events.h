@@ -109,10 +109,11 @@ extern "C" {
   * the flags and socket fields to the values supplied.
   *
   * @param[in,out] ev Pointer to the event to initialize.
+  * @param[in] parent Pointer to parent/owning object
   * @param[in] sock Socket to initialize the event with.
   * @param[in] flags Flags to set for the event.
   */
-  DDS_EXPORT void ddsrt_event_socket_init(ddsrt_event_t* ev, ddsrt_socket_t sock, uint32_t flags) ddsrt_nonnull((1));
+  DDS_EXPORT void ddsrt_event_socket_init(ddsrt_event_t* ev, void *parent, ddsrt_socket_t sock, uint32_t flags) ddsrt_nonnull((1));
 
   /**
   * @brief Event queue creation function.

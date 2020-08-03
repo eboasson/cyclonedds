@@ -106,7 +106,7 @@ static const ddsrt_avl_treedef_t ddsi_tcp_treedef = DDSRT_AVL_TREEDEF_INITIALIZE
   0
 );
 
-static ddsi_tcp_conn_t ddsi_tcp_new_conn (struct ddsi_tran_factory_tcp *fact, ddsrt_socket_t, bool, struct sockaddr *);
+static ddsi_tcp_conn_t ddsi_tcp_new_conn (struct ddsi_tran_factory_tcp *fact, ddsrt_socket_t, bool, struct sockaddr *, const ddsi_guid_prefix_t *guidprefix);
 
 static char *sockaddr_to_string_with_port (struct ddsi_tran_factory_tcp *fact, char *dst, size_t sizeof_dst, const struct sockaddr *src)
 {
@@ -391,7 +391,7 @@ static ddsi_tcp_conn_t ddsi_tcp_cache_find (struct ddsi_tran_factory_tcp *fact, 
   }
   if (ret == NULL)
   {
-    ret = ddsi_tcp_new_conn (fact, DDSRT_INVALID_SOCKET, false, &key.m_peer_addr.a);
+    ret = ddsi_tcp_new_conn (fact, DDSRT_INVALID_SOCKET, false, &key.m_peer_addr.a, NULL);
     ddsi_tcp_cache_add (fact, ret, &path);
   }
   ddsrt_mutex_unlock (&fact->ddsi_tcp_cache_lock_g);
@@ -788,11 +788,12 @@ static int ddsi_tcp_locator (struct ddsi_tran_factory *fact_cmn, ddsi_tran_base_
   return 0;
 }
 
-static dds_return_t ddsi_tcp_create_conn (ddsi_tran_conn_t *conn_out, struct ddsi_tran_factory *fact_cmn, uint32_t port, const struct ddsi_tran_qos *qos)
+static dds_return_t ddsi_tcp_create_conn (ddsi_tran_conn_t *conn_out, struct ddsi_tran_factory *fact_cmn, uint32_t port, const struct ddsi_tran_qos *qos, const ddsi_guid_prefix_t *guidprefix)
 {
   struct ddsi_tran_factory_tcp * const fact = (struct ddsi_tran_factory_tcp *) fact_cmn;
   (void) qos;
   (void) port;
+  (void) guidprefix;
   *conn_out = &fact->ddsi_tcp_conn_client.m_base;
   return DDS_RETCODE_OK;
 }
@@ -870,7 +871,7 @@ static ddsi_tran_conn_t ddsi_tcp_accept (ddsi_tran_listener_t listener)
     GVLOG (DDS_LC_TCP, "tcp accept new socket %"PRIdSOCK" on socket %"PRIdSOCK" from %s\n", sock, tl->m_sock, buff);
 
     (void)ddsrt_setsocknonblocking (sock, true);
-    tcp = ddsi_tcp_new_conn (fact, sock, true, &addr.a);
+    tcp = ddsi_tcp_new_conn (fact, sock, true, &addr.a, NULL);
 #ifdef DDSI_INCLUDE_SSL
     tcp->m_ssl = ssl;
 #endif
@@ -914,9 +915,9 @@ static void ddsi_tcp_conn_peer_locator (ddsi_tran_conn_t conn, nn_locator_t * lo
   GVLOG (DDS_LC_TCP, "(tcp EP:%s)", buff);
 }
 
-static void ddsi_tcp_base_init (const struct ddsi_tran_factory_tcp *fact, struct ddsi_tran_conn *base)
+static void ddsi_tcp_base_init (const struct ddsi_tran_factory_tcp *fact, struct ddsi_tran_conn *base, const ddsi_guid_prefix_t *guidprefix)
 {
-  ddsi_factory_conn_init (&fact->fact, base);
+  ddsi_factory_conn_init (&fact->fact, base, guidprefix);
   base->m_base.m_trantype = DDSI_TRAN_CONN;
   base->m_base.m_handle_fn = ddsi_tcp_conn_handle;
   base->m_read_fn = ddsi_tcp_conn_read;
@@ -924,16 +925,15 @@ static void ddsi_tcp_base_init (const struct ddsi_tran_factory_tcp *fact, struct
   base->m_peer_locator_fn = ddsi_tcp_conn_peer_locator;
   base->m_disable_multiplexing_fn = 0;
   base->m_locator_fn = ddsi_tcp_locator;
-  ddsrt_event_socket_init(&base->m_event, ddsi_conn_handle(base), DDSRT_EVENT_FLAG_READ);
-  base->m_event.parent = base;
+  ddsrt_event_socket_init(&base->m_event, base, ddsi_conn_handle(base), DDSRT_EVENT_FLAG_READ);
 }
 
-static ddsi_tcp_conn_t ddsi_tcp_new_conn (struct ddsi_tran_factory_tcp *fact, ddsrt_socket_t sock, bool server, struct sockaddr * peer)
+static ddsi_tcp_conn_t ddsi_tcp_new_conn (struct ddsi_tran_factory_tcp *fact, ddsrt_socket_t sock, bool server, struct sockaddr * peer, const ddsi_guid_prefix_t *guidprefix)
 {
   ddsi_tcp_conn_t conn = ddsrt_malloc (sizeof (*conn));
 
   memset (conn, 0, sizeof (*conn));
-  ddsi_tcp_base_init (fact, &conn->m_base);
+  ddsi_tcp_base_init (fact, &conn->m_base, guidprefix);
   ddsrt_mutex_init (&conn->m_mutex);
   conn->m_sock = DDSRT_INVALID_SOCKET;
   (void)memcpy(&conn->m_peer_addr, peer, ddsrt_sockaddr_get_size(peer));
@@ -1189,7 +1189,7 @@ int ddsi_tcp_init (struct ddsi_domaingv *gv)
 #endif
 
   memset (&fact->ddsi_tcp_conn_client, 0, sizeof (fact->ddsi_tcp_conn_client));
-  ddsi_tcp_base_init (fact, &fact->ddsi_tcp_conn_client.m_base);
+  ddsi_tcp_base_init (fact, &fact->ddsi_tcp_conn_client.m_base, NULL);
 
 #ifdef DDSI_INCLUDE_SSL
   if (gv->config.ssl_enable)
