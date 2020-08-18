@@ -105,7 +105,7 @@ static enum make_uc_sockets_ret make_uc_sockets (struct ddsi_domaingv *gv, uint3
   if (!ddsi_is_valid_port (gv->m_factory, *pdisc) || !ddsi_is_valid_port (gv->m_factory, *pdata))
     return MUSRET_INVALID_PORTS;
 
-  const ddsi_tran_qos_t qos = { .m_purpose = DDSI_TRAN_QOS_RECV_UC, .m_diffserv = 0 };
+  const ddsi_tran_qos_t qos = { .m_purpose = DDSI_TRAN_QOS_RECV_UC, .m_diffserv = 0, .m_interface = NULL };
   rc = ddsi_factory_create_conn (&gv->disc_conn_uc, gv->m_factory, *pdisc, &qos);
   if (rc != DDS_RETCODE_OK)
     goto fail_disc;
@@ -210,6 +210,7 @@ static int set_recvips (struct ddsi_domaingv *gv)
        interface, treat it as "preferred", else as "none"; warn if
        interfaces other than the selected one are included. */
       int i, have_selected = 0, have_others = 0;
+      assert (gv->n_interfaces == 1);
       for (i = 0; gv->config.networkRecvAddressStrings[i] != NULL; i++)
       {
         ddsi_locator_t loc;
@@ -218,7 +219,7 @@ static int set_recvips (struct ddsi_domaingv *gv)
           GVERROR ("%s: not a valid address in DDSI2EService/General/MulticastRecvNetworkInterfaceAddresses\n", gv->config.networkRecvAddressStrings[i]);
           return -1;
         }
-        if (compare_locators(&loc, &gv->interfaces[gv->selected_interface].loc) == 0)
+        if (compare_locators(&loc, &gv->interfaces[0].loc) == 0)
           have_selected = 1;
         else
           have_others = 1;
@@ -314,6 +315,7 @@ static int set_spdp_address (struct ddsi_domaingv *gv)
   int rc = 0;
   /* FIXME: FIXME: FIXME: */
   gv->loc_spdp_mc.tran = NULL;
+  gv->loc_spdp_mc.conn = NULL;
   gv->loc_spdp_mc.kind = NN_LOCATOR_KIND_INVALID;
   if (strcmp (gv->config.spdpMulticastAddressString, "239.255.0.1") != 0)
   {
@@ -361,12 +363,12 @@ static int set_ext_address_and_mask (struct ddsi_domaingv *gv)
   int rc;
 
   if (!gv->config.externalAddressString)
-    gv->extloc = gv->ownloc;
+    set_unspec_locator (&gv->extloc);
   else if ((rc = string_to_default_locator (gv, &loc, gv->config.externalAddressString, 0, 0, "external address")) < 0)
     return rc;
   else if (rc == 0) {
     GVWARNING ("Ignoring ExternalNetworkAddress %s\n", gv->config.externalAddressString);
-    gv->extloc = gv->ownloc;
+    set_unspec_locator (&gv->extloc);
   } else {
     gv->extloc = loc;
   }
@@ -375,6 +377,7 @@ static int set_ext_address_and_mask (struct ddsi_domaingv *gv)
   {
     memset(&gv->extmask.address, 0, sizeof(gv->extmask.address));
     gv->extmask.tran = NULL;
+    gv->extmask.conn = NULL;
     gv->extmask.kind = NN_LOCATOR_KIND_INVALID;
     gv->extmask.port = NN_LOCATOR_PORT_INVALID;
   }
@@ -387,6 +390,17 @@ static int set_ext_address_and_mask (struct ddsi_domaingv *gv)
   {
     if ((rc = string_to_default_locator (gv, &gv->extmask, gv->config.externalMaskString, 0, -1, "external mask")) < 0)
       return rc;
+  }
+
+  if (!is_unspec_locator (&gv->extloc))
+  {
+    if (gv->n_interfaces > 1)
+    {
+      GVERROR ("external network address specification only supported when using a single interface\n");
+      return -1;
+    }
+    if (gv->interfaces[0].loc.kind != gv->extloc.kind)
+      DDS_FATAL ("mismatch between network address kinds\n");
   }
   return 0;
 }
@@ -704,7 +718,7 @@ int joinleave_spdp_defmcip (struct ddsi_domaingv *gv, int dojoin)
 
 int create_multicast_sockets (struct ddsi_domaingv *gv)
 {
-  const ddsi_tran_qos_t qos = { .m_purpose = DDSI_TRAN_QOS_RECV_MC, .m_diffserv = 0 };
+  const ddsi_tran_qos_t qos = { .m_purpose = DDSI_TRAN_QOS_RECV_MC, .m_diffserv = 0, .m_interface = NULL };
   ddsi_tran_conn_t disc, data;
   uint32_t port;
 
@@ -1049,7 +1063,9 @@ static void free_conns (struct ddsi_domaingv *gv)
 {
   // Depending on settings, various "conn"s can alias others, this makes sure we free each one only once
   // FIXME: perhaps store them in a table instead?
-  ddsi_tran_conn_t cs[] = { gv->xmit_conn, gv->disc_conn_mc, gv->data_conn_mc, gv->disc_conn_uc, gv->data_conn_uc };
+  ddsi_tran_conn_t cs[4 + MAX_XMIT_CONNS] = { gv->disc_conn_mc, gv->data_conn_mc, gv->disc_conn_uc, gv->data_conn_uc };
+  for (size_t i = 0; i < MAX_XMIT_CONNS; i++)
+    cs[4 + i] = gv->xmit_conns[i];
   for (size_t i = 0; i < sizeof (cs) / sizeof (cs[0]); i++)
   {
     if (cs[i] == NULL)
@@ -1059,13 +1075,13 @@ static void free_conns (struct ddsi_domaingv *gv)
         cs[j] = NULL;
     ddsi_conn_free (cs[i]);
   }
+
 }
 
 int rtps_init (struct ddsi_domaingv *gv)
 {
   uint32_t port_disc_uc = 0;
   uint32_t port_data_uc = 0;
-  bool mc_available = true;
   ddsrt_mtime_t reset_deaf_mute_time = DDSRT_MTIME_NEVER;
 
   gv->tstart = ddsrt_time_wallclock ();    /* wall clock time, used in logs */
@@ -1076,7 +1092,8 @@ int rtps_init (struct ddsi_domaingv *gv)
   gv->data_conn_uc = NULL;
   gv->disc_conn_mc = NULL;
   gv->data_conn_mc = NULL;
-  gv->xmit_conn = NULL;
+  for (size_t i = 0; i < MAX_XMIT_CONNS; i++)
+    gv->xmit_conns[i] = NULL;
   gv->listener = NULL;
   gv->debmon = NULL;
 
@@ -1141,30 +1158,32 @@ int rtps_init (struct ddsi_domaingv *gv)
   }
   if (gv->config.allowMulticast)
   {
-    if (!gv->interfaces[gv->selected_interface].mc_capable)
+    for (int i = 0; i < gv->n_interfaces; i++)
     {
-      GVWARNING ("selected interface \"%s\" is not multicast-capable: disabling multicast\n", gv->interfaces[gv->selected_interface].name);
-      gv->config.allowMulticast = DDSI_AMC_FALSE;
-      /* ensure discovery can work: firstly, that the process will be reachable on a "well-known" port
+      if (!gv->interfaces[i].mc_capable)
+      {
+        GVWARNING ("selected interface \"%s\" is not multicast-capable: disabling multicast\n", gv->interfaces[i].name);
+        gv->config.allowMulticast = DDSI_AMC_FALSE;
+        /* ensure discovery can work: firstly, that the process will be reachable on a "well-known" port
          number, and secondly, that the local interface's IP address gets added to the discovery
          address set */
-      gv->config.participantIndex = DDSI_PARTICIPANT_INDEX_AUTO;
-      mc_available = false;
-    }
-    else if (gv->config.allowMulticast & DDSI_AMC_DEFAULT)
-    {
-      /* default is dependent on network interface type: if multicast is believed to be flaky,
-         use multicast only for SPDP packets */
-      assert ((gv->config.allowMulticast & ~DDSI_AMC_DEFAULT) == 0);
-      if (gv->interfaces[gv->selected_interface].mc_flaky)
-      {
-        gv->config.allowMulticast = DDSI_AMC_SPDP;
-        GVLOG (DDS_LC_CONFIG, "presumed flaky multicast, use for SPDP only\n");
+        gv->config.participantIndex = DDSI_PARTICIPANT_INDEX_AUTO;
       }
-      else
+      else if (gv->config.allowMulticast & DDSI_AMC_DEFAULT)
       {
-        GVLOG (DDS_LC_CONFIG, "presumed robust multicast support, use for everything\n");
-        gv->config.allowMulticast = DDSI_AMC_TRUE;
+        /* default is dependent on network interface type: if multicast is believed to be flaky,
+         use multicast only for SPDP packets */
+        assert ((gv->config.allowMulticast & ~DDSI_AMC_DEFAULT) == 0);
+        if (gv->interfaces[i].mc_flaky)
+        {
+          gv->config.allowMulticast = DDSI_AMC_SPDP;
+          GVLOG (DDS_LC_CONFIG, "presumed flaky multicast, use for SPDP only\n");
+        }
+        else
+        {
+          GVLOG (DDS_LC_CONFIG, "presumed robust multicast support, use for everything\n");
+          gv->config.allowMulticast = DDSI_AMC_TRUE;
+        }
       }
     }
   }
@@ -1182,7 +1201,10 @@ int rtps_init (struct ddsi_domaingv *gv)
   {
     char buf[DDSI_LOCSTRLEN];
     /* the "ownip", "extip" labels in the trace have been there for so long, that it seems worthwhile to retain them even though they need not be IP any longer */
-    GVLOG (DDS_LC_CONFIG, "ownip: %s\n", ddsi_locator_to_string_no_port (buf, sizeof(buf), &gv->ownloc));
+    GVLOG (DDS_LC_CONFIG, "ownip: ");
+    for (int i = 0; i < gv->n_interfaces; i++)
+      GVLOG (DDS_LC_CONFIG, "%s%s", (i == 0) ? "" : ", ", ddsi_locator_to_string_no_port (buf, sizeof(buf), &gv->interfaces[i].loc));
+    GVLOG (DDS_LC_CONFIG, "\n");
     GVLOG (DDS_LC_CONFIG, "extip: %s\n", ddsi_locator_to_string_no_port (buf, sizeof(buf), &gv->extloc));
     GVLOG (DDS_LC_CONFIG, "extmask: %s%s\n", ddsi_locator_to_string_no_port (buf, sizeof(buf), &gv->extmask), gv->m_factory->m_kind != NN_LOCATOR_KIND_UDPv4 ? " (not applicable)" : "");
     GVLOG (DDS_LC_CONFIG, "SPDP MC: %s\n", ddsi_locator_to_string_no_port (buf, sizeof(buf), &gv->loc_spdp_mc));
@@ -1191,9 +1213,6 @@ int rtps_init (struct ddsi_domaingv *gv)
     GVLOG (DDS_LC_CONFIG, "SSM support included\n");
 #endif
   }
-
-  if (gv->ownloc.kind != gv->extloc.kind)
-    DDS_FATAL ("mismatch between network address kinds\n");
 
 #ifdef DDS_HAS_NETWORK_PARTITIONS
   /* Convert address sets in partition mappings from string to address sets */
@@ -1386,6 +1405,27 @@ int rtps_init (struct ddsi_domaingv *gv)
 
   gv->mship = new_group_membership();
 
+  /* Create shared transmit connection -- FIXME: no longer needed, but can't do the testing right now */
+  for (size_t i = 0; i < MAX_XMIT_CONNS; i++)
+    gv->xmit_conns[i] = NULL;
+  if (gv->config.many_sockets_mode == DDSI_MSM_NO_UNICAST)
+    gv->xmit_conns[0] = gv->data_conn_uc;
+  else
+  {
+    dds_return_t rc;
+    for (int i = 0; i < gv->n_interfaces; i++)
+    {
+      const ddsi_tran_qos_t qos = { .m_purpose = DDSI_TRAN_QOS_XMIT, .m_diffserv = 0, .m_interface = &gv->interfaces[i] };
+      rc = ddsi_factory_create_conn (&gv->xmit_conns[i], gv->m_factory, 0, &qos);
+      if (rc != DDS_RETCODE_OK)
+        goto err_mc_conn;
+      GVLOG (DDS_LC_CONFIG, "interface %s: transmit port %d\n", gv->interfaces[i].name, (int) ddsi_conn_port (gv->xmit_conns[i]));
+      // FIXME: shouldn't be patching interface locator like this
+      gv->interfaces[i].loc.tran = gv->m_factory;
+      gv->interfaces[i].loc.conn = gv->xmit_conns[i];
+    }
+  }
+
   if (gv->m_factory->m_connless)
   {
     if (!(gv->config.many_sockets_mode == DDSI_MSM_NO_UNICAST && gv->config.allowMulticast))
@@ -1442,18 +1482,6 @@ int rtps_init (struct ddsi_domaingv *gv)
       ddsi_listener_locator (gv->listener, &gv->loc_meta_uc);
       ddsi_listener_locator (gv->listener, &gv->loc_default_uc);
     }
-  }
-
-  /* Create shared transmit connection -- FIXME: no longer needed, but can't do the testing right now */
-  if (gv->config.many_sockets_mode == DDSI_MSM_NO_UNICAST)
-    gv->xmit_conn = gv->data_conn_uc;
-  else
-  {
-    const ddsi_tran_qos_t qos = { .m_purpose = DDSI_TRAN_QOS_XMIT, .m_diffserv = 0 };
-    dds_return_t rc;
-    rc = ddsi_factory_create_conn (&gv->xmit_conn, gv->m_factory, 0, &qos);
-    if (rc != DDS_RETCODE_OK)
-      goto err_mc_conn;
   }
 
 #ifdef DDS_HAS_NETWORK_CHANNELS
@@ -1517,7 +1545,7 @@ int rtps_init (struct ddsi_domaingv *gv)
 
   gv->xevents = xeventq_new
   (
-    gv->xmit_conn,
+    gv,
     gv->config.max_queued_rexmit_bytes,
     gv->config.max_queued_rexmit_msgs,
 #ifdef DDS_HAS_BANDWIDTH_LIMITING
@@ -1537,14 +1565,17 @@ int rtps_init (struct ddsi_domaingv *gv)
   /* If multicast was enabled but not available, always add the local interface to the discovery address set.
      Conversion via string and add_peer_addresses has the benefit that the port number expansion happens
      automatically. */
-  if (!mc_available)
+  for (int i = 0; i < gv->n_interfaces; i++)
   {
-    struct ddsi_config_peer_listelem peer_local;
-    char local_addr[DDSI_LOCSTRLEN];
-    ddsi_locator_to_string_no_port (local_addr, sizeof (local_addr), &gv->interfaces[gv->selected_interface].loc);
-    peer_local.next = NULL;
-    peer_local.peer = local_addr;
-    add_peer_addresses (gv, gv->as_disc, &peer_local);
+    if (!gv->interfaces[i].mc_capable && gv->config.peers == NULL)
+    {
+      struct ddsi_config_peer_listelem peer_local;
+      char local_addr[DDSI_LOCSTRLEN];
+      ddsi_locator_to_string_no_port (local_addr, sizeof (local_addr), &gv->interfaces[i].loc);
+      peer_local.next = NULL;
+      peer_local.peer = local_addr;
+      add_peer_addresses (gv, gv->as_disc, &peer_local);
+    }
   }
   if (gv->config.peers)
   {
@@ -1591,6 +1622,9 @@ err_post_omg_security_init:
 #endif
 #endif
 err_mc_conn:
+  // FIXME: shouldn't be patching interfaces like this
+  for (int i = 0; i < gv->n_interfaces; i++)
+    gv->interfaces[i].loc.conn = NULL;
   free_conns (gv);
   if (gv->pcap_fp)
     ddsrt_mutex_destroy (&gv->pcap_lock);
@@ -1929,6 +1963,9 @@ void rtps_fini (struct ddsi_domaingv *gv)
 #endif
 
   (void) joinleave_spdp_defmcip (gv, 0);
+  // FIXME: shouldn't be patching interfaces like this
+  for (int i = 0; i < gv->n_interfaces; i++)
+    gv->interfaces[i].loc.conn = NULL;
   free_conns (gv);
   free_group_membership(gv->mship);
   ddsi_tran_factories_fini (gv);

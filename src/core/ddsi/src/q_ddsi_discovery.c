@@ -50,46 +50,73 @@
 #include "dds/ddsi/ddsi_security_exchange.h"
 #endif
 
-static int get_locator (const struct ddsi_domaingv *gv, ddsi_locator_t *loc, const nn_locators_t *locs, int uc_same_subnet)
+static void allowmulticast_aware_add_to_addrset (const struct ddsi_domaingv *gv, uint32_t allow_multicast, struct addrset *as, const ddsi_locator_t *loc)
 {
-  struct nn_locators_one *l;
-  ddsi_locator_t first, samenet;
-  int first_set = 0, samenet_set = 0;
-  memset (&first, 0, sizeof (first));
-  memset (&samenet, 0, sizeof (samenet));
-
-  /* Special case UDPv4 MC address generators - there is a bit of an type mismatch between an address generator (i.e., a set of addresses) and an address ... Whoever uses them is supposed to know that that is what he wants, so we simply given them priority. */
-  if (ddsi_factory_supports (gv->m_factory, NN_LOCATOR_KIND_UDPv4))
+#ifdef DDS_HAS_SSM
+  if (ddsi_is_ssm_mcaddr (gv, loc))
   {
-    for (l = locs->first; l != NULL; l = l->next)
-    {
-      if (l->loc.kind == NN_LOCATOR_KIND_UDPv4MCGEN)
-      {
-        *loc = l->loc;
-        return 1;
-      }
-    }
+    if (!(allow_multicast & DDSI_AMC_SSM))
+      return;
+  }
+  else if (ddsi_is_mcaddr (gv, loc))
+  {
+    if (!(allow_multicast & DDSI_AMC_ASM))
+      return;
+  }
+#else
+  if (ddsi_is_mcaddr (gv, loc) && !(allow_multicast & DDSI_AMC_ASM))
+    return;
+#endif
+  add_to_addrset (gv, as, loc);
+}
+
+static struct addrset *addrset_from_locatorlists (const struct ddsi_domaingv *gv, const nn_locators_t *uc, const nn_locators_t *mc, const ddsi_locator_t *srcloc)
+{
+  bool intfs[MAX_XMIT_CONNS] = { false };
+  struct addrset *as = new_addrset ();
+
+  // if all interfaces are loopback, or all locators in uc are loopback, we're cool with loopback addresses
+  bool allow_loopback;
+  {
+    bool a = true;
+    for (int i = 0; i < gv->n_interfaces && a; i++)
+      if (!gv->interfaces[i].loopback)
+        a = false;
+    bool b = true;
+    for (struct nn_locators_one *l = uc->first; l != NULL && b; l = l->next)
+      if (ddsi_factory_supports (gv->m_factory, l->loc.kind) && !ddsi_is_loopbackaddr (gv, &l->loc))
+        b = false;
+    allow_loopback = (a || b);
   }
 
-  /* Preferably an (the first) address that matches a network we are
-     on; if none does, pick the first. No multicast locator ever will
-     match, so the first one will be used. */
-  for (l = locs->first; l != NULL; l = l->next)
+  // if any non-loopback address is identical to one of our own addresses, assume it is the
+  // same machine, in which case loopback addresses may be picked up
+  for (struct nn_locators_one *l = uc->first; l != NULL && !allow_loopback; l = l->next)
   {
-    /* Skip locators of the wrong kind */
-
-    if (! ddsi_factory_supports (gv->m_factory, l->loc.kind))
-    {
+    if (!ddsi_factory_supports (gv->m_factory, l->loc.kind) || ddsi_is_loopbackaddr (gv, &l->loc))
       continue;
-    }
+    for (int i = 0; i < gv->n_interfaces && !allow_loopback; i++)
+      allow_loopback = (memcmp (l->loc.address, gv->interfaces[i].loc.address, sizeof (l->loc.address)) == 0);
+  }
 
-    if (l->loc.kind == NN_LOCATOR_KIND_UDPv4 && gv->extmask.kind != NN_LOCATOR_KIND_INVALID)
+  bool direct = false;
+  for (struct nn_locators_one *l = uc->first; l != NULL; l = l->next)
+  {
+    // skip unrecognized ones, as well as loopback ones if not on the same host
+    if (!ddsi_factory_supports (gv->m_factory, l->loc.kind))
+      continue;
+    if (!allow_loopback && ddsi_is_loopbackaddr (gv, &l->loc))
+      continue;
+
+    ddsi_locator_t loc = l->loc;
+    if (loc.kind == NN_LOCATOR_KIND_UDPv4 && gv->extmask.kind != NN_LOCATOR_KIND_INVALID)
     {
       /* If the examined locator is in the same subnet as our own
          external IP address, this locator will be translated into one
          in the same subnet as our own local ip and selected. */
-      struct in_addr tmp4 = *((struct in_addr *) (l->loc.address + 12));
-      const struct in_addr ownip = *((struct in_addr *) (gv->ownloc.address + 12));
+      assert (gv->n_interfaces == 1); // gv->extmask: the hack is only supported if limited to a single interface
+      struct in_addr tmp4 = *((struct in_addr *) (loc.address + 12));
+      const struct in_addr ownip = *((struct in_addr *) (gv->interfaces[0].loc.address + 12));
       const struct in_addr extip = *((struct in_addr *) (gv->extloc.address + 12));
       const struct in_addr extmask = *((struct in_addr *) (gv->extmask.address + 12));
 
@@ -98,65 +125,91 @@ static int get_locator (const struct ddsi_domaingv *gv, ddsi_locator_t *loc, con
         /* translate network part of the IP address from the external
            one to the internal one */
         tmp4.s_addr = (tmp4.s_addr & ~extmask.s_addr) | (ownip.s_addr & extmask.s_addr);
-        memcpy (loc, &l->loc, sizeof (*loc));
-        memcpy (loc->address + 12, &tmp4, 4);
-        return 1;
+        memcpy (loc.address + 12, &tmp4, 4);
       }
     }
 
-#if DDSRT_HAVE_IPV6
-    if ((l->loc.kind == NN_LOCATOR_KIND_UDPv6) || (l->loc.kind == NN_LOCATOR_KIND_TCPv6))
+    size_t interf_idx;
+    switch (ddsi_is_nearby_address (gv, &loc, (size_t) gv->n_interfaces, gv->interfaces, &interf_idx))
     {
-      /* We (cowardly) refuse to accept advertised link-local
-         addresses unles we're in "link-local" mode ourselves.  Then
-         we just hope for the best.  */
-      const struct in6_addr *ip6 = (const struct in6_addr *) l->loc.address;
-      if (!gv->ipv6_link_local && IN6_IS_ADDR_LINKLOCAL (ip6))
-        continue;
-    }
-#endif
-
-    if (!first_set)
-    {
-      first = l->loc;
-      first_set = 1;
-    }
-
-    switch (ddsi_is_nearby_address(&l->loc, &gv->ownloc, (size_t) gv->n_interfaces, gv->interfaces))
-    {
-      case DNAR_DISTANT:
-        break;
       case DNAR_LOCAL:
-        if (!samenet_set)
+        // if it matches an interface, use that one and recorded that this is
+        // a directly connected interface: those will then all be possibilities
+        // for transmitting multicasts (assuming capable, allowed, &c.)
+        assert (interf_idx < MAX_XMIT_CONNS);
+        loc.conn = gv->xmit_conns[interf_idx];
+        loc.tran = loc.conn->m_factory;
+        add_to_addrset (gv, as, &loc);
+        intfs[interf_idx] = true;
+        direct = true;
+        break;
+      case DNAR_DISTANT:
+        // If DONT_ROUTE is set and there is no matching interface, then presumably
+        // one would not be able to reach this address.
+        if (!gv->config.dontRoute)
         {
-          /* on a network we're connected to */
-          samenet = l->loc;
-          samenet_set = 1;
+          // Pick the first selected interface that isn't link-local or loopback
+          // (maybe it matters, maybe not, but it doesn't make sense to assign
+          // a transmit socket for a local interface to a distant host).  If none
+          // exists, skip the address.
+          for (int i = 0; i < gv->n_interfaces; i++)
+          {
+            // do not use link-local or loopback interfaces transmit conn for distant nodes
+            if (gv->interfaces[i].link_local || gv->interfaces[i].loopback)
+              continue;
+            loc.conn = gv->xmit_conns[i];
+            loc.tran = loc.conn->m_factory;
+            add_to_addrset (gv, as, &loc);
+            break;
+          }
         }
         break;
-      case DNAR_SAME:
-        /* matches the preferred interface -> the very best situation */
-        *loc = l->loc;
-        return 1;
     }
   }
-  if (!uc_same_subnet)
+
+  if (addrset_empty (as) && !is_unspec_locator (srcloc))
   {
-    if (samenet_set)
+    // FIXME: conn_read should provide interface information in source address
+    ddsi_locator_t loc = *srcloc;
+    int i;
+    // pick a "real" interface, or if all fails, hope for the best (this is
+    // the bit where it'd really help to have the source interface ...)
+    for (i = gv->n_interfaces - 1; i > 0; i--)
+      if (!(gv->interfaces[i].link_local || gv->interfaces[i].loopback))
+        break;
+    loc.conn = gv->xmit_conns[i];
+    loc.tran = loc.conn->m_factory;
+    add_to_addrset (gv, as, srcloc);
+  }
+
+  if (!direct && gv->config.multicast_ttl > 1)
+  {
+    // if not directly connected but multicast TTL allows routing,
+    // assume any non-local interface will do
+    for (int i = 0; i < gv->n_interfaces; i++)
     {
-      /* prefer a directly connected network */
-      *loc = samenet;
-      return 1;
-    }
-    else if (first_set)
-    {
-      /* else any address we found will have to do */
-      *loc = first;
-      return 1;
+      assert (!intfs[i]);
+      intfs[i] = !(gv->interfaces[i].link_local || gv->interfaces[i].loopback);
     }
   }
-  return 0;
+  for (struct nn_locators_one *l = mc->first; l != NULL; l = l->next)
+  {
+    if (!ddsi_factory_supports (gv->m_factory, l->loc.kind))
+      continue;
+    for (int i = 0; i < gv->n_interfaces; i++)
+    {
+      if (intfs[i] && gv->interfaces[i].mc_capable)
+      {
+        ddsi_locator_t loc = l->loc;
+        loc.conn = gv->xmit_conns[i];
+        loc.tran = loc.conn->m_factory;
+        allowmulticast_aware_add_to_addrset (gv, gv->config.allowMulticast, as, &loc);
+      }
+    }
+  }
+  return as;
 }
+
 
 /******************************************************************************
  ***
@@ -203,24 +256,44 @@ void get_participant_builtin_topic_data (const struct participant *pp, ddsi_plis
     dst->aliased |= PP_DOMAIN_TAG;
     dst->domain_tag = pp->e.gv->config.domainTag;
   }
-  dst->default_unicast_locators.n = 1;
-  dst->default_unicast_locators.first =
-    dst->default_unicast_locators.last = &locs->def_uni_loc_one;
-  dst->metatraffic_unicast_locators.n = 1;
-  dst->metatraffic_unicast_locators.first =
-    dst->metatraffic_unicast_locators.last = &locs->meta_uni_loc_one;
-  locs->def_uni_loc_one.next = NULL;
-  locs->meta_uni_loc_one.next = NULL;
 
   if (pp->e.gv->config.many_sockets_mode == DDSI_MSM_MANY_UNICAST)
   {
-    locs->def_uni_loc_one.loc = pp->m_locator;
-    locs->meta_uni_loc_one.loc = pp->m_locator;
+    dst->default_unicast_locators.n = 1;
+    dst->default_unicast_locators.first =
+      dst->default_unicast_locators.last = &locs->def_uni[0];
+    dst->metatraffic_unicast_locators.n = 1;
+    dst->metatraffic_unicast_locators.first =
+      dst->metatraffic_unicast_locators.last = &locs->meta_uni[0];
+    locs->def_uni[0].next = NULL;
+    locs->meta_uni[0].next = NULL;
+    locs->def_uni[0].loc = pp->m_locator;
+    locs->meta_uni[0].loc = pp->m_locator;
   }
   else
   {
-    locs->def_uni_loc_one.loc = pp->e.gv->loc_default_uc;
-    locs->meta_uni_loc_one.loc = pp->e.gv->loc_meta_uc;
+    assert (pp->e.gv->n_interfaces > 0);
+    assert (pp->e.gv->n_interfaces <= MAX_XMIT_CONNS);
+    dst->default_unicast_locators.n = (uint32_t) pp->e.gv->n_interfaces;
+    dst->default_unicast_locators.first = &locs->def_uni[0];
+    dst->default_unicast_locators.last = &locs->def_uni[pp->e.gv->n_interfaces - 1];
+    for (int i = 0; i < pp->e.gv->n_interfaces; i++)
+    {
+      locs->def_uni[i].loc = pp->e.gv->interfaces[i].loc;
+      locs->def_uni[i].loc.port = pp->e.gv->loc_default_uc.port; // FIXME: should have multiple loc_default_uc or compute port here
+      locs->def_uni[i].next = &locs->def_uni[i + 1];
+    }
+    dst->default_unicast_locators.last->next = NULL;
+    dst->metatraffic_unicast_locators.n = (uint32_t) pp->e.gv->n_interfaces;
+    dst->metatraffic_unicast_locators.first = &locs->meta_uni[0];
+    dst->metatraffic_unicast_locators.last = &locs->meta_uni[pp->e.gv->n_interfaces - 1];
+    for (int i = 0; i < pp->e.gv->n_interfaces; i++)
+    {
+      locs->meta_uni[i].loc = pp->e.gv->interfaces[i].loc;
+      locs->meta_uni[i].loc.port = pp->e.gv->loc_meta_uc.port; // FIXME: should have multiple loc_meta_uc or compute port here
+      locs->meta_uni[i].next = &locs->meta_uni[i + 1];
+    }
+    dst->metatraffic_unicast_locators.last->next = NULL;
   }
 
   if (pp->e.gv->config.publish_uc_locators)
@@ -251,14 +324,14 @@ void get_participant_builtin_topic_data (const struct participant *pp, ddsi_plis
       dst->aliased |= PP_DEFAULT_MULTICAST_LOCATOR | PP_METATRAFFIC_MULTICAST_LOCATOR;
       dst->default_multicast_locators.n = 1;
       dst->default_multicast_locators.first =
-      dst->default_multicast_locators.last = &locs->def_multi_loc_one;
+      dst->default_multicast_locators.last = &locs->def_multi;
       dst->metatraffic_multicast_locators.n = 1;
       dst->metatraffic_multicast_locators.first =
-      dst->metatraffic_multicast_locators.last = &locs->meta_multi_loc_one;
-      locs->def_multi_loc_one.next = NULL;
-      locs->def_multi_loc_one.loc = pp->e.gv->loc_default_mc;
-      locs->meta_multi_loc_one.next = NULL;
-      locs->meta_multi_loc_one.loc = pp->e.gv->loc_meta_mc;
+      dst->metatraffic_multicast_locators.last = &locs->meta_multi;
+      locs->def_multi.next = NULL;
+      locs->def_multi.loc = pp->e.gv->loc_default_mc;
+      locs->meta_multi.next = NULL;
+      locs->meta_multi.loc = pp->e.gv->loc_meta_mc;
     }
   }
   dst->participant_lease_duration = pp->lease_duration;
@@ -295,6 +368,11 @@ void get_participant_builtin_topic_data (const struct participant *pp, ddsi_plis
       dst->present |= PP_CYCLONE_RECEIVE_BUFFER_SIZE;
       dst->cyclone_receive_buffer_size = bufsz;
     }
+  }
+  if (pp->e.gv->config.redundant_networking)
+  {
+    dst->present |= PP_CYCLONE_REDUNDANT_NETWORKING;
+    dst->cyclone_redundant_networking = true;
   }
 
 #ifdef DDS_HAS_SECURITY
@@ -471,26 +549,6 @@ static int handle_SPDP_dead (const struct receiver_state *rst, ddsi_entityid_t p
     GVWARNING ("data (SPDP, vendor %u.%u): no/invalid payload\n", rst->vendor.id[0], rst->vendor.id[1]);
   }
   return 1;
-}
-
-static void allowmulticast_aware_add_to_addrset (const struct ddsi_domaingv *gv, uint32_t allow_multicast, struct addrset *as, const ddsi_locator_t *loc)
-{
-#if DDS_HAS_SSM
-  if (ddsi_is_ssm_mcaddr (gv, loc))
-  {
-    if (!(allow_multicast & DDSI_AMC_SSM))
-      return;
-  }
-  else if (ddsi_is_mcaddr (gv, loc))
-  {
-    if (!(allow_multicast & DDSI_AMC_ASM))
-      return;
-  }
-#else
-  if (ddsi_is_mcaddr (gv, loc) && !(allow_multicast & DDSI_AMC_ASM))
-    return;
-#endif
-  add_to_addrset (gv, as, loc);
 }
 
 static struct proxy_participant *find_ddsi2_proxy_participant (const struct entity_index *entidx, const ddsi_guid_t *ppguid)
@@ -716,44 +774,28 @@ static int handle_SPDP_alive (const struct receiver_state *rst, seqno_t seq, dds
 
   /* Choose locators */
   {
-    ddsi_locator_t loc;
-    int uc_same_subnet;
+    const nn_locators_t emptyset = { .n = 0, .first = NULL, .last = NULL };
+    const nn_locators_t *uc;
+    const nn_locators_t *mc;
+    ddsi_locator_t srcloc;
 
-    as_default = new_addrset ();
-    as_meta = new_addrset ();
+    srcloc = rst->srcloc;
+    uc = (datap->present & PP_DEFAULT_UNICAST_LOCATOR) ? &datap->default_unicast_locators : &emptyset;
+    mc = (datap->present & PP_DEFAULT_MULTICAST_LOCATOR) ? &datap->default_multicast_locators : &emptyset;
+    if (gv->config.tcp_use_peeraddr_for_unicast)
+      uc = &emptyset; // force use of source locator
+    else if (uc != &emptyset)
+      set_unspec_locator (&srcloc); // can't always use the source address
+    as_default = addrset_from_locatorlists (gv, uc, mc, &srcloc);
 
-    if ((datap->present & PP_DEFAULT_MULTICAST_LOCATOR) && (get_locator (gv, &loc, &datap->default_multicast_locators, 0)))
-      allowmulticast_aware_add_to_addrset (gv, gv->config.allowMulticast, as_default, &loc);
-    if ((datap->present & PP_METATRAFFIC_MULTICAST_LOCATOR) && (get_locator (gv, &loc, &datap->metatraffic_multicast_locators, 0)))
-      allowmulticast_aware_add_to_addrset (gv, gv->config.allowMulticast, as_meta, &loc);
-
-    /* If no multicast locators or multicast TTL > 1, assume IP (multicast) routing can be relied upon to reach
-       the remote participant, else only accept nodes with an advertised unicast address in the same subnet to
-       protect against multicasts being received over an unexpected interface (which sometimes appears to occur) */
-    if (addrset_empty_mc (as_default) && addrset_empty_mc (as_meta))
-      uc_same_subnet = 0;
-    else if (gv->config.multicast_ttl > 1)
-      uc_same_subnet = 0;
-    else
-    {
-      uc_same_subnet = 1;
-      GVLOGDISC (" subnet-filter");
-    }
-
-    /* If unicast locators not present, then try to obtain from connection */
-    if (!gv->config.tcp_use_peeraddr_for_unicast && (datap->present & PP_DEFAULT_UNICAST_LOCATOR) && (get_locator (gv, &loc, &datap->default_unicast_locators, uc_same_subnet)))
-      add_to_addrset (gv, as_default, &loc);
-    else {
-      GVLOGDISC (" (srclocD)");
-      add_to_addrset (gv, as_default, &rst->srcloc);
-    }
-
-    if (!gv->config.tcp_use_peeraddr_for_unicast && (datap->present & PP_METATRAFFIC_UNICAST_LOCATOR) && (get_locator (gv, &loc, &datap->metatraffic_unicast_locators, uc_same_subnet)))
-      add_to_addrset (gv, as_meta, &loc);
-    else {
-      GVLOGDISC (" (srclocM)");
-      add_to_addrset (gv, as_meta, &rst->srcloc);
-    }
+    srcloc = rst->srcloc;
+    uc = (datap->present & PP_METATRAFFIC_UNICAST_LOCATOR) ? &datap->metatraffic_unicast_locators : &emptyset;
+    mc = (datap->present & PP_METATRAFFIC_MULTICAST_LOCATOR) ? &datap->metatraffic_multicast_locators : &emptyset;
+    if (gv->config.tcp_use_peeraddr_for_unicast)
+      uc = &emptyset; // force use of source locator
+    else if (uc != &emptyset)
+      set_unspec_locator (&srcloc); // can't always use the source address
+    as_meta = addrset_from_locatorlists (gv, uc, mc, &srcloc);
 
     nn_log_addrset (gv, DDS_LC_DISCOVERY, " (data", as_default);
     nn_log_addrset (gv, DDS_LC_DISCOVERY, " meta", as_meta);
@@ -1289,22 +1331,21 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
   }
 
   {
-    ddsi_locator_t loc;
-    as = new_addrset ();
-    if (!gv->config.tcp_use_peeraddr_for_unicast && (datap->present & PP_UNICAST_LOCATOR) && get_locator (gv, &loc, &datap->unicast_locators, 0))
-      add_to_addrset (gv, as, &loc);
-    else if (gv->config.tcp_use_peeraddr_for_unicast)
-    {
-      GVLOGDISC (" (srcloc)");
-      add_to_addrset (gv, as, &rst->srcloc);
-    }
+    const nn_locators_t emptyset = { .n = 0, .first = NULL, .last = NULL };
+    const nn_locators_t *uc = (datap->present & PP_UNICAST_LOCATOR) ? &datap->unicast_locators : &emptyset;
+    const nn_locators_t *mc = (datap->present & PP_MULTICAST_LOCATOR) ? &datap->multicast_locators : &emptyset;
+    ddsi_locator_t srcloc;
+    if (!gv->config.tcp_use_peeraddr_for_unicast)
+      set_unspec_locator (&srcloc);
     else
     {
+      uc = &emptyset; // force use of source locator
+      srcloc = rst->srcloc;
+    }
+    as = addrset_from_locatorlists (gv, uc, mc, &srcloc);
+    if (addrset_empty_uc (as))
       copy_addrset_into_addrset_uc (gv, as, pp->as_default);
-    }
-    if ((datap->present & PP_MULTICAST_LOCATOR) && get_locator (gv, &loc, &datap->multicast_locators, 0))
-      allowmulticast_aware_add_to_addrset (gv, gv->config.allowMulticast, as, &loc);
-    else
+    if (addrset_empty_mc (as))
       copy_addrset_into_addrset_mc (gv, as, pp->as_default);
   }
   if (addrset_empty (as))

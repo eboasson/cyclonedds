@@ -189,19 +189,15 @@ static int joinleave_mcgroups (const struct ddsi_domaingv *gv, ddsi_tran_conn_t 
       if ((rc = joinleave_mcgroup (conn, join, srcloc, mcloc, NULL)) < 0)
         return rc;
       break;
-    case RECVIPS_MODE_PREFERRED:
-      if (gv->interfaces[gv->selected_interface].mc_capable)
-        return joinleave_mcgroup (conn, join, srcloc, mcloc, &gv->interfaces[gv->selected_interface]);
-      return 0;
     case RECVIPS_MODE_ALL:
     case RECVIPS_MODE_SOME:
-    {
+    case RECVIPS_MODE_PREFERRED: {
       int i, fails = 0, oks = 0;
       for (i = 0; i < gv->n_interfaces; i++)
       {
         if (gv->interfaces[i].mc_capable)
         {
-          if (gv->recvips_mode == RECVIPS_MODE_ALL || interface_in_recvips_p (gv->recvips, &gv->interfaces[i]))
+          if (gv->recvips_mode == RECVIPS_MODE_ALL || gv->recvips_mode == RECVIPS_MODE_PREFERRED || interface_in_recvips_p (gv->recvips, &gv->interfaces[i]))
           {
             if (joinleave_mcgroup (conn, join, srcloc, mcloc, &gv->interfaces[i]) < 0)
               fails++;
@@ -217,8 +213,8 @@ static int joinleave_mcgroups (const struct ddsi_domaingv *gv, ddsi_tran_conn_t 
         else
           return -2;
       }
-    }
       break;
+    }
   }
   return 0;
 }

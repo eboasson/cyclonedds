@@ -782,8 +782,9 @@ static bool ddsi_tcp_supports (const struct ddsi_tran_factory *fact_cmn, int32_t
 static int ddsi_tcp_locator (struct ddsi_tran_factory *fact_cmn, ddsi_tran_base_t base, ddsi_locator_t *loc)
 {
   loc->tran = fact_cmn;
+  loc->conn = NULL;
   loc->kind = fact_cmn->m_kind;
-  memcpy(loc->address, base->gv->extloc.address, sizeof(loc->address));
+  memcpy(loc->address, base->gv->interfaces[0].loc.address, sizeof(loc->address));
   loc->port = base->m_port;
   return 0;
 }
@@ -1119,6 +1120,26 @@ static enum ddsi_locator_from_string_result ddsi_tcp_address_from_string (const 
   return ddsi_ipaddr_from_string(fact, loc, str, fact->m_kind);
 }
 
+static int ddsi_tcp_is_loopbackaddr (const struct ddsi_tran_factory *tran, const ddsi_locator_t *loc)
+{
+  (void) tran;
+  switch (loc->kind)
+  {
+    case NN_LOCATOR_KIND_UDPv4: {
+      return loc->address[12] == 127;
+    }
+#if DDSRT_HAVE_IPV6
+    case NN_LOCATOR_KIND_UDPv6: {
+      const struct in6_addr *ipv6 = (const struct in6_addr *) loc->address;
+      return IN6_IS_ADDR_LOOPBACK (ipv6);
+    }
+#endif
+    default: {
+      return 0;
+    }
+  }
+}
+
 static int ddsi_tcp_is_mcaddr (const struct ddsi_tran_factory *tran, const ddsi_locator_t *loc)
 {
   (void) tran;
@@ -1133,9 +1154,9 @@ static int ddsi_tcp_is_ssm_mcaddr (const struct ddsi_tran_factory *tran, const d
   return 0;
 }
 
-static enum ddsi_nearby_address_result ddsi_tcp_is_nearby_address (const ddsi_locator_t *loc, const ddsi_locator_t *ownloc, size_t ninterf, const struct nn_interface interf[])
+static enum ddsi_nearby_address_result ddsi_tcp_is_nearby_address (const ddsi_locator_t *loc, size_t ninterf, const struct nn_interface interf[], size_t *interf_idx)
 {
-  return ddsi_ipaddr_is_nearby_address(loc, ownloc, ninterf, interf);
+  return ddsi_ipaddr_is_nearby_address(loc, ninterf, interf, interf_idx);
 }
 
 static int ddsi_tcp_is_valid_port (const struct ddsi_tran_factory *fact, uint32_t port)
@@ -1148,6 +1169,11 @@ static uint32_t ddsi_tcp_receive_buffer_size (const struct ddsi_tran_factory *fa
 {
   (void) fact;
   return 0;
+}
+
+static char *ddsi_tcp_locator_to_string (char *dst, size_t sizeof_dst, const ddsi_locator_t *loc, int with_port)
+{
+  return ddsi_ipaddr_to_string(dst, sizeof_dst, loc, with_port, UINT32_MAX);
 }
 
 int ddsi_tcp_init (struct ddsi_domaingv *gv)
@@ -1169,8 +1195,9 @@ int ddsi_tcp_init (struct ddsi_domaingv *gv)
   fact->fact.m_release_listener_fn = ddsi_tcp_release_listener;
   fact->fact.m_free_fn = ddsi_tcp_release_factory;
   fact->fact.m_locator_from_string_fn = ddsi_tcp_address_from_string;
-  fact->fact.m_locator_to_string_fn = ddsi_ipaddr_to_string;
+  fact->fact.m_locator_to_string_fn = ddsi_tcp_locator_to_string;
   fact->fact.m_enumerate_interfaces_fn = ddsi_eth_enumerate_interfaces;
+  fact->fact.m_is_loopbackaddr_fn = ddsi_tcp_is_loopbackaddr;
   fact->fact.m_is_mcaddr_fn = ddsi_tcp_is_mcaddr;
   fact->fact.m_is_ssm_mcaddr_fn = ddsi_tcp_is_ssm_mcaddr;
   fact->fact.m_is_nearby_address_fn = ddsi_tcp_is_nearby_address;

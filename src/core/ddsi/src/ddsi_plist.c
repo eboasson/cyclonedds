@@ -1763,6 +1763,7 @@ static const struct piddesc piddesc_eclipse[] = {
   PP  (ADLINK_PARTICIPANT_VERSION_INFO,  adlink_participant_version_info, Xux5, XS),
   PP  (ADLINK_TYPE_DESCRIPTION,          type_description, XS),
   PP  (CYCLONE_RECEIVE_BUFFER_SIZE,      cyclone_receive_buffer_size, Xu),
+  PP  (CYCLONE_REDUNDANT_NETWORKING,     cyclone_redundant_networking, Xb),
   { PID_SENTINEL, 0, 0, NULL, 0, 0, { .desc = { XSTOP } }, 0 }
 };
 
@@ -1833,11 +1834,7 @@ struct piddesc_index {
 #endif
 
 static const struct piddesc *piddesc_omg_index[DEFAULT_OMG_PIDS_ARRAY_SIZE + SECURITY_OMG_PIDS_ARRAY_SIZE];
-#ifdef DDS_HAS_TYPE_DISCOVERY
-static const struct piddesc *piddesc_eclipse_index[27];
-#else
-static const struct piddesc *piddesc_eclipse_index[26];
-#endif
+static const struct piddesc *piddesc_eclipse_index[28];
 static const struct piddesc *piddesc_adlink_index[19];
 
 #define INDEX_ANY(vendorid_, tab_) [vendorid_] = { \
@@ -2547,6 +2544,7 @@ static enum do_locator_result do_locator (nn_locators_t *ls, uint64_t present, u
   }
 
   loc.tran = ddsi_factory_supports (factory, loc.kind) ? factory : NULL;
+  loc.conn = NULL;
   add_locator (ls, present, wanted, fl, &loc);
   return DOLOC_ACCEPTED;
 }

@@ -64,6 +64,7 @@ extern "C" {
 #define PP_IDENTITY_STATUS_TOKEN                ((uint64_t)1 << 36)
 #define PP_DATA_TAGS                            ((uint64_t)1 << 37)
 #define PP_CYCLONE_RECEIVE_BUFFER_SIZE          ((uint64_t)1 << 38)
+#define PP_CYCLONE_REDUNDANT_NETWORKING         ((uint64_t)1 << 39)
 
 /* Set for unrecognized parameters that are in the reserved space or
    in our own vendor-specific space that have the
@@ -232,6 +233,7 @@ typedef struct ddsi_plist {
   uint32_t domain_id;
   char *domain_tag;
   uint32_t cyclone_receive_buffer_size;
+  unsigned char cyclone_redundant_networking;
 } ddsi_plist_t;
 
 
