@@ -314,8 +314,6 @@ static int set_spdp_address (struct ddsi_domaingv *gv)
   const uint32_t port = ddsi_get_port (&gv->config, DDSI_PORT_MULTI_DISC, 0);
   int rc = 0;
   /* FIXME: FIXME: FIXME: */
-  gv->loc_spdp_mc.tran = NULL;
-  gv->loc_spdp_mc.conn = NULL;
   gv->loc_spdp_mc.kind = NN_LOCATOR_KIND_INVALID;
   if (strcmp (gv->config.spdpMulticastAddressString, "239.255.0.1") != 0)
   {
@@ -376,8 +374,6 @@ static int set_ext_address_and_mask (struct ddsi_domaingv *gv)
   if (!gv->config.externalMaskString || strcmp (gv->config.externalMaskString, "0.0.0.0") == 0)
   {
     memset(&gv->extmask.address, 0, sizeof(gv->extmask.address));
-    gv->extmask.tran = NULL;
-    gv->extmask.conn = NULL;
     gv->extmask.kind = NN_LOCATOR_KIND_INVALID;
     gv->extmask.port = NN_LOCATOR_PORT_INVALID;
   }
@@ -673,23 +669,23 @@ struct joinleave_spdp_defmcip_helper_arg {
   int dojoin;
 };
 
-static void joinleave_spdp_defmcip_helper (const ddsi_locator_t *loc, void *varg)
+static void joinleave_spdp_defmcip_helper (const ddsi_xlocator_t *loc, void *varg)
 {
   struct joinleave_spdp_defmcip_helper_arg *arg = varg;
-  if (!ddsi_is_mcaddr (arg->gv, loc))
+  if (!ddsi_is_mcaddr (arg->gv, &loc->loc))
     return;
 #ifdef DDS_HAS_SSM
   /* Can't join SSM until we actually have a source */
-  if (ddsi_is_ssm_mcaddr (arg->gv, loc))
+  if (ddsi_is_ssm_mcaddr (arg->gv, &loc->loc))
     return;
 #endif
   if (arg->dojoin) {
-    if (ddsi_join_mc (arg->gv, arg->gv->mship, arg->gv->disc_conn_mc, NULL, loc) < 0 ||
-        ddsi_join_mc (arg->gv, arg->gv->mship, arg->gv->data_conn_mc, NULL, loc) < 0)
+    if (ddsi_join_mc (arg->gv, arg->gv->mship, arg->gv->disc_conn_mc, NULL, &loc->loc) < 0 ||
+        ddsi_join_mc (arg->gv, arg->gv->mship, arg->gv->data_conn_mc, NULL, &loc->loc) < 0)
       arg->errcount++;
   } else {
-    if (ddsi_leave_mc (arg->gv, arg->gv->mship, arg->gv->disc_conn_mc, NULL, loc) < 0 ||
-        ddsi_leave_mc (arg->gv, arg->gv->mship, arg->gv->data_conn_mc, NULL, loc) < 0)
+    if (ddsi_leave_mc (arg->gv, arg->gv->mship, arg->gv->disc_conn_mc, NULL, &loc->loc) < 0 ||
+        ddsi_leave_mc (arg->gv, arg->gv->mship, arg->gv->data_conn_mc, NULL, &loc->loc) < 0)
       arg->errcount++;
   }
 }
@@ -703,9 +699,9 @@ int joinleave_spdp_defmcip (struct ddsi_domaingv *gv, int dojoin)
   arg.errcount = 0;
   arg.dojoin = dojoin;
   if (gv->config.allowMulticast & DDSI_AMC_SPDP)
-    add_to_addrset (gv, as, &gv->loc_spdp_mc);
+    add_locator_to_addrset (gv, as, &gv->loc_spdp_mc);
   if (gv->config.allowMulticast & ~DDSI_AMC_SPDP)
-    add_to_addrset (gv, as, &gv->loc_default_mc);
+    add_locator_to_addrset (gv, as, &gv->loc_default_mc);
   addrset_forall (as, joinleave_spdp_defmcip_helper, &arg);
   unref_addrset (as);
   if (arg.errcount)
@@ -1075,7 +1071,6 @@ static void free_conns (struct ddsi_domaingv *gv)
         cs[j] = NULL;
     ddsi_conn_free (cs[i]);
   }
-
 }
 
 int rtps_init (struct ddsi_domaingv *gv)
@@ -1420,9 +1415,9 @@ int rtps_init (struct ddsi_domaingv *gv)
       if (rc != DDS_RETCODE_OK)
         goto err_mc_conn;
       GVLOG (DDS_LC_CONFIG, "interface %s: transmit port %d\n", gv->interfaces[i].name, (int) ddsi_conn_port (gv->xmit_conns[i]));
-      // FIXME: shouldn't be patching interface locator like this
-      gv->interfaces[i].loc.tran = gv->m_factory;
-      gv->interfaces[i].loc.conn = gv->xmit_conns[i];
+      gv->intf_xlocators[i].tran = gv->m_factory;
+      gv->intf_xlocators[i].conn = gv->xmit_conns[i];
+      gv->intf_xlocators[i].loc = gv->interfaces[i].loc;
     }
   }
 
@@ -1561,7 +1556,7 @@ int rtps_init (struct ddsi_domaingv *gv)
 
   gv->as_disc = new_addrset ();
   if (gv->config.allowMulticast & DDSI_AMC_SPDP)
-    add_to_addrset (gv, gv->as_disc, &gv->loc_spdp_mc);
+    add_locator_to_addrset (gv, gv->as_disc, &gv->loc_spdp_mc);
   /* If multicast was enabled but not available, always add the local interface to the discovery address set.
      Conversion via string and add_peer_addresses has the benefit that the port number expansion happens
      automatically. */
@@ -1622,9 +1617,8 @@ err_post_omg_security_init:
 #endif
 #endif
 err_mc_conn:
-  // FIXME: shouldn't be patching interfaces like this
   for (int i = 0; i < gv->n_interfaces; i++)
-    gv->interfaces[i].loc.conn = NULL;
+    gv->intf_xlocators[i].conn = NULL;
   free_conns (gv);
   if (gv->pcap_fp)
     ddsrt_mutex_destroy (&gv->pcap_lock);
@@ -1963,9 +1957,8 @@ void rtps_fini (struct ddsi_domaingv *gv)
 #endif
 
   (void) joinleave_spdp_defmcip (gv, 0);
-  // FIXME: shouldn't be patching interfaces like this
   for (int i = 0; i < gv->n_interfaces; i++)
-    gv->interfaces[i].loc.conn = NULL;
+    gv->intf_xlocators[i].conn = NULL;
   free_conns (gv);
   free_group_membership(gv->mship);
   ddsi_tran_factories_fini (gv);

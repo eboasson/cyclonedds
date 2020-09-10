@@ -50,24 +50,24 @@
 #include "dds/ddsi/ddsi_security_exchange.h"
 #endif
 
-static void allowmulticast_aware_add_to_addrset (const struct ddsi_domaingv *gv, uint32_t allow_multicast, struct addrset *as, const ddsi_locator_t *loc)
+static void allowmulticast_aware_add_to_addrset (const struct ddsi_domaingv *gv, uint32_t allow_multicast, struct addrset *as, const ddsi_xlocator_t *loc)
 {
 #ifdef DDS_HAS_SSM
-  if (ddsi_is_ssm_mcaddr (gv, loc))
+  if (ddsi_is_ssm_mcaddr (gv, &loc->loc))
   {
     if (!(allow_multicast & DDSI_AMC_SSM))
       return;
   }
-  else if (ddsi_is_mcaddr (gv, loc))
+  else if (ddsi_is_mcaddr (gv, &loc->loc))
   {
     if (!(allow_multicast & DDSI_AMC_ASM))
       return;
   }
 #else
-  if (ddsi_is_mcaddr (gv, loc) && !(allow_multicast & DDSI_AMC_ASM))
+  if (ddsi_is_mcaddr (gv, &loc->loc) && !(allow_multicast & AMC_ASM))
     return;
 #endif
-  add_to_addrset (gv, as, loc);
+  add_xlocator_to_addrset (gv, as, loc);
 }
 
 static struct addrset *addrset_from_locatorlists (const struct ddsi_domaingv *gv, const nn_locators_t *uc, const nn_locators_t *mc, const ddsi_locator_t *srcloc)
@@ -137,9 +137,10 @@ static struct addrset *addrset_from_locatorlists (const struct ddsi_domaingv *gv
         // a directly connected interface: those will then all be possibilities
         // for transmitting multicasts (assuming capable, allowed, &c.)
         assert (interf_idx < MAX_XMIT_CONNS);
-        loc.conn = gv->xmit_conns[interf_idx];
-        loc.tran = loc.conn->m_factory;
-        add_to_addrset (gv, as, &loc);
+        add_xlocator_to_addrset (gv, as, &(const ddsi_xlocator_t) {
+          .conn = gv->xmit_conns[interf_idx],
+          .tran = gv->xmit_conns[interf_idx]->m_factory,
+          .loc = loc });
         intfs[interf_idx] = true;
         direct = true;
         break;
@@ -157,9 +158,10 @@ static struct addrset *addrset_from_locatorlists (const struct ddsi_domaingv *gv
             // do not use link-local or loopback interfaces transmit conn for distant nodes
             if (gv->interfaces[i].link_local || gv->interfaces[i].loopback)
               continue;
-            loc.conn = gv->xmit_conns[i];
-            loc.tran = loc.conn->m_factory;
-            add_to_addrset (gv, as, &loc);
+            add_xlocator_to_addrset (gv, as, &(const ddsi_xlocator_t) {
+              .conn = gv->xmit_conns[i],
+              .tran = gv->xmit_conns[i]->m_factory,
+              .loc = loc });
             break;
           }
         }
@@ -177,9 +179,10 @@ static struct addrset *addrset_from_locatorlists (const struct ddsi_domaingv *gv
     for (i = gv->n_interfaces - 1; i > 0; i--)
       if (!(gv->interfaces[i].link_local || gv->interfaces[i].loopback))
         break;
-    loc.conn = gv->xmit_conns[i];
-    loc.tran = loc.conn->m_factory;
-    add_to_addrset (gv, as, srcloc);
+    add_xlocator_to_addrset (gv, as, &(const ddsi_xlocator_t) {
+      .conn = gv->xmit_conns[i],
+      .tran = gv->xmit_conns[i]->m_factory,
+      .loc = loc });
   }
 
   if (!direct && gv->config.multicast_ttl > 1)
@@ -200,9 +203,11 @@ static struct addrset *addrset_from_locatorlists (const struct ddsi_domaingv *gv
     {
       if (intfs[i] && gv->interfaces[i].mc_capable)
       {
-        ddsi_locator_t loc = l->loc;
-        loc.conn = gv->xmit_conns[i];
-        loc.tran = loc.conn->m_factory;
+        const ddsi_xlocator_t loc = {
+          .conn = gv->xmit_conns[i],
+          .tran = gv->xmit_conns[i]->m_factory,
+          .loc = l->loc
+        };
         allowmulticast_aware_add_to_addrset (gv, gv->config.allowMulticast, as, &loc);
       }
     }
@@ -221,10 +226,10 @@ static void maybe_add_pp_as_meta_to_as_disc (struct ddsi_domaingv *gv, const str
 {
   if (addrset_empty_mc (as_meta) || !(gv->config.allowMulticast & DDSI_AMC_SPDP))
   {
-    ddsi_locator_t loc;
+    ddsi_xlocator_t loc;
     if (addrset_any_uc (as_meta, &loc))
     {
-      add_to_addrset (gv, gv->as_disc, &loc);
+      add_xlocator_to_addrset (gv, gv->as_disc, &loc);
     }
   }
 }
@@ -889,17 +894,17 @@ struct add_locator_to_ps_arg {
   ddsi_plist_t *ps;
 };
 
-static void add_locator_to_ps (const ddsi_locator_t *loc, void *varg)
+static void add_locator_to_ps (const ddsi_xlocator_t *loc, void *varg)
 {
   struct add_locator_to_ps_arg *arg = varg;
   struct nn_locators_one *elem = ddsrt_malloc (sizeof (struct nn_locators_one));
   struct nn_locators *locs;
   unsigned present_flag;
 
-  elem->loc = *loc;
+  elem->loc = loc->loc;
   elem->next = NULL;
 
-  if (ddsi_is_mcaddr (arg->gv, loc)) {
+  if (ddsi_is_mcaddr (arg->gv, &loc->loc)) {
     locs = &arg->ps->multicast_locators;
     present_flag = PP_MULTICAST_LOCATOR;
   } else {
