@@ -53,12 +53,12 @@
 static void allowmulticast_aware_add_to_addrset (const struct ddsi_domaingv *gv, uint32_t allow_multicast, struct addrset *as, const ddsi_xlocator_t *loc)
 {
 #ifdef DDS_HAS_SSM
-  if (ddsi_is_ssm_mcaddr (gv, &loc->loc))
+  if (ddsi_is_ssm_mcaddr (gv, &loc->c))
   {
     if (!(allow_multicast & DDSI_AMC_SSM))
       return;
   }
-  else if (ddsi_is_mcaddr (gv, &loc->loc))
+  else if (ddsi_is_mcaddr (gv, &loc->c))
   {
     if (!(allow_multicast & DDSI_AMC_ASM))
       return;
@@ -139,8 +139,7 @@ static struct addrset *addrset_from_locatorlists (const struct ddsi_domaingv *gv
         assert (interf_idx < MAX_XMIT_CONNS);
         add_xlocator_to_addrset (gv, as, &(const ddsi_xlocator_t) {
           .conn = gv->xmit_conns[interf_idx],
-          .tran = gv->xmit_conns[interf_idx]->m_factory,
-          .loc = loc });
+          .c = loc });
         intfs[interf_idx] = true;
         direct = true;
         break;
@@ -160,8 +159,7 @@ static struct addrset *addrset_from_locatorlists (const struct ddsi_domaingv *gv
               continue;
             add_xlocator_to_addrset (gv, as, &(const ddsi_xlocator_t) {
               .conn = gv->xmit_conns[i],
-              .tran = gv->xmit_conns[i]->m_factory,
-              .loc = loc });
+              .c = loc });
             break;
           }
         }
@@ -181,8 +179,7 @@ static struct addrset *addrset_from_locatorlists (const struct ddsi_domaingv *gv
         break;
     add_xlocator_to_addrset (gv, as, &(const ddsi_xlocator_t) {
       .conn = gv->xmit_conns[i],
-      .tran = gv->xmit_conns[i]->m_factory,
-      .loc = loc });
+      .c = loc });
   }
 
   if (!direct && gv->config.multicast_ttl > 1)
@@ -205,8 +202,7 @@ static struct addrset *addrset_from_locatorlists (const struct ddsi_domaingv *gv
       {
         const ddsi_xlocator_t loc = {
           .conn = gv->xmit_conns[i],
-          .tran = gv->xmit_conns[i]->m_factory,
-          .loc = l->loc
+          .c = l->loc
         };
         allowmulticast_aware_add_to_addrset (gv, gv->config.allowMulticast, as, &loc);
       }
@@ -901,10 +897,10 @@ static void add_locator_to_ps (const ddsi_xlocator_t *loc, void *varg)
   struct nn_locators *locs;
   unsigned present_flag;
 
-  elem->loc = loc->loc;
+  elem->loc = loc->c;
   elem->next = NULL;
 
-  if (ddsi_is_mcaddr (arg->gv, &loc->loc)) {
+  if (ddsi_is_mcaddr (arg->gv, &loc->c)) {
     locs = &arg->ps->multicast_locators;
     present_flag = PP_MULTICAST_LOCATOR;
   } else {
@@ -1538,9 +1534,7 @@ int builtins_dqueue_handler (const struct nn_rsample_info *sampleinfo, const str
     src.buf = NN_RMSG_PAYLOADOFF (fragchain->rmsg, qos_offset);
     src.bufsz = NN_RDATA_PAYLOAD_OFF (fragchain) - qos_offset;
     src.strict = DDSI_SC_STRICT_P (gv->config);
-    src.factory = gv->m_factory;
-    src.logconfig = &gv->logconfig;
-    if ((plist_ret = ddsi_plist_init_frommsg (&qos, NULL, PP_STATUSINFO | PP_KEYHASH, 0, &src)) < 0)
+    if ((plist_ret = ddsi_plist_init_frommsg (&qos, NULL, PP_STATUSINFO | PP_KEYHASH, 0, &src, gv)) < 0)
     {
       if (plist_ret != DDS_RETCODE_UNSUPPORTED)
         GVWARNING ("data(builtin, vendor %u.%u): "PGUIDFMT" #%"PRId64": invalid inline qos\n",
