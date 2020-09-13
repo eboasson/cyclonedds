@@ -1065,30 +1065,44 @@ int sedp_write_writer (struct writer *wr)
 
 int sedp_write_reader (struct reader *rd)
 {
-  if ((!is_builtin_entityid (rd->e.guid.entityid, NN_VENDORID_ECLIPSE)) && (!rd->e.onlylocal))
-  {
-    unsigned entityid = determine_subscription_writer(rd);
-    struct writer *sedp_wr = get_sedp_writer (rd->c.pp, entityid);
-    nn_security_info_t *security = NULL;
+  if (is_builtin_entityid (rd->e.guid.entityid, NN_VENDORID_ECLIPSE) || rd->e.onlylocal)
+    return 0;
+
+  unsigned entityid = determine_subscription_writer(rd);
+  struct writer *sedp_wr = get_sedp_writer (rd->c.pp, entityid);
+  nn_security_info_t *security = NULL;
+  struct addrset *as = NULL;
 #ifdef DDS_HAS_NETWORK_PARTITIONS
-    struct addrset *as = rd->as;
-#else
-    struct addrset *as = NULL;
+  if (rd->uc_as != NULL || rd->mc_as != NULL)
+  {
+    // FIXME: do this without first creating a temporary addrset
+    as = new_addrset ();
+    // use a placeholder connection to avoid exploding the multicast addreses to multiple
+    // interfaces
+    for (const struct networkpartition_address *a = rd->uc_as; a != NULL; a = a->next)
+      add_xlocator_to_addrset(rd->e.gv, as, &(const ddsi_xlocator_t) {
+        .c = a->loc,
+        .conn = rd->e.gv->xmit_conns[0] });
+    for (const struct networkpartition_address *a = rd->mc_as; a != NULL; a = a->next)
+      add_xlocator_to_addrset(rd->e.gv, as, &(const ddsi_xlocator_t) {
+        .c = a->loc,
+        .conn = rd->e.gv->xmit_conns[0] });
+  }
 #endif
 #ifdef DDS_HAS_SECURITY
-    nn_security_info_t tmp;
-    if (q_omg_get_reader_security_info(rd, &tmp))
-    {
-      security = &tmp;
-    }
+  nn_security_info_t tmp;
+  if (q_omg_get_reader_security_info(rd, &tmp))
+  {
+    security = &tmp;
+  }
 #endif
 #ifdef DDS_HAS_TYPE_DISCOVERY
-    return sedp_write_endpoint (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security, &rd->c.type_id);
+  const int ret = sedp_write_endpoint (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security, &rd->c.type_id);
 #else
-    return sedp_write_endpoint (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security);
+  const int ret = sedp_write_endpoint (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security);
 #endif
-  }
-  return 0;
+  unref_addrset (as);
+  return ret;
 }
 
 int sedp_dispose_unregister_writer (struct writer *wr)
@@ -1344,10 +1358,16 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
       srcloc = rst->srcloc;
     }
     as = addrset_from_locatorlists (gv, uc, mc, &srcloc);
+    // if SEDP gives:
+    // - no addresses, use ppant uni- and multicast addresses
+    // - only multicast, use those for multicast and use ppant address for unicast
+    // - only unicast, use only those (i.e., disable multicast for this reader)
+    // - both, use only those
+    // FIXME: then you can't do a specific unicast address + SSM ... oh well
+    if (addrset_empty (as))
+      copy_addrset_into_addrset_mc (gv, as, pp->as_default);
     if (addrset_empty_uc (as))
       copy_addrset_into_addrset_uc (gv, as, pp->as_default);
-    if (addrset_empty_mc (as))
-      copy_addrset_into_addrset_mc (gv, as, pp->as_default);
   }
   if (addrset_empty (as))
   {

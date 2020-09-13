@@ -3605,8 +3605,13 @@ static void new_writer_guid_common_init (struct writer *wr, const char *topic_na
     }
     else
     {
-      if (addrset_any_ssm (wr->e.gv, wr->network_partition->as, &loc))
+      if (wr->network_partition->ssm_addresses)
+      {
+        assert (ddsi_is_ssm_mcaddr (wr->e.gv, &wr->network_partition->ssm_addresses->loc));
+        loc.conn = wr->e.gv->xmit_conns[0]; // FIXME: hack
+        loc.c = wr->network_partition->ssm_addresses->loc;
         have_loc = 1;
+      }
     }
     if (have_loc)
     {
@@ -4079,83 +4084,32 @@ dds_return_t delete_writer (struct ddsi_domaingv *gv, const struct ddsi_guid *gu
 /* READER ----------------------------------------------------------- */
 
 #ifdef DDS_HAS_NETWORK_PARTITIONS
-static struct addrset *get_as_from_mapping (const struct ddsi_domaingv *gv, const char *partition, const char *topic)
+static const struct ddsi_config_networkpartition_listelem *get_as_from_mapping (const struct ddsi_domaingv *gv, const char *partition, const char *topic)
 {
   struct ddsi_config_partitionmapping_listelem *pm;
-  struct addrset *as = new_addrset ();
   if ((pm = find_partitionmapping (&gv->config, partition, topic)) != NULL)
   {
     GVLOGDISC ("matched reader for topic \"%s\" in partition \"%s\" to networkPartition \"%s\"\n",
                topic, partition, pm->networkPartition);
-    assert (pm->partition->as);
-    copy_addrset_into_addrset (gv, as, pm->partition->as);
+    return pm->partition;
   }
-  return as;
+  return NULL;
 }
 
-struct join_leave_mcast_helper_arg {
-  ddsi_tran_conn_t conn;
-  struct ddsi_domaingv *gv;
-};
-
-static void join_mcast_helper (const ddsi_xlocator_t *n, void *varg)
+static void join_mcast_helper (struct ddsi_domaingv *gv, ddsi_tran_conn_t conn, const ddsi_locator_t *n)
 {
-  struct join_leave_mcast_helper_arg *arg = varg;
-  struct ddsi_domaingv *gv = arg->gv;
-  if (ddsi_is_mcaddr (gv, &n->c))
+  if (ddsi_is_mcaddr (gv, n))
   {
-    if (n->c.kind != NN_LOCATOR_KIND_UDPv4MCGEN)
+    if (n->kind != NN_LOCATOR_KIND_UDPv4MCGEN)
     {
-      if (ddsi_join_mc (gv, arg->gv->mship, arg->conn, NULL, &n->c) < 0)
+      if (ddsi_join_mc (gv, gv->mship, conn, NULL, n) < 0)
       {
         GVWARNING ("failed to join network partition multicast group\n");
       }
     }
     else /* join all addresses that include this node */
     {
-      {
-        ddsi_locator_t l = n->c;
-        nn_udpv4mcgen_address_t l1;
-        uint32_t iph;
-        memcpy(&l1, l.address, sizeof(l1));
-        l.kind = NN_LOCATOR_KIND_UDPv4;
-        memset(l.address, 0, 12);
-        iph = ntohl(l1.ipv4.s_addr);
-        for (uint32_t i = 1; i < ((uint32_t)1 << l1.count); i++)
-        {
-          uint32_t ipn, iph1 = iph;
-          if (i & (1u << l1.idx))
-          {
-            iph1 |= (i << l1.base);
-            ipn = htonl(iph1);
-            memcpy(l.address + 12, &ipn, 4);
-            if (ddsi_join_mc (gv, gv->mship, arg->conn, NULL, &l) < 0)
-            {
-              GVWARNING ("failed to join network partition multicast group\n");
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-static void leave_mcast_helper (const ddsi_xlocator_t *n, void *varg)
-{
-  struct join_leave_mcast_helper_arg *arg = varg;
-  struct ddsi_domaingv *gv = arg->gv;
-  if (ddsi_is_mcaddr (gv, &n->c))
-  {
-    if (n->c.kind != NN_LOCATOR_KIND_UDPv4MCGEN)
-    {
-      if (ddsi_leave_mc (gv, gv->mship, arg->conn, NULL, &n->c) < 0)
-      {
-        GVWARNING ("failed to leave network partition multicast group\n");
-      }
-    }
-    else /* join all addresses that include this node */
-    {
-      ddsi_locator_t l = n->c;
+      ddsi_locator_t l = *n;
       nn_udpv4mcgen_address_t l1;
       uint32_t iph;
       memcpy(&l1, l.address, sizeof(l1));
@@ -4170,7 +4124,45 @@ static void leave_mcast_helper (const ddsi_xlocator_t *n, void *varg)
           iph1 |= (i << l1.base);
           ipn = htonl(iph1);
           memcpy(l.address + 12, &ipn, 4);
-          if (ddsi_leave_mc (gv, arg->gv->mship, arg->conn, NULL, &l) < 0)
+          if (ddsi_join_mc (gv, gv->mship, conn, NULL, &l) < 0)
+          {
+            GVWARNING ("failed to join network partition multicast group\n");
+          }
+        }
+      }
+    }
+  }
+}
+
+static void leave_mcast_helper (struct ddsi_domaingv *gv, ddsi_tran_conn_t conn, const ddsi_locator_t *n)
+{
+  if (ddsi_is_mcaddr (gv, n))
+  {
+    if (n->kind != NN_LOCATOR_KIND_UDPv4MCGEN)
+    {
+      if (ddsi_leave_mc (gv, gv->mship, conn, NULL, n) < 0)
+      {
+        GVWARNING ("failed to leave network partition multicast group\n");
+      }
+    }
+    else /* join all addresses that include this node */
+    {
+      ddsi_locator_t l = *n;
+      nn_udpv4mcgen_address_t l1;
+      uint32_t iph;
+      memcpy(&l1, l.address, sizeof(l1));
+      l.kind = NN_LOCATOR_KIND_UDPv4;
+      memset(l.address, 0, 12);
+      iph = ntohl(l1.ipv4.s_addr);
+      for (uint32_t i = 1; i < ((uint32_t)1 << l1.count); i++)
+      {
+        uint32_t ipn, iph1 = iph;
+        if (i & (1u << l1.idx))
+        {
+          iph1 |= (i << l1.base);
+          ipn = htonl(iph1);
+          memcpy(l.address + 12, &ipn, 4);
+          if (ddsi_leave_mc (gv, gv->mship, conn, NULL, &l) < 0)
           {
             GVWARNING ("failed to leave network partition multicast group\n");
           }
@@ -4263,43 +4255,32 @@ static dds_return_t new_reader_guid
 #endif
 
 #ifdef DDS_HAS_NETWORK_PARTITIONS
-  rd->as = new_addrset ();
+  rd->uc_as = rd->mc_as = NULL;
   {
     /* compile address set from the mapped network partitions */
     char *ps_def = "";
     char **ps = (rd->xqos->partition.n > 0) ? rd->xqos->partition.strs : &ps_def;
     uint32_t nps = (rd->xqos->partition.n > 0) ? rd->xqos->partition.n : 1;
-    for (uint32_t i = 0; i < nps; i++)
+    const struct ddsi_config_networkpartition_listelem *np = NULL;
+    for (uint32_t i = 0; i < nps && np == NULL; i++)
+      np = get_as_from_mapping (pp->e.gv, ps[i], rd->xqos->topic_name);
+    if (np)
     {
-      struct addrset *pas = get_as_from_mapping (pp->e.gv, ps[i], rd->xqos->topic_name);
-      if (pas)
-      {
+      rd->uc_as = np->uc_addresses;
+      rd->mc_as = np->asm_addresses;
 #ifdef DDS_HAS_SSM
-        copy_addrset_into_addrset_no_ssm (pp->e.gv, rd->as, pas);
-        if (addrset_contains_ssm (pp->e.gv, pas) && rd->e.gv->config.allowMulticast & DDSI_AMC_SSM)
-          rd->favours_ssm = 1;
-#else
-        copy_addrset_into_addrset (pp->e.gv, rd->as, pas);
+      if (np->ssm_addresses != NULL && (rd->e.gv->config.allowMulticast & DDSI_AMC_SSM))
+        rd->favours_ssm = 1;
 #endif
-        unref_addrset (pas);
-      }
     }
-    if (!addrset_empty (rd->as))
+    if (rd->mc_as)
     {
       /* Iterate over all udp addresses:
        *   - Set the correct portnumbers
        *   - Join the socket if a multicast address
        */
-      struct join_leave_mcast_helper_arg arg;
-      arg.conn = pp->e.gv->data_conn_mc;
-      arg.gv = pp->e.gv;
-      addrset_forall (rd->as, join_mcast_helper, &arg);
-      if (pp->e.gv->logconfig.c.mask & DDS_LC_DISCOVERY)
-      {
-        ELOGDISC (pp, "READER "PGUIDFMT" locators={", PGUID (rd->e.guid));
-        nn_log_addrset(pp->e.gv, DDS_LC_DISCOVERY, "", rd->as);
-        ELOGDISC (pp, " }\n");
-      }
+      for (const struct networkpartition_address *a = rd->mc_as; a != NULL; a = a->next)
+        join_mcast_helper (pp->e.gv, pp->e.gv->data_conn_mc, &a->loc);
     }
 #ifdef DDS_HAS_SSM
     else
@@ -4316,6 +4297,16 @@ static dds_return_t new_reader_guid
   if (rd->favours_ssm)
     ELOGDISC (pp, "READER "PGUIDFMT" ssm=%d\n", PGUID (rd->e.guid), rd->favours_ssm);
 #endif
+  if ((rd->uc_as || rd->mc_as) && (pp->e.gv->logconfig.c.mask & DDS_LC_DISCOVERY))
+  {
+    char buf[DDSI_LOCSTRLEN];
+    ELOGDISC (pp, "READER "PGUIDFMT" locators={", PGUID (rd->e.guid));
+    for (const struct networkpartition_address *a = rd->uc_as; a != NULL; a = a->next)
+      ELOGDISC (pp, " %s", ddsi_locator_to_string (buf, sizeof (buf), &a->loc));
+    for (const struct networkpartition_address *a = rd->mc_as; a != NULL; a = a->next)
+      ELOGDISC (pp, " %s", ddsi_locator_to_string (buf, sizeof (buf), &a->loc));
+    ELOGDISC (pp, " }\n");
+  }
 #endif
 
   ddsrt_avl_init (&rd_writers_treedef, &rd->writers);
@@ -4385,11 +4376,10 @@ static void gc_delete_reader (struct gcreq *gcreq)
   if (!is_builtin_entityid (rd->e.guid.entityid, NN_VENDORID_ECLIPSE))
     sedp_dispose_unregister_reader (rd);
 #ifdef DDS_HAS_NETWORK_PARTITIONS
+  if (rd->mc_as)
   {
-    struct join_leave_mcast_helper_arg arg;
-    arg.conn = rd->e.gv->data_conn_mc;
-    arg.gv = rd->e.gv;
-    addrset_forall (rd->as, leave_mcast_helper, &arg);
+    for (const struct networkpartition_address *a = rd->mc_as; a != NULL; a = a->next)
+      leave_mcast_helper (rd->e.gv, rd->e.gv->data_conn_mc, &a->loc);
   }
 #endif
   if (rd->rhc && is_builtin_entityid (rd->e.guid.entityid, NN_VENDORID_ECLIPSE))
@@ -4404,10 +4394,6 @@ static void gc_delete_reader (struct gcreq *gcreq)
 
   ddsi_xqos_fini (rd->xqos);
   ddsrt_free (rd->xqos);
-#ifdef DDS_HAS_NETWORK_PARTITIONS
-  unref_addrset (rd->as);
-#endif
-
   endpoint_common_fini (&rd->e, &rd->c);
   ddsrt_free (rd);
 }
