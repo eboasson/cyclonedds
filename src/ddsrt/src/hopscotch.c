@@ -17,6 +17,7 @@
 #include "dds/ddsrt/heap.h"
 #include "dds/ddsrt/sync.h"
 #include "dds/ddsrt/hopscotch.h"
+#include "dds/ddsrt/static_assert.h"
 
 #define HH_HOP_RANGE 32
 #define HH_ADD_RANGE 64
@@ -454,6 +455,7 @@ static void *ddsrt_chh_lookup_internal (struct ddsrt_chh_bucket_array const * co
         timestamp = ddsrt_atomic_ld32 (&bs[bucket].timestamp);
         ddsrt_atomic_fence_ldld ();
         hopinfo = ddsrt_atomic_ld32 (&bs[bucket].hopinfo);
+#ifdef _WIN32
         for (idx = 0; hopinfo != 0; hopinfo >>= 1, idx++) {
             if (hopinfo & 1) {
                 const uint32_t bidx = (bucket + idx) & idxmask;
@@ -463,6 +465,18 @@ static void *ddsrt_chh_lookup_internal (struct ddsrt_chh_bucket_array const * co
                 }
             }
         }
+#else
+        DDSRT_STATIC_ASSERT (sizeof (int) == sizeof (uint32_t));
+        while ((idx = (uint32_t) ffs ((int) hopinfo)) != 0) {
+            idx--;
+            hopinfo &= ~1u << idx;
+            const uint32_t bidx = (bucket + idx) & idxmask;
+            void *data = ddsrt_atomic_ldvoidp (&bs[bidx].data);
+            if (ddsrt_chh_data_valid_p (data) && equals (data, template)) {
+                return data;
+            }
+        }
+#endif
         ddsrt_atomic_fence_ldld ();
     } while (timestamp != ddsrt_atomic_ld32 (&bs[bucket].timestamp) && ++try_counter < CHH_MAX_TRIES);
     if (try_counter == CHH_MAX_TRIES) {
