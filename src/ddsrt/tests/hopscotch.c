@@ -20,6 +20,8 @@
 #include "dds/ddsrt/heap.h"
 #include "dds/ddsrt/time.h"
 #include "dds/ddsrt/hopscotch.h"
+#include "dds/ddsrt/atomics.h"
+#include "dds/ddsrt/threads.h"
 
 #define MAX_NKEYS 10000
 #define MAX_ITERS 1000000
@@ -206,4 +208,204 @@ CU_Theory ((const struct ops *ops, bool random, adj_fun_t adj, const char *adjna
   t1 = ddsrt_time_monotonic ();
   ops->free (h);
   printf (" %"PRIu64" %.0f ns/cycle\n", nn, (double) (t1.v - t0.v) / (double) nn);
+}
+
+struct gcelem {
+  struct gcelem *next;
+};
+
+static void chhtest_gc (void *block, void *arg)
+{
+  // block is large enough
+  // simply defer freeing memory until the end of the test
+  struct gcelem **gclist = arg;
+  struct gcelem *elem = block;
+  elem->next = *gclist;
+  *gclist = elem;
+}
+
+struct chhtest_thread_arg {
+  ddsrt_atomic_uint32_t *stop;
+  struct ddsrt_chh *chh;
+  uint32_t nkeys;
+  uint32_t *keys;
+  bool check;
+  
+  uint32_t adds, removes, lookups, maxnkeys;
+};
+
+static uint32_t chhtest_thread (void *varg)
+{
+  struct chhtest_thread_arg * const __restrict arg = varg;
+  uint32_t ** ksptrs;
+  uint32_t n = 0;
+  
+  ksptrs = ddsrt_malloc (arg->nkeys * sizeof (*ksptrs));
+  for (uint32_t i = 0; i < arg->nkeys; i++)
+    ksptrs[i] = &arg->keys[i];
+  
+  arg->adds = arg->removes = arg->lookups = arg->maxnkeys = 0;
+
+  ddsrt_prng_t local_prng;
+  ddsrt_prng_seed_t prng_seed;
+  bool haveseed = ddsrt_prng_makeseed (&prng_seed);
+  CU_ASSERT_FATAL (haveseed);
+  ddsrt_prng_init (&local_prng, &prng_seed);
+  
+  printf ("%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32"\n",
+          prng_seed.key[0], prng_seed.key[1], prng_seed.key[2], prng_seed.key[3], prng_seed.key[4], prng_seed.key[5], prng_seed.key[6], prng_seed.key[7]);
+
+  while (!ddsrt_atomic_ld32 (arg->stop))
+  {
+    const uint32_t raw_oper = ddsrt_prng_random (&local_prng);
+    switch (raw_oper % 4)
+    {
+      case 0: /* add */
+        if (n < arg->nkeys)
+        {
+          bool x = ddsrt_chh_add (arg->chh, ksptrs[n]);
+          if (arg->check && !x) { CU_ASSERT_FATAL (0); }
+          n++;
+          arg->adds++;
+          if (n > arg->maxnkeys)
+            arg->maxnkeys = n;
+        }
+        break;
+      case 1: /* remove */
+        if (n > 0)
+        {
+          const uint32_t ix = (raw_oper >> 2) % n;
+          uint32_t * const obj = ksptrs[ix];
+          bool x = ddsrt_chh_remove (arg->chh, obj);
+          if (arg->check && !x) { CU_ASSERT_FATAL (0); }
+          ksptrs[ix] = ksptrs[--n];
+          ksptrs[n] = obj;
+          arg->removes++;
+        }
+        break;
+      case 2: case 3: /* lookup */
+        {
+          const uint32_t ix = (raw_oper >> 2) % arg->nkeys;
+          bool x = ddsrt_chh_lookup (arg->chh, ksptrs[ix]);
+          if (arg->check && ((ix < n) ? !x : x)) { CU_ASSERT_FATAL (0) };
+          arg->lookups++;
+        }
+        break;
+    }
+  }
+  
+  // "erase" the entries not in the hash table to simplify checking
+  // after all threads have stopped
+  for (uint32_t i = n; i < arg->nkeys; i++)
+    *ksptrs[i] = UINT32_MAX;
+  ddsrt_free (ksptrs);
+  return 0;
+}
+
+static void chhtest_check (void *vobj, void *varg)
+{
+  uint32_t *obj = vobj;
+  uint32_t *count = varg;
+  CU_ASSERT_FATAL (*obj != UINT32_MAX);
+  (*count)++;
+}
+
+static void chhtest_count (void *vobj, void *varg)
+{
+  uint32_t *count = varg;
+  (void) vobj;
+  (*count)++;
+}
+
+static uint32_t hash_uint32_ls4 (const void *v)
+{
+  const uint64_t m = UINT64_C (10242350189706880077);
+  const uint32_t h = (uint32_t) ((*((uint32_t *) v) * m) >> 32);
+  return h << 4;
+}
+
+#if 1
+DDS_EXPORT void ddsrt_chh_print_unsafe (const struct ddsrt_chh *rt);
+#endif
+
+CU_Test(ddsrt_hopscotch, concurrent, .timeout = 100)
+{
+  const uint32_t nkeys = 1024;
+  const bool check = false;
+  struct ddsrt_chh *chh;
+  struct gcelem *gclist = NULL;
+  uint32_t *keyset = ddsrt_malloc (nkeys * sizeof (*keyset));
+  for (uint32_t i = 0; i < nkeys; i++)
+    keyset[i] = i;
+
+  chh = ddsrt_chh_new (1, hash_uint32_ls4, equals_uint32, chhtest_gc, &gclist);
+  CU_ASSERT_FATAL (chh != NULL);
+  
+  ddsrt_atomic_uint32_t stop = DDSRT_ATOMIC_UINT32_INIT (0);
+  struct chhtest_thread_arg args[8];
+  ddsrt_thread_t tids[8];
+  for (uint32_t i = 0; i < 8; i++)
+  {
+    args[i].chh = chh;
+    args[i].stop = &stop;
+    if (check)
+    {
+      args[i].keys = keyset + i * (nkeys / 8);
+      args[i].nkeys = nkeys / 8;
+    }
+    else
+    {
+      args[i].keys = keyset;
+      args[i].nkeys = nkeys;
+    }
+    args[i].check = check;
+  }
+  for (uint32_t i = 0; i < 8; i++)
+  {
+    ddsrt_threadattr_t attr;
+    ddsrt_threadattr_init (&attr);
+    dds_return_t ret = ddsrt_thread_create (&tids[i], "x", &attr, chhtest_thread, &args[i]);
+    CU_ASSERT_FATAL (ret == 0);
+  }
+  
+  dds_time_t tend = dds_time () + DDS_SECS (4);
+  while (dds_time () < tend)
+    dds_sleepfor (DDS_MSECS (100));
+  ddsrt_atomic_st32 (&stop, 1);
+  ddsrt_atomic_fence ();
+  
+  for (uint32_t i = 0; i < 8; i++)
+  {
+    dds_return_t ret = ddsrt_thread_join (tids[i], NULL);
+    CU_ASSERT_FATAL (ret == 0);
+    printf ("args[%"PRIu32"] add %"PRIu32" rm %"PRIu32" lk %"PRIu32" max %"PRIu32"\n",
+            i, args[i].adds, args[i].removes, args[i].lookups, args[i].maxnkeys);
+  }
+  
+  uint32_t count = 0;
+  ddsrt_chh_enum_unsafe (chh, check ? chhtest_check : chhtest_count, &count);
+  printf ("nkeys in hash %"PRIu32"\n", count);
+  if (check)
+  {
+    for (uint32_t i = 0; i < nkeys; i++)
+    {
+      if (keyset[i] != UINT32_MAX)
+      {
+        CU_ASSERT_FATAL (count > 0);
+        count--;
+      }
+    }
+    CU_ASSERT_FATAL (count == 0);
+  }
+
+  ddsrt_chh_print_unsafe (chh);
+  ddsrt_chh_free (chh);
+  ddsrt_free (keyset);
+
+  while (gclist)
+  {
+    struct gcelem *elem = gclist;
+    gclist = gclist->next;
+    ddsrt_free (elem);
+  }
 }

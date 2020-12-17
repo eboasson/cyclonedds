@@ -305,6 +305,23 @@ struct ddsrt_chh {
     void *gc_buckets_arg;
 };
 
+#if 1
+#include <stdio.h>
+DDS_EXPORT void ddsrt_chh_print_unsafe (const struct ddsrt_chh *rt);
+void ddsrt_chh_print_unsafe (const struct ddsrt_chh *rt)
+{
+  const struct ddsrt_chh_bucket_array *bsary = ddsrt_atomic_ldvoidp (&rt->buckets);
+  printf ("chh @ %p bsary @ %p size %"PRIu32"\n", rt, bsary, bsary->size);
+  for (uint32_t i = 0; i < bsary->size; i++)
+  {
+    struct ddsrt_chh_bucket const * const b = &bsary->bs[i];
+    printf ("  %"PRIu32" hi %08"PRIx32" ts %"PRIu32" lk %"PRIx32" data %p\n",
+            i, ddsrt_atomic_ld32 (&b->hopinfo), ddsrt_atomic_ld32 (&b->timestamp),
+            ddsrt_atomic_ld32 (&b->lock), ddsrt_atomic_ldvoidp (&b->data));
+  }
+}
+#endif
+
 #define CHH_MAX_TRIES 4
 #define CHH_BUSY ((void *) 1)
 
@@ -455,7 +472,7 @@ static void *ddsrt_chh_lookup_internal (struct ddsrt_chh_bucket_array const * co
         timestamp = ddsrt_atomic_ld32 (&bs[bucket].timestamp);
         ddsrt_atomic_fence_ldld ();
         hopinfo = ddsrt_atomic_ld32 (&bs[bucket].hopinfo);
-#ifdef _WIN32
+#if defined _WIN32
         for (idx = 0; hopinfo != 0; hopinfo >>= 1, idx++) {
             if (hopinfo & 1) {
                 const uint32_t bidx = (bucket + idx) & idxmask;
