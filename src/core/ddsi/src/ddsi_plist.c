@@ -386,11 +386,18 @@ static dds_return_t deser_locator (void * __restrict dst, size_t * __restrict ds
   struct dd tmpdd = *dd;
   tmpdd.buf += *srcoff;
   tmpdd.bufsz -= *srcoff;
-  if (do_locator (x, *flagset->present, flagset->wanted, flag, &tmpdd, dd->factory) < 0)
-    return DDS_RETCODE_BAD_PARAMETER;
+  switch (do_locator (x, *flagset->present, flagset->wanted, flag, &tmpdd, dd->factory))
+  {
+    case DOLOC_INVALID:
+      return DDS_RETCODE_BAD_PARAMETER;
+    case DOLOC_IGNORED:
+      break;
+    case DOLOC_ACCEPTED:
+      *flagset->present |= flag;
+      break;
+  }
   *srcoff += 24;
   *dstoff += sizeof (*x);
-  *flagset->present |= flag;
   return 0;
 }
 
@@ -2768,7 +2775,7 @@ static dds_return_t init_one_parameter (ddsi_plist_t *plist, nn_ipaddress_params
     ret = entry->op.f.deser (dst, &dstoff, &flagset, entry->present_flag, dd, &srcoff);
   else
     ret = deser_generic (dst, &dstoff, &flagset, entry->present_flag, dd, &srcoff, entry->op.desc);
-  if (ret == 0 && entry->deser_validate_xform)
+  if (ret == 0 && (*flagset.present & entry->present_flag) && entry->deser_validate_xform)
     ret = entry->deser_validate_xform (dst, dd);
   if (ret < 0)
   {
