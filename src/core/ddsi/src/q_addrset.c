@@ -328,6 +328,21 @@ void add_locator_to_addrset (const struct ddsi_domaingv *gv, struct addrset *as,
   else
   {
     // unicast: assume the kernel knows how to route it from any connection
+    // if it doesn't match a local interface
+    for (int i = 0; i < gv->n_interfaces; i++)
+    {
+      switch (ddsi_is_nearby_address (gv, loc, (size_t) gv->n_interfaces, gv->interfaces, NULL))
+      {
+        case DNAR_LOCAL:
+          add_xlocator_to_addrset_impl (gv, as, &(const ddsi_xlocator_t) {
+            .conn = gv->xmit_conns[i],
+            .c = *loc });
+          return;
+        case DNAR_DISTANT:
+          break;
+      }
+    }
+
     add_xlocator_to_addrset_impl (gv, as, &(const ddsi_xlocator_t) {
       .conn = gv->xmit_conns[0],
       .c = *loc });

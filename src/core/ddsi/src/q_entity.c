@@ -4264,7 +4264,6 @@ static dds_return_t new_reader_guid
 
 #ifdef DDS_HAS_NETWORK_PARTITIONS
   rd->as = new_addrset ();
-  if (pp->e.gv->config.allowMulticast & ~DDSI_AMC_SPDP)
   {
     /* compile address set from the mapped network partitions */
     char *ps_def = "";
@@ -4299,7 +4298,7 @@ static dds_return_t new_reader_guid
       {
         ELOGDISC (pp, "READER "PGUIDFMT" locators={", PGUID (rd->e.guid));
         nn_log_addrset(pp->e.gv, DDS_LC_DISCOVERY, "", rd->as);
-        ELOGDISC (pp, "}\n");
+        ELOGDISC (pp, " }\n");
       }
     }
 #ifdef DDS_HAS_SSM

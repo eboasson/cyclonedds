@@ -1209,27 +1209,6 @@ int rtps_init (struct ddsi_domaingv *gv)
 #endif
   }
 
-#ifdef DDS_HAS_NETWORK_PARTITIONS
-  /* Convert address sets in partition mappings from string to address sets */
-  {
-    const uint32_t port = ddsi_get_port (&gv->config, DDSI_PORT_MULTI_DATA, 0);
-    struct ddsi_config_networkpartition_listelem *np;
-    for (np = gv->config.networkPartitions; np; np = np->next)
-    {
-      static const char msgtag_fixed[] = ": partition address";
-      size_t slen = strlen (np->name) + sizeof (msgtag_fixed);
-      char * msgtag = ddsrt_malloc (slen);
-      int rc;
-      snprintf (msgtag, slen, "%s%s", np->name, msgtag_fixed);
-      np->as = new_addrset ();
-      rc = add_addresses_to_addrset (gv, np->as, np->address_string, (int) port, msgtag, 1);
-      ddsrt_free (msgtag);
-      if (rc < 0)
-        goto err_network_partition_addrset;
-    }
-  }
-#endif
-
   gv->xmsgpool = nn_xmsgpool_new ();
   gv->serpool = ddsi_serdatapool_new ();
 
@@ -1419,6 +1398,28 @@ int rtps_init (struct ddsi_domaingv *gv)
       gv->intf_xlocators[i].c = gv->interfaces[i].loc;
     }
   }
+
+#ifdef DDS_HAS_NETWORK_PARTITIONS
+  /* Convert address sets in partition mappings from string to address sets now that we have
+     xmit_conns filled in */
+  {
+    const uint32_t port = ddsi_get_port (&gv->config, DDSI_PORT_MULTI_DATA, 0);
+    struct config_networkpartition_listelem *np;
+    for (np = gv->config.networkPartitions; np; np = np->next)
+    {
+      static const char msgtag_fixed[] = ": partition address";
+      size_t slen = strlen (np->name) + sizeof (msgtag_fixed);
+      char * msgtag = ddsrt_malloc (slen);
+      int rc;
+      snprintf (msgtag, slen, "%s%s", np->name, msgtag_fixed);
+      np->as = new_addrset ();
+      rc = add_addresses_to_addrset (gv, np->as, np->address_string, (int) port, msgtag, 0);
+      ddsrt_free (msgtag);
+      if (rc < 0)
+        goto err_network_partition_addrset;
+    }
+  }
+#endif
 
   if (gv->m_factory->m_connless)
   {
@@ -1622,6 +1623,11 @@ err_mc_conn:
   if (gv->pcap_fp)
     ddsrt_mutex_destroy (&gv->pcap_lock);
   free_group_membership (gv->mship);
+#ifdef DDS_HAS_NETWORK_PARTITIONS
+err_network_partition_addrset:
+  for (struct ddsi_config_networkpartition_listelem *np = gv->config.networkPartitions; np; np = np->next)
+    unref_addrset (np->as);
+#endif
 err_unicast_sockets:
   ddsi_tkmap_free (gv->m_tkmap);
   nn_reorder_free (gv->spdp_reorder);
@@ -1673,11 +1679,6 @@ err_unicast_sockets:
 
   ddsi_serdatapool_free (gv->serpool);
   nn_xmsgpool_free (gv->xmsgpool);
-#ifdef DDS_HAS_NETWORK_PARTITIONS
-err_network_partition_addrset:
-  for (struct ddsi_config_networkpartition_listelem *np = gv->config.networkPartitions; np; np = np->next)
-    unref_addrset (np->as);
-#endif
 err_set_ext_address:
   while (gv->recvips)
   {
