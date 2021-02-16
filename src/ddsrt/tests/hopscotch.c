@@ -163,13 +163,15 @@ CU_TheoryDataPoints (ddsrt_hopscotch, random) = {
 
 CU_Theory ((const struct ops *ops, bool random, adj_fun_t adj, const char *adjname), ddsrt_hopscotch, random)
 {
-  printf ("%s random=%d adj=%s", ops->name, random, adjname);
+  printf ("%"PRId64" %s random=%d adj=%s\n", ddsrt_time_monotonic().v, ops->name, random, adjname);
   fflush (stdout);
   init (random);
   void *h = ops->new ();
   uint32_t i, nk = 0;
   uint64_t nn = 0;
   ddsrt_mtime_t t0, t1;
+  printf ("%"PRId64" %s start\n", ddsrt_time_monotonic().v, ops->name);
+  fflush (stdout);
   t0 = ddsrt_time_monotonic ();
   for (uint32_t iter = 0; iter < MAX_ITERS; iter++)
   {
@@ -207,7 +209,8 @@ CU_Theory ((const struct ops *ops, bool random, adj_fun_t adj, const char *adjna
   }
   t1 = ddsrt_time_monotonic ();
   ops->free (h);
-  printf (" %"PRIu64" %.0f ns/cycle\n", nn, (double) (t1.v - t0.v) / (double) nn);
+  printf ("%"PRId64" %s done %"PRIu64" %.0f ns/cycle\n", ddsrt_time_monotonic().v, ops->name, nn, (double) (t1.v - t0.v) / (double) nn);
+  fflush (stdout);
 }
 
 struct gcelem {
