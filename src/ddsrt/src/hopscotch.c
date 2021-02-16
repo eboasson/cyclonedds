@@ -276,7 +276,7 @@ void *ddsrt_hh_iter_next (struct ddsrt_hh_iter * __restrict iter)
 #if ! ddsrt_has_feature_thread_sanitizer
 
 #define N_BACKING_LOCKS 32
-#define N_RESIZE_LOCKS 8
+#define N_RESIZE_LOCKS 1
 
 struct ddsrt_chh_bucket {
     ddsrt_atomic_uint32_t hopinfo;
@@ -402,6 +402,7 @@ void ddsrt_chh_free (struct ddsrt_chh * __restrict hh)
 
 static void ddsrt_chh_lock_bucket (struct ddsrt_chh *rt, uint32_t bidx)
 {
+#if 0
     /* Lock: MSB <=> LOCKBIT, LSBs <=> wait count; note that
        (o&LOCKBIT)==0 means a thread can sneak in when there are
        already waiters, changing it to o==0 would avoid that. */
@@ -419,9 +420,8 @@ static void ddsrt_chh_lock_bucket (struct ddsrt_chh *rt, uint32_t bidx)
     if (!ddsrt_atomic_cas32 (&b->lock, o, n)) {
         goto fastpath_retry;
     }
-    if ((o & LOCKBIT) == 0) {
-        ddsrt_atomic_fence ();
-    } else {
+    if (o & LOCKBIT) {
+        /* Wait for other thread to leave */
         ddsrt_mutex_lock (&s->lock);
         do {
             while ((o = ddsrt_atomic_ld32 (&b->lock)) & LOCKBIT) {
@@ -430,10 +430,15 @@ static void ddsrt_chh_lock_bucket (struct ddsrt_chh *rt, uint32_t bidx)
         } while (!ddsrt_atomic_cas32 (&b->lock, o, (o - 1) | LOCKBIT));
         ddsrt_mutex_unlock (&s->lock);
     }
+#else
+    (void)rt;
+    (void)bidx;
+#endif
 }
 
 static void ddsrt_chh_unlock_bucket (struct ddsrt_chh *rt, uint32_t bidx)
 {
+#if 0
     struct ddsrt_chh_bucket_array * const bsary = ddsrt_atomic_ldvoidp (&rt->buckets);
     struct ddsrt_chh_bucket * const b = &bsary->bs[bidx];
     struct ddsrt_chh_backing_lock * const s = &rt->backingLocks[bidx % N_BACKING_LOCKS];
@@ -445,9 +450,7 @@ static void ddsrt_chh_unlock_bucket (struct ddsrt_chh *rt, uint32_t bidx)
     if (!ddsrt_atomic_cas32 (&b->lock, o, n)) {
         goto retry;
     }
-    if (n == 0) {
-        ddsrt_atomic_fence ();
-    } else {
+    if (n != 0) {
         ddsrt_mutex_lock (&s->lock);
         /* Need to broadcast because the CV is shared by multiple buckets
            and the kernel wakes an arbitrary thread, it may be a thread
@@ -458,6 +461,10 @@ static void ddsrt_chh_unlock_bucket (struct ddsrt_chh *rt, uint32_t bidx)
         ddsrt_cond_broadcast (&s->cv);
         ddsrt_mutex_unlock (&s->lock);
     }
+#else
+    (void)rt;
+    (void)bidx;
+#endif
 }
 
 static void *ddsrt_chh_lookup_internal (struct ddsrt_chh_bucket_array const * const bsary, ddsrt_hh_equals_fn equals, const uint32_t bucket, const void *template)
@@ -616,7 +623,7 @@ int ddsrt_chh_add (struct ddsrt_chh * __restrict rt, const void * __restrict dat
 {
     const uint32_t hash = rt->hash (data);
     uint32_t size;
-    ddsrt_rwlock_read (&rt->resize_locks[hash % N_RESIZE_LOCKS]);
+    ddsrt_rwlock_write (&rt->resize_locks[hash % N_RESIZE_LOCKS]);
 
     {
         struct ddsrt_chh_bucket_array * const bsary = ddsrt_atomic_ldvoidp (&rt->buckets);
@@ -685,7 +692,7 @@ int ddsrt_chh_add (struct ddsrt_chh * __restrict rt, const void * __restrict dat
 int ddsrt_chh_remove (struct ddsrt_chh * __restrict rt, const void * __restrict template)
 {
     const uint32_t hash = rt->hash (template);
-    ddsrt_rwlock_read (&rt->resize_locks[hash % N_RESIZE_LOCKS]);
+    ddsrt_rwlock_write (&rt->resize_locks[hash % N_RESIZE_LOCKS]);
 
     {
         struct ddsrt_chh_bucket_array * const bsary = ddsrt_atomic_ldvoidp (&rt->buckets);
