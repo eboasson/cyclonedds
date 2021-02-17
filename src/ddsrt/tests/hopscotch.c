@@ -168,7 +168,7 @@ CU_TheoryDataPoints (ddsrt_hopscotch, random) = {
   CU_DataPoints (const char *,       "nop",   "nop",   "nop",    "seq",   "seq",   "seq")
 };
 
-CU_Theory ((const struct ops *ops, bool random, adj_fun_t adj, const char *adjname), ddsrt_hopscotch, random)
+CU_Theory ((const struct ops *ops, bool random, adj_fun_t adj, const char *adjname), ddsrt_hopscotch, random, .timeout = 20)
 {
   printf ("%"PRId64" %s random=%d adj=%s\n", ddsrt_time_monotonic().v, ops->name, random, adjname);
   fflush (stdout);
