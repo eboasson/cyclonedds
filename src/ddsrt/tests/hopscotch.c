@@ -60,7 +60,14 @@ static void swap (uint32_t *a, uint32_t *b)
 static void init (bool random)
 {
   uint32_t i;
-  ddsrt_prng_init_simple (&prng, ddsrt_random ());
+
+  ddsrt_prng_seed_t prng_seed;
+  bool haveseed = ddsrt_prng_makeseed (&prng_seed);
+  CU_ASSERT_FATAL (haveseed);
+  ddsrt_prng_init (&prng, &prng_seed);
+  printf ("%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32"\n",
+          prng_seed.key[0], prng_seed.key[1], prng_seed.key[2], prng_seed.key[3], prng_seed.key[4], prng_seed.key[5], prng_seed.key[6], prng_seed.key[7]);
+
   next_v = MAX_NKEYS;
   for (i = 0; i < MAX_NKEYS; i++)
   {
@@ -254,10 +261,8 @@ static uint32_t chhtest_thread (void *varg)
   bool haveseed = ddsrt_prng_makeseed (&prng_seed);
   CU_ASSERT_FATAL (haveseed);
   ddsrt_prng_init (&local_prng, &prng_seed);
-#if 0
   printf ("%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32"\n",
           prng_seed.key[0], prng_seed.key[1], prng_seed.key[2], prng_seed.key[3], prng_seed.key[4], prng_seed.key[5], prng_seed.key[6], prng_seed.key[7]);
-#endif
   while (!ddsrt_atomic_ld32 (arg->stop))
   {
     const uint32_t raw_oper = ddsrt_prng_random (&local_prng);
@@ -320,13 +325,6 @@ static void chhtest_count (void *vobj, void *varg)
   (*count)++;
 }
 
-static uint32_t hash_uint32_ls4 (const void *v)
-{
-  const uint64_t m = UINT64_C (10242350189706880077);
-  const uint32_t h = (uint32_t) ((*((uint32_t *) v) * m) >> 32);
-  return h << 4;
-}
-
 #if 1
 DDS_EXPORT void ddsrt_chh_print_unsafe (const struct ddsrt_chh *rt);
 #endif
@@ -341,20 +339,20 @@ CU_Test(ddsrt_hopscotch, concurrent, .timeout = 20)
   for (uint32_t i = 0; i < nkeys; i++)
     keyset[i] = i;
 
-  chh = ddsrt_chh_new (1, hash_uint32_ls4, equals_uint32, chhtest_gc, &gclist);
+  chh = ddsrt_chh_new (1, hash_uint32, equals_uint32, chhtest_gc, &gclist);
   CU_ASSERT_FATAL (chh != NULL);
 
   ddsrt_atomic_uint32_t stop = DDSRT_ATOMIC_UINT32_INIT (0);
-  struct chhtest_thread_arg args[8];
-  ddsrt_thread_t tids[8];
-  for (uint32_t i = 0; i < 8; i++)
+  struct chhtest_thread_arg args[4];
+  ddsrt_thread_t tids[4];
+  for (uint32_t i = 0; i < 4; i++)
   {
     args[i].chh = chh;
     args[i].stop = &stop;
     if (check)
     {
-      args[i].keys = keyset + i * (nkeys / 8);
-      args[i].nkeys = nkeys / 8;
+      args[i].keys = keyset + i * (nkeys / 4);
+      args[i].nkeys = nkeys / 4;
     }
     else
     {
@@ -363,7 +361,7 @@ CU_Test(ddsrt_hopscotch, concurrent, .timeout = 20)
     }
     args[i].check = check;
   }
-  for (uint32_t i = 0; i < 8; i++)
+  for (uint32_t i = 0; i < 4; i++)
   {
     ddsrt_threadattr_t attr;
     ddsrt_threadattr_init (&attr);
@@ -377,7 +375,7 @@ CU_Test(ddsrt_hopscotch, concurrent, .timeout = 20)
   ddsrt_atomic_st32 (&stop, 1);
   ddsrt_atomic_fence ();
 
-  for (uint32_t i = 0; i < 8; i++)
+  for (uint32_t i = 0; i < 4; i++)
   {
     dds_return_t ret = ddsrt_thread_join (tids[i], NULL);
     CU_ASSERT_FATAL (ret == 0);
