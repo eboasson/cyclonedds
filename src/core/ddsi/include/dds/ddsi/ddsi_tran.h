@@ -191,9 +191,10 @@ struct ddsi_tran_factory
 };
 
 enum ddsi_tran_qos_purpose {
-  DDSI_TRAN_QOS_XMIT,
-  DDSI_TRAN_QOS_RECV_UC,
-  DDSI_TRAN_QOS_RECV_MC
+  DDSI_TRAN_QOS_XMIT_UC, // will send unicast only
+  DDSI_TRAN_QOS_XMIT_MC, // may send unicast or multicast
+  DDSI_TRAN_QOS_RECV_UC, // will be used for receiving unicast
+  DDSI_TRAN_QOS_RECV_MC  // will be used for receiving multicast
 };
 
 struct ddsi_tran_qos

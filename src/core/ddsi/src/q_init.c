@@ -1449,7 +1449,10 @@ int rtps_init (struct ddsi_domaingv *gv)
     gv->xmit_conn = gv->data_conn_uc;
   else
   {
-    const ddsi_tran_qos_t qos = { .m_purpose = DDSI_TRAN_QOS_XMIT, .m_diffserv = 0 };
+    const ddsi_tran_qos_t qos = {
+      .m_purpose = (gv->config.allowMulticast ? DDSI_TRAN_QOS_XMIT_MC : DDSI_TRAN_QOS_XMIT_UC),
+      .m_diffserv = 0
+    };
     dds_return_t rc;
     rc = ddsi_factory_create_conn (&gv->xmit_conn, gv->m_factory, 0, &qos);
     if (rc != DDS_RETCODE_OK)
