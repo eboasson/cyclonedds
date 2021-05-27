@@ -579,7 +579,7 @@ int main (int argc, char **argv)
   gv.builtin_topic_interface = &btif;
 
   ddsi_sertype_init (&raw_sertype.c, "nighttime", &raw_sertype_ops, &raw_serdata_ops, false);
-  rtps_start (&gv);
+  //rtps_start (&gv);
 
   ddsi_guid_t ppguid, rdguid, wrguid;
   struct reader *rd;
