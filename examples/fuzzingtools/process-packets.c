@@ -578,7 +578,7 @@ int main (int argc, char **argv)
   btif_sertype.gv = &gv;
   gv.builtin_topic_interface = &btif;
 
-  ddsi_sertype_init (&raw_sertype.c, "nighttime", &raw_sertype_ops, &raw_serdata_ops, false);
+  ddsi_sertype_init (&raw_sertype.c, "nighttime", &raw_sertype_ops, &raw_serdata_ops, true);
   //rtps_start (&gv);
 
   ddsi_guid_t ppguid, rdguid, wrguid;
@@ -642,6 +642,19 @@ int main (int argc, char **argv)
     }
   };
 
+  /* Map the (unique, because it doesn't have a key field) nighttime instance to a
+     tkmap_instance: that works to retain that tkmap_instance and avoids needing the
+     garbage collector while running (this is only because it actually handles data) */
+  struct ddsi_tkmap_instance *tk;
+  {
+    struct ddsi_serdata *sd = raw_serdata_from_ser (&raw_sertype.c, SDK_DATA, &fake_sample.frag, fake_sample.frag.maxp1);
+    thread_state_awake (ts1, &gv);
+    tk = ddsi_tkmap_find (gv.m_tkmap, sd, true);
+    assert (tk);
+    thread_state_asleep (ts1);
+    ddsi_serdata_unref (sd);
+  }
+
   /* fake receiver: see recv_thread() in src/core/ddsi/src/q_receive.c and comments in
      src/core/ddsi/src/q_radmin.c */
   struct nn_rbufpool *rbpool = nn_rbufpool_new (&gv.logconfig, gv.config.rbuf_size, gv.config.rmsg_chunk_size);
@@ -681,6 +694,9 @@ int main (int argc, char **argv)
 
   /* undo the hack to make the main thread palatable to do_packet() */
   ts1->state = THREAD_STATE_LAZILY_CREATED;
+
+  /* release the tkmap_instance we created earlier */
+  ddsi_tkmap_instance_unref (gv.m_tkmap, tk);
 
   nn_rbufpool_free (rbpool);
   ddsi_conn_free (fakeconn);
