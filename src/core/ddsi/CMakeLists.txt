@@ -51,6 +51,7 @@ set(srcs_ddsi
   ddsi_deliver_locally.c
   ddsi_plist.c
   ddsi_cdrstream.c
+  ddsi_channel.c
   ddsi_time.c
   ddsi_ownip.c
   ddsi_acknack.c
@@ -119,6 +120,7 @@ set(hdrs_private_ddsi
   ddsi_plist.h
   ddsi_xqos.h
   ddsi_cdrstream.h
+  ddsi_channel.h
   ddsi_time.h
   ddsi_ownip.h
   ddsi_cfgunits.h

@@ -3709,6 +3709,7 @@ static void new_writer_guid_common_init (struct writer *wr, const char *topic_na
 #ifdef DDS_HAS_SECURITY
   wr->sec_attr = NULL;
 #endif
+  wr->pending_writes.next_seq = MAX_SEQ_NUMBER;
 
   /* Copy QoS, merging in defaults */
 
