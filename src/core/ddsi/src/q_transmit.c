@@ -839,6 +839,11 @@ static void transmit_sample_unlocks_wr (struct nn_xpack *xp, struct writer *wr, 
     nn_xpack_send (xp, true);
 }
 
+void ddsi_transmit_sample_unlocks_wr (struct nn_xpack *xp, struct writer *wr, const struct whc_state *whcst, seqno_t seq, const struct ddsi_plist *plist, struct ddsi_serdata *serdata, struct proxy_reader *prd)
+{
+  transmit_sample_unlocks_wr (xp, wr, whcst, seq, plist, serdata, prd, 1);
+}
+
 void enqueue_spdp_sample_wrlock_held (struct writer *wr, seqno_t seq, struct ddsi_serdata *serdata, struct proxy_reader *prd)
 {
   assert (wr->e.guid.entityid.u == NN_ENTITYID_SPDP_BUILTIN_PARTICIPANT_WRITER);

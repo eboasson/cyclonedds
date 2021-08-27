@@ -19,6 +19,7 @@
 #include "dds/ddsrt/avl.h"
 #include "dds/ddsrt/fibheap.h"
 #include "dds/ddsrt/sync.h"
+#include "dds/ddsrt/circlist.h"
 #include "dds/ddsi/q_rtps.h"
 #include "dds/ddsi/ddsi_plist.h"
 #include "dds/ddsi/q_protocol.h"
@@ -301,6 +302,11 @@ struct ldur_fhnode {
   dds_duration_t ldur;
 };
 
+struct writer_with_pending_data {
+  struct ddsrt_circlist_elem listnode;
+  seqno_t next_seq; // not queued if equal to MAX_SEQ_NUMBER
+};
+
 struct writer
 {
   struct entity_common e;
@@ -367,6 +373,7 @@ struct writer
 #ifdef DDS_HAS_SECURITY
   struct writer_sec_attributes *sec_attr;
 #endif
+  struct writer_with_pending_data pending_writes;
 };
 
 DDS_INLINE_EXPORT inline seqno_t writer_read_seq_xmit (const struct writer *wr) {
