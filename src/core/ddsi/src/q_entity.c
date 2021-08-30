@@ -3808,9 +3808,9 @@ static void new_writer_guid_common_init (struct writer *wr, const char *topic_na
   /* for non-builtin writers, select the eventqueue based on the channel it is mapped to */
 
 #ifdef DDS_HAS_NETWORK_CHANNELS
-  if (!is_builtin_entityid (wr->e.guid.entityid, ownvendorid))
+  if (!is_builtin_entityid (wr->e.guid.entityid, NN_VENDORID_ECLIPSE))
   {
-    struct ddsi_config_channel_listelem *channel = find_channel (&wr->e.gv->config, wr->xqos->transport_priority);
+    struct ddsi_config_channel_listelem *channel = find_channel (&wr->e.gv->config, wr->xqos->transport_priority.value);
     ELOGDISC (wr, "writer "PGUIDFMT": transport priority %d => channel '%s' priority %d\n",
               PGUID (wr->e.guid), wr->xqos->transport_priority.value, channel->name, channel->priority);
     wr->evq = channel->evq ? channel->evq : wr->e.gv->xevents;

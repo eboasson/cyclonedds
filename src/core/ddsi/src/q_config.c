@@ -2071,33 +2071,6 @@ static int cfgst_node_cmp (const void *va, const void *vb)
 }
 
 #ifdef DDS_HAS_NETWORK_CHANNELS
-static int set_default_channel (struct config *cfg)
-{
-  if (cfg->channels == NULL)
-  {
-    /* create one default channel if none configured */
-    struct ddsi_config_channel_listelem *c;
-    if ((c = ddsrt_malloc (sizeof (*c))) == NULL)
-      return ERR_OUT_OF_MEMORY;
-    c->next = NULL;
-    c->name = ddsrt_strdup ("user");
-    c->priority = 0;
-    c->resolution = DDS_MSECS (1);
-#ifdef DDS_HAS_BANDWIDTH_LIMITING
-    c->data_bandwidth_limit = 0;
-    c->auxiliary_bandwidth_limit = 0;
-#endif
-    c->diffserv_field = 0;
-    c->channel_reader_ts = NULL;
-    c->queueId = 0;
-    c->dqueue = NULL;
-    c->evq = NULL;
-    c->transmit_conn = NULL;
-    cfg->channels = c;
-  }
-  return 0;
-}
-
 static int sort_channels_cmp (const void *va, const void *vb)
 {
   const struct ddsi_config_channel_listelem * const *a = va;
@@ -2105,7 +2078,7 @@ static int sort_channels_cmp (const void *va, const void *vb)
   return ((*a)->priority == (*b)->priority) ? 0 : ((*a)->priority < (*b)->priority) ? -1 : 1;
 }
 
-static int sort_channels_check_nodups (struct config *cfg, uint32_t domid)
+static bool sort_channels_check_nodups (struct ddsi_config *cfg, uint32_t domid)
 {
   /* Selecting a channel is much easier & more elegant if the channels
      are sorted on descending priority.  While we do retain the list
@@ -2113,7 +2086,7 @@ static int sort_channels_check_nodups (struct config *cfg, uint32_t domid)
      convert back and forth. */
   struct ddsi_config_channel_listelem **ary, *c;
   uint32_t i, n;
-  int result;
+  bool result;
 
   n = 0;
   for (c = cfg->channels; c; c = c->next)
@@ -2127,16 +2100,16 @@ static int sort_channels_check_nodups (struct config *cfg, uint32_t domid)
     ary[i++] = c;
   qsort (ary, n, sizeof (*ary), sort_channels_cmp);
 
-  result = 0;
+  result = true;
   for (i = 0; i < n - 1; i++) {
     if (ary[i]->priority == ary[i + 1]->priority) {
       DDS_ILOG (DDS_LC_ERROR, domid, "config: duplicate channel definition for priority %u: channels %s and %s\n",
                 ary[i]->priority, ary[i]->name, ary[i + 1]->name);
-      result = ERR_ENTITY_EXISTS;
+      result = false;
     }
   }
 
-  if (result == 0)
+  if (result)
   {
     cfg->channels = ary[0];
     for (i = 0; i < n - 1; i++)
@@ -2359,13 +2332,8 @@ struct cfgst *config_init (const char *config, struct ddsi_config *cfg, uint32_t
 #ifdef DDS_HAS_NETWORK_CHANNELS
   /* Default channel gets set outside set_defaults -- a bit too
      complicated for the poor framework */
-  if (ok)
-  {
-    if (set_default_channel (cfgst->cfg) < 0)
-      ok = 0;
-    if (cfgst->cfg->channels && sort_channels_check_nodups (cfgst->cfg) < 0)
-      ok = 0;
-  }
+  if (ok && cfgst->cfg->channels && !sort_channels_check_nodups (cfgst->cfg, domid))
+    ok = 0;
 #endif
 
 #ifdef DDS_HAS_NETWORK_PARTITIONS
