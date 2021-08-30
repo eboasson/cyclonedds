@@ -142,7 +142,7 @@ int is_ignored_partition (const struct ddsi_config *cfg, const char *partition, 
 #endif /* DDS_HAS_NETWORK_PARTITIONS */
 
 #ifdef DDS_HAS_NETWORK_CHANNELS
-struct ddsi_config_channel_listelem *find_channel (const struct config *cfg, nn_transport_priority_qospolicy_t transport_priority)
+struct ddsi_config_channel_listelem *find_channel (const struct ddsi_config *cfg, int32_t transport_priority)
 {
   struct ddsi_config_channel_listelem *c;
   /* Channel selection is to use the channel with the lowest priority
@@ -153,7 +153,7 @@ struct ddsi_config_channel_listelem *find_channel (const struct config *cfg, nn_
   for (c = cfg->channels; c; c = c->next)
   {
     assert(c->next == NULL || c->next->priority > c->priority);
-    if (transport_priority.value <= c->priority)
+    if (transport_priority <= c->priority)
       return c;
   }
   return cfg->max_channel;

@@ -24,6 +24,9 @@
 /* Whether or not support for network partitions is included */
 #cmakedefine DDS_HAS_NETWORK_PARTITIONS @DDS_HAS_NETWORK_PARTITIONS@
 
+/* Whether or not support for network channels is included */
+#cmakedefine DDS_HAS_NETWORK_CHANNELS @DDS_HAS_NETWORK_CHANNELS@
+
 /* Whether or not support for source-specific multicast is included */
 #cmakedefine DDS_HAS_SSM @DDS_HAS_SSM@
 

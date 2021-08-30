@@ -50,7 +50,7 @@ int is_ignored_partition (const struct ddsi_config *cfg, const char *partition, 
 #ifdef DDS_HAS_NETWORK_CHANNELS
 struct ddsi_config;
 struct ddsi_config_channel_listelem;
-struct ddsi_config_channel_listelem *find_channel (const struct config *cfg, nn_transport_priority_qospolicy_t transport_priority);
+struct ddsi_config_channel_listelem *find_channel (const struct ddsi_config *cfg, int32_t transport_priority);
 #endif
 
 #if defined (__cplusplus)

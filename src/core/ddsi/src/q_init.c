@@ -504,6 +504,35 @@ int rtps_config_open_trace (struct ddsi_domaingv *gv)
   DDSRT_WARNING_MSVC_ON(4996);
 }
 
+#ifdef DDS_HAS_NETWORK_CHANNELS
+static bool set_default_channel (struct ddsi_config *cfg)
+{
+  if (cfg->channels != NULL)
+    return true;
+  
+  /* create one default channel if none configured */
+  struct ddsi_config_channel_listelem *c;
+  if ((c = ddsrt_malloc (sizeof (*c))) == NULL)
+    return false;
+  c->next = NULL;
+  c->name = ddsrt_strdup ("user");
+  c->priority = 0;
+  c->resolution = DDS_MSECS (1);
+#ifdef DDS_HAS_BANDWIDTH_LIMITING
+  c->data_bandwidth_limit = 0;
+  c->auxiliary_bandwidth_limit = 0;
+#endif
+  c->diffserv_field = 0;
+  c->channel_reader_ts = NULL;
+  c->queueId = 0;
+  c->dqueue = NULL;
+  c->evq = NULL;
+  c->transmit_conn = NULL;
+  cfg->channels = cfg->max_channel = c;
+  return true;
+}
+#endif
+
 int rtps_config_prep (struct ddsi_domaingv *gv, struct cfgst *cfgst)
 {
 #ifdef DDS_HAS_NETWORK_CHANNELS
@@ -588,6 +617,15 @@ int rtps_config_prep (struct ddsi_domaingv *gv, struct cfgst *cfgst)
 #endif /* DDS_HAS_BANDWIDTH_LIMITING */
   }
 
+#ifdef DDS_HAS_NETWORK_CHANNELS
+  // config_init doesn't set a channel, but we require one
+  // the channel needs to be defined prior to calling check_thread_properties because
+  // that one looks at the channels for properties of the channel-specific threads
+  // FIXME: shouldn't be using ddsi_config_channel_listelem anyway
+  if (!set_default_channel (&gv->config))
+    goto err_config_late_error;
+#endif
+
   /* Verify thread properties refer to defined threads */
   if (!check_thread_properties (gv))
   {
@@ -614,7 +652,7 @@ int rtps_config_prep (struct ddsi_domaingv *gv, struct cfgst *cfgst)
 
       if (gv->config.transport_selector != DDSI_TRANS_UDP && chptr->diffserv_field != 0)
       {
-        DDS_ILOG (DDS_LC_ERROR, gv->config.domainId.value, "channel %s specifies IPv4 DiffServ settings which is incompatible with IPv6 use\n", chptr->name);
+        DDS_ILOG (DDS_LC_ERROR, gv->config.domainId, "channel %s specifies IPv4 DiffServ settings which is incompatible with IPv6 use\n", chptr->name);
         error = 1;
       }
 
@@ -622,7 +660,7 @@ int rtps_config_prep (struct ddsi_domaingv *gv, struct cfgst *cfgst)
 #ifdef DDS_HAS_BANDWIDTH_LIMITING
           chptr->auxiliary_bandwidth_limit > 0 ||
 #endif
-          lookup_thread_properties (thread_name))
+          lookup_thread_properties (&gv->config, thread_name))
         num_channel_threads++;
 
       ddsrt_free (thread_name);
@@ -1733,24 +1771,23 @@ int rtps_init (struct ddsi_domaingv *gv)
       char * tname = ddsrt_malloc (slen);
       (void) snprintf (tname, slen, "tev.%s", chptr->name);
 
-      /* Only actually create new connection if diffserv set */
+      /* Only actually create new connection if diffserv set -- FIXME: except we don't for now
+         (we'd need one per interface, methinks; xeventq doesn't take a connection either) */
 
-      if (chptr->diffserv_field)
+      if (0 && chptr->diffserv_field)
       {
-        ddsi_tran_qos_t qos = ddsi_tran_create_qos ();
-        qos->m_diffserv = chptr->diffserv_field;
-        chptr->transmit_conn = ddsi_factory_create_conn (gv->m_factory, 0, qos);
-        ddsi_tran_free_qos (qos);
-        if (chptr->transmit_conn == NULL)
-        {
+        const ddsi_tran_qos_t qos = { .m_purpose = DDSI_TRAN_QOS_XMIT, .m_diffserv = chptr->diffserv_field, .m_interface = NULL };
+        if (ddsi_factory_create_conn (&chptr->transmit_conn, gv->m_factory, 0, &qos) != 0)
           DDS_FATAL ("failed to create transmit connection for channel %s\n", chptr->name);
-        }
       }
       else
       {
         chptr->transmit_conn = gv->data_conn_uc;
       }
-      GVLOG (DDS_LC_CONFIG, "channel %s: transmit port %d\n", chptr->name, (int) ddsi_tran_port (chptr->transmit_conn));
+      ddsi_locator_t loc;
+      if (ddsi_conn_locator (chptr->transmit_conn, &loc) < 0)
+        loc.port = 0;
+      GVLOG (DDS_LC_CONFIG, "channel %s: transmit port %"PRIu32"\n", chptr->name, loc.port);
 
 #ifdef DDS_HAS_BANDWIDTH_LIMITING
       if (chptr->auxiliary_bandwidth_limit > 0 || lookup_thread_properties (tname))
@@ -1764,16 +1801,8 @@ int rtps_init (struct ddsi_domaingv *gv)
         );
       }
 #else
-      if (lookup_thread_properties (tname))
-      {
-        chptr->evq = xeventq_new
-        (
-          chptr->transmit_conn,
-          gv->config.max_queued_rexmit_bytes,
-          gv->config.max_queued_rexmit_msgs,
-          0
-        );
-      }
+      if (lookup_thread_properties (&gv->config, tname))
+        chptr->evq = xeventq_new (gv, gv->config.max_queued_rexmit_bytes, gv->config.max_queued_rexmit_msgs, 0);
 #endif
       ddsrt_free (tname);
       chptr = chptr->next;
@@ -1842,7 +1871,7 @@ int rtps_init (struct ddsi_domaingv *gv)
   gv->builtins_dqueue = nn_dqueue_new ("builtins", gv, gv->config.delivery_queue_maxsamples, builtins_dqueue_handler, NULL);
 #ifdef DDS_HAS_NETWORK_CHANNELS
   for (struct ddsi_config_channel_listelem *chptr = gv->config.channels; chptr; chptr = chptr->next)
-    chptr->dqueue = nn_dqueue_new (chptr->name, &gv->config, gv->config.delivery_queue_maxsamples, user_dqueue_handler, NULL);
+    chptr->dqueue = nn_dqueue_new (chptr->name, gv, gv->config.delivery_queue_maxsamples, user_dqueue_handler, NULL);
 #else
   gv->user_dqueue = nn_dqueue_new ("user", gv, gv->config.delivery_queue_maxsamples, user_dqueue_handler, NULL);
 #endif
@@ -1941,7 +1970,7 @@ err_udp_tcp_init:
 }
 
 #ifdef DDS_HAS_NETWORK_CHANNELS
-static void stop_all_xeventq_upto (struct ddsi_config_channel_listelem *chptr)
+static void stop_all_xeventq_upto (struct ddsi_domaingv *gv, struct ddsi_config_channel_listelem *chptr)
 {
   for (struct ddsi_config_channel_listelem *chptr1 = gv->config.channels; chptr1 != chptr; chptr1 = chptr1->next)
     if (chptr1->evq)
@@ -1960,7 +1989,7 @@ int rtps_start (struct ddsi_domaingv *gv)
     {
       if (xeventq_start (chptr->evq, chptr->name) < 0)
       {
-        stop_all_xeventq_upto (chptr);
+        stop_all_xeventq_upto (gv, chptr);
         xeventq_stop (gv->xevents);
         return -1;
       }
@@ -1971,7 +2000,7 @@ int rtps_start (struct ddsi_domaingv *gv)
   if (setup_and_start_recv_threads (gv) < 0)
   {
 #ifdef DDS_HAS_NETWORK_CHANNELS
-    stop_all_xeventq_upto (NULL);
+    stop_all_xeventq_upto (gv, NULL);
 #endif
     xeventq_stop (gv->xevents);
     return -1;
@@ -2172,11 +2201,13 @@ void rtps_fini (struct ddsi_domaingv *gv)
   nn_dqueue_free (gv->builtins_dqueue);
 
 #ifdef DDS_HAS_NETWORK_CHANNELS
-  chptr = gv->config.channels;
-  while (chptr)
   {
-    nn_dqueue_free (chptr->dqueue);
-    chptr = chptr->next;
+    struct ddsi_config_channel_listelem *chptr = gv->config.channels;
+    while (chptr)
+    {
+      nn_dqueue_free (chptr->dqueue);
+      chptr = chptr->next;
+    }
   }
 #else
   nn_dqueue_free (gv->user_dqueue);
@@ -2198,18 +2229,16 @@ void rtps_fini (struct ddsi_domaingv *gv)
   ddsrt_mutex_unlock (&gv->sendq_running_lock);
 
 #ifdef DDS_HAS_NETWORK_CHANNELS
-  chptr = gv->config.channels;
-  while (chptr)
   {
-    if (chptr->evq)
+    struct ddsi_config_channel_listelem *chptr = gv->config.channels;
+    while (chptr)
     {
-      xeventq_free (chptr->evq);
+      if (chptr->evq)
+        xeventq_free (chptr->evq);
+      if (chptr->transmit_conn != gv->data_conn_uc)
+        ddsi_conn_free (chptr->transmit_conn);
+      chptr = chptr->next;
     }
-    if (chptr->transmit_conn != gv->data_conn_uc)
-    {
-      ddsi_conn_free (chptr->transmit_conn);
-    }
-    chptr = chptr->next;
   }
 #endif
 

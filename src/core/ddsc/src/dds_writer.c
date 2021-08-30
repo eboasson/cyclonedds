@@ -20,6 +20,7 @@
 #include "dds/ddsi/q_entity.h"
 #include "dds/ddsi/q_thread.h"
 #include "dds/ddsi/q_xmsg.h"
+#include "dds/ddsi/q_misc.h"
 #include "dds/ddsi/ddsi_entity_index.h"
 #include "dds/ddsi/ddsi_security_omg.h"
 #include "dds__writer.h"
@@ -154,13 +155,13 @@ void dds_writer_status_cb (void *entity, const struct status_cb_data *data)
   ddsrt_mutex_unlock (&wr->m_entity.m_observers_lock);
 }
 
-static uint32_t get_bandwidth_limit (dds_transport_priority_qospolicy_t transport_priority)
+static uint32_t get_bandwidth_limit (struct ddsi_domaingv *gv, dds_transport_priority_qospolicy_t transport_priority)
 {
-#ifdef DDS_HAS_NETWORK_CHANNELS
-  struct ddsi_config_channel_listelem *channel = find_channel (&config, transport_priority);
+#if defined DDS_HAS_NETWORK_CHANNELS && defined DDS_HAS_BANDWIDTH_LIMITING
+  struct ddsi_config_channel_listelem *channel = find_channel (&gv->config, transport_priority.value);
   return channel->data_bandwidth_limit;
 #else
-  (void) transport_priority;
+  (void) gv; (void) transport_priority;
   return 0;
 #endif
 }
@@ -400,7 +401,7 @@ dds_entity_t dds_create_writer (dds_entity_t participant_or_publisher, dds_entit
   const dds_entity_t writer = dds_entity_init (&wr->m_entity, &pub->m_entity, DDS_KIND_WRITER, false, true, wqos, listener, DDS_WRITER_STATUS_MASK);
   wr->m_topic = tp;
   dds_entity_add_ref_locked (&tp->m_entity);
-  wr->m_xp = nn_xpack_new (gv, get_bandwidth_limit (wqos->transport_priority), async_mode);
+  wr->m_xp = nn_xpack_new (gv, get_bandwidth_limit (gv, wqos->transport_priority), async_mode);
   wrinfo = whc_make_wrinfo (wr, wqos);
   wr->m_whc = whc_new (gv, wrinfo);
   whc_free_wrinfo (wrinfo);
