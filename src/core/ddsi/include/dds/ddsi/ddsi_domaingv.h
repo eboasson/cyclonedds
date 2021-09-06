@@ -50,6 +50,7 @@ struct ddsi_tkmap;
 struct dds_security_context;
 struct dds_security_match_index;
 struct ddsi_hsadmin;
+struct ddsi_channel;
 
 typedef struct config_in_addr_node {
    ddsi_locator_t loc;
@@ -271,10 +272,10 @@ struct ddsi_domaingv {
 
   struct debug_monitor *debmon;
 
-#ifndef DDS_HAS_NETWORK_CHANNELS
-  uint32_t networkQueueId;
-  struct thread_state1 *channel_reader_ts;
-
+#ifdef DDS_HAS_NETWORK_CHANNELS
+  unsigned nchannels;
+  struct ddsi_channel **channels;
+#else
   /* Application data gets its own delivery queue */
   struct nn_dqueue *user_dqueue;
 #endif

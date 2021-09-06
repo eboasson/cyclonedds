@@ -48,9 +48,9 @@ struct ddsi_config_partitionmapping_listelem *find_partitionmapping (const struc
 int is_ignored_partition (const struct ddsi_config *cfg, const char *partition, const char *topic);
 #endif
 #ifdef DDS_HAS_NETWORK_CHANNELS
-struct ddsi_config;
-struct ddsi_config_channel_listelem;
-struct ddsi_config_channel_listelem *find_channel (const struct ddsi_config *cfg, int32_t transport_priority);
+struct ddsi_domaingv;
+struct ddsi_channel;
+struct ddsi_channel *find_channel (const struct ddsi_domaingv *gv, int32_t transport_priority);
 #endif
 
 #if defined (__cplusplus)

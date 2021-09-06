@@ -142,20 +142,20 @@ int is_ignored_partition (const struct ddsi_config *cfg, const char *partition, 
 #endif /* DDS_HAS_NETWORK_PARTITIONS */
 
 #ifdef DDS_HAS_NETWORK_CHANNELS
-struct ddsi_config_channel_listelem *find_channel (const struct ddsi_config *cfg, int32_t transport_priority)
+#include "dds/ddsi/ddsi_domaingv.h"
+#include "dds/ddsi/ddsi_channel.h"
+
+struct ddsi_channel *find_channel (const struct ddsi_domaingv *gv, int32_t transport_priority)
 {
-  struct ddsi_config_channel_listelem *c;
-  /* Channel selection is to use the channel with the lowest priority
-     not less than transport_priority, or else the one with the
-     highest priority. */
-  assert(cfg->channels != NULL);
-  assert(cfg->max_channel != NULL);
-  for (c = cfg->channels; c; c = c->next)
+  assert (gv->nchannels > 0);
+  unsigned i = 0;
+  /* FIXME: to be improved: Channel selection is to use the channel with the lowest priority not less than transport_priority, or else the one with the highest priority. */
+  for (i = 0; i < gv->nchannels - 1; i++)
   {
-    assert(c->next == NULL || c->next->priority > c->priority);
-    if (transport_priority <= c->priority)
-      return c;
+    assert (gv->channels[i + 1]->def->priority > gv->channels[i]->def->priority);
+    if (transport_priority <= gv->channels[i]->def->priority)
+      break;
   }
-  return cfg->max_channel;
+  return gv->channels[i];
 }
 #endif /* DDS_HAS_NETWORK_CHANNELS */

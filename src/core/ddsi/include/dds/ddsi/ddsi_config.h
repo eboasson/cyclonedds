@@ -121,11 +121,6 @@ struct ddsi_config_channel_listelem {
   uint32_t auxiliary_bandwidth_limit;
 #endif
   int    diffserv_field;
-  struct thread_state1 *channel_reader_ts;  /* keeping an handle to the running thread for this channel */
-  struct nn_dqueue *dqueue; /* The handle of teh delivery queue servicing incoming data for this channel*/
-  struct xeventq *evq; /* The handle of the event queue servicing this channel*/
-  uint32_t queueId; /* the index of the networkqueue serviced by this channel*/
-  struct ddsi_tran_conn * transmit_conn; /* the connection used for sending data out via this channel */
 };
 #endif /* DDS_HAS_NETWORK_CHANNELS */
 
@@ -321,7 +316,6 @@ struct ddsi_config
 
 #ifdef DDS_HAS_NETWORK_CHANNELS
   struct ddsi_config_channel_listelem *channels;
-  struct ddsi_config_channel_listelem *max_channel; /* channel with highest prio; always computed */
 #endif /* DDS_HAS_NETWORK_CHANNELS */
 #ifdef DDS_HAS_NETWORK_PARTITIONS
   struct ddsi_config_networkpartition_listelem *networkPartitions;
