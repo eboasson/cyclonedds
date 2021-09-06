@@ -46,6 +46,7 @@
 #include "dds/ddsi/q_feature_check.h"
 #include "dds/ddsi/ddsi_security_omg.h"
 #include "dds/ddsi/ddsi_pmd.h"
+#include "dds/ddsi/ddsi_channel.h"
 #ifdef DDS_HAS_SECURITY
 #include "dds/ddsi/ddsi_security_exchange.h"
 #endif
@@ -1695,7 +1696,7 @@ static void handle_sedp_alive_endpoint (const struct receiver_state *rst, seqno_
         /* not supposed to get here for built-in ones, so can determine the channel based on the transport priority */
         assert (!is_builtin_entityid (datap->endpoint_guid.entityid, vendorid));
 #ifdef DDS_HAS_NETWORK_CHANNELS
-        struct ddsi_config_channel_listelem *channel = find_channel (&gv->config, xqos->transport_priority.value);
+        struct ddsi_channel *channel = find_channel (gv, xqos->transport_priority.value);
         new_proxy_writer (gv, &ppguid, &datap->endpoint_guid, as, datap, channel->dqueue, channel->evq ? channel->evq : gv->xevents, timestamp, seq);
 #else
         new_proxy_writer (gv, &ppguid, &datap->endpoint_guid, as, datap, gv->user_dqueue, gv->xevents, timestamp, seq);

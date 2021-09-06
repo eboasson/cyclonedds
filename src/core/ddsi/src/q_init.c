@@ -51,6 +51,7 @@
 #include "dds/ddsi/ddsi_threadmon.h"
 #include "dds/ddsi/ddsi_pmd.h"
 #include "dds/ddsi/ddsi_typelookup.h"
+#include "dds/ddsi/ddsi_channel.h"
 
 #include "dds/ddsi/ddsi_tran.h"
 #include "dds/ddsi/ddsi_udp.h"
@@ -523,12 +524,7 @@ static bool set_default_channel (struct ddsi_config *cfg)
   c->auxiliary_bandwidth_limit = 0;
 #endif
   c->diffserv_field = 0;
-  c->channel_reader_ts = NULL;
-  c->queueId = 0;
-  c->dqueue = NULL;
-  c->evq = NULL;
-  c->transmit_conn = NULL;
-  cfg->channels = cfg->max_channel = c;
+  cfg->channels = c;
   return true;
 }
 #endif
@@ -1762,56 +1758,7 @@ int rtps_init (struct ddsi_domaingv *gv)
     }
   }
 
-#ifdef DDS_HAS_NETWORK_CHANNELS
-  {
-    struct ddsi_config_channel_listelem *chptr = gv->config.channels;
-    while (chptr)
-    {
-      size_t slen = strlen (chptr->name) + 5;
-      char * tname = ddsrt_malloc (slen);
-      (void) snprintf (tname, slen, "tev.%s", chptr->name);
-
-      /* Only actually create new connection if diffserv set -- FIXME: except we don't for now
-         (we'd need one per interface, methinks; xeventq doesn't take a connection either) */
-
-      if (0 && chptr->diffserv_field)
-      {
-        const ddsi_tran_qos_t qos = { .m_purpose = DDSI_TRAN_QOS_XMIT, .m_diffserv = chptr->diffserv_field, .m_interface = NULL };
-        if (ddsi_factory_create_conn (&chptr->transmit_conn, gv->m_factory, 0, &qos) != 0)
-          DDS_FATAL ("failed to create transmit connection for channel %s\n", chptr->name);
-      }
-      else
-      {
-        chptr->transmit_conn = gv->data_conn_uc;
-      }
-      ddsi_locator_t loc;
-      if (ddsi_conn_locator (chptr->transmit_conn, &loc) < 0)
-        loc.port = 0;
-      GVLOG (DDS_LC_CONFIG, "channel %s: transmit port %"PRIu32"\n", chptr->name, loc.port);
-
-#ifdef DDS_HAS_BANDWIDTH_LIMITING
-      if (chptr->auxiliary_bandwidth_limit > 0 || lookup_thread_properties (tname))
-      {
-        chptr->evq = xeventq_new
-        (
-          chptr->transmit_conn,
-          gv->config.max_queued_rexmit_bytes,
-          gv->config.max_queued_rexmit_msgs,
-          chptr->auxiliary_bandwidth_limit
-        );
-      }
-#else
-      if (lookup_thread_properties (&gv->config, tname))
-        chptr->evq = xeventq_new (gv, gv->config.max_queued_rexmit_bytes, gv->config.max_queued_rexmit_msgs, 0);
-#endif
-      ddsrt_free (tname);
-      chptr = chptr->next;
-    }
-  }
-#endif /* DDS_HAS_NETWORK_CHANNELS */
-
-  /* Create event queues */
-
+  /* Create global event queue */
   gv->xevents = xeventq_new
   (
     gv,
@@ -1869,20 +1816,59 @@ int rtps_init (struct ddsi_domaingv *gv)
   ddsrt_mutex_init (&gv->sendq_running_lock);
 
   gv->builtins_dqueue = nn_dqueue_new ("builtins", gv, gv->config.delivery_queue_maxsamples, builtins_dqueue_handler, NULL);
-#ifdef DDS_HAS_NETWORK_CHANNELS
-  for (struct ddsi_config_channel_listelem *chptr = gv->config.channels; chptr; chptr = chptr->next)
-    chptr->dqueue = nn_dqueue_new (chptr->name, gv, gv->config.delivery_queue_maxsamples, user_dqueue_handler, NULL);
-#else
+#ifndef DDS_HAS_NETWORK_CHANNELS
   gv->user_dqueue = nn_dqueue_new ("user", gv, gv->config.delivery_queue_maxsamples, user_dqueue_handler, NULL);
-#endif
+#else
+  {
+    const struct ddsi_config_channel_listelem *chptr;
+    unsigned i;
+    gv->nchannels = 0;
+    for (chptr = gv->config.channels; chptr; chptr = chptr->next)
+      gv->nchannels++;
+    gv->channels = ddsrt_malloc (gv->nchannels * sizeof (*gv->channels));
+    // initialize for simpler error handling
+    for (chptr = gv->config.channels, i = 0; chptr; chptr = chptr->next, i++)
+      gv->channels[i] = NULL;
+    for (chptr = gv->config.channels, i = 0; chptr; chptr = chptr->next, i++)
+    {
+      struct ddsi_tran_conn *transmit_conn;
+      if (0 && chptr->diffserv_field)
+      {
+        const ddsi_tran_qos_t qos = { .m_purpose = DDSI_TRAN_QOS_XMIT, .m_diffserv = chptr->diffserv_field, .m_interface = NULL };
+        if (ddsi_factory_create_conn (&transmit_conn, gv->m_factory, 0, &qos) != 0)
+          DDS_FATAL ("failed to create transmit connection for channel %s\n", chptr->name);
+      }
+      else
+      {
+        // FIXME: shouldn't even be using data_conn_uc given the existence of xmit_conns
+        transmit_conn = gv->data_conn_uc;
+      }
+      ddsi_locator_t loc;
+      if (ddsi_conn_locator (transmit_conn, &loc) < 0)
+        loc.port = 0;
+      GVLOG (DDS_LC_CONFIG, "channel %s: transmit port %"PRIu32"\n", chptr->name, loc.port);
+      
+      gv->channels[i] = ddsi_channel_new (gv, chptr, transmit_conn);
+      if (gv->channels[i] == NULL)
+      {
+        if (transmit_conn != gv->data_conn_uc)
+          ddsi_conn_free (transmit_conn);
+        goto err_channel;
+      }
+    }
+  }
+#endif /* DDS_HAS_NETWORK_CHANNELS */
 
   if (reset_deaf_mute_time.v < DDS_NEVER)
     qxev_callback (gv->xevents, reset_deaf_mute_time, reset_deaf_mute, gv);
   return 0;
 
-#if 0
+#ifdef DDS_HAS_NETWORK_CHANNELS
+err_channel:
+  for (unsigned i = 0; i < gv->nchannels && gv->channels[i]; i++)
+    ddsi_channel_free (gv->channels[i]);
+  ddsrt_free (gv->channels);
 #ifdef DDS_HAS_SECURITY
-err_post_omg_security_init:
   q_omg_security_stop (gv); // should be a no-op as it starts lazily
   q_omg_security_deinit(gv->security_context);
   q_omg_security_free (gv);
@@ -1969,30 +1955,19 @@ err_udp_tcp_init:
   return -1;
 }
 
-#ifdef DDS_HAS_NETWORK_CHANNELS
-static void stop_all_xeventq_upto (struct ddsi_domaingv *gv, struct ddsi_config_channel_listelem *chptr)
-{
-  for (struct ddsi_config_channel_listelem *chptr1 = gv->config.channels; chptr1 != chptr; chptr1 = chptr1->next)
-    if (chptr1->evq)
-      xeventq_stop (chptr1->evq);
-}
-#endif
-
 int rtps_start (struct ddsi_domaingv *gv)
 {
   if (xeventq_start (gv->xevents, NULL) < 0)
     return -1;
 #ifdef DDS_HAS_NETWORK_CHANNELS
-  for (struct ddsi_config_channel_listelem *chptr = gv->config.channels; chptr; chptr = chptr->next)
+  for (unsigned i = 0; i < gv->nchannels; i++)
   {
-    if (chptr->evq)
+    if (ddsi_channel_start (gv->channels[i]) < 0)
     {
-      if (xeventq_start (chptr->evq, chptr->name) < 0)
-      {
-        stop_all_xeventq_upto (gv, chptr);
-        xeventq_stop (gv->xevents);
-        return -1;
-      }
+      while (i-- > 0)
+        ddsi_channel_stop (gv->channels[i]);
+      xeventq_stop (gv->xevents);
+      return -1;
     }
   }
 #endif
@@ -2000,7 +1975,8 @@ int rtps_start (struct ddsi_domaingv *gv)
   if (setup_and_start_recv_threads (gv) < 0)
   {
 #ifdef DDS_HAS_NETWORK_CHANNELS
-    stop_all_xeventq_upto (gv, NULL);
+    for (unsigned i = 0; i < gv->nchannels; i++)
+      ddsi_channel_stop (gv->channels[i]);
 #endif
     xeventq_stop (gv->xevents);
     return -1;
@@ -2048,10 +2024,6 @@ void rtps_stop (struct ddsi_domaingv *gv)
 {
   struct thread_state1 * const ts1 = lookup_thread_state ();
 
-#ifdef DDS_HAS_NETWORK_CHANNELS
-  struct ddsi_config_channel_listelem * chptr;
-#endif
-
   if (gv->debmon)
   {
     free_debug_monitor (gv->debmon);
@@ -2071,11 +2043,8 @@ void rtps_stop (struct ddsi_domaingv *gv)
 
   xeventq_stop (gv->xevents);
 #ifdef DDS_HAS_NETWORK_CHANNELS
-  for (chptr = gv->config.channels; chptr; chptr = chptr->next)
-  {
-    if (chptr->evq)
-      xeventq_stop (chptr->evq);
-  }
+  for (unsigned i = 0; i < gv->nchannels; i++)
+    ddsi_channel_stop (gv->channels[i]);
 #endif /* DDS_HAS_NETWORK_CHANNELS */
 
   /* Send a bubble through the delivery queue for built-ins, so that any
@@ -2201,14 +2170,9 @@ void rtps_fini (struct ddsi_domaingv *gv)
   nn_dqueue_free (gv->builtins_dqueue);
 
 #ifdef DDS_HAS_NETWORK_CHANNELS
-  {
-    struct ddsi_config_channel_listelem *chptr = gv->config.channels;
-    while (chptr)
-    {
-      nn_dqueue_free (chptr->dqueue);
-      chptr = chptr->next;
-    }
-  }
+  for (unsigned i = 0; i < gv->nchannels; i++)
+    ddsi_channel_free (gv->channels[i]);
+  ddsrt_free (gv->channels);
 #else
   nn_dqueue_free (gv->user_dqueue);
 #endif
@@ -2227,20 +2191,6 @@ void rtps_fini (struct ddsi_domaingv *gv)
     nn_xpack_sendq_fini (gv);
   }
   ddsrt_mutex_unlock (&gv->sendq_running_lock);
-
-#ifdef DDS_HAS_NETWORK_CHANNELS
-  {
-    struct ddsi_config_channel_listelem *chptr = gv->config.channels;
-    while (chptr)
-    {
-      if (chptr->evq)
-        xeventq_free (chptr->evq);
-      if (chptr->transmit_conn != gv->data_conn_uc)
-        ddsi_conn_free (chptr->transmit_conn);
-      chptr = chptr->next;
-    }
-  }
-#endif
 
   (void) joinleave_spdp_defmcip (gv, 0);
   for (int i = 0; i < gv->n_interfaces; i++)

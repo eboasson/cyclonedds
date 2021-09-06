@@ -664,11 +664,6 @@ static int if_channel(struct cfgst *cfgst, void *parent, struct cfgelem const * 
   if (new == NULL)
     return -1;
   new->name = NULL;
-  new->channel_reader_ts = NULL;
-  new->dqueue = NULL;
-  new->queueId = 0;
-  new->evq = NULL;
-  new->transmit_conn = NULL;
   return 0;
 }
 #endif /* DDS_HAS_NETWORK_CHANNELS */
@@ -2115,7 +2110,6 @@ static bool sort_channels_check_nodups (struct ddsi_config *cfg, uint32_t domid)
     for (i = 0; i < n - 1; i++)
       ary[i]->next = ary[i + 1];
     ary[i]->next = NULL;
-    cfg->max_channel = ary[i];
   }
 
   ddsrt_free (ary);

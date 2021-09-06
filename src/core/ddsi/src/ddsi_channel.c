@@ -25,6 +25,9 @@
 #include "dds/ddsi/q_thread.h"
 #include "dds/ddsi/q_xmsg.h"
 #include "dds/ddsi/q_whc.h"
+#include "dds/ddsi/q_xevent.h"
+#include "dds/ddsi/q_radmin.h"
+#include "dds/ddsi/q_receive.h"
 
 static struct writer *ddsi_writer_from_pending_listnode (struct ddsrt_circlist_elem * const listnode)
 {
@@ -111,22 +114,54 @@ static uint32_t ddsi_channel_thread (void * const vchannel)
   return 0;
 }
 
-struct ddsi_channel *ddsi_channel_new (struct ddsi_domaingv *gv, const char *name)
+struct ddsi_channel *ddsi_channel_new (struct ddsi_domaingv *gv, const struct ddsi_config_channel_listelem *def, struct ddsi_tran_conn *transmit_conn)
 {
-  assert (name != NULL);
+  assert (def != NULL);
   struct ddsi_channel *ch;
   if ((ch = ddsrt_malloc (sizeof (*ch))) == NULL)
     goto fail_malloc;
   ch->gv = gv;
+  ch->def = def;
   ch->ts1 = NULL;
-  if (ddsrt_asprintf (&ch->name, "ch.%s", name) < 0)
-    goto fail_name;
+
+  char *tev_name;
+  if (ddsrt_asprintf (&tev_name, "tev.%s", def->name) < 0)
+    goto fail_tev_name;
+
+#ifdef DDS_HAS_BANDWIDTH_LIMITING
+  const bool needs_xevq = (chptr->auxiliary_bandwidth_limit > 0 || lookup_thread_properties (tev_name));
+  uint32_t bwlim = chptr->auxiliary_bandwidth_limit;
+#else
+  const bool needs_xevq = lookup_thread_properties (&gv->config, tev_name);
+  uint32_t bwlim = 0;
+#endif
+  if (!needs_xevq)
+    ch->evq = NULL; // FIXME: wouldn't it make more sense to then point it to the global one?
+  else
+  {
+    ch->evq = xeventq_new (gv, gv->config.max_queued_rexmit_bytes, gv->config.max_queued_rexmit_msgs, bwlim);
+    if (ch->evq == NULL)
+      goto fail_xeventq;
+  }
+
+  ch->dqueue = nn_dqueue_new (def->name, gv, gv->config.delivery_queue_maxsamples, user_dqueue_handler, NULL);
+  if (ch->dqueue == NULL)
+    goto fail_dqueue;
+
+  ch->transmit_conn = transmit_conn;
   ch->stop = false;
   ddsrt_circlist_init (&ch->pending_writers);
   ddsrt_mutex_init (&ch->lock);
   ddsrt_cond_init (&ch->cond);
+  ddsrt_free (tev_name);
   return ch;
-fail_name:
+
+fail_dqueue:
+  if (ch->evq)
+    xeventq_free (ch->evq);
+fail_xeventq:
+  ddsrt_free (tev_name);
+fail_tev_name:
   ddsrt_free (ch);
 fail_malloc:
   return NULL;
@@ -134,29 +169,58 @@ fail_malloc:
 
 dds_return_t ddsi_channel_start (struct ddsi_channel *ch)
 {
+  dds_return_t rc;
   assert (!ch->stop && ch->ts1 == NULL);
-  return create_thread (&ch->ts1, ch->gv, ch->name, ddsi_channel_thread, ch);
+  char *xmit_name;
+  if (ddsrt_asprintf (&xmit_name, "xmit.%s", ch->def->name) < 0) {
+    rc = DDS_RETCODE_ERROR;
+    goto fail_xmit_name;
+  }
+  if (ch->evq && (rc = xeventq_start (ch->evq, ch->def->name)) != 0) {
+    goto fail_xeventq;
+  }
+  if ((rc = create_thread (&ch->ts1, ch->gv, xmit_name, ddsi_channel_thread, ch)) != 0) {
+    goto fail_create_thread;
+  }
+  ddsrt_free (xmit_name);
+  return 0;
+
+fail_create_thread:
+  if (ch->evq)
+    xeventq_stop (ch->evq);
+  ch->ts1 = NULL;
+fail_xeventq:
+  ddsrt_free (xmit_name);
+fail_xmit_name:
+  return rc;
 }
 
 void ddsi_channel_stop (struct ddsi_channel *ch)
 {
-  if (ch->ts1)
-  {
-    ddsrt_mutex_lock (&ch->lock);
-    assert (!ch->stop);
-    ch->stop = true;
-    ddsrt_cond_signal (&ch->cond);
-    ddsrt_mutex_unlock (&ch->lock);
-    if (join_thread (ch->ts1) != 0)
-      abort (); // no meaningful error handling possible
-    ch->ts1 = NULL;
-  }
+  if (!ch->ts1)
+    return;
+
+  if (ch->evq)
+    xeventq_stop (ch->evq);
+
+  ddsrt_mutex_lock (&ch->lock);
+  assert (!ch->stop);
+  ch->stop = true;
+  ddsrt_cond_signal (&ch->cond);
+  ddsrt_mutex_unlock (&ch->lock);
+  (void) join_thread (ch->ts1);
+  ch->ts1 = NULL;
 }
 
 void ddsi_channel_free (struct ddsi_channel *ch)
 {
   // set of pending writes is intrusive in writers, so nothing to worry about here
   assert (ch->ts1 == NULL);
-  ddsrt_free (ch->name);
+  nn_dqueue_free (ch->dqueue);
+  if (ch->evq)
+    xeventq_free (ch->evq);
+  // FIXME: shouldn't even be using data_conn_uc given the existence of xmit_conns
+  if (ch->transmit_conn && ch->transmit_conn != ch->gv->data_conn_uc)
+    ddsi_conn_free (ch->transmit_conn);
   ddsrt_free (ch);
 }

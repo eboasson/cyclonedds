@@ -46,6 +46,7 @@
 #include "dds/ddsi/ddsi_udp.h" /* nn_mc4gen_address_t */
 #include "dds/ddsi/ddsi_rhc.h"
 #include "dds/ddsi/ddsi_wraddrset.h"
+#include "dds/ddsi/ddsi_channel.h"
 
 #include "dds/ddsi/sysdeps.h"
 #include "dds__whc.h"
@@ -3810,9 +3811,9 @@ static void new_writer_guid_common_init (struct writer *wr, const char *topic_na
 #ifdef DDS_HAS_NETWORK_CHANNELS
   if (!is_builtin_entityid (wr->e.guid.entityid, NN_VENDORID_ECLIPSE))
   {
-    struct ddsi_config_channel_listelem *channel = find_channel (&wr->e.gv->config, wr->xqos->transport_priority.value);
+    struct ddsi_channel *channel = find_channel (wr->e.gv, wr->xqos->transport_priority.value);
     ELOGDISC (wr, "writer "PGUIDFMT": transport priority %d => channel '%s' priority %d\n",
-              PGUID (wr->e.guid), wr->xqos->transport_priority.value, channel->name, channel->priority);
+              PGUID (wr->e.guid), wr->xqos->transport_priority.value, channel->def->name, channel->def->priority);
     wr->evq = channel->evq ? channel->evq : wr->e.gv->xevents;
   }
   else
