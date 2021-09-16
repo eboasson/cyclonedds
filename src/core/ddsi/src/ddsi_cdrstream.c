@@ -1220,14 +1220,14 @@ static bool stream_normalize_key (void * __restrict data, uint32_t size, bool bs
   return true;
 }
 
-bool dds_stream_normalize (void * __restrict data, uint32_t size, bool bswap, const struct ddsi_sertype_default * __restrict topic, bool just_key, uint32_t *actual_size)
+bool dds_stream_normalize (void * __restrict data, uint32_t size, bool bswap, const struct ddsi_sertype_default * __restrict type, bool just_key, uint32_t * __restrict actual_size)
 {
   uint32_t off = 0;
   if (size > CDR_SIZE_MAX)
     return false;
   else if (just_key)
-    return stream_normalize_key (data, size, bswap, &topic->type, actual_size);
-  else if (!stream_normalize (data, &off, size, bswap, topic->type.ops.ops))
+    return stream_normalize_key (data, size, bswap, &type->type, actual_size);
+  else if (!stream_normalize (data, &off, size, bswap, type->type.ops.ops))
     return false;
   else
   {
