@@ -315,6 +315,7 @@ static struct ddsi_serdata_default *serdata_default_from_ser_common (const struc
   }
 
   const bool needs_bswap = (d->hdr.identifier != NATIVE_ENCODING);
+  uint32_t actual_size;
   d->hdr.identifier = NATIVE_ENCODING;
   const uint32_t pad = ddsrt_fromBE2u (d->hdr.options) & 2;
   if (d->pos < pad)
@@ -322,7 +323,7 @@ static struct ddsi_serdata_default *serdata_default_from_ser_common (const struc
     ddsi_serdata_unref (&d->c);
     return NULL;
   }
-  else if (!dds_stream_normalize (d->data, d->pos - pad, needs_bswap, tp, kind == SDK_KEY))
+  else if (!dds_stream_normalize (d->data, d->pos - pad, needs_bswap, tp, kind == SDK_KEY, &actual_size))
   {
     ddsi_serdata_unref (&d->c);
     return NULL;
@@ -330,7 +331,7 @@ static struct ddsi_serdata_default *serdata_default_from_ser_common (const struc
   else
   {
     dds_istream_t is;
-    dds_istream_from_serdata_default (&is, d);
+    dds_istream_init (&is, actual_size, d->data);
     gen_serdata_key_from_cdr (&is, &d->key, tp, kind == SDK_KEY);
     return d;
   }
@@ -360,6 +361,7 @@ static struct ddsi_serdata_default *serdata_default_from_ser_iov_common (const s
     serdata_default_append_blob (&d, iov[i].iov_len, iov[i].iov_base);
 
   const bool needs_bswap = (d->hdr.identifier != NATIVE_ENCODING);
+  uint32_t actual_size;
   d->hdr.identifier = NATIVE_ENCODING;
   const uint32_t pad = ddsrt_fromBE2u (d->hdr.options) & 2;
   if (d->pos < pad)
@@ -367,7 +369,7 @@ static struct ddsi_serdata_default *serdata_default_from_ser_iov_common (const s
     ddsi_serdata_unref (&d->c);
     return NULL;
   }
-  else if (!dds_stream_normalize (d->data, d->pos - pad, needs_bswap, tp, kind == SDK_KEY))
+  else if (!dds_stream_normalize (d->data, d->pos - pad, needs_bswap, tp, kind == SDK_KEY, &actual_size))
   {
     ddsi_serdata_unref (&d->c);
     return NULL;
@@ -375,7 +377,7 @@ static struct ddsi_serdata_default *serdata_default_from_ser_iov_common (const s
   else
   {
     dds_istream_t is;
-    dds_istream_from_serdata_default (&is, d);
+    dds_istream_init (&is, actual_size, d->data);
     gen_serdata_key_from_cdr (&is, &d->key, tp, kind == SDK_KEY);
     return d;
   }
