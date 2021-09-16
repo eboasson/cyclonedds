@@ -506,25 +506,43 @@ int rtps_config_open_trace (struct ddsi_domaingv *gv)
 }
 
 #ifdef DDS_HAS_NETWORK_CHANNELS
-static bool set_default_channel (struct ddsi_config *cfg)
+static bool set_default_channel (struct ddsi_config *cfg, bool static_config_mode)
 {
-  if (cfg->channels != NULL)
-    return true;
-  
-  /* create one default channel if none configured */
-  struct ddsi_config_channel_listelem *c;
-  if ((c = ddsrt_malloc (sizeof (*c))) == NULL)
-    return false;
-  c->next = NULL;
-  c->name = ddsrt_strdup ("user");
-  c->priority = 0;
-  c->resolution = DDS_MSECS (1);
+  static const struct ddsi_config_channel_listelem default_channel_definition = {
+    .next = NULL,
+    .name = "user",
+    .priority = 0,
+    .resolution = DDS_MSECS (1),
 #ifdef DDS_HAS_BANDWIDTH_LIMITING
-  c->data_bandwidth_limit = 0;
-  c->auxiliary_bandwidth_limit = 0;
+    .data_bandwidth_limit = 0,
+    .auxiliary_bandwidth_limit = 0,
 #endif
-  c->diffserv_field = 0;
-  cfg->channels = c;
+    .diffserv_field = 0
+  };
+
+  if (cfg->channels == NULL)
+  {
+    if (static_config_mode)
+      cfg->channels = (struct ddsi_config_channel_listelem *) &default_channel_definition;
+    else
+    {
+      struct ddsi_config_channel_listelem *c;
+      char *name;
+      if ((c = ddsrt_malloc (sizeof (*c))) == NULL)
+        return false;
+      else if ((name = ddsrt_strdup (default_channel_definition.name)) == NULL)
+      {
+        ddsrt_free (c);
+        return false;
+      }
+      else
+      {
+        *c = default_channel_definition;
+        c->name = name;
+        cfg->channels = c;
+      }
+    }
+  }
   return true;
 }
 #endif
@@ -618,7 +636,7 @@ int rtps_config_prep (struct ddsi_domaingv *gv, struct cfgst *cfgst)
   // the channel needs to be defined prior to calling check_thread_properties because
   // that one looks at the channels for properties of the channel-specific threads
   // FIXME: shouldn't be using ddsi_config_channel_listelem anyway
-  if (!set_default_channel (&gv->config))
+  if (!set_default_channel (&gv->config, cfgst == NULL))
     goto err_config_late_error;
 #endif
 
