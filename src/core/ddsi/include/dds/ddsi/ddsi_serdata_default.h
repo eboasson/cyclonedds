@@ -42,14 +42,16 @@ struct serdatapool {
   struct nn_freelist freelist;
 };
 
-#define KEYBUFTYPE_UNSET    0u
-#define KEYBUFTYPE_STATIC   1u // uses u.stbuf
-#define KEYBUFTYPE_DYNALIAS 2u // points into payload - FIXME: currently key buffer content is big-endian ...
-#define KEYBUFTYPE_DYNALLOC 3u // dynamically allocated
+enum ddsi_serdata_default_keybuftype {
+  KEYBUFTYPE_UNSET,
+  KEYBUFTYPE_STATIC, // uses u.stbuf
+  KEYBUFTYPE_DYNALIAS, // points into payload
+  KEYBUFTYPE_DYNALLOC // dynamically allocated
+};
 
 struct ddsi_serdata_default_key {
-  unsigned buftype : 2;
-  unsigned keysize : 30;
+  enum ddsi_serdata_default_keybuftype buftype;
+  uint32_t keysize;
   union {
     unsigned char stbuf[16];
     unsigned char *dynbuf;
