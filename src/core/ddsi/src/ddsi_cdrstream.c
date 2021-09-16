@@ -1195,7 +1195,7 @@ static bool stream_normalize (char * __restrict data, uint32_t * __restrict off,
   return true;
 }
 
-static bool stream_normalize_key (void * __restrict data, uint32_t size, bool bswap, const struct ddsi_sertype_default_desc * __restrict desc)
+static bool stream_normalize_key (void * __restrict data, uint32_t size, bool bswap, const struct ddsi_sertype_default_desc * __restrict desc, uint32_t *actual_size)
 {
   uint32_t off = 0;
   for (uint32_t i = 0; i < desc->keys.nkeys; i++)
@@ -1216,19 +1216,23 @@ static bool stream_normalize_key (void * __restrict data, uint32_t size, bool bs
         break;
     }
   }
+  *actual_size = off;
   return true;
 }
 
-bool dds_stream_normalize (void * __restrict data, uint32_t size, bool bswap, const struct ddsi_sertype_default * __restrict topic, bool just_key)
+bool dds_stream_normalize (void * __restrict data, uint32_t size, bool bswap, const struct ddsi_sertype_default * __restrict topic, bool just_key, uint32_t *actual_size)
 {
+  uint32_t off = 0;
   if (size > CDR_SIZE_MAX)
     return false;
-  if (just_key)
-    return stream_normalize_key (data, size, bswap, &topic->type);
+  else if (just_key)
+    return stream_normalize_key (data, size, bswap, &topic->type, actual_size);
+  else if (!stream_normalize (data, &off, size, bswap, topic->type.ops.ops))
+    return false;
   else
   {
-    uint32_t off = 0;
-    return stream_normalize (data, &off, size, bswap, topic->type.ops.ops);
+    *actual_size = off;
+    return true;
   }
 }
 
