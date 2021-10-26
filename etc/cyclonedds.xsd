@@ -158,8 +158,7 @@ CycloneDDS configuration</xs:documentation>
 &lt;p&gt;This element specifies the DDSI participant index used by this instance of the Cyclone DDS service for discovery purposes. Only one such participant id is used, independent of the number of actual DomainParticipants on the node. It is either:&lt;/p&gt;
 &lt;ul&gt;&lt;li&gt;&lt;i&gt;auto&lt;/i&gt;: which will attempt to automatically determine an available participant index (see also Discovery/MaxAutoParticipantIndex), or&lt;/li&gt;
 &lt;li&gt;a non-negative integer less than 120, or&lt;/li&gt;
-&lt;li&gt;&lt;i&gt;none&lt;/i&gt;:, which causes it to use arbitrary port numbers for unicast sockets which entirely removes the constraints on the participant index but makes unicast discovery impossible.&lt;/li&gt;&lt;/ul&gt;
-&lt;p&gt;The default is &lt;i&gt;auto&lt;/i&gt;. The participant index is part of the port number calculation and if predictable port numbers are needed and fixing the participant index has no adverse effects, it is recommended that the second be option be used.&lt;/p&gt;
+&lt;li&gt;&lt;i&gt;none&lt;/i&gt;:, which causes it to use arbitrary port numbers for unicast sockets which entirely removes the constraints on the participant index but makes unicast discovery impossible.&lt;/li&gt;&lt;/ul&gt;&lt;/p&gt;
 &lt;p&gt;The default value is: "none".&lt;/p&gt;</xs:documentation>
     </xs:annotation>
   </xs:element>
