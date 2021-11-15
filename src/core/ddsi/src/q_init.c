@@ -1956,6 +1956,16 @@ static void stop_all_xeventq_upto (struct ddsi_config_channel_listelem *chptr)
 
 int rtps_start (struct ddsi_domaingv *gv)
 {
+  gcreq_queue_start (gv->gcreq_queue);
+
+  nn_dqueue_start (gv->builtins_dqueue);
+#ifdef DDS_HAS_NETWORK_CHANNELS
+  for (struct ddsi_config_channel_listelem *chptr = gv->config.channels; chptr; chptr = chptr->next)
+    nn_dqueue_start (chptr->dqueue);
+#else
+  nn_dqueue_start (gv->user_dqueue);
+#endif
+
   if (xeventq_start (gv->xevents, NULL) < 0)
     return -1;
 #ifdef DDS_HAS_NETWORK_CHANNELS

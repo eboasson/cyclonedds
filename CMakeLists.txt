@@ -326,4 +326,8 @@ endif()
 
 add_subdirectory(docs)
 
-include(CMakeCPack.cmake)
+if(DEFINED ENV{LIB_FUZZING_ENGINE})
+  add_subdirectory(fuzz)
+endif()
+
+include(CmakeCPack.cmake)
