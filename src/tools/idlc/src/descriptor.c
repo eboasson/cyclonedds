@@ -2366,7 +2366,7 @@ generate_descriptor(
     { ret = IDL_RETCODE_NO_MEMORY; goto err_print; }
 
 err_print:
+  (void)descriptor_fini(&descriptor);
 err_gen:
-  descriptor_fini(&descriptor);
   return ret;
 }
