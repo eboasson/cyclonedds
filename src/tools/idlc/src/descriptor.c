@@ -2270,8 +2270,7 @@ ctype_fini(struct constructed_type *ctype)
 
 idl_retcode_t generate_descriptor(const idl_pstate_t *pstate, struct generator *generator, const idl_node_t *node);
 
-idl_retcode_t
-descriptor_fini(struct descriptor *descriptor)
+void descriptor_fini(struct descriptor *descriptor)
 {
 #if defined(_MSC_VER)
 #pragma warning(push)
@@ -2290,7 +2289,6 @@ descriptor_fini(struct descriptor *descriptor)
 #if defined(_MSC_VER)
 #pragma warning(pop)
 #endif
-  return IDL_RETCODE_OK;
 }
 
 idl_retcode_t
@@ -2343,6 +2341,8 @@ generate_descriptor_impl(
     descriptor->flags |= DDS_TOPIC_FIXED_KEY_XCDR2;
 
 err:
+  if (ret < 0)
+    descriptor_fini(descriptor);
   return ret;
 }
 
@@ -2366,7 +2366,7 @@ generate_descriptor(
     { ret = IDL_RETCODE_NO_MEMORY; goto err_print; }
 
 err_print:
-  (void)descriptor_fini(&descriptor);
+  descriptor_fini(&descriptor);
 err_gen:
   return ret;
 }
