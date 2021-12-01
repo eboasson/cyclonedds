@@ -9,6 +9,9 @@
  *
  * SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
  */
+#include <stdio.h>
+#include <ctype.h>
+#include <stdlib.h>
 #include <assert.h>
 #include <limits.h>
 
@@ -92,12 +95,253 @@ struct data {
   size_t n;         // size of input
   const U *xs;      // correct input
   struct patch *po; // patch instructions
+  const char *constraint; // may be null
 };
 
 struct type {
   const struct ddsi_sertype_default *st;
   const struct data *pl; // terminated by a 0,0 entry
 };
+
+#define TY_BOOL   0
+#define TY_UINT32 1
+#define COP(code, prec, rassoc, noper, ty, lty, rty) \
+  ((code) | ((noper) << 8) | ((ty) << 10) | ((lty) << 11) | ((rty) << 12) | ((rassoc) << 13) | ((prec) << 14))
+enum cexpwhat {
+  COP_EOF = 0, COP_LPAR = 1, COP_RPAR = 2,
+  COP_CONST    = COP( 3, 5, 0, 0, TY_UINT32, 0,0),
+  COP_PATCHREF = COP( 4, 5, 0, 0, TY_UINT32, 0,0),
+  COP_NOT      = COP( 5, 4, 1, 1, TY_BOOL, TY_BOOL,0),
+  COP_AND      = COP( 6, 0, 0, 2, TY_BOOL, TY_BOOL,TY_BOOL),
+  COP_OR       = COP( 7, 0, 0, 2, TY_BOOL, TY_BOOL,TY_BOOL),
+  COP_LT       = COP( 8, 1, 0, 2, TY_BOOL, TY_UINT32,TY_UINT32),
+  COP_LEQ      = COP( 9, 1, 0, 2, TY_BOOL, TY_UINT32,TY_UINT32),
+  COP_EQ       = COP(10, 1, 0, 2, TY_BOOL, TY_UINT32,TY_UINT32),
+  COP_NEQ      = COP(11, 1, 0, 2, TY_BOOL, TY_UINT32,TY_UINT32),
+  COP_GEQ      = COP(12, 1, 0, 2, TY_BOOL, TY_UINT32,TY_UINT32),
+  COP_GT       = COP(13, 1, 0, 2, TY_BOOL, TY_UINT32,TY_UINT32),
+  COP_ADD      = COP(14, 2, 0, 2, TY_UINT32, TY_UINT32,TY_UINT32),
+  COP_SUB      = COP(15, 2, 0, 2, TY_UINT32, TY_UINT32,TY_UINT32),
+  COP_MUL      = COP(16, 3, 0, 2, TY_UINT32, TY_UINT32,TY_UINT32)
+};
+
+struct cexp {
+  enum cexpwhat what;
+  union {
+    uint32_t k;
+    uint32_t ref;
+    struct cexp *un;
+    struct cexp *bin[2];
+  } u;
+};
+
+static int getnoper (struct cexp x) { return (x.what >> 8) & 3; }
+static int getty (struct cexp x) { return (x.what >> 10) & 1; }
+static int getlty (struct cexp x) { return (x.what >> 11) & 1; }
+static int getrty (struct cexp x) { return (x.what >> 12) & 1; }
+static int getrassoc (struct cexp x) { return (x.what >> 13) & 1; }
+static int getprec (struct cexp x) { return (x.what >> 14); }
+
+static struct cexp *newcexp (struct cexp x0)
+{
+  struct cexp *x = ddsrt_malloc (sizeof (*x));
+  if (x == NULL) abort ();
+  *x = x0;
+  return x;
+}
+
+static struct cexp nexttok (const char **s)
+{
+  // aborts on invalid input, the inputs are part of test definition anyway
+  while (isspace ((unsigned char) **s))
+    (*s)++;
+  if (**s == 0)
+    return (struct cexp){ .what = COP_EOF };
+  char const * const * const s0 = s;
+  enum cexpwhat what = COP_CONST;
+  const char c = *(*s)++;
+  switch (c)
+  {
+    case '#':
+      what = COP_PATCHREF;
+      /* fall through */
+    case '0': case '1': case '2': case '3': case '4':
+    case '5': case '6': case '7': case '8': case '9': {
+      uint32_t k = (c == '#') ? 0 : (uint32_t) (c - '0');
+      while (**s >= '0' && **s <= '9')
+        k = 10u * k + (uint32_t) (*(*s)++ - '0');
+      if (what == COP_PATCHREF && s - s0 == 1)
+        abort (); // #x for x not a digit
+      return (struct cexp){ .what = what, .u = { .k = k } };
+    }
+    case '(': return (struct cexp){ .what = COP_LPAR };
+    case ')': return (struct cexp){ .what = COP_RPAR };
+    case '*': return (struct cexp){ .what = COP_MUL };
+    case '+': return (struct cexp){ .what = COP_ADD };
+    case '-': return (struct cexp){ .what = COP_SUB };
+    case '!':
+      if (**s != '=') return (struct cexp){.what = COP_NOT };
+      else { (*s)++; return (struct cexp){.what = COP_NEQ }; }
+    case '<': case '>':
+      if (**s != '=') return (struct cexp){ .what = (c == '<') ? COP_LT : COP_GT };
+      else { (*s)++; return (struct cexp){ .what = (c == '<') ? COP_LEQ : COP_GEQ }; }
+    case '=':
+      if (**s != '=') abort ();
+      else { (*s)++; return (struct cexp){ .what = COP_EQ }; }
+    case '&': case '|':
+      if (**s != c) abort ();
+      else { (*s)++; return (struct cexp){ .what = (c == '&') ? COP_AND : COP_OR }; }
+    default:
+      abort ();
+  }
+}
+
+static void printexp (const struct cexp *x)
+{
+  if (x == NULL)
+  {
+    printf (".");
+    return;
+  }
+  switch (x->what)
+  {
+    case COP_EOF: printf ("$"); break;
+    case COP_LPAR: case COP_RPAR: abort ();
+    case COP_NOT: printf ("NOT("); printexp(x->u.un); printf(")"); break;
+    case COP_CONST: printf ("%u", x->u.k); break;
+    case COP_PATCHREF: printf ("#%u", x->u.k); break;
+    case COP_ADD: printf ("("); printexp (x->u.bin[0]); printf ("+"); printexp (x->u.bin[1]); printf (")"); break;
+    case COP_SUB: printf ("("); printexp (x->u.bin[0]); printf ("-"); printexp (x->u.bin[1]); printf (")"); break;
+    case COP_MUL: printf ("("); printexp (x->u.bin[0]); printf ("*"); printexp (x->u.bin[1]); printf (")"); break;
+    case COP_AND: printf ("("); printexp (x->u.bin[0]); printf ("&&"); printexp (x->u.bin[1]); printf (")"); break;
+    case COP_OR: printf ("("); printexp (x->u.bin[0]); printf ("||"); printexp (x->u.bin[1]); printf (")"); break;
+    case COP_LT: printf ("("); printexp (x->u.bin[0]); printf ("<"); printexp (x->u.bin[1]); printf (")"); break;
+    case COP_LEQ: printf ("("); printexp (x->u.bin[0]); printf ("<="); printexp (x->u.bin[1]); printf (")"); break;
+    case COP_EQ: printf ("("); printexp (x->u.bin[0]); printf ("=="); printexp (x->u.bin[1]); printf (")"); break;
+    case COP_NEQ: printf ("("); printexp (x->u.bin[0]); printf ("!="); printexp (x->u.bin[1]); printf (")"); break;
+    case COP_GEQ: printf ("("); printexp (x->u.bin[0]); printf (">="); printexp (x->u.bin[1]); printf (")"); break;
+    case COP_GT: printf ("("); printexp (x->u.bin[0]); printf (">"); printexp (x->u.bin[1]); printf (")"); break;
+  }
+}
+
+static struct cexp *parseprim (const char **s, int indent)
+{
+  struct cexp x = nexttok (s);
+  printf("%*sx = ",indent,"");printexp(&x);printf("\n");
+  switch (x.what)
+  {
+    case COP_NOT: {
+      x.u.un = parseprim (s, indent + 2);
+      printf("%*sreturn = ",indent,"");printexp(&x);printf("\n");
+      if (getty (*x.u.un) != TY_BOOL)
+        abort ();
+      return newcexp (x);
+    }
+    case COP_LPAR: {
+      struct cexp *y = parseprim (s, indent + 2);
+      printf("%*sparexp = ",indent,"");printexp(&x);printf("\n");
+      if (nexttok (s).what != COP_RPAR)
+        abort();
+      return y;
+    }
+    case COP_CONST: case COP_PATCHREF: {
+      return newcexp (x);
+    }
+    default: abort ();
+  }
+}
+
+static struct cexp *parse1 (struct cexp *lhs, const char **s, int prec, int indent)
+{
+  const char *s0 = *s;
+  struct cexp la = nexttok (s);
+  *s = s0;
+  printf("%*sla = ",indent,"");printexp(&la);printf("\n");
+  while (getnoper (la) == 2 && getprec (la) >= prec)
+  {
+    struct cexp op = la;
+    (void) nexttok (s);
+    struct cexp *rhs = parseprim (s, indent + 2);
+    s0 = *s;
+    la = nexttok (s);
+    *s = s0;
+    printf("%*sla = ",indent,"");printexp(&la);printf("\n");
+    while (getnoper (la) == 2 && (getprec (la) > getprec (op) || (getrassoc (la) && getprec (la) == getprec (op))))
+    {
+      rhs = parse1 (rhs, s, getprec(op) + 1, indent + 2);
+      s0 = *s;
+      la = nexttok (s);
+      *s = s0;
+      printf("%*sla = ",indent,"");printexp(&la);printf("\n");
+    }
+    *s = s0;
+    if (getty (*lhs) != getlty (op) || getty (*rhs) != getrty (op))
+      abort ();
+    lhs = newcexp ((struct cexp){
+      .what = op.what,
+      .u = { .bin = {
+        [0] = lhs,
+        [1] = rhs
+      } } });
+    printf("%*slhs = ",indent,"");printexp(lhs);printf("\n");
+  }
+  return lhs;
+}
+
+static struct cexp *parse (const char *s)
+{
+  printf ("parse %s\n", s);
+  struct cexp *lhs0 = parseprim (&s, 0);
+  struct cexp *x = parse1 (lhs0, &s, 0, 0);
+  while (isspace ((unsigned char) *s))
+    s++;
+  if (*s)
+    abort ();
+  printf ("parse result = ");printexp(x);printf("\n");
+  return x;
+}
+
+static int64_t evalk (const struct cexp *exp, const unsigned char *input, const struct patch *ps)
+{
+  // eval in 64-bit signed so we can mostly ignore overflow and underflow issues
+  switch (exp->what)
+  {
+    case COP_CONST:    return (int64_t) exp->u.k;
+    case COP_PATCHREF: return (int64_t) (*((const uint32_t *) (input + ps[exp->u.k].off)));
+    case COP_ADD:      return (int64_t) evalk (exp->u.bin[0], input, ps) + evalk (exp->u.bin[1], input, ps);
+    case COP_SUB:      return (int64_t) evalk (exp->u.bin[0], input, ps) - evalk (exp->u.bin[1], input, ps);
+    case COP_MUL:      return (int64_t) evalk (exp->u.bin[0], input, ps) * evalk (exp->u.bin[1], input, ps);
+    default: abort (); return 0;
+  }
+}
+
+static bool evalb (const struct cexp *exp, const unsigned char *input, const struct patch *ps)
+{
+  switch (exp->what)
+  {
+    case COP_LT:  return evalk (exp->u.bin[0], input, ps) <  evalk (exp->u.bin[1], input, ps);
+    case COP_LEQ: return evalk (exp->u.bin[0], input, ps) <= evalk (exp->u.bin[1], input, ps);
+    case COP_EQ:  return evalk (exp->u.bin[0], input, ps) == evalk (exp->u.bin[1], input, ps);
+    case COP_NEQ: return evalk (exp->u.bin[0], input, ps) != evalk (exp->u.bin[1], input, ps);
+    case COP_GEQ: return evalk (exp->u.bin[0], input, ps) >= evalk (exp->u.bin[1], input, ps);
+    case COP_GT:  return evalk (exp->u.bin[0], input, ps) <  evalk (exp->u.bin[1], input, ps);
+    case COP_AND: return evalb (exp->u.bin[0], input, ps) && evalb (exp->u.bin[1], input, ps);
+    case COP_OR:  return evalb (exp->u.bin[0], input, ps) || evalb (exp->u.bin[1], input, ps);
+    case COP_NOT: return evalb (exp->u.un, input, ps);
+    default: abort (); return false;
+  }
+}
+
+static void freecexp (struct cexp *exp)
+{
+  if (exp->what > COP_NOT) {
+    freecexp (exp->u.bin[0]);
+    freecexp (exp->u.bin[1]);
+  } else if (exp->what == COP_NOT) {
+    freecexp (exp->u.un);
+  }
+  free (exp);
+}
 
 static void printbytes (const unsigned char *xs, uint32_t n)
 {
@@ -235,12 +479,12 @@ static bool patch (unsigned char *xs, const unsigned char *xs_orig, struct patch
   return *state == 0;
 }
 
-static bool expect (const bool *v, unsigned np)
+static bool expect (const bool *v, unsigned np, const struct cexp *cexp, const unsigned char * __restrict__ data, const struct patch *ps)
 {
   bool exp = true;
   for (unsigned j = 0; exp && j < np; j++)
     exp = exp && v[j];
-  return exp;
+  return exp && (cexp ? evalb (cexp, data, ps) : true);
 }
 
 static const char *formatstr (struct ddsi_sertype_default const * const st)
@@ -288,6 +532,7 @@ static void dotest (const struct type *types, const char *name)
         p[i] = 0;
         v[i] = (d->po[i].mode != P_FAIL);
       }
+      struct cexp *cexp = d->constraint ? parse (d->constraint) : NULL;
       
       printf ("%s type %zu payload %zu (%s %s):\n", name, ti, pi, formatstr (st), versionstr (st));
 
@@ -299,7 +544,7 @@ static void dotest (const struct type *types, const char *name)
       unsigned i = 0;
       while (1)
       {
-        checknormalize (st, xs, (uint32_t) d->n, expect (v, np));
+        checknormalize (st, xs, (uint32_t) d->n, expect (v, np, cexp, xs, d->po));
         while (i < np && patch (xs, d->xs, d->po[i], &p[i], &v[i]))
           i++;
         if (i == np)
@@ -307,6 +552,8 @@ static void dotest (const struct type *types, const char *name)
         i = 0;
       }
 
+      if (cexp)
+        freecexp (cexp);
       free (v);
       free (p);
       ddsrt_free (xs);
@@ -381,6 +628,7 @@ static const uint32_t octseq_len_X2_ops [] =
 };
 
 static const struct type octseq_len[] = {
+#if 0
   { .st = MK_PLAIN1 (octseq_len_X0_ops), .pl = (struct data[]){
     { 4, (U[]){ SER32(0) },   (P[]){ L4(0), STOP } },
     { 5, (U[]){ SER32(1),1 }, (P[]){ L4(0), STOP } },
@@ -404,12 +652,16 @@ static const struct type octseq_len[] = {
   // be a bit longer
   //
   // perhaps I should add additional constraints in a string ...
+#endif
   { .st = MK_PLAIN2 (octseq_len_X1_ops), .pl = (struct data[]){
+#if 0
     { 17, (U[]){ SER32( 8), SER32(0),         SER32(0),         SER32(1),0 }, (P[]){ D4(0),  L4(4),   L4(8),  STR(12), STOP } },
     { 21, (U[]){ SER32(12), SER32(1),1, PAD3, SER32(0),         SER32(1),0 }, (P[]){ D4(0),  L4_3(4), L4(12), STR(16), STOP } },
     { 21, (U[]){ SER32( 9), SER32(0),         SER32(1),2, PAD3, SER32(1),0 }, (P[]){ D4(0),  L4(4),   L4(8),  STR(16), STOP } },
-    { 25, (U[]){ SER32(13), SER32(1),1, PAD3, SER32(1),2, PAD3, SER32(1),0 }, (P[]){ D4(0),  L4_3(4), L4(12), STR(20), STOP } },
-    // 1 <= #1 < 4 && 1 <= #2 < 4 && #0 == 12 + #2
+#endif
+    { 25, (U[]){ SER32(13), SER32(1),1, PAD3, SER32(1),2, PAD3, SER32(1),0 }, (P[]){ D4(0),  L4_3(4), L4(12), STR(20), STOP },
+     "1 <= #1 && #1 <= 4 && 1 <= #2 && #2 <= 4 && #0 == 12 + #2"
+    },
     { 0 }
   } },
   { .st = MK_PLAIN1 (octseq_len_X2_ops), .pl = (struct data[]){
@@ -426,176 +678,6 @@ static const struct type octseq_len[] = {
   } },
   { 0 }
 };
-
-#include <ctype.h>
-enum cexpwhat {
-  COP_LPAR, COP_RPAR, // abusing cexp as a token representation ...
-  // Env -> Integer
-  COP_CONST, COP_PATCHREF,
-  // Bool -> Bool
-  COP_NOT,
-  // Bool -> Bool -> Bool
-  COP_AND, COP_OR,
-  // Integer -> Integer -> Bool
-  COP_LT, COP_LEQ, COP_EQ, COP_NEQ, COP_GEQ, COP_GT,
-  // Integer -> Integer -> Integer
-  COP_ADD, COP_SUB, COP_MUL
-};
-enum ctype {
-  CTY_BOOL,
-  CTY_UINT32
-};
-struct cexp {
-  enum cexpwhat what;
-  enum ctype type;
-  union {
-    uint32_t k;
-    uint32_t ref;
-    struct cexp *un;
-    struct cexp *bin[2];
-  } u;
-};
-static struct cexp *newcexp (struct cexp x0)
-{
-  struct cexp *x = ddsrt_malloc (sizeof (*x));
-  if (x == NULL) abort ();
-  *x = x0;
-  return x;
-}
-static struct cexp nexttok (const char **s)
-{
-  // aborts on invalid input, the inputs are part of test definition anyway
-  while (isspace ((unsigned char) **s))
-    ;
-  char const * const * const s0 = s;
-  enum cexpwhat what = COP_CONST;
-  const char c = *(*s)++;
-  switch (c)
-  {
-    case '#':
-      what = COP_PATCHREF;
-      /* fall through */
-    case '0': case '1': case '2': case '3': case '4':
-    case '5': case '6': case '7': case '8': case '9': {
-      uint32_t k = 0;
-      while (**s >= '0' && **s <= '9')
-        k = 10u * k + (uint32_t) (*(*s)++ - '0');
-      if (what == COP_PATCHREF && s - s0 == 1)
-        abort (); // #x for x not a digit
-      return (struct cexp){ .what = what, .u = { .k = k } };
-    }
-    case '(': return (struct cexp){ .what = COP_LPAR };
-    case ')': return (struct cexp){ .what = COP_RPAR };
-    case '*': return (struct cexp){ .what = COP_MUL };
-    case '+': return (struct cexp){ .what = COP_ADD };
-    case '-': return (struct cexp){ .what = COP_SUB };
-    case '!':
-      if (**s != '=') return (struct cexp){.what = COP_NOT };
-      else { (*s)++; return (struct cexp){.what = COP_NEQ }; }
-    case '<': case '>':
-      if (**s != '=') return (struct cexp){ .what = (c == '<') ? COP_LT : COP_GT };
-      else { (*s)++; return (struct cexp){ .what = (c == '<') ? COP_LEQ : COP_GEQ }; }
-    case '=':
-      if (**s != '=') abort ();
-      else { (*s)++; return (struct cexp){ .what = COP_EQ }; }
-    case '&': case '|':
-      if (**s != c) abort ();
-      else { (*s)++; return (struct cexp){ .what = (c == '&') ? COP_AND : COP_OR }; }
-    default:
-      abort ();
-  }
-}
-static struct cexp *parse (const char **s, int prec)
-{
-  struct cexp x = nexttok (s);
-  switch (x.what)
-  {
-    case COP_NOT:
-      x.type = CTY_BOOL;
-      x.u.un = parse (s, prec + 1);
-      if (x.u.un->type != CTY_BOOL)
-        abort ();
-      return newcexp (x);
-    case COP_LPAR: {
-      struct cexp *y = parse (s, 0);
-      if (nexttok (s).what != COP_RPAR)
-        abort();
-      return y;
-    }
-    case COP_CONST: case COP_PATCHREF: {
-      x.type = CTY_UINT32;
-      const char *s0 = *s;
-      struct cexp y = nexttok (s);
-      int prec1 = -1; enum ctype ty, sty;
-      switch (y.what)
-      {
-        case COP_ADD: case COP_SUB:
-          prec1 = 3; ty = CTY_UINT32; sty = CTY_UINT32;
-          break;
-        case COP_MUL:
-          prec1 = 4; ty = CTY_UINT32; sty = CTY_UINT32;
-          break;
-        case COP_EQ: case COP_NEQ: case COP_LEQ: case COP_GEQ: case COP_LT: case COP_GT:
-          prec1 = 1; ty = CTY_BOOL; sty = CTY_UINT32;
-          break;
-        default:
-          abort ();
-      }
-      if (prec1 < prec) {
-        *s = s0; // undo consequences of looking ahead
-        return newcexp (x);
-      } else {
-        struct cexp *z = parse (s, prec1);
-        if (x.type != sty || sty != z->type)
-          abort ();
-        y.type = ty;
-        y.u.bin[0] = newcexp (x);
-        y.u.bin[1] = z;
-        return newcexp (y);
-      }
-    }
-    default: abort ();
-  }
-}
-static int64_t evalk (const struct cexp *exp, const unsigned char *input, const struct patch *ps)
-{
-  // eval in 64-bit signed so we can mostly ignore overflow and underflow issues
-  switch (exp->what)
-  {
-    case COP_CONST:    return (int64_t) exp->u.k;
-    case COP_PATCHREF: return (int64_t) (*((const uint32_t *) (input + ps[exp->u.k].off)));
-    case COP_ADD:      return (int64_t) evalk (exp->u.bin[0], input, ps) + evalk (exp->u.bin[1], input, ps);
-    case COP_SUB:      return (int64_t) evalk (exp->u.bin[0], input, ps) - evalk (exp->u.bin[1], input, ps);
-    case COP_MUL:      return (int64_t) evalk (exp->u.bin[0], input, ps) * evalk (exp->u.bin[1], input, ps);
-    default: abort (); return 0;
-  }
-}
-static bool evalb (const struct cexp *exp, const unsigned char *input, const struct patch *ps)
-{
-  switch (exp->what)
-  {
-    case COP_LT:  return evalk (exp->u.bin[0], input, ps) <  evalk (exp->u.bin[1], input, ps);
-    case COP_LEQ: return evalk (exp->u.bin[0], input, ps) <= evalk (exp->u.bin[1], input, ps);
-    case COP_EQ:  return evalk (exp->u.bin[0], input, ps) == evalk (exp->u.bin[1], input, ps);
-    case COP_NEQ: return evalk (exp->u.bin[0], input, ps) != evalk (exp->u.bin[1], input, ps);
-    case COP_GEQ: return evalk (exp->u.bin[0], input, ps) >= evalk (exp->u.bin[1], input, ps);
-    case COP_GT:  return evalk (exp->u.bin[0], input, ps) <  evalk (exp->u.bin[1], input, ps);
-    case COP_AND: return evalb (exp->u.bin[0], input, ps) && evalb (exp->u.bin[1], input, ps);
-    case COP_OR:  return evalb (exp->u.bin[0], input, ps) || evalb (exp->u.bin[1], input, ps);
-    case COP_NOT: return evalb (exp->u.un, input, ps);
-    default: abort (); return false;
-  }
-}
-static void freecexp (struct cexp *exp)
-{
-  if (exp->what > COP_NOT) {
-    freecexp (exp->u.bin[0]);
-    freecexp (exp->u.bin[1]);
-  } else if (exp->what == COP_NOT) {
-    freecexp (exp->u.un);
-  }
-  free (exp);
-}
 
 CU_Test (ddsi_cdrstream, octseq_len)
 {
