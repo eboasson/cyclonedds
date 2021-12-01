@@ -129,3 +129,12 @@ int LLVMFuzzerTestOneInput(
 
     return EXIT_SUCCESS;
 }
+
+int main (int argc, char **argv)
+{
+  FILE *fp = fopen (argv[1], "rb");
+  unsigned char *b = malloc (1048576);
+  size_t s = 0;
+  s = fread (b, 1, 1048576, fp);
+  return LLVMFuzzerTestOneInput (b, s);
+}
