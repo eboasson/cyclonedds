@@ -12,6 +12,7 @@
 include(CUnit)
 
 set(ddsi_test_sources
+    "cdrstream.c"
     "locators.c"
     "plist_generic.c"
     "plist.c"
