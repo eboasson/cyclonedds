@@ -124,6 +124,16 @@ enum cexpwhat {
   COP_SUB      = COP(15, 2, 0, 2, TY_UINT32, TY_UINT32,TY_UINT32),
   COP_MUL      = COP(16, 3, 0, 2, TY_UINT32, TY_UINT32,TY_UINT32)
 };
+static const char *cexpsym[] = {
+  "(", ")", "!", "&&", "||", "<", "<=", "==", "!=", ">=", ">", "+", "-", "*"
+};
+static const enum cexpwhat cexpwhat[] = {
+  COP_LPAR, COP_RPAR,
+  COP_NOT,
+  COP_AND, COP_OR,
+  COP_LT, COP_LEQ, COP_EQ, COP_NEQ, COP_GEQ, COP_GT,
+  COP_ADD, COP_SUB, COP_MUL
+};
 
 struct cexp {
   enum cexpwhat what;
@@ -155,45 +165,45 @@ static struct cexp nexttok (const char **s)
   // aborts on invalid input, the inputs are part of test definition anyway
   while (isspace ((unsigned char) **s))
     (*s)++;
-  if (**s == 0)
-    return (struct cexp){ .what = COP_EOF };
-  char const * const * const s0 = s;
-  enum cexpwhat what = COP_CONST;
-  const char c = *(*s)++;
-  switch (c)
+  char const * const s0 = *s;
+  switch (**s)
   {
+    case 0:
+      return (struct cexp){ .what = COP_EOF };
     case '#':
-      what = COP_PATCHREF;
+      (*s)++;
       /* fall through */
     case '0': case '1': case '2': case '3': case '4':
     case '5': case '6': case '7': case '8': case '9': {
-      uint32_t k = (c == '#') ? 0 : (uint32_t) (c - '0');
+      uint32_t k = 0;
       while (**s >= '0' && **s <= '9')
         k = 10u * k + (uint32_t) (*(*s)++ - '0');
-      if (what == COP_PATCHREF && s - s0 == 1)
+      if (*s0 == '#' && *s - s0 == 1)
         abort (); // #x for x not a digit
-      return (struct cexp){ .what = what, .u = { .k = k } };
+      return (struct cexp){ .what = (*s0 == '#') ? COP_PATCHREF : COP_CONST, .u = { .k = k } };
     }
-    case '(': return (struct cexp){ .what = COP_LPAR };
-    case ')': return (struct cexp){ .what = COP_RPAR };
-    case '*': return (struct cexp){ .what = COP_MUL };
-    case '+': return (struct cexp){ .what = COP_ADD };
-    case '-': return (struct cexp){ .what = COP_SUB };
-    case '!':
-      if (**s != '=') return (struct cexp){.what = COP_NOT };
-      else { (*s)++; return (struct cexp){.what = COP_NEQ }; }
-    case '<': case '>':
-      if (**s != '=') return (struct cexp){ .what = (c == '<') ? COP_LT : COP_GT };
-      else { (*s)++; return (struct cexp){ .what = (c == '<') ? COP_LEQ : COP_GEQ }; }
-    case '=':
-      if (**s != '=') abort ();
-      else { (*s)++; return (struct cexp){ .what = COP_EQ }; }
-    case '&': case '|':
-      if (**s != c) abort ();
-      else { (*s)++; return (struct cexp){ .what = (c == '&') ? COP_AND : COP_OR }; }
-    default:
-      abort ();
+    default: {
+      size_t cand = 0, candn = 0;
+      for (size_t i = 0; i < sizeof (cexpsym) / sizeof (cexpsym[0]); i++)
+      {
+        if (cexpsym[i] == NULL)
+          continue;
+        size_t n = strlen (cexpsym[i]);
+        if (cexpsym[i] != NULL && strncmp (*s, cexpsym[i], n) == 0 && n > candn) {
+          cand = i; candn = n;
+        }
+      }
+      if (candn == 0)
+        abort ();
+      *s += candn;
+      return (struct cexp){ .what = cexpwhat[cand] };
+    }
   }
+}
+
+static struct cexp peektok (const char *s)
+{
+  return nexttok (&s);
 }
 
 static void printexp (const struct cexp *x)
@@ -230,11 +240,7 @@ static struct cexp *parseprim (const char **s, int indent)
   printf("%*sx = ",indent,"");printexp(&x);printf("\n");
   switch (x.what)
   {
-    case COP_NOT: {
-      x.u.un = parseprim (s, indent + 2);
-      printf("%*sreturn = ",indent,"");printexp(&x);printf("\n");
-      if (getty (*x.u.un) != TY_BOOL)
-        abort ();
+    case COP_CONST: case COP_PATCHREF: {
       return newcexp (x);
     }
     case COP_LPAR: {
@@ -244,45 +250,41 @@ static struct cexp *parseprim (const char **s, int indent)
         abort();
       return y;
     }
-    case COP_CONST: case COP_PATCHREF: {
-      return newcexp (x);
+    default: {
+      if (getnoper (x) == 1 && getrassoc (x))
+      {
+        x.u.un = parseprim (s, indent + 2);
+        printf("%*sreturn = ",indent,"");printexp(&x);printf("\n");
+        if (getty (*x.u.un) != getlty (x))
+          abort ();
+        return newcexp (x);
+      }
+      abort ();
     }
-    default: abort ();
   }
 }
 
 static struct cexp *parse1 (struct cexp *lhs, const char **s, int prec, int indent)
 {
-  const char *s0 = *s;
-  struct cexp la = nexttok (s);
-  *s = s0;
+  struct cexp la = peektok (*s);
   printf("%*sla = ",indent,"");printexp(&la);printf("\n");
   while (getnoper (la) == 2 && getprec (la) >= prec)
   {
     struct cexp op = la;
     (void) nexttok (s);
     struct cexp *rhs = parseprim (s, indent + 2);
-    s0 = *s;
-    la = nexttok (s);
-    *s = s0;
+    la = peektok (*s);
     printf("%*sla = ",indent,"");printexp(&la);printf("\n");
     while (getnoper (la) == 2 && (getprec (la) > getprec (op) || (getrassoc (la) && getprec (la) == getprec (op))))
     {
       rhs = parse1 (rhs, s, getprec(op) + 1, indent + 2);
-      s0 = *s;
-      la = nexttok (s);
-      *s = s0;
+      la = peektok (*s);
       printf("%*sla = ",indent,"");printexp(&la);printf("\n");
     }
-    *s = s0;
+    // rewrite (A < B) < C (where parens indicate parsing)
     if (getty (*lhs) != getlty (op) || getty (*rhs) != getrty (op))
       abort ();
-    lhs = newcexp ((struct cexp){
-      .what = op.what,
-      .u = { .bin = {
-        [0] = lhs,
-        [1] = rhs
-      } } });
+    lhs = newcexp ((struct cexp){ .what = op.what, .u = { .bin = { [0] = lhs, [1] = rhs }}});
     printf("%*slhs = ",indent,"");printexp(lhs);printf("\n");
   }
   return lhs;
@@ -358,7 +360,7 @@ static void checknormalize (const struct ddsi_sertype_default *st, unsigned char
   fflush (stdout);
   bool res = dds_stream_normalize (xs, size, false, st->encoding_version, st, false, &actsize);
   if (res == expect_ok)
-    printf (" ok\n");
+    printf ("\n");
   else if (res)
     printf (" fail: incorrectly accepted with actsize = %"PRIu32"\n", actsize);
   else
