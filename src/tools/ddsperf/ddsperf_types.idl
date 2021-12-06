@@ -1,46 +1,46 @@
+@topic @final
 struct OneULong
 {
-  unsigned long seq;
+  @key unsigned long seq;
 };
-#pragma keylist OneULong
 
+@topic @final
 struct Unkeyed16
 {
   unsigned long seq;
   octet baggage[12];
 };
-#pragma keylist Unkeyed16
 
+@topic @final
 struct Unkeyed1024
 {
   unsigned long seq;
   octet baggage[1020];
 };
-#pragma keylist Unkeyed1024
 
+@topic @final
 struct Keyed32
 {
   unsigned long seq;
-  unsigned long keyval;
+  @key unsigned long keyval;
   octet baggage[24];
 };
-#pragma keylist Keyed32 keyval
 
+@topic @final
 struct Keyed256
 {
   unsigned long seq;
-  unsigned long keyval;
+  @key unsigned long keyval;
   octet baggage[248];
 };
-#pragma keylist Keyed256 keyval
 
+@topic @final
 struct KeyedSeq
 {
   unsigned long seq;
-  unsigned long keyval;
+  @key unsigned long keyval;
   sequence<octet> baggage;
 };
-#pragma keylist KeyedSeq keyval
 
 struct CPUStatThread
 {
@@ -49,14 +49,14 @@ struct CPUStatThread
   long s_pct;
 };
 
+@topic @final
 struct CPUStats
 {
-  string hostname;
-  unsigned long pid;
+  @key string hostname;
+  @key unsigned long pid;
   double maxrss;
   unsigned long vcsw;
   unsigned long ivcsw;
   boolean some_above;
   sequence<CPUStatThread> cpu;
 };
-#pragma keylist CPUStats hostname pid
