@@ -253,8 +253,7 @@ DDS_INLINE_EXPORT inline bool ddsi_sertype_assignable_from (const struct ddsi_se
 }
 
 DDS_INLINE_EXPORT inline struct ddsi_sertype * ddsi_sertype_derive_sertype (const struct ddsi_sertype *base_sertype) {
-  if (!base_sertype->ops->derive_sertype)
-    return NULL;
+  assert (base_sertype->ops->derive_sertype);
   return base_sertype->ops->derive_sertype (base_sertype);
 }
 
