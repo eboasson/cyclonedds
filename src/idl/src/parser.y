@@ -910,6 +910,12 @@ complex_declarator: array_declarator ;
 typedef_dcl:
     "typedef" type_spec declarators
       { TRY(idl_create_typedef(pstate, LOC(@1.first, @3.last), $2, $3, &$$)); }
+  | "typedef" constr_type_dcl declarators
+      {
+        idl_typedef_t *node;
+        TRY(idl_create_typedef(pstate, LOC(@1.first, @3.last), idl_reference_node($2), $3, &node));
+        $$ = idl_push_node($2, node);
+      }
   ;
 
 declarators:
