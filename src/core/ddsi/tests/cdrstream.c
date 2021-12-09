@@ -150,7 +150,7 @@ static int getty (struct cexp x) { return (x.what >> 10) & 1; }
 static int getlty (struct cexp x) { return (x.what >> 11) & 1; }
 static int getrty (struct cexp x) { return (x.what >> 12) & 1; }
 static int getrassoc (struct cexp x) { return (x.what >> 13) & 1; }
-static int getprec (struct cexp x) { return (x.what >> 14); }
+static int getprec (struct cexp x) { return (int) (x.what >> 14); }
 
 static struct cexp *newcexp (struct cexp x0)
 {
@@ -529,6 +529,7 @@ static void dotest (const struct type *types, const char *name)
         np++;
       int *p = malloc (np * sizeof (*p));
       bool *v = malloc (np * sizeof (*v));
+      assert (np == 0 || (p != NULL && v != NULL)); // for gcc-11 analyzer
       for (unsigned i = 0; i < np; i++)
       {
         p[i] = 0;
