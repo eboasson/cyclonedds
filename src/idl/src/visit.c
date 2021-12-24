@@ -26,8 +26,6 @@ static idl_accept_t idl_accept(const void *node)
     return IDL_ACCEPT_INHERIT_SPEC;
   if (mask & IDL_SWITCH_TYPE_SPEC)
     return IDL_ACCEPT_SWITCH_TYPE_SPEC;
-  if (!(mask & IDL_DECLARATION))
-    return IDL_ACCEPT;
   if (mask & IDL_MODULE)
     return IDL_ACCEPT_MODULE;
   if (mask & IDL_CONST)
@@ -207,12 +205,9 @@ idl_visit(
       }
 
       if (ret & IDL_VISIT_TYPE_SPEC) {
-        if (ret & IDL_VISIT_FWD_DECL_TARGET) // >> FIXME: this should definitely be handled in another way
-          node = ((idl_forward_t *)node)->type_spec;
-        else
           node = idl_type_spec(node);
         if (ret & IDL_VISIT_UNALIAS_TYPE_SPEC)
-          node = idl_strip(node, IDL_STRIP_ALIASES|IDL_STRIP_ARRAYS);
+          node = idl_strip(node, IDL_STRIP_ALIASES|IDL_STRIP_ALIASES_ARRAY);
         assert(node);
         if (!push(&stack, node))
           goto err_push;

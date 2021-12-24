@@ -270,14 +270,14 @@ void *idl_unalias(const void *node)
 void *idl_strip(const void *node, uint32_t flags)
 {
   if (!flags) // unwrap every indirection by default
-    flags = IDL_STRIP_ALIASES | IDL_STRIP_ARRAYS | IDL_STRIP_FORWARD;
+    flags = IDL_STRIP_ALIASES | IDL_STRIP_ALIASES_ARRAY | IDL_STRIP_FORWARD;
 
   do {
     if (idl_is_forward(node) && (flags & IDL_STRIP_FORWARD))
       node = idl_type_spec(node);
-    else if (idl_is_array(node) && (flags & IDL_STRIP_ARRAYS))
+    else if (idl_is_alias(node) && !idl_is_array(node) && (flags & IDL_STRIP_ALIASES))
       node = idl_type_spec(node);
-    else if (idl_is_alias(node) && (flags & IDL_STRIP_ALIASES))
+    else if (idl_is_alias(node) && idl_is_array(node) && (flags & IDL_STRIP_ALIASES_ARRAY))
       node = idl_type_spec(node);
     else
       break;
@@ -1592,7 +1592,7 @@ idl_create_member(
   if (idl_scope(type_spec)) {
     /* struct and union types introduce a scope. resolve scope and link it for
        field name lookup. e.g. #pragma keylist directives */
-    type_spec = idl_strip(type_spec, IDL_STRIP_ALIASES|IDL_STRIP_ARRAYS);
+    type_spec = idl_strip(type_spec, IDL_STRIP_ALIASES|IDL_STRIP_ALIASES_ARRAY);
     if (idl_is_struct(type_spec) || idl_is_union(type_spec)) {
       const idl_declaration_t *declaration = idl_declaration(type_spec);
       assert(declaration);
@@ -2291,6 +2291,34 @@ idl_create_case_label(
   return IDL_RETCODE_OK;
 }
 
+int64_t idl_case_label_intvalue(const void *ptr)
+{
+  const idl_case_label_t *node = ptr;
+  if (!(idl_mask(node) & IDL_CASE_LABEL))
+    return -1;
+  idl_type_t type = idl_type(node->const_expr);
+  if (type & IDL_INTEGER_TYPE) {
+    idl_intval_t val = idl_intval(node->const_expr);
+    return val.value.llng;
+  } else if (type == IDL_CHAR) {
+    idl_literal_t *literal = node->const_expr;
+    return literal->value.chr;
+  } else if (type == IDL_BOOL) {
+    idl_literal_t *literal = node->const_expr;
+    return literal->value.bln;
+  } else if (type == IDL_OCTET) {
+    idl_literal_t *literal = node->const_expr;
+    return literal->value.uint8;
+  } else if (type == IDL_ENUM) {
+    idl_enumerator_t *enumerator = node->const_expr;
+    assert(enumerator->value.value <= INT32_MAX);
+    return enumerator->value.value;
+  } else {
+    assert(false);
+  }
+  return 0;
+}
+
 bool idl_is_enum(const void *ptr)
 {
   const idl_enum_t *node = ptr;
@@ -2651,8 +2679,7 @@ bool idl_is_alias(const void *ptr)
 
   if (!(idl_mask(node) & IDL_DECLARATOR))
     return false;
-  if (((idl_declarator_t *)node)->const_expr)
-    return false;
+
   /* a declarator is an alias if its parent is a typedef */
   return (idl_mask(node->node.parent) & IDL_TYPEDEF) != 0;
 }
