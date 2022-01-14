@@ -79,6 +79,16 @@ static bool cyclonedds_entity_ready (uint32_t s)
   }
 }
 
+void dds_ruthless_reset_for_child_after_fork (void)
+{
+  ddsrt_ruthless_reset_for_child_after_fork ();
+  ddsrt_atomic_st32 (&dds_state, CDDS_STATE_ZERO);
+  memset (&dds_global, 0, sizeof (dds_global));
+  dds_handle_server_ruthless_reset_for_child_after_fork ();
+  tsd_thread_state = NULL;
+  memset (&thread_states, 0, sizeof (thread_states));
+}
+
 dds_return_t dds_init (void)
 {
   dds_return_t ret;

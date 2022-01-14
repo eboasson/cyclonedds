@@ -80,6 +80,11 @@ static int handle_equal (const void *va, const void *vb)
   return a->hdl == b->hdl;
 }
 
+void dds_handle_server_ruthless_reset_for_child_after_fork (void)
+{
+  memset (&handles, 0, sizeof (handles));
+}
+
 dds_return_t dds_handle_server_init (void)
 {
   /* called with ddsrt's singleton mutex held (see dds_init/fini) */

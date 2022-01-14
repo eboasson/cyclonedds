@@ -27,6 +27,8 @@ DDS_EXPORT ddsrt_mutex_t *ddsrt_get_singleton_mutex(void);
 
 DDS_EXPORT ddsrt_cond_t *ddsrt_get_singleton_cond(void);
 
+DDS_EXPORT void ddsrt_ruthless_reset_for_child_after_fork(void);
+
 #if defined (__cplusplus)
 }
 #endif
