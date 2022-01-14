@@ -219,6 +219,8 @@ DDS_INLINE_EXPORT inline bool dds_handle_is_closed (struct dds_handle_link *link
 
 DDS_EXPORT bool dds_handle_is_not_refd (struct dds_handle_link *link);
 
+DDS_EXPORT void dds_handle_server_ruthless_reset_for_child_after_fork (void);
+
 #if defined (__cplusplus)
 }
 #endif

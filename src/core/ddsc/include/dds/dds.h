@@ -4043,6 +4043,9 @@ dds_free_typeobj (
 
 #endif /* DDS_HAS_TYPE_DISCOVERY */
 
+/* Unsupported, unofficial, quick hack and experiment for working around an urgent problem. May conjure up visions of scary supernatural creatures. These may be vegan, but they need not be. Beware. */
+DDS_EXPORT void dds_ruthless_reset_for_child_after_fork (void);
+
 #if defined (__cplusplus)
 }
 #endif

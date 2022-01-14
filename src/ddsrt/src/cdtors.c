@@ -30,6 +30,12 @@ static ddsrt_atomic_uint32_t init_status = DDSRT_ATOMIC_UINT32_INIT(0);
 static ddsrt_mutex_t init_mutex;
 static ddsrt_cond_t init_cond;
 
+void ddsrt_ruthless_reset_for_child_after_fork ()
+{
+  ddsrt_atomic_st32 (&init_status, 0);
+  ddsrt_init ();
+}
+
 void ddsrt_init (void)
 {
   uint32_t v;
