@@ -43,6 +43,16 @@ install(
   DESTINATION "${CMAKE_INSTALL_EXAMPLESDIR}/throughput"
   COMPONENT dev)
 
+install(
+  FILES
+    pipeline/Pipeline.idl
+    pipeline/source.c
+    pipeline/process.c
+    pipeline/sink.c
+    pipeline/CMakeLists.txt
+  DESTINATION "${CMAKE_INSTALL_EXAMPLESDIR}/pipeline"
+  COMPONENT dev)
+
 if (ENABLE_TOPIC_DISCOVERY)
   install(
     FILES
@@ -81,6 +91,7 @@ endif()
 add_subdirectory(helloworld)
 add_subdirectory(roundtrip)
 add_subdirectory(throughput)
+add_subdirectory(pipeline)
 if (ENABLE_TOPIC_DISCOVERY)
   add_subdirectory(listtopics)
 endif ()
