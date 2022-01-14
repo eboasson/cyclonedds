@@ -1,0 +1,7 @@
+module Pipeline {
+  @topic
+  struct Msg {
+    unsigned long seqno;
+    octet message[10 * 1024 * 1024];
+  };
+};
