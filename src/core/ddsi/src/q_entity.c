@@ -1553,6 +1553,8 @@ struct writer *get_builtin_writer (const struct participant *pp, unsigned entity
        the memory barriers that guarantee visibility of the correct
        value of privileged_pp. */
     ddsrt_mutex_lock (&pp->e.gv->privileged_pp_lock);
+    if (pp->e.gv->privileged_pp == NULL)
+      log_stack_traces(&pp->e.gv->logconfig, pp->e.gv);
     assert (pp->e.gv->privileged_pp != NULL);
     bwr_guid.prefix = pp->e.gv->privileged_pp->e.guid.prefix;
     ddsrt_mutex_unlock (&pp->e.gv->privileged_pp_lock);
