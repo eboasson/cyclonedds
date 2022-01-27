@@ -82,22 +82,6 @@ function(IDLC_GENERATE_GENERIC)
     string(APPEND _language "-l" ${IDLC_BACKEND})
   endif()
 
-  # set source suffixes (defaults to .c and .h)
-  if(IDLC_SUFFIXES)
-    foreach(_s ${IDLC_SUFFIXES})
-      string(FIND ${_s} ".c" _spos)
-      string(FIND ${_s} ".h" _hpos)
-      if(_spos GREATER_EQUAL 0)
-        set(_ssuffix ${_s})
-      elseif(_hpos GREATER_EQUAL 0)
-        set(_hsuffix ${_s})
-      endif()
-    endforeach()
-  else()
-    set(_hsuffix ".h")
-    set(_ssuffix ".c")
-  endif()
-
   # set dependencies
   if(IDLC_DEPENDS)
     list(APPEND _depends ${_idlc_depends} ${IDLC_DEPENDS})
@@ -112,27 +96,28 @@ function(IDLC_GENERATE_GENERIC)
     list(APPEND _files "${_path}")
   endforeach()
 
+  # set source suffixes (defaults to .c and .h)
+  if(NOT IDLC_SUFFIXES)
+    set(IDLC_SUFFIXES ".c" ".h")
+  endif()
+  set(_outputs "")
   foreach(_file ${_files})
     get_filename_component(_name ${_file} NAME_WE)
-
-    if(NOT IDLC_BACKEND)
-      set(_source "${_dir}/${_name}${_ssuffix}")
-      list(APPEND _sources "${_source}")
-    endif()
-
-    set(_header "${_dir}/${_name}${_hsuffix}")
-    list(APPEND _headers "${_header}")
-
+    set(_file_outputs "")
+    foreach(_suffix ${IDLC_SUFFIXES})
+      list(APPEND _file_outputs "${_dir}/${_name}${_suffix}")
+      list(APPEND _outputs ${_file_outputs})
+    endforeach()
     add_custom_command(
-      OUTPUT   ${_source} ${_header}
+      OUTPUT   ${_file_outputs}
       COMMAND  ${_idlc_executable}
       ARGS     ${_language} ${IDLC_ARGS} ${IDLC_INCLUDE_DIRS} ${_file}
       DEPENDS  ${_files} ${_depends})
   endforeach()
 
-  add_custom_target("${_target}_generate" DEPENDS "${_sources}" "${_headers}")
+  add_custom_target("${_target}_generate" DEPENDS "${_outputs}")
   add_library(${_target} INTERFACE)
-  target_sources(${_target} INTERFACE ${_sources} ${_headers})
+  target_sources(${_target} INTERFACE ${_outputs})
   target_include_directories(${_target} INTERFACE "${_dir}")
   add_dependencies(${_target} "${_target}_generate")
 endfunction()
