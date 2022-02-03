@@ -871,6 +871,7 @@ int nn_xmsg_merge_rexmit_destinations_wrlock_held (struct ddsi_domaingv *gv, str
               GVTRACE ("writer-dead)");
               return 0;
             }
+#if 0
             else
             {
               GVTRACE ("1+1->*)");
@@ -880,6 +881,14 @@ int nn_xmsg_merge_rexmit_destinations_wrlock_held (struct ddsi_domaingv *gv, str
               m->dstaddr.all.as_group = ref_addrset (wr->as_group);
               return 1;
             }
+#else
+            else
+            {
+              (void) wr;
+              GVTRACE ("avoid-mc)");
+              return 0;
+            }
+#endif
           }
           else if (readerId_compatible (m, madd))
           {
