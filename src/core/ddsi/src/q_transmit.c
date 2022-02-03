@@ -134,6 +134,38 @@ int writer_hbcontrol_must_send (const struct writer *wr, const struct whc_state 
   return (tnow.v >= hbc->t_of_last_hb.v + writer_hbcontrol_intv (wr, whcst, tnow));
 }
 
+static struct addrset *unicast_addrset_with_relevant_readers (const struct writer *wr)
+{
+  // FIXME: not sure it will work out well if there are multiple n/w interfaces
+  // FIXME: kinda undoes all the efforts to avoid linear cost in #readers in processing
+  // for an experiment it is fine, if it pays off, I'll figure out a better way
+  // note: "wr" is locked
+  struct ddsi_domaingv * const gv = wr->e.gv;
+  const seqno_t seq_xmit = writer_read_seq_xmit (wr);
+  struct addrset *as = new_addrset ();
+  ddsrt_avl_iter_t it;
+  for (struct wr_prd_match *m = ddsrt_avl_iter_first (&wr_readers_treedef, &wr->readers, &it); m; m = ddsrt_avl_iter_next (&it))
+  {
+    // never for best-effort readers
+    if (!m->is_reliable)
+      continue;
+
+    if (m->seq == MAX_SEQ_NUMBER || // if demoted to best-effort
+        !m->has_replied_to_hb    || // if not yet completed handshake
+        m->seq < seq_xmit)          // if not everything ACK'd yet
+    {
+      struct proxy_reader * const prd = entidx_lookup_proxy_reader_guid (gv->entity_index, &m->prd_guid);
+      if (prd)
+      {
+        ddsi_xlocator_t xloc;
+        addrset_any_uc_else_mc_nofail (prd->c.as, &xloc);
+        add_xlocator_to_addrset (gv, as, &xloc);
+      }
+    }
+  }
+  return as;
+}
+
 struct nn_xmsg *writer_hbcontrol_create_heartbeat (struct writer *wr, const struct whc_state *whcst, ddsrt_mtime_t tnow, int hbansreq, int issync)
 {
   struct ddsi_domaingv const * const gv = wr->e.gv;
@@ -193,7 +225,16 @@ struct nn_xmsg *writer_hbcontrol_create_heartbeat (struct writer *wr, const stru
 
   if (prd_guid == NULL)
   {
-    nn_xmsg_setdstN (msg, wr->as, wr->as_group);
+    if (wr->as_group)
+      nn_xmsg_setdstN (msg, wr->as, wr->as_group);
+    else
+    {
+      // FIXME: Not the smartest way to go about this if multicast is an option
+      // for an experiment it is fine
+      struct addrset *as = unicast_addrset_with_relevant_readers (wr);
+      nn_xmsg_setdstN (msg, as, NULL);
+      unref_addrset (as);
+    }
     add_Heartbeat (msg, wr, whcst, hbansreq, 0, to_entityid (NN_ENTITYID_UNKNOWN), issync);
   }
   else
