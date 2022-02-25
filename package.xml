@@ -20,6 +20,7 @@
     <exec_depend>openssl</exec_depend>
 
     <depend>iceoryx_binding_c</depend>
+    <depend>iceoryx_posh</depend>
     <test_depend>libcunit-dev</test_depend>
 
     <doc_depend>doxygen</doc_depend>
