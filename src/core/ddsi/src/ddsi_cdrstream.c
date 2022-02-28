@@ -387,10 +387,12 @@ static inline bool is_primitive_type (enum dds_stream_typecode type)
   return type <= DDS_OP_VAL_8BY || type == DDS_OP_VAL_BLN;
 }
 
+#ifndef NDEBUG
 static inline bool is_primitive_or_enum_type (enum dds_stream_typecode type)
 {
   return is_primitive_type (type) || type == DDS_OP_VAL_ENU;
 }
+#endif
 
 static inline bool is_dheader_needed (enum dds_stream_typecode type, uint32_t xcdrv)
 {
