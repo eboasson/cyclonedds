@@ -22,6 +22,7 @@ idlc_generate(TARGET CreateWriter FILES CreateWriter.idl WARNINGS no-implicit-ex
 idlc_generate(TARGET DataRepresentationTypes FILES DataRepresentationTypes.idl WARNINGS no-implicit-extensibility)
 idlc_generate(TARGET MinXcdrVersion FILES MinXcdrVersion.idl)
 idlc_generate(TARGET CdrStreamOptimize FILES CdrStreamOptimize.idl WARNINGS no-implicit-extensibility)
+idlc_generate(TARGET cdrstream_regress_types FILES cdrstream_regress_types.idl WARNINGS no-implicit-extensibility)
 if(ENABLE_TYPE_DISCOVERY)
   idlc_generate(TARGET XSpace FILES XSpace.idl XSpaceEnum.idl XSpaceMustUnderstand.idl XSpaceTypeConsistencyEnforcement.idl WARNINGS no-implicit-extensibility no-inherit-appendable)
   idlc_generate(TARGET XSpaceNoTypeInfo FILES XSpaceNoTypeInfo.idl NO_TYPE_INFO WARNINGS no-implicit-extensibility)
@@ -82,7 +83,8 @@ set(ddsc_test_sources
     "test_common.c"
     "test_oneliner.c"
     "test_oneliner.h"
-    "cdrstream.c")
+    "cdrstream.c"
+    "cdrstream_regress.c")
 
 if(ENABLE_LIFESPAN)
   list(APPEND ddsc_test_sources "lifespan.c")
@@ -118,7 +120,7 @@ if(ENABLE_SHM)
 endif()
 
 target_link_libraries(cunit_ddsc PRIVATE
-  RoundTrip Space TypesArrayKey WriteTypes InstanceHandleTypes RWData CreateWriter DataRepresentationTypes MinXcdrVersion CdrStreamOptimize ddsc)
+  RoundTrip Space TypesArrayKey WriteTypes InstanceHandleTypes RWData CreateWriter DataRepresentationTypes MinXcdrVersion CdrStreamOptimize cdrstream_regress_types ddsc)
 
 if(ENABLE_TYPE_DISCOVERY)
   target_link_libraries(cunit_ddsc PRIVATE

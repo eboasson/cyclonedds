@@ -1,0 +1,59 @@
+        module fuzzytypes_156796_926921{
+            enum Drenolaiseudet {
+                NUN,
+                TRAPAR,
+                CIW,
+                @value(9) SIN,
+                DRIVIG
+            };
+        
+            struct Cufoiluv {
+                string<10>  doz;
+                string<12>  stavaigiw;
+                @optional
+                boolean knadeukuk;
+                @key
+                Drenolaiseudet drifevad[2][2];
+            };
+        
+        };
+
+        module fuzzytypes_51959_516422{
+            typedef sequence<sequence<string> >  boibemis;
+        
+            bitmask Dilop {
+                soigas,
+                noipen,
+                plutip,
+                kruvin,
+                plofaisum,
+                vew,
+                dep,
+                whunoinal,
+                knopus,
+                nig,
+                @position(10) fimim,
+                srikaugib,
+                vel,
+                bozet,
+                knoceisiz,
+                @position(15) slopok,
+                plesoitud
+            };
+        
+            typedef Dilop madeipuric;
+            @final
+            struct Gekamen {
+                sequence<short>  foelal;
+                @optional
+                string baw;
+                @key
+                long plamal;
+                string truvoegik[1][1];
+                madeipuric weduw[3];
+                sequence<string<23> >  nil;
+                boibemis teinof;
+                string whuzulev;
+            };
+        
+        };
