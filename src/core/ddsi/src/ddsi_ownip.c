@@ -361,12 +361,12 @@ int find_own_ip (struct ddsi_domaingv *gv)
         if (!iface->cfg.priority.isdefault)
           interfaces[match].priority = iface->cfg.priority.value;
 
-        if (!iface->cfg.multicast.isdefault) {
-          if (interfaces[match].mc_capable && !iface->cfg.multicast.value) {
+        if (iface->cfg.multicast != DDSI_BOOLDEF_DEFAULT) {
+          if (interfaces[match].mc_capable && iface->cfg.multicast == DDSI_BOOLDEF_FALSE) {
             GVLOG (DDS_LC_CONFIG, "disabling multicast on interface %s.", interfaces[match].name);
             interfaces[match].mc_capable = 0;
           }
-          else if (!interfaces[match].mc_capable && iface->cfg.multicast.value) {
+          else if (!interfaces[match].mc_capable && iface->cfg.multicast == DDSI_BOOLDEF_TRUE) {
             GVLOG (DDS_LC_CONFIG, "assuming multicast capable interface %s.", interfaces[match].name);
             interfaces[match].mc_capable = 1;
           }

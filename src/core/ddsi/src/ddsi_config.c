@@ -177,7 +177,6 @@ DUPF(retransmit_merging);
 DUPF(sched_class);
 DUPF(maybe_memsize);
 DUPF(maybe_int32);
-DUPF(maybe_boolean);
 #ifdef DDS_HAS_BANDWIDTH_LIMITING
 DUPF(bandwidth);
 #endif
@@ -1342,40 +1341,6 @@ static void pf_maybe_int32 (struct cfgst *cfgst, void *parent, struct cfgelem co
     cfg_logelem (cfgst, sources, "%"PRId32, p->value);
 }
 
-static enum update_result uf_maybe_boolean (struct cfgst *cfgst, void *parent, struct cfgelem const * const cfgelem, UNUSED_ARG (int first), const char *value)
-{
-  DDSRT_WARNING_MSVC_OFF(4996);
-  struct ddsi_config_maybe_boolean * const elem = cfg_address (cfgst, parent, cfgelem);
-  if (ddsrt_strcasecmp (value, "default") == 0) {
-    elem->isdefault = 1;
-    elem->value = 0;
-    return URES_SUCCESS;
-  } else if (ddsrt_strcasecmp(value, "true") == 0) {
-    elem->isdefault = 0;
-    elem->value = 1;
-    return URES_SUCCESS;
-  } else if (ddsrt_strcasecmp(value, "false") == 0) {
-    elem->isdefault = 0;
-    elem->value = 0;
-    return URES_SUCCESS;
-  } else {
-    return cfg_error (cfgst, "'%s': is not 'default', 'true' or 'false'\n", value);
-  }
-  DDSRT_WARNING_MSVC_ON(4996);
-}
-
-static void pf_maybe_boolean (struct cfgst *cfgst, void *parent, struct cfgelem const * const cfgelem, uint32_t sources)
-{
-  struct ddsi_config_maybe_boolean const * const p = cfg_address (cfgst, parent, cfgelem);
-  if (p->isdefault)
-    cfg_logelem (cfgst, sources, "default");
-  else if (p->value)
-    cfg_logelem (cfgst, sources, "true");
-  else
-    cfg_logelem (cfgst, sources, "false");
-}
-
-
 static enum update_result uf_maybe_memsize (struct cfgst *cfgst, void *parent, struct cfgelem const * const cfgelem, UNUSED_ARG (int first), const char *value)
 {
   struct ddsi_config_maybe_uint32 * const elem = cfg_address (cfgst, parent, cfgelem);
@@ -2354,7 +2319,7 @@ static struct ddsi_config_network_interface * network_interface_find_or_append(s
   iface->cfg.address = address ? ddsrt_strdup(address) : NULL;
   iface->cfg.prefer_multicast = false;
   iface->cfg.priority.isdefault = 1;
-  iface->cfg.multicast.isdefault = 1;
+  iface->cfg.multicast = DDSI_BOOLDEF_DEFAULT;
 
   *prev_iface = iface;
 
@@ -2587,8 +2552,7 @@ struct cfgst *ddsi_config_init (const char *config, struct ddsi_config *cfg, uin
         // Assume all interfaces
         struct ddsi_config_network_interface_listelem *iface = cfg->network_interfaces;
         while (iface) {
-          iface->cfg.multicast.isdefault = 0;
-          iface->cfg.multicast.value = 1;
+          iface->cfg.multicast = DDSI_BOOLDEF_TRUE;
           iface = iface->next;
         }
       }
@@ -2608,8 +2572,7 @@ struct cfgst *ddsi_config_init (const char *config, struct ddsi_config *cfg, uin
 
         for (size_t i = 0; i < addr_count; ++i) {
           struct ddsi_config_network_interface *iface_cfg = network_interface_find_or_append(cfg, true, names[i], NULL);
-          iface_cfg->multicast.isdefault = 0;
-          iface_cfg->multicast.value = 1;
+          iface_cfg->multicast = DDSI_BOOLDEF_TRUE;
         }
       }
     }
