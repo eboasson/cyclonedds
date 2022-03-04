@@ -109,13 +109,13 @@ struct interface_priority {
   int32_t priority;
 };
 
-static int compare_interface_priority_t (const void *va, const void *vb)
+static int compare_interface_priority (const void *va, const void *vb)
 {
+  // compare function is used for sorting in descending priority order
   const struct interface_priority *a = va;
   const struct interface_priority *b = vb;
   return (a->priority == b->priority) ? 0 : (a->priority < b->priority) ? 1 : -1;
 }
-
 
 int find_own_ip (struct ddsi_domaingv *gv)
 {
@@ -391,7 +391,7 @@ int find_own_ip (struct ddsi_domaingv *gv)
         GVERROR ("No network interfaces selected\n");
         ok = false;
       } else {
-        qsort (matches, num_matches, sizeof (*matches), compare_interface_priority_t);
+        qsort (matches, num_matches, sizeof (*matches), compare_interface_priority);
         for (size_t i = 1; i < num_matches; i++) {
           if (matches[i].match == matches[i-1].match)
           {
