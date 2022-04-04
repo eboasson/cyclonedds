@@ -3431,16 +3431,20 @@ const ddsi_plist_t ddsi_default_plist_participant = {
   .present = 0,
   .aliased = 0,
   .qos = {
-    .present = QP_ADLINK_ENTITY_FACTORY | QP_USER_DATA,
+    .present = QP_ADLINK_ENTITY_FACTORY | QP_USER_DATA | QP_PROPERTY_LIST,
     .aliased = 0,
     .entity_factory.autoenable_created_entities = 0,
     .user_data.length = 0,
-    .user_data.value = NULL
+    .user_data.value = NULL,
+    .property.value.n = 0,
+    .property.value.props = NULL,
+    .property.binary_value.n = 0,
+    .property.binary_value.props = NULL,
   }
 };
 
 const dds_qos_t ddsi_default_qos_reader = {
-  .present = QP_PRESENTATION | QP_DURABILITY | QP_DEADLINE | QP_LATENCY_BUDGET | QP_LIVELINESS | QP_DESTINATION_ORDER | QP_HISTORY | QP_RESOURCE_LIMITS | QP_TRANSPORT_PRIORITY | QP_OWNERSHIP | QP_CYCLONE_IGNORELOCAL | QP_TOPIC_DATA | QP_GROUP_DATA | QP_USER_DATA | QP_PARTITION | QP_RELIABILITY | QP_TIME_BASED_FILTER | QP_ADLINK_READER_DATA_LIFECYCLE | QP_ADLINK_READER_LIFESPAN | QP_ADLINK_SUBSCRIPTION_KEYS | QP_TYPE_CONSISTENCY_ENFORCEMENT | QP_LOCATOR_MASK | QP_DATA_REPRESENTATION,
+  .present = QP_PRESENTATION | QP_DURABILITY | QP_DEADLINE | QP_LATENCY_BUDGET | QP_LIVELINESS | QP_DESTINATION_ORDER | QP_HISTORY | QP_RESOURCE_LIMITS | QP_TRANSPORT_PRIORITY | QP_OWNERSHIP | QP_CYCLONE_IGNORELOCAL | QP_TOPIC_DATA | QP_GROUP_DATA | QP_USER_DATA | QP_PARTITION | QP_RELIABILITY | QP_TIME_BASED_FILTER | QP_ADLINK_READER_DATA_LIFECYCLE | QP_ADLINK_READER_LIFESPAN | QP_ADLINK_SUBSCRIPTION_KEYS | QP_TYPE_CONSISTENCY_ENFORCEMENT | QP_LOCATOR_MASK | QP_DATA_REPRESENTATION | QP_PROPERTY_LIST,
   .aliased = QP_DATA_REPRESENTATION,
   .presentation.access_scope = DDS_PRESENTATION_INSTANCE,
   .presentation.coherent_access = 0,
@@ -3484,11 +3488,15 @@ const dds_qos_t ddsi_default_qos_reader = {
   .type_consistency.force_type_validation = false,
   .ignore_locator_type = 0,
   .data_representation.value.n = 1,
-  .data_representation.value.ids = (dds_data_representation_id_t []) { DDS_DATA_REPRESENTATION_XCDR1 }
+  .data_representation.value.ids = (dds_data_representation_id_t []) { DDS_DATA_REPRESENTATION_XCDR1 },
+  .property.value.n = 0,
+  .property.value.props = NULL,
+  .property.binary_value.n = 0,
+  .property.binary_value.props = NULL,
 };
 
 const dds_qos_t ddsi_default_qos_writer = {
-  .present = QP_PRESENTATION | QP_DURABILITY | QP_DEADLINE | QP_LATENCY_BUDGET | QP_LIVELINESS | QP_DESTINATION_ORDER | QP_HISTORY | QP_RESOURCE_LIMITS | QP_OWNERSHIP | QP_CYCLONE_IGNORELOCAL | QP_TOPIC_DATA | QP_GROUP_DATA | QP_USER_DATA | QP_PARTITION | QP_DURABILITY_SERVICE | QP_RELIABILITY | QP_OWNERSHIP_STRENGTH | QP_TRANSPORT_PRIORITY | QP_LIFESPAN | QP_ADLINK_WRITER_DATA_LIFECYCLE | QP_LOCATOR_MASK | QP_DATA_REPRESENTATION,
+  .present = QP_PRESENTATION | QP_DURABILITY | QP_DEADLINE | QP_LATENCY_BUDGET | QP_LIVELINESS | QP_DESTINATION_ORDER | QP_HISTORY | QP_RESOURCE_LIMITS | QP_OWNERSHIP | QP_CYCLONE_IGNORELOCAL | QP_TOPIC_DATA | QP_GROUP_DATA | QP_USER_DATA | QP_PARTITION | QP_DURABILITY_SERVICE | QP_RELIABILITY | QP_OWNERSHIP_STRENGTH | QP_TRANSPORT_PRIORITY | QP_LIFESPAN | QP_ADLINK_WRITER_DATA_LIFECYCLE | QP_LOCATOR_MASK | QP_DATA_REPRESENTATION | QP_PROPERTY_LIST,
   .aliased = QP_DATA_REPRESENTATION,
   .presentation.access_scope = DDS_PRESENTATION_INSTANCE,
   .presentation.coherent_access = 0,
@@ -3528,11 +3536,15 @@ const dds_qos_t ddsi_default_qos_writer = {
   .writer_data_lifecycle.autodispose_unregistered_instances = 1,
   .ignore_locator_type = 0,
   .data_representation.value.n = 1,
-  .data_representation.value.ids = (dds_data_representation_id_t []) { DDS_DATA_REPRESENTATION_XCDR1 }
+  .data_representation.value.ids = (dds_data_representation_id_t []) { DDS_DATA_REPRESENTATION_XCDR1 },
+  .property.value.n = 0,
+  .property.value.props = NULL,
+  .property.binary_value.n = 0,
+  .property.binary_value.props = NULL,
 };
 
 const dds_qos_t ddsi_default_qos_topic = {
-  .present = QP_PRESENTATION | QP_DURABILITY | QP_DEADLINE | QP_LATENCY_BUDGET | QP_LIVELINESS | QP_DESTINATION_ORDER | QP_HISTORY | QP_RESOURCE_LIMITS | QP_TRANSPORT_PRIORITY | QP_OWNERSHIP | QP_CYCLONE_IGNORELOCAL | QP_DURABILITY_SERVICE | QP_RELIABILITY | QP_ADLINK_SUBSCRIPTION_KEYS | QP_LIFESPAN | QP_DATA_REPRESENTATION,
+  .present = QP_PRESENTATION | QP_DURABILITY | QP_DEADLINE | QP_LATENCY_BUDGET | QP_LIVELINESS | QP_DESTINATION_ORDER | QP_HISTORY | QP_RESOURCE_LIMITS | QP_TRANSPORT_PRIORITY | QP_OWNERSHIP | QP_CYCLONE_IGNORELOCAL | QP_DURABILITY_SERVICE | QP_RELIABILITY | QP_ADLINK_SUBSCRIPTION_KEYS | QP_LIFESPAN | QP_DATA_REPRESENTATION | QP_PROPERTY_LIST,
   .aliased = QP_DATA_REPRESENTATION,
   .presentation.access_scope = DDS_PRESENTATION_INSTANCE,
   .presentation.coherent_access = 0,
@@ -3564,11 +3576,15 @@ const dds_qos_t ddsi_default_qos_topic = {
   .subscription_keys.key_list.strs = NULL,
   .lifespan.duration = DDS_INFINITY,
   .data_representation.value.n = 1,
-  .data_representation.value.ids = (dds_data_representation_id_t []) { DDS_DATA_REPRESENTATION_XCDR1 }
+  .data_representation.value.ids = (dds_data_representation_id_t []) { DDS_DATA_REPRESENTATION_XCDR1 },
+  .property.value.n = 0,
+  .property.value.props = NULL,
+  .property.binary_value.n = 0,
+  .property.binary_value.props = NULL,
 };
 
 const dds_qos_t ddsi_default_qos_publisher_subscriber = {
-  .present = QP_GROUP_DATA | QP_PARTITION | QP_ADLINK_ENTITY_FACTORY,
+  .present = QP_GROUP_DATA | QP_PARTITION | QP_ADLINK_ENTITY_FACTORY | QP_PROPERTY_LIST,
   .aliased = 0,
   .presentation.access_scope = DDS_PRESENTATION_INSTANCE,
   .presentation.coherent_access = 0,
@@ -3577,7 +3593,11 @@ const dds_qos_t ddsi_default_qos_publisher_subscriber = {
   .group_data.length = 0,
   .group_data.value = NULL,
   .partition.n = 0,
-  .partition.strs = NULL
+  .partition.strs = NULL,
+  .property.value.n = 0,
+  .property.value.props = NULL,
+  .property.binary_value.n = 0,
+  .property.binary_value.props = NULL,
 };
 
 void ddsi_xqos_copy (dds_qos_t *dst, const dds_qos_t *src)

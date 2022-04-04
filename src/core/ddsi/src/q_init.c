@@ -163,7 +163,7 @@ static void make_builtin_volatile_endpoint_xqos (dds_qos_t *q, const dds_qos_t *
 #ifdef DDS_HAS_SECURITY
 static void add_property_to_xqos(dds_qos_t *q, const char *name, const char *value)
 {
-  assert(!(q->present & QP_PROPERTY_LIST));
+  assert(!(q->present & QP_PROPERTY_LIST) || (q->property.value.props == NULL && q->property.binary_value.props == NULL));
   q->present |= QP_PROPERTY_LIST;
   q->property.value.n = 1;
   q->property.value.props = ddsrt_malloc(sizeof(dds_property_t));
