@@ -1561,15 +1561,24 @@ static bool equal_generic (const void *srcx, const void *srcy, size_t srcoff, co
       case XG: SIMPLE (XG, ddsi_guid_t, memcmp (x, y, sizeof (*x)) == 0); break;
       case XK: SIMPLE (XK, ddsi_keyhash_t, memcmp (x, y, sizeof (*x)) == 0); break;
       case XQ: COMPLEX (XQ, ddsi_octetseq_t, {
-        if (x->length != y->length)
-          return false;
-        if (x->length) {
-          const size_t elem_size = ser_generic_srcsize (desc + 1);
-          for (uint32_t i = 0; i < x->length; i++) {
-            if (!equal_generic (x->value, y->value, i * elem_size, desc + 1))
-              return false;
+        const size_t elem_size = ser_generic_srcsize (desc + 1);
+        uint32_t ix = 0; uint32_t iy = 0; // beware: xi is used by COMPLEX
+        while (ix < x->length && iy < y->length) {
+          if (desc[1] == XbPROP) {
+            if (ix < x->length && !*(x->value + ix * elem_size)) { ix++; continue; }
+            if (iy < y->length && !*(y->value + iy * elem_size)) { iy++; continue; }
           }
+          if (!equal_generic (x->value + ix++ * elem_size, y->value + iy++ * elem_size, 0, desc + 1))
+            return false;
         }
+        if (desc[1] == XbPROP) {
+          while (ix < x->length && !(*(x->value + ix * elem_size)))
+            ix++;
+          while (iy < y->length && !(*(y->value + iy * elem_size)))
+            iy++;
+        }
+        if (ix != x->length || iy != y->length)
+          return false;
       }); break;
       case Xopt: break;
     }
