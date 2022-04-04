@@ -383,7 +383,9 @@ static void local_reader_ary_remove (struct local_reader_ary *x, struct reader *
   for (i = 0; i < x->n_readers; i++)
     if (x->rdary[i] == rd)
       break;
-  assert (i < x->n_readers);
+  if (i >= x->n_readers) {
+    return; // rd not found, nothing to do
+  }
   if (i + 1 < x->n_readers)
   {
     /* dropping the final one never requires any fixups; dropping one that has
@@ -2286,7 +2288,13 @@ static void writer_add_local_connection (struct writer *wr, struct reader *rd)
             PGUID (wr->e.guid), PGUID (rd->e.guid));
   m->rd_guid = rd->e.guid;
   ddsrt_avl_insert_ipath (&wr_local_readers_treedef, &wr->local_readers, m, &path);
-  local_reader_ary_insert (&wr->rdary, rd);
+
+#ifdef DDS_HAS_SHM
+  // if (!wr->has_iceoryx || !rd->has_iceoryx)
+  local_reader_ary_insert(&wr->rdary, rd);
+#else
+  local_reader_ary_insert(&wr->rdary, rd);
+#endif
 
   /* Store available data into the late joining reader when it is reliable (we don't do
      historical data for best-effort data over the wire, so also not locally). */
@@ -2572,7 +2580,14 @@ static void proxy_writer_add_connection (struct proxy_writer *pwr, struct reader
   }
 
   ddsrt_avl_insert_ipath (&pwr_readers_treedef, &pwr->readers, m, &path);
+
+#ifdef DDS_HAS_SHM
+  // if (!pwr->is_iceoryx || !rd->has_iceoryx)
   local_reader_ary_insert(&pwr->rdary, rd);
+#else
+  local_reader_ary_insert(&pwr->rdary, rd);
+#endif
+
   ddsrt_mutex_unlock (&pwr->e.lock);
   qxev_pwr_entityid (pwr, &rd->e.guid);
 
