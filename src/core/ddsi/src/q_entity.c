@@ -384,6 +384,7 @@ static void local_reader_ary_remove (struct local_reader_ary *x, struct reader *
     if (x->rdary[i] == rd)
       break;
   if (i >= x->n_readers) {
+    ddsrt_mutex_unlock (&x->rdary_lock);
     return; // rd not found, nothing to do
   }
   if (i + 1 < x->n_readers)
