@@ -61,7 +61,30 @@ struct st {
   struct thread_state1 *ts1;
   bool error;
   const char *comma;
+  // almost guaranteed to be large enough (some strings are user-controlled),
+  // everything else is way smaller than this
+  char chunkbuf[4096];
+  uint16_t pos;
 };
+
+static void cpemitchunk(struct st *st, ddsi_locator_t loc)
+{
+  // HTTP chunk delimiter (pos-8 == chunk_size)
+  // 'chunk header' 2* '\r\n' + 4 hex digits = 8 bytes
+  // use buf+memcpy to avoid null terminator
+  char header[11];
+  snprintf(header, sizeof (header), "\r\n%04"PRIX16"\r\n\r\n", (uint16_t)(st->pos - 8));
+  memcpy(st->chunkbuf, header, (st->pos > 8) ? 8 : 10);
+
+  ddsrt_iovec_t iov;
+  iov.iov_base = st->chunkbuf;
+  iov.iov_len = (ddsrt_iov_len_t) ((st->pos > 8) ? st->pos : 10);
+
+  if (ddsi_conn_write (st->conn, &loc, 1, &iov, 0) < 0)
+    st->error = true;
+
+  st->pos = 8;
+}
 
 static void cpf (struct st *st, const char *fmt, ...) ddsrt_attribute_format_printf(2, 3);
 
@@ -79,16 +102,16 @@ static void cpf (struct st *st, const char *fmt, ...)
   else
   {
     va_list ap;
-    ddsrt_iovec_t iov;
-    char buf[4096];
-    int n;
     va_start (ap, fmt);
-    n = vsnprintf (buf, sizeof (buf), fmt, ap);
-    va_end (ap);
-    iov.iov_base = buf;
-    iov.iov_len = (ddsrt_iov_len_t) n;
-    if (ddsi_conn_write (st->conn, &loc, 1, &iov, 0) < 0)
+    const int cnt = vsnprintf (st->chunkbuf + st->pos, sizeof (st->chunkbuf) - st->pos, fmt, ap);
+    if (cnt < 0)
       st->error = true;
+    else
+      st->pos += (uint16_t) cnt;
+    va_end (ap);
+
+    if (st->pos > sizeof (st->chunkbuf) / 2)
+      cpemitchunk(st, loc);
   }
 }
 
@@ -603,17 +626,38 @@ static void print_domain (struct st *st, void *varg)
 
 static void debmon_handle_connection (struct debug_monitor *dm, ddsi_tran_conn_t conn)
 {
+  ddsi_locator_t loc;
+  const char *http_header = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n";
+  const ddsrt_iovec_t iov = { .iov_base = (void *) http_header, .iov_len = strlen (http_header) };
+
   struct thread_state1 * const ts1 = lookup_thread_state ();
   struct st st = {
     .conn = conn,
     .gv = dm->gv,
     .ts1 = ts1,
     .error = false,
-    .comma = ""
+    .comma = "",
+    .pos = 8
   };
-  cpf (&st, "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n");
+
+  if (!ddsi_conn_peer_locator(st.conn, &loc)) {
+    return;
+  }
+
+  if (ddsi_conn_write (st.conn, &loc, 1, &iov, 0) < 0) {
+    // If we cant even send headers dont bother with encoding the rest
+    return;
+  }
+
+  // Encode data
   cpfobj (&st, print_domain, NULL);
-  cpf (&st, "\n");
+
+  // Last content chunk
+  if (st.pos > 8)
+    cpemitchunk(&st, loc);
+
+  // Terminating chunk
+  cpemitchunk(&st, loc);
 }
 
 static uint32_t debmon_main (void *vdm)
