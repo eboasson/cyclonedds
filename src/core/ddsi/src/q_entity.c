@@ -2292,7 +2292,6 @@ static void writer_add_local_connection (struct writer *wr, struct reader *rd)
 
 #ifdef DDS_HAS_SHM
   if (!wr->has_iceoryx || !rd->has_iceoryx)
-    // if (!rd->has_iceoryx)
     local_reader_ary_insert(&wr->rdary, rd);
 #else
   local_reader_ary_insert(&wr->rdary, rd);
@@ -2585,7 +2584,6 @@ static void proxy_writer_add_connection (struct proxy_writer *pwr, struct reader
 
 #ifdef DDS_HAS_SHM
   if (!pwr->is_iceoryx || !rd->has_iceoryx)
-    // if (!rd->has_iceoryx)
     local_reader_ary_insert(&pwr->rdary, rd);
 #else
   local_reader_ary_insert(&pwr->rdary, rd);
