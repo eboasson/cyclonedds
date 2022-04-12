@@ -601,7 +601,6 @@ dds_return_t dds_writecdr_local_orphan_impl (struct local_orphan_writer *lowr, s
   // d = din: refc(d) = r, otherwise refc(d) = 1
 
   thread_state_awake (ts1, lowr->wr.e.gv);
-  ddsi_serdata_ref (d); // d = din: refc(d) = r + 1, otherwise refc(d) = 2
   struct ddsi_tkmap_instance * const tk = ddsi_tkmap_lookup_instance_ref (lowr->wr.e.gv->m_tkmap, d);
   deliver_locally (&lowr->wr, d, tk);
   ddsi_tkmap_instance_unref (lowr->wr.e.gv->m_tkmap, tk);
