@@ -104,7 +104,7 @@ static void cpf (struct st *st, const char *fmt, ...)
     va_list ap;
     va_start (ap, fmt);
     const int cnt = vsnprintf (st->chunkbuf + st->pos, sizeof (st->chunkbuf) - st->pos, fmt, ap);
-    if (cnt < 0)
+    if (cnt < 0 || cnt > UINT16_MAX)
       st->error = true;
     else
       st->pos += (uint16_t) cnt;
@@ -628,7 +628,7 @@ static void debmon_handle_connection (struct debug_monitor *dm, ddsi_tran_conn_t
 {
   ddsi_locator_t loc;
   const char *http_header = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n";
-  const ddsrt_iovec_t iov = { .iov_base = (void *) http_header, .iov_len = strlen (http_header) };
+  const ddsrt_iovec_t iov = { .iov_base = (void *) http_header, .iov_len = (ddsrt_iov_len_t) strlen (http_header) };
 
   struct thread_state1 * const ts1 = lookup_thread_state ();
   struct st st = {
