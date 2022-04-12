@@ -278,6 +278,8 @@ static dds_return_t deliver_data_any (struct thread_state1 * const ts1, struct w
     // delivers to all iceoryx readers, including local ones
     deliver_data_via_iceoryx (wr, (struct ddsi_serdata_iox *) d);
   }
+#else
+  (void) wr;
 #endif
   ret = deliver_locally (ddsi_wr, &d->a, tk);
   ddsi_tkmap_instance_unref (ddsi_wr->e.gv->m_tkmap, tk);
