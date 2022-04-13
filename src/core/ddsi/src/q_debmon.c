@@ -139,10 +139,15 @@ static void cpfkguid (struct st *st, const char *key, const ddsi_guid_t *v)
   st->comma = ",";
 }
 
-static void cpfkseqno (struct st *st, const char *key, seqno_t v)
+static void cpfku64 (struct st *st, const char *key, uint64_t v)
 {
   cpf (st, "%s\"%s\":%"PRIu64, st->comma, key, v);
   st->comma = ",";
+}
+
+static void cpfkseqno (struct st *st, const char *key, seqno_t v)
+{
+  cpfku64 (st, key, v);
 }
 
 static void cpfksize (struct st *st, const char *key, size_t v)
@@ -377,6 +382,11 @@ static void print_writer (struct st *st, void *varg)
     cpfkobj (st, "heartbeat", print_writer_hb, w);
     cpfkobj (st, "ack", print_writer_ack, w);
   }
+  cpfku64 (st, "rexmit_bytes", w->rexmit_bytes);
+  cpfku32 (st, "throttle_count", w->throttle_count);
+  cpfku64 (st, "time_throttled", w->time_throttled);
+  cpfku64 (st, "time_retransmit", w->time_retransmit);
+
   cpfkseq (st, "as", print_addrset, w->as);
   cpfkseq (st, "local_readers", print_writer_rdseq, w);
   cpfkseq (st, "proxy_readers", print_writer_prdseq, w);
@@ -543,6 +553,11 @@ static void print_proxy_writer (struct st *st, void *varg)
   cpfkseqno (st, "last_seq", w->last_seq);
   cpfku32 (st, "last_fragnum", w->last_fragnum);
   cpfkseq (st, "local_readers", print_proxy_writer_rdseq, w);
+  uint64_t disc_frags, disc_samples;
+  nn_defrag_stats (w->defrag, &disc_frags);
+  nn_reorder_stats (w->reorder, &disc_samples);
+  cpfku64 (st, "discarded_fragment_bytes", disc_frags);
+  cpfku64 (st, "discarded_sample_bytes", disc_samples);
   ddsrt_mutex_unlock (&w->e.lock);
 }
 
