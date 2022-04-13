@@ -104,10 +104,10 @@ static void cpf (struct st *st, const char *fmt, ...)
     va_list ap;
     va_start (ap, fmt);
     const int cnt = vsnprintf (st->chunkbuf + st->pos, sizeof (st->chunkbuf) - st->pos, fmt, ap);
-    if (cnt < 0 || cnt > UINT16_MAX)
+    if (cnt < 0 || cnt > UINT16_MAX - st->pos)
       st->error = true;
     else
-      st->pos += (uint16_t) cnt;
+      st->pos = (uint16_t) (st->pos + cnt);
     va_end (ap);
 
     if (st->pos > sizeof (st->chunkbuf) / 2)
