@@ -183,7 +183,7 @@ static void ddsrt_hh_resize (struct ddsrt_hh *rt)
   }
 }
 
-int ddsrt_hh_add (struct ddsrt_hh * __restrict rt, const void * __restrict data)
+int ddsrt_hh_add (struct ddsrt_hh * __restrict rt, void * __restrict data)
 {
   const uint32_t hash = rt->hash (data);
   const uint32_t idxmask = rt->size - 1;
@@ -239,7 +239,7 @@ int ddsrt_hh_remove (struct ddsrt_hh * __restrict rt, const void * __restrict ke
   return 0;
 }
 
-void ddsrt_hh_add_absent (struct ddsrt_hh * __restrict rt, const void * __restrict data)
+void ddsrt_hh_add_absent (struct ddsrt_hh * __restrict rt, void * __restrict data)
 {
   const int x = ddsrt_hh_add (rt, data);
   assert (x);
@@ -546,7 +546,7 @@ static int ddsrt_chh_add_locked (struct ddsrt_chh * __restrict rt, const void * 
     return ddsrt_chh_add_locked (rt, data);
 }
 
-int ddsrt_chh_add (struct ddsrt_chh * __restrict rt, const void * __restrict data)
+int ddsrt_chh_add (struct ddsrt_chh * __restrict rt, void * __restrict data)
 {
     ddsrt_mutex_lock (&rt->change_lock);
     const int ret = ddsrt_chh_add_locked (rt, data);

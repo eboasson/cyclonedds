@@ -101,20 +101,20 @@ struct ops {
   void * (*new) (void);
   void (*free) (void *h);
   void * (*lookup) (void *h, const void *v);
-  int (*add) (void *h, const void *v);
+  int (*add) (void *h, void *v);
   int (*remove) (void *h, const void *v);
 };
 
-#define WRAP(ret_, f_) static ret_ f_##_w (void *h, const void *v) { return f_ (h, v); }
-WRAP(void *, ddsrt_hh_lookup);
-WRAP(int, ddsrt_hh_add);
-WRAP(int, ddsrt_hh_remove);
-WRAP(void *, ddsrt_chh_lookup);
-WRAP(int, ddsrt_chh_add);
-WRAP(int, ddsrt_chh_remove);
-WRAP(void *, ddsrt_ehh_lookup);
-WRAP(int, ddsrt_ehh_add);
-WRAP(int, ddsrt_ehh_remove);
+#define WRAP(ret_, f_, c_) static ret_ f_##_w (void *h, c_ void *v) { return f_ (h, v); }
+WRAP(void *, ddsrt_hh_lookup, const);
+WRAP(int, ddsrt_hh_add, /**/);
+WRAP(int, ddsrt_hh_remove, const);
+WRAP(void *, ddsrt_chh_lookup, const);
+WRAP(int, ddsrt_chh_add, /**/);
+WRAP(int, ddsrt_chh_remove, const);
+WRAP(void *, ddsrt_ehh_lookup, const);
+WRAP(int, ddsrt_ehh_add, /**/);
+WRAP(int, ddsrt_ehh_remove, const);
 #undef WRAP
 
 static void free_buckets (void *bs, void *arg)
