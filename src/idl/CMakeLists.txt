@@ -73,6 +73,7 @@ set(headers
   include/idl/string.h
   include/idl/symbol.h
   include/idl/tree.h
+  include/idl/vector.h
   include/idl/visit.h
   ${binary_dir}/include/idl/version.h)
 
@@ -88,6 +89,7 @@ set(sources
   src/scope.c
   src/string.c
   src/tree.c
+  src/vector.c
   src/visit.c
   src/print.c
   src/keylist.c
