@@ -116,10 +116,11 @@ xcdr2_ser (
   return IDL_RETCODE_OK;
 }
 
-static idl_retcode_t
-add_to_seq (dds_sequence_t *seq, const void *obj, size_t sz)
+static idl_retcode_t add_to_seq_generic(dds_sequence_t *seq, const void *elem, size_t elem_size)
 {
-  uint8_t *buf = realloc (seq->_buffer, (seq->_length + 1) * sz);
+  assert (seq->_length < UINT32_MAX);
+  assert ((seq->_length + 1) <= SIZE_MAX / elem_size);
+  unsigned char *buf = realloc (seq->_buffer, (seq->_length + 1) * elem_size);
   if (buf == NULL) {
     free (seq->_buffer);
     seq->_buffer = NULL;
@@ -127,12 +128,21 @@ add_to_seq (dds_sequence_t *seq, const void *obj, size_t sz)
     return IDL_RETCODE_NO_MEMORY;
   }
   seq->_buffer = buf;
+  memcpy (seq->_buffer + seq->_length * elem_size, elem, elem_size);
   seq->_length++;
   seq->_maximum++;
   seq->_release = true;
-  memcpy (seq->_buffer + (seq->_length - 1) * sz, obj, sz);
   return IDL_RETCODE_OK;
 }
+
+#define ADD_TO_SEQ_GENERIC(struct_, seq_prefix_, elem_type_, seq_suffix_) \
+  static idl_retcode_t \
+  add_to_seq_##elem_type_ (struct_ seq_prefix_##elem_type_##seq_suffix_ *seq, const struct_ elem_type_ *obj) \
+  { \
+    return add_to_seq_generic ((dds_sequence_t *) seq, obj, sizeof (*obj)); \
+  }
+#define ADD_TO_SEQ(elem_type_) ADD_TO_SEQ_GENERIC(/**/, /**/, elem_type_, Seq)
+#define ADD_TO_SEQ_STRUCT(elem_type_) ADD_TO_SEQ_GENERIC(struct, dds_sequence_, elem_type_, /**/)
 
 static bool
 has_non_plain_annotation (const idl_type_spec_t *type_spec)
@@ -204,6 +214,9 @@ get_sequence_element_flags(const idl_sequence_t *seq);
 static DDS_XTypes_CollectionElementFlag
 get_array_element_flags(const idl_node_t *node);
 
+ADD_TO_SEQ(DDS_XTypes_SBound)
+ADD_TO_SEQ(DDS_XTypes_LBound)
+
 static idl_retcode_t
 get_plain_typeid (const idl_pstate_t *pstate, struct descriptor_type_meta *dtm, const idl_type_spec_t *type_spec, bool alias_related_type, DDS_XTypes_TypeIdentifier *ti, DDS_XTypes_TypeKind kind)
 {
@@ -220,7 +233,7 @@ get_plain_typeid (const idl_pstate_t *pstate, struct descriptor_type_meta *dtm, 
       for (; literal; literal = idl_next (literal)) {
         assert (literal->value.uint32 < UINT8_MAX);
         uint8_t val = literal->value.uint8;
-        if ((ret = add_to_seq ((dds_sequence_t *) &ti->_u.array_sdefn.array_bound_seq, &val, sizeof (*ti->_u.array_sdefn.array_bound_seq._buffer))) < 0)
+        if ((ret = add_to_seq_DDS_XTypes_SBound (&ti->_u.array_sdefn.array_bound_seq, &val)) < 0)
           return ret;
       }
       ti->_u.array_sdefn.element_identifier = calloc (1, sizeof (*ti->_u.array_sdefn.element_identifier));
@@ -238,7 +251,7 @@ get_plain_typeid (const idl_pstate_t *pstate, struct descriptor_type_meta *dtm, 
       for (; literal; literal = idl_next (literal)) {
         assert (literal->value.uint64 < UINT32_MAX);
         uint32_t val = literal->value.uint32;
-        if ((ret = add_to_seq ((dds_sequence_t *) &ti->_u.array_ldefn.array_bound_seq, &val, sizeof (*ti->_u.array_ldefn.array_bound_seq._buffer))) < 0)
+        if ((ret = add_to_seq_DDS_XTypes_LBound (&ti->_u.array_ldefn.array_bound_seq, &val)) < 0)
           return ret;
       }
       if ((ret = get_typeid (pstate, dtm, type_spec, false, ti->_u.array_ldefn.element_identifier, kind, true)) < 0)
@@ -809,6 +822,8 @@ get_complete_member_detail(
   return ret;
 }
 
+ADD_TO_SEQ(DDS_XTypes_MinimalStructMember)
+ADD_TO_SEQ(DDS_XTypes_CompleteStructMember)
 
 static idl_retcode_t
 add_struct_member (const idl_pstate_t *pstate, struct descriptor_type_meta *dtm, DDS_XTypes_TypeObject *to_minimal, DDS_XTypes_TypeObject *to_complete, const void *node, const idl_type_spec_t *type_spec)
@@ -834,13 +849,16 @@ add_struct_member (const idl_pstate_t *pstate, struct descriptor_type_meta *dtm,
   if ((ret = get_complete_member_detail (node, &c.detail) < 0))
     return ret;
 
-  if ((ret = add_to_seq ((dds_sequence_t *) &to_minimal->_u.minimal._u.struct_type.member_seq, &m, sizeof (m))) < 0)
+  if ((ret = add_to_seq_DDS_XTypes_MinimalStructMember (&to_minimal->_u.minimal._u.struct_type.member_seq, &m)) < 0)
     return ret;
-  if ((ret = add_to_seq ((dds_sequence_t *) &to_complete->_u.complete._u.struct_type.member_seq, &c, sizeof (c))) < 0)
+  if ((ret = add_to_seq_DDS_XTypes_CompleteStructMember (&to_complete->_u.complete._u.struct_type.member_seq, &c)) < 0)
     return ret;
 
   return IDL_RETCODE_OK;
 }
+
+ADD_TO_SEQ(DDS_XTypes_MinimalUnionMember)
+ADD_TO_SEQ(DDS_XTypes_CompleteUnionMember)
 
 static idl_retcode_t
 add_union_case(const idl_pstate_t *pstate, struct descriptor_type_meta *dtm, DDS_XTypes_TypeObject *to_minimal, DDS_XTypes_TypeObject *to_complete, const void *node, const idl_type_spec_t *type_spec)
@@ -895,9 +913,9 @@ add_union_case(const idl_pstate_t *pstate, struct descriptor_type_meta *dtm, DDS
     }
   }
 
-  if ((ret = add_to_seq ((dds_sequence_t *) &to_minimal->_u.minimal._u.union_type.member_seq, &m, sizeof (m))) < 0)
+  if ((ret = add_to_seq_DDS_XTypes_MinimalUnionMember (&to_minimal->_u.minimal._u.union_type.member_seq, &m)) < 0)
     goto err;
-  if ((ret = add_to_seq ((dds_sequence_t *) &to_complete->_u.complete._u.union_type.member_seq, &c, sizeof (c))) < 0)
+  if ((ret = add_to_seq_DDS_XTypes_CompleteUnionMember (&to_complete->_u.complete._u.union_type.member_seq, &c)) < 0)
     goto err;
   return IDL_RETCODE_OK;
 
@@ -911,9 +929,15 @@ err:
   if (c.common.label_seq._buffer)
     free (c.common.label_seq._buffer);
   if (to_minimal->_u.minimal._u.union_type.member_seq._buffer)
+  {
     free (to_minimal->_u.minimal._u.union_type.member_seq._buffer);
+    to_minimal->_u.minimal._u.union_type.member_seq._buffer = NULL;
+  }
   if (to_complete->_u.complete._u.union_type.member_seq._buffer)
+  {
     free (to_complete->_u.complete._u.union_type.member_seq._buffer);
+    to_complete->_u.complete._u.union_type.member_seq._buffer = NULL;
+  }
   return ret;
 }
 
@@ -1026,11 +1050,11 @@ add_array (
     if (!literal)
       return 0u;
     for (; literal; literal = idl_next (literal)) {
-      if ((ret = add_to_seq ((dds_sequence_t *) &dtm->stack->to_minimal->_u.minimal._u.array_type.header.common.bound_seq,
-          &literal->value.uint32, sizeof (literal->value.uint32))) < 0)
+      if ((ret = add_to_seq_DDS_XTypes_LBound (&dtm->stack->to_minimal->_u.minimal._u.array_type.header.common.bound_seq,
+          &literal->value.uint32)) < 0)
         return ret;
-      if ((ret = add_to_seq ((dds_sequence_t *) &dtm->stack->to_complete->_u.complete._u.array_type.header.common.bound_seq,
-          &literal->value.uint32, sizeof (literal->value.uint32))) < 0)
+      if ((ret = add_to_seq_DDS_XTypes_LBound (&dtm->stack->to_complete->_u.complete._u.array_type.header.common.bound_seq,
+          &literal->value.uint32)) < 0)
         return ret;
     }
     return IDL_VISIT_REVISIT;
@@ -1273,6 +1297,9 @@ emit_enum (
   return IDL_RETCODE_OK;
 }
 
+ADD_TO_SEQ(DDS_XTypes_MinimalEnumeratedLiteral)
+ADD_TO_SEQ(DDS_XTypes_CompleteEnumeratedLiteral)
+
 static idl_retcode_t
 emit_enumerator (
   const idl_pstate_t *pstate,
@@ -1304,9 +1331,9 @@ emit_enumerator (
   if ((ret = get_complete_member_detail (node, &c.detail)) < 0)
     return ret;
 
-  if ((ret = add_to_seq ((dds_sequence_t *) &tm->to_minimal->_u.minimal._u.enumerated_type.literal_seq, &m, sizeof (m))) < 0)
+  if ((ret = add_to_seq_DDS_XTypes_MinimalEnumeratedLiteral (&tm->to_minimal->_u.minimal._u.enumerated_type.literal_seq, &m)) < 0)
     return ret;
-  if ((ret = add_to_seq ((dds_sequence_t *) &tm->to_complete->_u.complete._u.enumerated_type.literal_seq, &c, sizeof (c))) < 0)
+  if ((ret = add_to_seq_DDS_XTypes_CompleteEnumeratedLiteral (&tm->to_complete->_u.complete._u.enumerated_type.literal_seq, &c)) < 0)
     return ret;
 
   return IDL_RETCODE_OK;
@@ -1366,6 +1393,9 @@ emit_bitmask(
   return IDL_RETCODE_OK;
 }
 
+ADD_TO_SEQ(DDS_XTypes_MinimalBitflag)
+ADD_TO_SEQ(DDS_XTypes_CompleteBitflag)
+
 static idl_retcode_t
 emit_bit_value (
   const idl_pstate_t *pstate,
@@ -1396,9 +1426,9 @@ emit_bit_value (
   get_namehash (m.detail.name_hash, idl_identifier (bit_value));
   if ((ret = get_complete_member_detail (node, &c.detail)) < 0)
     goto err;
-  if ((ret = add_to_seq ((dds_sequence_t *) &tm->to_minimal->_u.minimal._u.bitmask_type.flag_seq, &m, sizeof (m))) != IDL_RETCODE_OK)
+  if ((ret = add_to_seq_DDS_XTypes_MinimalBitflag (&tm->to_minimal->_u.minimal._u.bitmask_type.flag_seq, &m)) != IDL_RETCODE_OK)
     goto err;
-  if ((ret = add_to_seq ((dds_sequence_t *) &tm->to_complete->_u.complete._u.bitmask_type.flag_seq, &c, sizeof (c))) != IDL_RETCODE_OK)
+  if ((ret = add_to_seq_DDS_XTypes_CompleteBitflag (&tm->to_complete->_u.complete._u.bitmask_type.flag_seq, &c)) != IDL_RETCODE_OK)
     goto err;
   return ret;
 
@@ -1409,9 +1439,15 @@ err:
     free (c.detail.ann_builtin);
   }
   if (tm->to_minimal->_u.minimal._u.bitmask_type.flag_seq._release)
+  {
     free (tm->to_minimal->_u.minimal._u.bitmask_type.flag_seq._buffer);
+    tm->to_minimal->_u.minimal._u.bitmask_type.flag_seq._buffer = NULL;
+  }
   if (tm->to_complete->_u.complete._u.bitmask_type.flag_seq._release)
+  {
     free (tm->to_complete->_u.complete._u.bitmask_type.flag_seq._buffer);
+    tm->to_complete->_u.complete._u.bitmask_type.flag_seq._buffer = NULL;
+  }
   return ret;
 }
 
@@ -1630,6 +1666,10 @@ generate_type_meta_ser_impl_free_mapping_buffers (
     free (mapping->identifier_object_pair_minimal._buffer);
 }
 
+ADD_TO_SEQ_STRUCT(DDS_XTypes_TypeIdentifierWithSize)
+ADD_TO_SEQ_STRUCT(DDS_XTypes_TypeIdentifierTypeObjectPair)
+ADD_TO_SEQ_STRUCT(DDS_XTypes_TypeIdentifierPair)
+
 static idl_retcode_t
 generate_type_meta_ser_impl (
   const idl_pstate_t *pstate,
@@ -1657,13 +1697,13 @@ generate_type_meta_ser_impl (
 
     if ((ret = get_typeid_with_size (&tidws, tm->ti_minimal, tm->to_minimal)) < 0)
       goto err_dep;
-    if ((ret = add_to_seq ((dds_sequence_t *) &type_information->minimal.dependent_typeids, &tidws, sizeof (tidws))) < 0)
+    if ((ret = add_to_seq_DDS_XTypes_TypeIdentifierWithSize (&type_information->minimal.dependent_typeids, &tidws)) < 0)
       goto err_dep;
     type_information->minimal.dependent_typeid_count++;
 
     if ((ret = get_typeid_with_size (&tidws, tm->ti_complete, tm->to_complete)) < 0)
       goto err_dep;
-    if ((ret = add_to_seq ((dds_sequence_t *) &type_information->complete.dependent_typeids, &tidws, sizeof (tidws))) < 0)
+    if ((ret = add_to_seq_DDS_XTypes_TypeIdentifierWithSize (&type_information->complete.dependent_typeids, &tidws)) < 0)
       goto err_dep;
     type_information->complete.dependent_typeid_count++;
   }
@@ -1680,17 +1720,17 @@ generate_type_meta_ser_impl (
 
     memcpy (&mp.type_identifier, tm->ti_minimal, sizeof (mp.type_identifier));
     memcpy (&mp.type_object, tm->to_minimal, sizeof (mp.type_object));
-    if ((ret = add_to_seq ((dds_sequence_t *) &mapping.identifier_object_pair_minimal, &mp, sizeof (mp))) < 0)
+    if ((ret = add_to_seq_DDS_XTypes_TypeIdentifierTypeObjectPair (&mapping.identifier_object_pair_minimal, &mp)) < 0)
       goto err_map;
 
     memcpy (&cp.type_identifier, tm->ti_complete, sizeof (cp.type_identifier));
     memcpy (&cp.type_object, tm->to_complete, sizeof (cp.type_object));
-    if ((ret = add_to_seq ((dds_sequence_t *) &mapping.identifier_object_pair_complete, &cp, sizeof (cp))) < 0)
+    if ((ret = add_to_seq_DDS_XTypes_TypeIdentifierTypeObjectPair (&mapping.identifier_object_pair_complete, &cp)) < 0)
       goto err_map;
 
     memcpy (&ip.type_identifier1, tm->ti_complete, sizeof (ip.type_identifier1));
     memcpy (&ip.type_identifier2, tm->ti_minimal, sizeof (ip.type_identifier2));
-    if ((ret = add_to_seq ((dds_sequence_t *) &mapping.identifier_complete_minimal, &ip, sizeof (ip))) < 0)
+    if ((ret = add_to_seq_DDS_XTypes_TypeIdentifierPair (&mapping.identifier_complete_minimal, &ip)) < 0)
       goto err_map;
   }
 
