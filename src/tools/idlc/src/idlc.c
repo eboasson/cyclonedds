@@ -21,6 +21,7 @@
 #include <string.h>
 
 #include "dds/features.h"
+#include "idl/misc.h"
 #include "idl/tree.h"
 #include "idl/string.h"
 #include "idl/processor.h"
@@ -322,6 +323,9 @@ static idl_retcode_t idlc_parse(void)
       pstate = NULL;
       return ret;
     }
+#if __GNUC__ >= 12
+    IDL_WARNING_GNUC_OFF(analyzer-malloc-leak)
+#endif
     if ((pstate->files = idlc_parse_make_file (config.file)) == NULL)
     {
       idl_delete_pstate(pstate);
@@ -334,6 +338,9 @@ static idl_retcode_t idlc_parse(void)
       pstate = NULL;
       return IDL_RETCODE_NO_MEMORY;
     }
+#if __GNUC__ >= 12
+    IDL_WARNING_GNUC_ON(analyzer-malloc-leak)
+#endif
     pstate->config.flags |= IDL_WRITE;
     pstate->config.default_extensibility = config.default_extensibility;
     pstate->config.default_nested = config.default_nested;
@@ -376,10 +383,16 @@ static idl_retcode_t idlc_parse(void)
         ret = IDL_RETCODE_NO_ENTRY;
     } else {
       while ((nrd = fread(buf, sizeof(buf), 1, fin)) > 0) {
+#if __GNUC__ >= 12
+        IDL_WARNING_GNUC_OFF(analyzer-malloc-leak)
+#endif
         if ((nwr = idlc_putn(buf, nrd)) == -1) {
           ret = retcode;
           assert(ret != 0);
         }
+#if __GNUC__ >= 12
+        IDL_WARNING_GNUC_ON(analyzer-malloc-leak)
+#endif
         assert(nrd == (size_t)nwr);
       }
       if (fin != stdin)
