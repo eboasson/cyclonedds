@@ -53,7 +53,7 @@
 extern int idl_yydebug;
 #endif
 /* "%code requires" blocks.  */
-#line 85 "src/parser.y"
+#line 86 "src/parser.y"
 
 #include "tree.h"
 
@@ -137,7 +137,7 @@ typedef struct idl_location IDL_YYLTYPE;
 #if ! defined IDL_YYSTYPE && ! defined IDL_YYSTYPE_IS_DECLARED
 union IDL_YYSTYPE
 {
-#line 103 "src/parser.y"
+#line 104 "src/parser.y"
 
   void *node;
   /* expressions */
@@ -222,7 +222,7 @@ idl_yypstate *idl_yypstate_new (void);
 void idl_yypstate_delete (idl_yypstate *ps);
 
 /* "%code provides" blocks.  */
-#line 98 "src/parser.y"
+#line 99 "src/parser.y"
 
 int idl_iskeyword(idl_pstate_t *pstate, const char *str, int nc);
 void idl_yypstate_delete_stack(idl_yypstate *yyps);
@@ -230,4 +230,4 @@ void idl_yypstate_delete_stack(idl_yypstate *yyps);
 #line 231 "parser.h"
 
 #endif /* !YY_IDL_YY_PARSER_H_INCLUDED  */
-/* generated from parser.y[f06932bc906d64ee91e7e775cb0ec38f2b4438ac] */
+/* generated from parser.y[1415e00eb2542a712c969964778fbda66d40c934] */
