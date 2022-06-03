@@ -38,6 +38,18 @@
 #include <linux/if_packet.h>
 #endif
 
+#if __GNUC__ >= 12
+// On CI (but not locally!) it warns:
+//  'find_interface_by_address': event 11
+//    |
+//    |cc1:
+//    | (11): use of uninitialized value '<unknown>' here
+//    |
+// and various attempts at avoiding it with code changes or
+// locally suppressing the warning failed
+DDSRT_WARNING_GNUC_OFF(analyzer-use-of-uninitialized-value)
+#endif
+
 enum find_interface_result {
   FIR_OK,
   FIR_NOTFOUND,
@@ -356,12 +368,12 @@ static bool add_matching_interface (struct ddsi_domaingv *gv, struct interface_p
       return false;
     }
   }
-  
+
   act_iface->prefer_multicast = (unsigned int) cfg_iface->cfg.prefer_multicast;
-  
+
   if (!cfg_iface->cfg.priority.isdefault)
     act_iface->priority = cfg_iface->cfg.priority.value;
-  
+
   if (cfg_iface->cfg.multicast != DDSI_BOOLDEF_DEFAULT) {
     if (act_iface->mc_capable && cfg_iface->cfg.multicast == DDSI_BOOLDEF_FALSE) {
       GVLOG (DDS_LC_CONFIG, "disabling multicast on interface %s.", act_iface->name);
@@ -372,7 +384,7 @@ static bool add_matching_interface (struct ddsi_domaingv *gv, struct interface_p
       act_iface->mc_capable = 1;
     }
   }
-  
+
   if (*num_matches == MAX_XMIT_CONNS)
   {
     GVERROR ("too many interfaces specified\n");
@@ -394,7 +406,7 @@ static void log_arbitrary_selection (struct ddsi_domaingv *gv, const struct nn_i
     GVLOG (DDS_LC_INFO, "%s%s", (i == 0) ? "" : ", ", interfaces[maxq_list[i]].name);
   GVLOG (DDS_LC_INFO, "\n");
 }
-  
+
 int find_own_ip (struct ddsi_domaingv *gv)
 {
   char addrbuf[DDSI_LOCSTRLEN];
