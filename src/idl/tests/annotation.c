@@ -418,7 +418,11 @@ CU_Test(idl_annotation, topic)
       s = (idl_struct_t *)pstate->root;
       CU_ASSERT_FATAL(idl_is_struct(s));
       a = idl_identifier(s->nested.annotation);
-      CU_ASSERT((a == NULL) == (tests[i].a == NULL) && (a == NULL || strcmp(a, tests[i].a) == 0));
+      if (tests[i].a == NULL) {
+        CU_ASSERT(a == NULL);
+      } else {
+        CU_ASSERT(a != NULL && strcmp(a, tests[i].a) == 0);
+      }
       CU_ASSERT(s->nested.value == tests[i].v);
     }
     idl_delete_pstate(pstate);
