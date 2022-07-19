@@ -110,8 +110,8 @@ jobs:
       #  build_type: Release
       #  idlc_testing: off
       #  generator: 'Visual Studio 16 2019'
-      'Windows 2019 with GCC (Debug, x86_64)':
-        image: windows-2019
+      'Windows 2022 with GCC (Debug, x86_64)':
+        image: windows-2022
         build_type: Debug
         idlc_testing: off
         generator: 'MinGW Makefiles'
