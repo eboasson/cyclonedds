@@ -388,6 +388,8 @@ CU_Test(ddsc_typelookup, api_resolve_invalid, .init = typelookup_init, .fini = t
 
   /* confirm that invalid type id cannot be resolved */
   struct dds_entity *e;
+  DDSRT_STATIC_ASSERT (sizeof (type_id) >= 8);
+  // coverity[suspicious_sizeof]
   memset (type_id, 0xff, 8);
   CU_ASSERT_EQUAL_FATAL (dds_entity_pin (g_participant2, &e), 0);
   struct ddsi_type *type;
