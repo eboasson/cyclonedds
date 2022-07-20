@@ -114,10 +114,9 @@ jobs:
         image: windows-2022
         build_type: Debug
         idlc_testing: off
-        generator: 'Ninja'
-        #MinGW Makefiles'
-        cc: 'C:\ProgramData\chocolatey\bin\gcc.exe'
-        cxx: 'C:\ProgramData\chocolatey\bin\g++.exe'
+        generator: 'MinGW Makefiles'
+        cc: 'C:\msys64\usr\bin\gcc.exe'
+        cxx: 'C:\msys64\usr\bin\g++.exe'
 
   steps:
     - template: /.azure/templates/build-test.yml
