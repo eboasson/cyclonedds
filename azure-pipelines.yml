@@ -115,8 +115,8 @@ jobs:
         build_type: Debug
         idlc_testing: off
         generator: 'MinGW Makefiles'
-        cc: 'C:\msys64\usr\bin\gcc.exe'
-        cxx: 'C:\msys64\usr\bin\g++.exe'
+        cc: 'C:\msys64\mingw64\bin\gcc.exe'
+        cxx: 'C:\msys64\mingw64\bin\g++.exe'
 
   steps:
     - template: /.azure/templates/build-test.yml
