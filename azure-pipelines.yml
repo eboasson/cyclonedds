@@ -116,8 +116,8 @@ jobs:
         idlc_testing: off
         generator: 'Ninja'
         #MinGW Makefiles'
-        cc: 'gcc.exe'
-        cxx: 'g++.exe'
+        cc: 'C:\ProgramData\chocolatey\bin\gcc.exe'
+        cxx: 'C:\ProgramData\chocolatey\bin\g++.exe'
 
   steps:
     - template: /.azure/templates/build-test.yml
