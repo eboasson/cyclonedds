@@ -27,6 +27,7 @@
 #include "ddsi__plist_generic.h"
 #include "ddsi__serdata_pserop.h"
 #include "dds/cdr/dds_cdrstream.h"
+#include "dds__virtual_interface.h"
 
 #ifndef _WIN32
 void ddsi_sertype_v0 (struct ddsi_sertype_v0 *dummy)
@@ -180,9 +181,7 @@ void ddsi_sertype_init_flags (struct ddsi_sertype *tp, const char *type_name, co
   tp->fixed_size = (flags & DDSI_SERTYPE_FLAG_FIXED_SIZE) ? 1u : 0u;
   tp->allowed_data_representation = DDS_DATA_REPRESENTATION_RESTRICT_DEFAULT;
   tp->base_sertype = NULL;
-#ifdef DDS_HAS_SHM
-  tp->iox_size = 0;
-#endif
+  tp->zerocopy_size = 0;
   ddsrt_atomic_stvoidp (&tp->gv, NULL);
 }
 

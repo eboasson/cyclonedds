@@ -32,10 +32,6 @@
 #include "dds/ddsi/ddsi_init.h"
 #include "dds__serdata_default.h"
 
-#ifdef DDS_HAS_SHM
-#include "dds__shm_monitor.h"
-#endif
-
 static dds_return_t dds_domain_free (dds_entity *vdomain);
 
 const struct dds_entity_deriver dds_entity_deriver_domain = {
@@ -136,18 +132,6 @@ static dds_entity_t dds_domain_init (dds_domain *domain, dds_domainid_t domain_i
   }
 
   domain->serpool = dds_serdatapool_new ();
-
-#ifdef DDS_HAS_SHM
-  // if DDS_HAS_SHM is enabled the iceoryx runtime was created in ddsi_init and is ready
-  // TODO: sufficient if we have multiple domains?
-  // TODO: isolate the shm runtime creation in a separate function
-
-  // create the shared memory monitor based on iceoryx
-  if (domain->gv.config.enable_shm)
-  {
-    dds_shm_monitor_init(&domain->m_shm_monitor);
-  }
-#endif
 
   /* Start monitoring the liveliness of threads if this is the first
      domain to configured to do so. */
@@ -326,11 +310,6 @@ static dds_return_t dds_domain_free (dds_entity *vdomain)
 
   if (domain->gv.config.liveliness_monitoring)
     ddsi_threadmon_unregister_domain (dds_global.threadmon, &domain->gv);
-
-#ifdef DDS_HAS_SHM
-  if (domain->gv.config.enable_shm)
-    dds_shm_monitor_destroy(&domain->m_shm_monitor);
-#endif
 
   ddsi_fini (&domain->gv);
   dds_serdatapool_free (domain->serpool);

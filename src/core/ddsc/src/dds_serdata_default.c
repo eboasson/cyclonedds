@@ -25,12 +25,7 @@
 #include "dds/ddsi/ddsi_domaingv.h"
 #include "dds/ddsi/ddsi_serdata.h"
 #include "dds__serdata_default.h"
-
-#ifdef DDS_HAS_SHM
-#include "dds/ddsi/ddsi_shm_transport.h"
-#include "dds/ddsi/ddsi_xmsg.h"
-#include "iceoryx_binding_c/chunk.h"
-#endif
+#include "dds__loan.h"
 
 /* 8k entries in the freelist seems to be roughly the amount needed to send
    minimum-size (well, 4 bytes) samples as fast as possible over loopback
@@ -146,9 +141,10 @@ static void serdata_default_free(struct ddsi_serdata *dcmn)
   if (d->key.buftype == KEYBUFTYPE_DYNALLOC)
     ddsrt_free(d->key.u.dynbuf);
 
-#ifdef DDS_HAS_SHM
-  free_iox_chunk(d->c.iox_subscriber, &d->c.iox_chunk);
-#endif
+  /* refs(0)  user has discarded the sample already,
+     refs(1)  user still has the loan*/
+  if (d->c.loan)
+    dds_loaned_sample_decr_refs(d->c.loan);
 
   if (d->size > MAX_SIZE_FOR_POOL || !ddsi_freelist_push (&d->serpool->freelist, d))
     dds_free (d);
@@ -466,57 +462,92 @@ static struct ddsi_serdata *serdata_default_from_keyhash_cdr_nokey (const struct
   return fix_serdata_default_nokey(d, tp->c.serdata_basehash);
 }
 
-#ifdef DDS_HAS_SHM
-static struct ddsi_serdata* serdata_default_from_received_iox_buffer(const struct ddsi_sertype* tpcmn, enum ddsi_serdata_kind kind, void* sub, void* iox_buffer)
+static struct ddsi_serdata *serdata_default_from_loaned_sample(const struct ddsi_sertype *tpcmn, enum ddsi_serdata_kind kind, const char *sample, dds_loaned_sample_t *loan, bool force_serialization)
 {
-  const iceoryx_header_t* ice_hdr = iceoryx_header_from_chunk(iox_buffer);
+  /*
+    type = the type of data being serialized
+    kind = the kind of data contained (key or normal)
+    sample = the raw sample made into the serdata
+    loan = the loaned buffer in use
+    force_serialization = whether the contents of the loaned sample should be serialized
+  */
+  const struct dds_sertype_default *t = (const struct dds_sertype_default *)tpcmn;
 
-  const struct dds_sertype_default* tp = (const struct dds_sertype_default*)tpcmn;
+  bool serialize_data =
+    force_serialization ||
+    ddsi_virtual_interface_pipe_serialization_required(loan->loan_origin);
 
-  struct dds_serdata_default *d = serdata_default_new_size (tp, kind, ice_hdr->data_size, tp->write_encoding_version);
+  struct dds_serdata_default *d = NULL;
+  if (serialize_data) {
+    //maybe if there is a loan and that loan is not the sample, use the loan block as the serialization buffer?
+    d = (struct dds_serdata_default *)tpcmn->serdata_ops->from_sample (tpcmn, kind, sample);
+  } else {
+    d = serdata_default_new (t, kind, t->write_encoding_version);
 
-  // note: we do not deserialize or memcpy here, just take ownership of the chunk
-  d->c.iox_chunk = iox_buffer;
-  d->c.iox_subscriber = sub;
-  d->key.buftype = KEYBUFTYPE_STATIC;
-  d->key.keysize = DDS_FIXED_KEY_MAX_SIZE;
-  memcpy(d->key.u.stbuf, ice_hdr->keyhash.value, DDS_FIXED_KEY_MAX_SIZE);
+    if(d == NULL || !gen_serdata_key_from_sample (t, &d->key, sample))
+      return NULL;
+  }
 
-  fix_serdata_default(d, tpcmn->serdata_basehash);
+  if (d) {
+    d->c.loan = loan;
+    /*transfer ownership of the loan to the serdata*/
+    dds_loaned_sample_incr_refs(loan);
+    dds_loan_manager_remove_loan(loan);
 
-  return (struct ddsi_serdata*)d;
+    struct dds_virtual_interface_metadata *md = loan->metadata;
+    md->cdr_options = d->hdr.options;
+    switch (d->hdr.identifier)
+    {
+      case CDR_BE:
+      case CDR_LE:
+      case PL_CDR_BE:
+      case PL_CDR_LE:
+        md->cdr_identifier = CDR_ENC_VERSION_1;
+        break;
+      case CDR2_BE:
+      case CDR2_LE:
+      case D_CDR2_BE:
+      case D_CDR2_LE:
+      case PL_CDR2_BE:
+      case PL_CDR2_LE:
+        md->cdr_identifier = CDR_ENC_VERSION_2;
+        break;
+      default:
+        md->cdr_identifier = CDR_ENC_VERSION_UNDEF;
+    }
+
+    if (loan->sample_ptr != sample) {  //if the sample we are serializing is itself not loaned
+      assert (md->sample_state == LOANED_SAMPLE_STATE_UNITIALIZED);
+      if (serialize_data) {
+        md->sample_state = (kind == SDK_KEY ? LOANED_SAMPLE_STATE_SERIALIZED_KEY : LOANED_SAMPLE_STATE_SERIALIZED_DATA);
+        memcpy(loan->sample_ptr, d->data, md->sample_size);
+      } else {
+        md->sample_state = LOANED_SAMPLE_STATE_RAW;
+        memcpy(loan->sample_ptr, sample, md->sample_size);
+      }
+    } else {
+      md->sample_state = LOANED_SAMPLE_STATE_RAW;
+    }
+
+    md->hash = d->c.hash;
+    switch (d->key.buftype)
+    {
+      case KEYBUFTYPE_STATIC:
+        memcpy(md->keyhash.value, d->key.u.stbuf, d->key.keysize);
+        break;
+      case KEYBUFTYPE_DYNALIAS:
+      case KEYBUFTYPE_DYNALLOC:
+        assert (d->key.keysize <= DDS_FIXED_KEY_MAX_SIZE);
+        memcpy(md->keyhash.value, d->key.u.dynbuf, d->key.keysize);
+        break;
+      default:
+        assert(0);
+    }
+    md->keysize = d->key.keysize;
+  }
+
+  return (struct ddsi_serdata *)d;
 }
-
-// Creates a serdata for the case where only iceoryx is required (i.e. no network).
-// This skips expensive serialization and just takes ownership of the iceoryx buffer.
-// Computing the keyhash is currently still required.
-static struct ddsi_serdata *dds_serdata_default_from_loaned_sample (const struct ddsi_sertype *type, enum ddsi_serdata_kind kind, const char *sample)
-{
-  const struct dds_sertype_default *t = (const struct dds_sertype_default *)type;
-  struct dds_serdata_default *d = serdata_default_new (t, kind, t->write_encoding_version);
-
-  if(d == NULL)
-    return NULL;
-
-  // Currently needed even in the shared memory case (since it is potentially used at the reader side).
-  // This may still incur computational costs linear in the sample size (?).
-  // TODO: Can we avoid this with specific handling on the reader side which does not require the keyhash?
-  if (!gen_serdata_key_from_sample (t, &d->key, sample))
-    return NULL;
-
-  struct ddsi_serdata *serdata = &d->c;
-  serdata->iox_chunk = (void*) sample;
-  return serdata;
-}
-
-static struct ddsi_serdata* serdata_default_from_iox(const struct ddsi_sertype* tpcmn, enum ddsi_serdata_kind kind, void* sub, void* buffer)
-{
-  if (sub == NULL)
-    return dds_serdata_default_from_loaned_sample(tpcmn, kind, buffer);
-  else
-    return serdata_default_from_received_iox_buffer(tpcmn, kind, sub, buffer);
-}
-#endif
 
 
 static void istream_from_serdata_default (dds_istream_t * __restrict s, const struct dds_serdata_default * __restrict d)
@@ -711,26 +742,6 @@ static bool serdata_default_to_sample_cdr (const struct ddsi_serdata *serdata_co
   const struct dds_serdata_default *d = (const struct dds_serdata_default *)serdata_common;
   const struct dds_sertype_default *tp = (const struct dds_sertype_default *) d->c.type;
   dds_istream_t is;
-#ifdef DDS_HAS_SHM
-  if (d->c.iox_chunk)
-  {
-    void* iox_chunk = d->c.iox_chunk;
-    iceoryx_header_t* hdr = iceoryx_header_from_chunk(iox_chunk);
-    if(hdr->shm_data_state == IOX_CHUNK_CONTAINS_SERIALIZED_DATA) {
-      dds_istream_init (&is, hdr->data_size, iox_chunk, ddsi_sertype_enc_id_xcdr_version(d->hdr.identifier));
-      assert (DDSI_RTPS_CDR_ENC_IS_NATIVE (d->hdr.identifier));
-      if (d->c.kind == SDK_KEY)
-        dds_stream_read_key (&is, sample, &dds_cdrstream_default_allocator, &tp->type);
-      else
-        dds_stream_read_sample (&is, sample, &dds_cdrstream_default_allocator, &tp->type);
-    } else {
-      // should contain raw unserialized data
-      // we could check the data_state but should not be needed
-      memcpy(sample, iox_chunk, hdr->data_size);
-    }
-    return true;
-  }
-#endif
   if (bufptr) abort(); else { (void)buflim; } /* FIXME: haven't implemented that bit yet! */
   assert (DDSI_RTPS_CDR_ENC_IS_NATIVE (d->hdr.identifier));
   istream_from_serdata_default(&is, d);
@@ -827,6 +838,55 @@ static void serdata_default_get_keyhash (const struct ddsi_serdata *serdata_comm
   dds_ostreamBE_fini (&os, &dds_cdrstream_default_allocator);
 }
 
+static struct ddsi_serdata * serdata_default_from_virtual_exchange(const struct ddsi_sertype *type, dds_loaned_sample_t *data)
+{
+  const struct ddsi_sertype_default *tp = (const struct ddsi_sertype_default *)type;
+  dds_virtual_interface_metadata_t *md = data->metadata;
+  enum ddsi_serdata_kind sdk = 0;
+  switch (md->sample_state) {
+    case LOANED_SAMPLE_STATE_SERIALIZED_KEY:
+      sdk = SDK_KEY;
+      break;
+    case LOANED_SAMPLE_STATE_RAW:
+    case LOANED_SAMPLE_STATE_SERIALIZED_DATA:
+      sdk = SDK_DATA;
+      break;
+    default:
+      assert(false); //???
+      sdk = SDK_EMPTY;
+  }
+
+  struct ddsi_serdata_default *d = serdata_default_new(
+    tp,
+    sdk,
+    md->cdr_identifier);
+
+  //the loaned sample is serialized
+  d->c.hash = md->hash;
+  d->c.statusinfo = md->statusinfo;
+  d->c.timestamp.v = md->timestamp;
+  memcpy(d->key.u.stbuf, md->keyhash.value, DDS_FIXED_KEY_MAX_SIZE);
+  d->key.keysize = (unsigned)md->keysize;
+  d->key.buftype = KEYBUFTYPE_STATIC;
+  d->hdr.identifier = CDR_ENC_TO_NATIVE(md->cdr_identifier);
+  d->hdr.options = md->cdr_options;
+
+  if (md->sample_state == LOANED_SAMPLE_STATE_SERIALIZED_KEY ||
+      md->sample_state == LOANED_SAMPLE_STATE_SERIALIZED_DATA) {
+    dds_loaned_sample_t *ls = dds_heap_loan(type);
+    dds_istream_t is;
+    dds_istream_init (&is, md->sample_size, data->sample_ptr, md->cdr_identifier);
+    dds_stream_read_sample (&is, ls->sample_ptr, tp);
+    dds_loaned_sample_fini(data);
+    data = ls;
+  }
+
+  d->c.loan = data;
+  dds_loaned_sample_incr_refs(data);
+
+  return (struct ddsi_serdata *)d;
+}
+
 const struct ddsi_serdata_ops dds_serdata_ops_cdr = {
   .get_size = serdata_default_get_size,
   .eqkey = serdata_default_eqkey,
@@ -842,11 +902,9 @@ const struct ddsi_serdata_ops dds_serdata_ops_cdr = {
   .to_untyped = serdata_default_to_untyped,
   .untyped_to_sample = serdata_default_untyped_to_sample_cdr,
   .print = serdata_default_print_cdr,
-  .get_keyhash = serdata_default_get_keyhash
-#ifdef DDS_HAS_SHM
-  , .get_sample_size = ddsi_serdata_iox_size
-  , .from_iox_buffer = serdata_default_from_iox
-#endif
+  .get_keyhash = serdata_default_get_keyhash,
+  .from_loaned_sample = serdata_default_from_loaned_sample,
+  .from_virtual_exchange = serdata_default_from_virtual_exchange
 };
 
 const struct ddsi_serdata_ops dds_serdata_ops_xcdr2 = {
@@ -864,11 +922,9 @@ const struct ddsi_serdata_ops dds_serdata_ops_xcdr2 = {
   .to_untyped = serdata_default_to_untyped,
   .untyped_to_sample = serdata_default_untyped_to_sample_cdr,
   .print = serdata_default_print_cdr,
-  .get_keyhash = serdata_default_get_keyhash
-#ifdef DDS_HAS_SHM
-  , .get_sample_size = ddsi_serdata_iox_size
-  , .from_iox_buffer = serdata_default_from_iox
-#endif
+  .get_keyhash = serdata_default_get_keyhash,
+  .from_loaned_sample = serdata_default_from_loaned_sample,
+  .from_virtual_exchange = serdata_default_from_virtual_exchange
 };
 
 const struct ddsi_serdata_ops dds_serdata_ops_cdr_nokey = {
@@ -886,11 +942,9 @@ const struct ddsi_serdata_ops dds_serdata_ops_cdr_nokey = {
   .to_untyped = serdata_default_to_untyped,
   .untyped_to_sample = serdata_default_untyped_to_sample_cdr_nokey,
   .print = serdata_default_print_cdr,
-  .get_keyhash = serdata_default_get_keyhash
-#ifdef DDS_HAS_SHM
-  , .get_sample_size = ddsi_serdata_iox_size
-  , .from_iox_buffer = serdata_default_from_iox
-#endif
+  .get_keyhash = serdata_default_get_keyhash,
+  .from_loaned_sample = serdata_default_from_loaned_sample,
+  .from_virtual_exchange = serdata_default_from_virtual_exchange
 };
 
 const struct ddsi_serdata_ops dds_serdata_ops_xcdr2_nokey = {
@@ -908,9 +962,7 @@ const struct ddsi_serdata_ops dds_serdata_ops_xcdr2_nokey = {
   .to_untyped = serdata_default_to_untyped,
   .untyped_to_sample = serdata_default_untyped_to_sample_cdr_nokey,
   .print = serdata_default_print_cdr,
-  .get_keyhash = serdata_default_get_keyhash
-#ifdef DDS_HAS_SHM
-  , .get_sample_size = ddsi_serdata_iox_size
-  , .from_iox_buffer = serdata_default_from_iox
-#endif
+  .get_keyhash = serdata_default_get_keyhash,
+  .from_loaned_sample = serdata_default_from_loaned_sample,
+  .from_virtual_exchange = serdata_default_from_virtual_exchange
 };

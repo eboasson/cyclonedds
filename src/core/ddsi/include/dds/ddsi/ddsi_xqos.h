@@ -127,6 +127,11 @@ typedef struct ddsi_stringseq {
   char **strs;
 } ddsi_stringseq_t;
 
+typedef struct ddsi_uint16seq {
+  uint32_t n;
+  uint16_t *vals;
+} ddsi_uint16seq_t;
+
 typedef ddsi_stringseq_t dds_partition_qospolicy_t;
 
 typedef struct dds_reliability_qospolicy {
@@ -193,6 +198,9 @@ typedef struct dds_data_representation_qospolicy {
   dds_data_representation_id_seq_t value;
 } dds_data_representation_qospolicy_t;
 
+typedef struct dds_virtual_interfaces_qospolicy {
+  ddsi_stringseq_t supported_virtual_interface_kinds;
+} dds_virtual_interfaces_qospolicy_t;
 
 /***/
 
@@ -227,7 +235,7 @@ typedef struct dds_data_representation_qospolicy {
 #define DDSI_QP_PROPERTY_LIST                     ((uint64_t)1 << 31)
 #define DDSI_QP_TYPE_CONSISTENCY_ENFORCEMENT      ((uint64_t)1 << 32)
 #define DDSI_QP_TYPE_INFORMATION                  ((uint64_t)1 << 33)
-#define DDSI_QP_LOCATOR_MASK                      ((uint64_t)1 << 34)
+#define DDSI_QP_VIRTUAL_INTERFACES                ((uint64_t)1 << 34)
 #define DDSI_QP_DATA_REPRESENTATION               ((uint64_t)1 << 35)
 #define DDSI_QP_ENTITY_NAME                       ((uint64_t)1 << 36)
 
@@ -287,7 +295,7 @@ struct dds_qos {
   /* x  */dds_ignorelocal_qospolicy_t ignorelocal;
   /*xxx */dds_property_qospolicy_t property;
   /*xxxR*/dds_type_consistency_enforcement_qospolicy_t type_consistency;
-  /*xxxX*/dds_locator_mask_t ignore_locator_type;
+  /*xxxX*/dds_virtual_interfaces_qospolicy_t virtual_interfaces;
   /*xxx */dds_data_representation_qospolicy_t data_representation;
 };
 

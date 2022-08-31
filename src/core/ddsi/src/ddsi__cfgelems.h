@@ -71,11 +71,41 @@ static struct cfgelem network_interface_attributes[] = {
       "system. If set to 'true', the interface will be assumed to be multicast capable "
       "even when the interface flags returned by the operating system state it is not "
       "(this provides a workaround for some platforms). If set to 'false', the interface "
-      "will never be used for multicast.")
+      "will never be used for multicast.</p>")
   ),
   END_MARKER
 };
 
+static struct cfgelem virtual_interface_attributes[] = {
+  STRING("name", NULL, 1, "",
+    MEMBEROF(ddsi_config_virtual_interface_listelem, cfg.name),
+    FUNCTIONS(0, uf_string, ff_free, pf_string),
+    DESCRIPTION(
+      "<p>This attribute specifies the name of the interface. </p>"
+    )),
+  STRING("library", NULL, 1, "",
+    MEMBEROF(ddsi_config_virtual_interface_listelem, cfg.library),
+    FUNCTIONS(0, uf_string, ff_free, pf_string),
+    DESCRIPTION(
+      "<p>This attribute specifies the filename of the interface library. </p>"
+    )),
+  STRING("priority", NULL, 1, "default",
+    MEMBEROF(ddsi_config_virtual_interface_listelem, cfg.priority),
+    FUNCTIONS(0, uf_maybe_int32, 0, pf_maybe_int32),
+    DESCRIPTION(
+      "<p>This attribute specifies the interface priority (decimal integer or "
+      "<i>default</i>). The default value for virtual interfaces is 0.</p>"
+    )),
+  STRING("config", NULL, 1, "",
+    MEMBEROF(ddsi_config_virtual_interface_listelem, cfg.config),
+    FUNCTIONS(0, uf_string, ff_free, pf_string),
+    DESCRIPTION(
+      "<p>This attribute specifies any configuration data for the virtual interface."
+      "This has no meaning in CycloneDDS itself, and its parsing is deferred to the"
+      "virtual interface implementation.</p>"
+    )),
+  END_MARKER
+};
 
 static struct cfgelem interfaces_cfgelems[] = {
   GROUP("NetworkInterface", NULL, network_interface_attributes, INT_MAX,
@@ -86,6 +116,11 @@ static struct cfgelem interfaces_cfgelems[] = {
       "to autoselect the interface CycloneDDS considers the highest quality. If "
       "autodetermine=\"false\" (the default), you must specify the name and/or address "
       "attribute. If you specify both, they must match the same interface.</p>")),
+  GROUP("VirtualInterface", NULL, virtual_interface_attributes, INT_MAX,
+    MEMBER(virtual_interfaces),
+    FUNCTIONS(if_virtual_interfaces, 0, 0, 0),
+    DESCRIPTION(
+      "<p>This element defines a virtual interface.</p>")),
   END_MARKER
 };
 
@@ -1713,47 +1748,6 @@ static struct cfgelem ssl_cfgelems[] = {
 };
 #endif
 
-#ifdef DDS_HAS_SHM
-static struct cfgelem shmem_cfgelems[] = {
-  BOOL("Enable", NULL, 1, "false",
-    MEMBER(enable_shm),
-    FUNCTIONS(0, uf_boolean, 0, pf_boolean),
-    DESCRIPTION("<p>This element allows for enabling shared memory in Cyclone DDS.</p>")),
-  STRING("Locator", NULL, 1, "",
-    MEMBER(shm_locator),
-    FUNCTIONS(0, uf_string, ff_free, pf_string),
-    DESCRIPTION(
-      "<p>Explicitly set the Iceoryx locator used by Cyclone to check whether "
-      "a pair of processes is attached to the same Iceoryx shared memory.  The "
-      "default is to use one of the MAC addresses of the machine, which should "
-      "work well in most cases.</p>"
-    )),
-  STRING("Prefix", NULL, 1, "DDS_CYCLONE",
-    MEMBER(iceoryx_service),
-    FUNCTIONS(0, uf_string, ff_free, pf_string),
-    DESCRIPTION(
-      "<p>Override the Iceoryx service name used by Cyclone.</p>"
-    )),
-  ENUM("LogLevel", NULL, 1, "info",
-    MEMBER(shm_log_lvl),
-    FUNCTIONS(0, uf_shm_loglevel, 0, pf_shm_loglevel),
-    DESCRIPTION(
-      "<p>This element decides the verbosity level of shared memory message:</p>\n"
-      "<ul><li><i>off</i>: no log</li>\n"
-      "<li><i>fatal</i>: show fatal log</li>\n"
-      "<li><i>error</i>: show error log</li>\n"
-      "<li><i>warn</i>: show warn log</li>\n"
-      "<li><i>info</i>: show info log</li>\n"
-      "<li><i>debug</i>: show debug log</li>\n"
-      "<li><i>verbose</i>: show verbose log</li>\n"
-      "<p>If you don't want to see any log from shared memory, use <i>off</i> to disable logging.</p>"),
-    VALUES(
-      "off","fatal","error","warn","info","debug","verbose"
-    )),
-  END_MARKER
-};
-#endif
-
 static struct cfgelem discovery_peer_cfgattrs[] = {
   STRING("Address", NULL, 1, NULL,
     MEMBEROF(ddsi_config_peer_listelem, peer),
@@ -2095,17 +2089,6 @@ static struct cfgelem domain_cfgelems[] = {
     BEHIND_FLAG("DDS_HAS_SSL")
   ),
 #endif
-#ifdef DDS_HAS_SHM
-  GROUP("SharedMemory", shmem_cfgelems, NULL, 1,
-    NOMEMBER,
-    NOFUNCTIONS,
-    DESCRIPTION(
-      "<p>The Shared Memory element allows specifying various parameters "
-      "related to using shared memory.</p>"
-    ),
-    BEHIND_FLAG("DDS_HAS_SHM")
-  ),
-#endif
   END_MARKER
 };
 
@@ -2132,9 +2115,6 @@ static struct cfgelem root_cfgelems[] = {
 #endif
 #if DDS_HAS_SSL
   MOVED("SSL", "CycloneDDS/Domain/SSL"),
-#endif
-#ifdef DDS_HAS_SHM
-  MOVED("SharedMemory", "CycloneDDS/Domain/SharedMemory"),
 #endif
   MOVED("DDSI2E|DDSI2", "CycloneDDS/Domain"),
   END_MARKER

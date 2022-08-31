@@ -57,7 +57,8 @@ typedef enum dds_qos_policy_id {
   DDS_DURABILITYSERVICE_QOS_POLICY_ID, /**< DurabilityService policy dds_qset_durability_service() */
   DDS_PROPERTY_QOS_POLICY_ID, /**< Property policy dds_qset_property() */
   DDS_TYPE_CONSISTENCY_ENFORCEMENT_QOS_POLICY_ID, /**< TypeConsistencyEnforcement policy dds_qset_type_consistency_enforcements() */
-  DDS_DATA_REPRESENTATION_QOS_POLICY_ID /**< DataRepresentation policy dds_qset_data_representation() */
+  DDS_DATA_REPRESENTATION_QOS_POLICY_ID, /**< DataRepresentation policy dds_qset_data_representation() */
+  DDS_VIRTUAL_INTERFACES_QOS_POLICY_ID /**< Virtual Interfaces policy dds_qset_virtual_interfaces() */
 } dds_qos_policy_id_t;
 
 

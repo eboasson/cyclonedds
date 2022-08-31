@@ -28,6 +28,8 @@
 #include "dds/ddsi/ddsi_ownip.h"
 #include "dds/ddsi/ddsi_protocol.h"
 #include "dds/ddsi/ddsi_sockwaitset.h"
+#include "dds/ddsi/ddsi_config_impl.h"
+#include "dds/ddsc/dds_virtual_interface.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -187,6 +189,10 @@ struct ddsi_domaingv {
      only listening to multicasts on that interface) */
   int using_link_local_intf;
 
+  /* virtual interfaces. */
+  uint32_t n_virtual_interfaces;
+  ddsi_virtual_interface_t* virtual_interfaces[MAX_VIRTUAL_INTERFACES];
+
   /* Addressing: actual own (preferred) IP address, IP address
      advertised in discovery messages (so that an external IP address on
      a NAT may be advertised), and the DDSI multi-cast address. */
@@ -201,9 +207,6 @@ struct ddsi_domaingv {
   ddsi_locator_t loc_meta_uc;
   ddsi_locator_t loc_default_mc;
   ddsi_locator_t loc_default_uc;
-#ifdef DDS_HAS_SHM
-  ddsi_locator_t loc_iceoryx_addr;
-#endif
 
   /*
     Initial discovery address set, and the current discovery address

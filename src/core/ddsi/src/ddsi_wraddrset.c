@@ -292,8 +292,9 @@ static struct locset *wras_calc_locators (const struct ddsrt_log_cfg *logcfg, st
 #define CI_INCLUDED        0x1 // reachable, already included in selected locators
 #define CI_NOMATCH         0x2 // not reached by this locator
 #define CI_LOOPBACK        0x4 // is a loopback locator (set for entire row)
-#define CI_MULTICAST_MASK 0xf8 // 0: no, 1: ASM, 2: SSM, (index+3) if MCGEN
-#define CI_MULTICAST_SHIFT   3
+#define CI_VIRTUAL         0x8 // is a virtual interface locator
+#define CI_MULTICAST_MASK 0xf0 // 0: no, 1: ASM, 2: SSM, (index+3) if MCGEN
+#define CI_MULTICAST_SHIFT   4
 #define CI_MULTICAST_ASM          1
 #define CI_MULTICAST_SSM          2
 #define CI_MULTICAST_MCGEN_OFFSET 3
@@ -346,7 +347,7 @@ static readercount_cost_t calc_locator_cost (const struct locset *locs, const st
   if (rdidx == c->nreaders)
     goto no_readers;
 
-  if ((ci & ~CI_STATUS_MASK) == CI_ICEORYX)
+  if (ci & CI_VIRTUAL)
   {
     if (0 == (ignore & DDSI_LOCATOR_KIND_SHEM))
       x.cost = INT32_MIN;
@@ -366,21 +367,9 @@ static readercount_cost_t calc_locator_cost (const struct locset *locs, const st
     if ((ci & CI_STATUS_MASK) == CI_NOMATCH)
       continue;
 
-#if 0
-    // this is nice for checking the incremental work done in wras_drop_covered_readers,
-    // but that is only possible if the cost_redundant_iceoryx == cost_discarded
-    if ((ci & CI_STATUS_MASK) == CI_INCLUDED)
-    {
-      // FIXME: need addressed hosts, addressed processes; those change when nodes come/go
-      x.cost = sat_cost_add (x.cost, cost_discarded);
-    }
-    else
-#endif
-    {
-      assert ((ci & CI_STATUS_MASK) == CI_REACHABLE);
-      x.cost = sat_cost_add (x.cost, cost_delivered);
-      x.nrds++;
-    }
+    assert ((ci & CI_STATUS_MASK) == CI_REACHABLE);
+    x.cost = sat_cost_add (x.cost, cost_delivered);
+    x.nrds++;
   }
   if (x.cost == INT32_MAX)
     x.cost = INT32_MAX - 1;
@@ -444,16 +433,6 @@ static unsigned multicast_indicator (struct ddsi_domaingv const * const gv, cons
   return 0;
 }
 
-static bool locator_is_iceoryx (const ddsi_xlocator_t *l)
-{
-#ifdef DDS_HAS_SHM
-  return l->c.kind == DDSI_LOCATOR_KIND_SHEM;
-#else
-  (void) l;
-  return false;
-#endif
-}
-
 static bool wras_cover_locatorset (struct ddsi_domaingv const * const gv, struct cover *cov, const struct locset *locs, const struct locset *work_locs, int rdidx, int nloopback, int first, int last) ddsrt_attribute_warn_unused_result;
 
 static bool wras_cover_locatorset (struct ddsi_domaingv const * const gv, struct cover *cov, const struct locset *locs, const struct locset *work_locs, int rdidx, int nloopback, int first, int last)
@@ -467,9 +446,9 @@ static bool wras_cover_locatorset (struct ddsi_domaingv const * const gv, struct
       return false;
     cover_info_t x;
     int lidx = (int) (l - locs->locs);
-    if (locator_is_iceoryx (l)) // FIXME: a gross hack
+    if (l->c.kind == NN_LOCATOR_KIND_SHEM) // FIXME: a gross hack
     {
-      x = CI_ICEORYX;
+      x = CI_VIRTUAL;
     }
     else if (l->c.kind == DDSI_LOCATOR_KIND_UDPv4MCGEN)
     {
@@ -742,6 +721,20 @@ static void wras_drop_covered_readers (int locidx, struct costmap *wm, struct co
   }
 }
 
+static bool match_locator_to_virtual_interface(
+  const struct ddsi_endpoint_common *local_endpoint,
+  ddsi_xlocator_t remote_locator)
+{
+  assert(local_endpoint);
+  for (uint32_t i = 0; i < local_endpoint->n_virtual_pipes; i++)
+  {
+    if (memcmp(local_endpoint->m_pipes[i]->topic->virtual_interface->locator, &remote_locator.c, sizeof(ddsi_locator_t)) == 0)
+      return true;
+  }
+
+  return false;
+}
+
 struct ddsi_addrset *ddsi_compute_writer_addrset (const struct ddsi_writer *wr)
 {
   struct ddsi_domaingv * const gv = wr->e.gv;
@@ -777,15 +770,17 @@ struct ddsi_addrset *ddsi_compute_writer_addrset (const struct ddsi_writer *wr)
   }
   else
   {
-    assert(wr->xqos->present & DDSI_QP_LOCATOR_MASK);
-    struct costmap *wm = wras_calc_costmap (locs, covered, wr->xqos->ignore_locator_type);
+    assert(wr->xqos->present & DDSI_QP_VIRTUAL_INTERFACES);
+    struct costmap *wm = wras_calc_costmap (locs, covered, 0);
     int best;
     newas = ddsi_new_addrset ();
     while ((best = wras_choose_locator (locs, wm)) > INT32_MIN)
     {
       wras_trace_cover (gv, locs, wm, covered);
       ELOGDISC (wr, "  best = %d\n", best);
-      wras_add_locator (gv, newas, best, locs, covered);
+      if (!match_locator_to_virtual_interface(&wr->c, locs->locs[best]))
+        wras_add_locator (gv, newas, best, locs, covered);
+
       wras_drop_covered_readers (best, wm, covered);
     }
     costmap_free (wm);

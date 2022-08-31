@@ -274,14 +274,6 @@ if(ENABLE_SECURITY)
     ddsi__security_exchange.h
   )
 endif()
-if(ENABLE_SHM)
-  list(APPEND srcs_ddsi
-    ddsi_shm_transport.c
-  )
-  list(APPEND hdrs_ddsi
-    ddsi_shm_transport.h
-  )
-endif()
 
 prepend(hdrs_ddsi "${CMAKE_CURRENT_LIST_DIR}/include/dds/ddsi/" ${hdrs_ddsi})
 prepend(hdrs_private_ddsi "${CMAKE_CURRENT_LIST_DIR}/src/" ${hdrs_private_ddsi})

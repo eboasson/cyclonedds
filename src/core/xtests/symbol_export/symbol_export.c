@@ -60,7 +60,6 @@
 #include "dds/security/core/dds_security_shared_secret.h"
 #endif
 
-#include "dds/ddsc/dds_data_allocator.h"
 #include "dds/ddsc/dds_internal_api.h"
 #include "dds/ddsc/dds_loan_api.h"
 #include "dds/ddsc/dds_rhc.h"
@@ -234,21 +233,8 @@ int main (int argc, char **argv)
   dds_get_typeinfo (1, ptr);
   dds_free_typeinfo (ptr);
 
-  // dds_data_allocator.h
-  dds_data_allocator_init (1, ptr);
-  dds_data_allocator_init_heap (ptr);
-  dds_data_allocator_fini (ptr);
-  void* d = dds_data_allocator_alloc (ptr, 0);
-  dds_data_allocator_free (ptr, d);
-
   // dds_internal_api.h
   dds_reader_lock_samples (1);
-
-  // dds_loan_api.h
-  dds_is_loan_available (1);
-  dds_is_shared_memory_available (1);
-  dds_loan_shared_memory_buffer (1, 0, ptr);
-  dds_loan_sample (1, ptr);
 
   // dds_public_alloc.h
   dds_alloc (0);
@@ -430,8 +416,8 @@ int main (int argc, char **argv)
   dds_rhc_relinquish_ownership (ptr, 1);
   dds_rhc_set_qos (ptr, ptr);
   dds_rhc_free (ptr);
-  dds_rhc_read (ptr, 0, ptr, ptr, 0, 0, 1, ptr);
-  dds_rhc_take (ptr, 0, ptr, ptr, 0, 0, 1, ptr);
+  dds_rhc_read (ptr, 0, ptr, ptr, 0, 0, 1, ptr, ptr, ptr);
+  dds_rhc_take (ptr, 0, ptr, ptr, 0, 0, 1, ptr, ptr, ptr);
   dds_rhc_readcdr (ptr, 0, ptr, ptr, 0, 0, 0, 0, 1);
   dds_rhc_takecdr (ptr, 0, ptr, ptr, 0, 0, 0, 0, 1);
   dds_rhc_add_readcondition (ptr, ptr);

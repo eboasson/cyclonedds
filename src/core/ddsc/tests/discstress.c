@@ -388,7 +388,7 @@ static uint32_t createwriter_subscriber (void *varg)
           CU_ASSERT_FATAL (0);
         }
 
-        rc = dds_return_loan (readers[xs[i]], raw, n);
+        rc = dds_return_loan (readers[xs[i]], raw, rc);
         CU_ASSERT_FATAL (rc == 0);
 
         /* Flip-flop between create & deleting a reader to ensure matching activity on the proxy
@@ -440,11 +440,7 @@ CU_Test(ddsc_discstress, create_writer, .timeout = 20)
   /* Domains for pub and sub use a different domain id, but the portgain setting
    * in configuration is 0, so that both domains will map to the same port number.
    * This allows to create two domains in a single test process. */
-#ifdef DDS_HAS_SHM
-  const char* config = "${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}<Discovery><ExternalDomainId>0</ExternalDomainId></Discovery><Domain id=\"any\"><SharedMemory><Enable>false</Enable></SharedMemory></Domain>";
-#else
   const char* config = "${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}<Discovery><ExternalDomainId>0</ExternalDomainId></Discovery>";
-#endif
   char *pub_conf = ddsrt_expand_envvars (config, 0);
   char *sub_conf = ddsrt_expand_envvars (config, 1);
   const dds_entity_t pub_dom = dds_create_domain (0, pub_conf);

@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2006 to 2019 ZettaScale Technology and others
+ * Copyright(c) 2022 ZettaScale Technology, Incorporated
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v. 2.0 which is available at
@@ -9,20 +9,10 @@
  *
  * SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
  */
-#ifndef DDS__LOAN_H
-#define DDS__LOAN_H
+struct SC_Model {
+  octet a,b,c;
+};
 
-#include "dds/ddsc/dds_loan.h"
-#include "dds__types.h"
-
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
-dds_loaned_sample_t* dds_heap_loan(const struct ddsi_sertype *type);
-
-#if defined(__cplusplus)
-}
-#endif
-
-#endif /* DDS__LOAN_H */
+struct NSC_Model {
+  string a,b,c;
+};
