@@ -54,18 +54,6 @@ enum ddsi_boolean_default {
   DDSI_BOOLDEF_TRUE
 };
 
-#ifdef DDS_HAS_SHM
-enum ddsi_shm_loglevel {
-  DDSI_SHM_OFF = 0,
-  DDSI_SHM_FATAL,
-  DDSI_SHM_ERROR,
-  DDSI_SHM_WARN,
-  DDSI_SHM_INFO,
-  DDSI_SHM_DEBUG,
-  DDSI_SHM_VERBOSE
-};
-#endif
-
 #define DDSI_PARTICIPANT_INDEX_AUTO -1
 #define DDSI_PARTICIPANT_INDEX_NONE -2
 
@@ -231,6 +219,18 @@ enum ddsi_config_entity_naming_mode {
   DDSI_ENTITY_NAMING_DEFAULT_FANCY
 };
 
+struct ddsi_config_virtual_interface {
+  char *name;
+  char *library;
+  char *config;
+  struct ddsi_config_maybe_int32 priority;
+};
+
+struct ddsi_config_virtual_interface_listelem {
+  struct ddsi_config_virtual_interface_listelem *next;
+  struct ddsi_config_virtual_interface cfg;
+};
+
 /* Expensive checks (compiled in when NDEBUG not defined, enabled only if flag set in xchecks) */
 #define DDSI_XCHECK_WHC 1u
 #define DDSI_XCHECK_RHC 2u
@@ -253,6 +253,7 @@ struct ddsi_config
 
   /* interfaces */
   struct ddsi_config_network_interface_listelem *network_interfaces;
+  struct ddsi_config_virtual_interface_listelem *virtual_interfaces;
 
   /* deprecated interface support */
   char *depr_networkAddressString;
@@ -402,13 +403,6 @@ struct ddsi_config
 
 #ifdef DDS_HAS_SECURITY
   struct ddsi_config_omg_security_listelem *omg_security_configuration;
-#endif
-
-#ifdef DDS_HAS_SHM
-  int enable_shm;
-  char *shm_locator;
-  char *iceoryx_service;
-  enum ddsi_shm_loglevel shm_log_lvl;
 #endif
 
   enum ddsi_config_entity_naming_mode entity_naming_mode;

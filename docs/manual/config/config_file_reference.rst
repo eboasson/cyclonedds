@@ -22,7 +22,7 @@ CycloneDDS configuration
 *******************
 
 Attributes: [Id](`//CycloneDDS/Domain[@Id]`_)
-Children: `//CycloneDDS/Domain/Compatibility`_, `//CycloneDDS/Domain/Discovery`_, `//CycloneDDS/Domain/General`_, `//CycloneDDS/Domain/Internal`_, `//CycloneDDS/Domain/Partitioning`_, `//CycloneDDS/Domain/SSL`_, `//CycloneDDS/Domain/Security`_, `//CycloneDDS/Domain/SharedMemory`_, `//CycloneDDS/Domain/Sizing`_, `//CycloneDDS/Domain/TCP`_, `//CycloneDDS/Domain/Threads`_, `//CycloneDDS/Domain/Tracing`_
+Children: `//CycloneDDS/Domain/Compatibility`_, `//CycloneDDS/Domain/Discovery`_, `//CycloneDDS/Domain/General`_, `//CycloneDDS/Domain/Internal`_, `//CycloneDDS/Domain/Partitioning`_, `//CycloneDDS/Domain/SSL`_, `//CycloneDDS/Domain/Security`_, `//CycloneDDS/Domain/Sizing`_, `//CycloneDDS/Domain/TCP`_, `//CycloneDDS/Domain/Threads`_, `//CycloneDDS/Domain/Tracing`_
 
 The General element specifying Domain related settings.
 
@@ -457,7 +457,7 @@ The default value is: ``empty``
 
 Text
 
-Provide an initial seed for the entity naming. Your string will be hashed to provide the random state. When provided, the same sequence of names is generated every run. Creating your entities in the same order will ensure they are the same between runs. If you run multiple nodes, set this via environment variable to ensure every node generates unique names. A random starting seed is chosen when left empty, (the default). 
+Provide an initial seed for the entity naming. Your string will be hashed to provide the random state. When provided, the same sequence of names is generated every run. Creating your entities in the same order will ensure they are the same between runs. If you run multiple nodes, set this via environment variable to ensure every node generates unique names. A random starting seed is chosen when left empty, (the default).
 
 The default value is: ``<empty>``
 
@@ -505,7 +505,7 @@ The default value is: ``1344 B``
 //CycloneDDS/Domain/General/Interfaces
 --------------------------------------
 
-Children: `//CycloneDDS/Domain/General/Interfaces/NetworkInterface`_
+Children: `//CycloneDDS/Domain/General/Interfaces/NetworkInterface`_, `//CycloneDDS/Domain/General/Interfaces/VirtualInterface`_
 
 This element specifies the network interfaces for use by Cyclone DDS. Multiple interfaces can be specified with an assigned priority. The list in use will be sorted by priority. If interfaces have an equal priority, the specification order will be preserved.
 
@@ -527,7 +527,7 @@ This element defines a network interface. You can set autodetermine="true" to au
 
 Text
 
-This attribute specifies the address of the interface. With ipv4 allows  matching on the network part if the host part is set to zero. 
+This attribute specifies the address of the interface. With ipv4 allows  matching on the network part if the host part is set to zero.
 
 The default value is: ``<empty>``
 
@@ -552,6 +552,7 @@ The default value is: ``false``
 Text
 
 This attribute specifies whether the interface should use multicast. On its default setting, 'default', it will use the value as return by the operating system. If set to 'true', the interface will be assumed to be multicast capable even when the interface flags returned by the operating system state it is not (this provides a workaround for some platforms). If set to 'false', the interface will never be used for multicast.
+
 The default value is: ``default``
 
 
@@ -562,7 +563,7 @@ The default value is: ``default``
 
 Text
 
-This attribute specifies the name of the interface. 
+This attribute specifies the name of the interface.
 
 The default value is: ``<empty>``
 
@@ -599,6 +600,64 @@ The default value is: ``true``
 Text
 
 This attribute specifies the interface priority (decimal integer or default). The default value for loopback interfaces is 2, for all other interfaces it is 0.
+
+The default value is: ``default``
+
+
+.. _`//CycloneDDS/Domain/General/Interfaces/VirtualInterface`:
+
+//CycloneDDS/Domain/General/Interfaces/VirtualInterface
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Attributes: [config](`//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@config]`_), [library](`//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@library]`_), [name](`//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@name]`_), [priority](`//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@priority]`_)
+
+This element defines a virtual interface.
+
+
+.. _`//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@config]`:
+
+//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@config]
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Text
+
+This attribute specifies any configuration data for the virtual interface.This has no meaning in CycloneDDS itself, and its parsing is deferred to thevirtual interface implementation.
+
+The default value is: ``<empty>``
+
+
+.. _`//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@library]`:
+
+//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@library]
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Text
+
+This attribute specifies the filename of the interface library.
+
+The default value is: ``<empty>``
+
+
+.. _`//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@name]`:
+
+//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@name]
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Text
+
+This attribute specifies the name of the interface.
+
+The default value is: ``<empty>``
+
+
+.. _`//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@priority]`:
+
+//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@priority]
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Text
+
+This attribute specifies the interface priority (decimal integer or default). The default value for virtual interfaces is 0.
 
 The default value is: ``default``
 
@@ -1818,7 +1877,7 @@ Examples file URIs:
 
 Content-Type: multipart/signed; protocol="application/x-pkcs7-signature"; micalg="sha-256"; boundary="----F9A8A198D6F08E1285A292ADF14DD04F"
 
-This is an S/MIME signed message 
+This is an S/MIME signed message
 
 ------F9A8A198D6F08E1285A292ADF14DD04F
 
@@ -1830,7 +1889,7 @@ xsi:noNamespaceSchemaLocation="omg\_shared\_ca\_governance.xsd">
 
 <domain\_access\_rules>
 
- . . . 
+ . . .
 
 </domain\_access\_rules>
 
@@ -2213,79 +2272,6 @@ If a single file is supplied, the is library located by the current working dire
 The default value is: ``dds\_security\_crypto``
 
 
-.. _`//CycloneDDS/Domain/SharedMemory`:
-
-//CycloneDDS/Domain/SharedMemory
-================================
-
-Children: `//CycloneDDS/Domain/SharedMemory/Enable`_, `//CycloneDDS/Domain/SharedMemory/Locator`_, `//CycloneDDS/Domain/SharedMemory/LogLevel`_, `//CycloneDDS/Domain/SharedMemory/Prefix`_
-
-The Shared Memory element allows specifying various parameters related to using shared memory.
-
-
-.. _`//CycloneDDS/Domain/SharedMemory/Enable`:
-
-//CycloneDDS/Domain/SharedMemory/Enable
----------------------------------------
-
-Boolean
-
-This element allows for enabling shared memory in Cyclone DDS.
-
-The default value is: ``false``
-
-
-.. _`//CycloneDDS/Domain/SharedMemory/Locator`:
-
-//CycloneDDS/Domain/SharedMemory/Locator
-----------------------------------------
-
-Text
-
-Explicitly set the Iceoryx locator used by Cyclone to check whether a pair of processes is attached to the same Iceoryx shared memory.  The default is to use one of the MAC addresses of the machine, which should work well in most cases.
-
-The default value is: ``<empty>``
-
-
-.. _`//CycloneDDS/Domain/SharedMemory/LogLevel`:
-
-//CycloneDDS/Domain/SharedMemory/LogLevel
------------------------------------------
-
-One of: off, fatal, error, warn, info, debug, verbose
-
-This element decides the verbosity level of shared memory message:
- * off: no log
-
- * fatal: show fatal log
-
- * error: show error log
-
- * warn: show warn log
-
- * info: show info log
-
- * debug: show debug log
-
- * verbose: show verbose log
-
-If you don't want to see any log from shared memory, use off to disable logging.
-
-The default value is: ``info``
-
-
-.. _`//CycloneDDS/Domain/SharedMemory/Prefix`:
-
-//CycloneDDS/Domain/SharedMemory/Prefix
----------------------------------------
-
-Text
-
-Override the Iceoryx service name used by Cyclone.
-
-The default value is: ``DDS\_CYCLONE``
-
-
 .. _`//CycloneDDS/Domain/Sizing`:
 
 //CycloneDDS/Domain/Sizing
@@ -2634,14 +2620,14 @@ The categorisation of tracing output is incomplete and hence most of the verbosi
 The default value is: ``none``
 
 ..
-   generated from ddsi_config.h[7f55b8f40b2e7f5984106abb0470128eb3d50017] 
-   generated from ddsi__cfgunits.h[bd22f0c0ed210501d0ecd3b07c992eca549ef5aa] 
-   generated from ddsi__cfgelems.h[771184755c23b94599f2ffd6e8c242dcea7d2658] 
-   generated from ddsi_config.c[fec4d055c2154717183efd6610d46ea48236cdea] 
-   generated from _confgen.h[1b1d88a85bd851f4e87118505ded33f7b33b0435] 
-   generated from _confgen.c[237308acd53897a34e8c643e16e05a61d73ffd65] 
-   generated from generate_rnc.c[b50e4b7ab1d04b2bc1d361a0811247c337b74934] 
-   generated from generate_md.c[789b92e422631684352909cfb8bf43f6ceb16a01] 
-   generated from generate_rst.c[636ceeed42784e8508dd412b88dfd5f3b44b191b] 
-   generated from generate_xsd.c[6b6818d7f17a35d56c376c04ec1410427f34c0f0] 
-   generated from generate_defconfig.c[ee80ba6719e71a457a85f1a638fe52f3756916d5] 
+   generated from ddsi_config.h[7f55b8f40b2e7f5984106abb0470128eb3d50017]
+   generated from ddsi__cfgunits.h[bd22f0c0ed210501d0ecd3b07c992eca549ef5aa]
+   generated from ddsi__cfgelems.h[771184755c23b94599f2ffd6e8c242dcea7d2658]
+   generated from ddsi_config.c[fec4d055c2154717183efd6610d46ea48236cdea]
+   generated from _confgen.h[1b1d88a85bd851f4e87118505ded33f7b33b0435]
+   generated from _confgen.c[237308acd53897a34e8c643e16e05a61d73ffd65]
+   generated from generate_rnc.c[b50e4b7ab1d04b2bc1d361a0811247c337b74934]
+   generated from generate_md.c[789b92e422631684352909cfb8bf43f6ceb16a01]
+   generated from generate_rst.c[636ceeed42784e8508dd412b88dfd5f3b44b191b]
+   generated from generate_xsd.c[6b6818d7f17a35d56c376c04ec1410427f34c0f0]
+   generated from generate_defconfig.c[ee80ba6719e71a457a85f1a638fe52f3756916d5]

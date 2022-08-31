@@ -22,15 +22,9 @@
 #endif
 #include "dds/ddsrt/avl.h"
 #include "dds/ddsi/ddsi_builtin_topic_if.h"
+#include "dds/ddsc/dds_virtual_interface.h"
 #include "dds__handles.h"
 
-#ifdef DDS_HAS_SHM
-#include "dds/ddsi/ddsi_shm_transport.h"
-#include "iceoryx_binding_c/publisher.h"
-#include "iceoryx_binding_c/subscriber.h"
-#include "dds__shm_monitor.h"
-#define MAX_PUB_LOANS 8
-#endif
 
 #if defined (__cplusplus)
 extern "C" {
@@ -268,10 +262,6 @@ typedef struct dds_domain {
   ddsrt_avl_node_t m_node; /* for dds_global.m_domains */
   dds_domainid_t m_id;
 
-#ifdef DDS_HAS_SHM
-  shm_monitor_t m_shm_monitor;
-#endif
-
   struct ddsi_cfgst *cfgst; // NULL if config initializer provided
 
   struct ddsi_sertype *builtin_participant_type;
@@ -350,6 +340,9 @@ typedef struct dds_ktopic {
 #ifdef DDS_HAS_TOPIC_DISCOVERY
   struct ddsrt_hh *topic_guid_map; /* mapping of this ktopic to ddsi topics */
 #endif
+  /* virtual topics. */
+  uint32_t n_virtual_topics;
+  ddsi_virtual_interface_topic_t* virtual_topics[MAX_VIRTUAL_INTERFACES];
 } dds_ktopic;
 
 typedef struct dds_participant {
@@ -363,13 +356,8 @@ typedef struct dds_reader {
   struct dds_topic *m_topic; /* refc'd, constant, lock(rd) -> lock(tp) allowed */
   struct dds_rhc *m_rhc; /* aliases m_rd->rhc with a wider interface, FIXME: but m_rd owns it for resource management */
   struct ddsi_reader *m_rd;
-  bool m_loan_out;
-  void *m_loan;
-  uint32_t m_loan_size;
-#ifdef DDS_HAS_SHM
-  iox_sub_context_t m_iox_sub_context;
-  iox_sub_t m_iox_sub;
-#endif
+  dds_loan_manager_t *m_loan_pool; /*administration of cached loans*/
+  dds_loan_manager_t *m_loans; /*administration of outstanding loans*/
 
   /* Status metrics */
 
@@ -388,10 +376,7 @@ typedef struct dds_writer {
   struct ddsi_writer *m_wr;
   struct ddsi_whc *m_whc; /* FIXME: ownership still with underlying DDSI writer (cos of DDSI built-in writers )*/
   bool whc_batch; /* FIXME: channels + latency budget */
-#ifdef DDS_HAS_SHM
-  iox_pub_t m_iox_pub;
-  void *m_iox_pub_loans[MAX_PUB_LOANS];
-#endif
+  dds_loan_manager_t *m_loans; /*administration of associated loans*/
 
   /* Status metrics */
 

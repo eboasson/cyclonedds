@@ -367,6 +367,7 @@ void ddsi_ipaddr_from_loc (struct sockaddr_storage *dst, const ddsi_locator_t *s
       break;
     case DDSI_LOCATOR_KIND_UDPv4:
     case DDSI_LOCATOR_KIND_TCPv4:
+    case DDSI_LOCATOR_KIND_SHEM:
     {
       struct sockaddr_in *x = (struct sockaddr_in *) dst;
       x->sin_family = AF_INET;

@@ -46,6 +46,8 @@
 #include "dds/ddsc/dds_public_status.h"
 #include "dds/ddsc/dds_public_listener.h"
 #include "dds/ddsc/dds_public_dynamic_type.h"
+#include "dds/ddsc/dds_loan.h"
+#include "dds/ddsc/dds_virtual_interface.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -4061,6 +4063,54 @@ dds_read_next_wl(
   void **buf,
   dds_sample_info_t *si);
 
+/**
+ * @brief insert entries into the reader history cache from a virtual interface
+ * @ingroup reading
+ *
+ * @param[in] reader The reader entity.
+ * @param[in] data Pointer to the loaned sample of the entity received from a virtual interface.
+ *
+ * @returns A dds_return_t indicating success or failure.
+ *
+ * @retval DDS_RETCODE_OK
+ *             The operation was successful.
+ * @retval DDS_RETCODE_BAD_PARAMETER
+ *             The from_virtual parameter is not a valid parameter.
+ * @retval DDS_RETCODE_ILLEGAL_OPERATION
+ *             The operation is invoked on an inappropriate object.
+ * @retval DDS_RETCODE_ALREADY_DELETED
+ *             The reader entity has already been deleted.
+ */
+DDS_EXPORT dds_return_t
+dds_reader_store_external (
+  dds_entity_t reader,
+  dds_loaned_sample_t *data);
+
+/**
+ * @brief request loans from an entity.
+ * @ingroup loan
+ *
+ * @param[in] entity The entity to request loans from.
+ * @param[out] buf Pointer to the array to store the pointers to the loaned samples into.
+ * @param[out] bufsz The number of loans to request.
+ *
+ * @returns A dds_return_t indicating success or failure, either the number of loans received,
+ *          or a failure code.
+ *
+ * @retval DDS_RETCODE_OK
+ *             The operation was successful.
+ * @retval DDS_RETCODE_BAD_PARAMETER
+ *             The from_virtual parameter is not a valid parameter.
+ * @retval DDS_RETCODE_ILLEGAL_OPERATION
+ *             The operation is invoked on an inappropriate object.
+ * @retval DDS_RETCODE_ALREADY_DELETED
+ *             The reader entity has already been deleted.
+ */
+DDS_EXPORT dds_return_t
+dds_request_loan(
+  dds_entity_t entity,
+  void **buf,
+  int32_t bufsz);
 
 /**
  * @defgroup loan (Loans API)

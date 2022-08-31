@@ -97,11 +97,6 @@ void ddsi_config_init_default (struct ddsi_config *cfg)
   cfg->ssl_min_version.major = 1;
   cfg->ssl_min_version.minor = 3;
 #endif /* DDS_HAS_SSL */
-#ifdef DDS_HAS_SHM
-  cfg->shm_locator = "";
-  cfg->iceoryx_service = "DDS_CYCLONE";
-  cfg->shm_log_lvl = INT32_C (4);
-#endif /* DDS_HAS_SHM */
 }
 /* generated from ddsi_config.h[7f55b8f40b2e7f5984106abb0470128eb3d50017] */
 /* generated from ddsi__cfgunits.h[bd22f0c0ed210501d0ecd3b07c992eca549ef5aa] */

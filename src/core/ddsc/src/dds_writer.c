@@ -34,7 +34,6 @@
 #include "dds/ddsi/ddsi_tkmap.h"
 #include "dds__whc.h"
 #include "dds__statistics.h"
-#include "dds__data_allocator.h"
 #include "dds/ddsi/ddsi_statistics.h"
 
 #ifdef DDS_HAS_SHM
@@ -195,14 +194,7 @@ static dds_return_t dds_writer_delete (dds_entity *e) ddsrt_nonnull_all;
 static dds_return_t dds_writer_delete (dds_entity *e)
 {
   dds_writer * const wr = (dds_writer *) e;
-#ifdef DDS_HAS_SHM
-  if (wr->m_iox_pub)
-  {
-    DDS_CLOG(DDS_LC_SHM, &e->m_domain->gv.logconfig, "Release iceoryx's publisher\n");
-    iox_pub_stop_offer(wr->m_iox_pub);
-    iox_pub_deinit(wr->m_iox_pub);
-  }
-#endif
+
   /* FIXME: not freeing WHC here because it is owned by the DDSI entity */
   ddsi_thread_state_awake (ddsi_lookup_thread_state (), &e->m_domain->gv);
   ddsi_xpack_free (wr->m_xp);
@@ -278,27 +270,6 @@ const struct dds_entity_deriver dds_entity_deriver_writer = {
   .refresh_statistics = dds_writer_refresh_statistics
 };
 
-#ifdef DDS_HAS_SHM
-static iox_pub_options_t create_iox_pub_options(const dds_qos_t* qos) {
-
-  iox_pub_options_t opts;
-  iox_pub_options_init(&opts);
-
-  if(qos->durability.kind == DDS_DURABILITY_VOLATILE) {
-    opts.historyCapacity = 0;
-  } else {
-    // Transient Local and stronger
-    if (qos->durability_service.history.kind == DDS_HISTORY_KEEP_LAST) {
-      opts.historyCapacity = (uint64_t)qos->durability_service.history.depth;
-    } else {
-      opts.historyCapacity = 0;
-    }
-  }
-
-  return opts;
-}
-#endif
-
 dds_entity_t dds_create_writer (dds_entity_t participant_or_publisher, dds_entity_t topic, const dds_qos_t *qos, const dds_listener_t *listener)
 {
   dds_return_t rc;
@@ -365,6 +336,8 @@ dds_entity_t dds_create_writer (dds_entity_t participant_or_publisher, dds_entit
 
   if ((rc = dds_ensure_valid_data_representation (wqos, tp->m_stype->allowed_data_representation, false)) != 0)
     goto err_data_repr;
+  if ((rc = dds_ensure_valid_virtual_interfaces (wqos, tp->m_stype, gv)) != 0)
+    goto err_data_repr;
 
   if ((rc = ddsi_xqos_valid (&gv->logconfig, wqos)) < 0 || (rc = validate_writer_qos(wqos)) != DDS_RETCODE_OK)
     goto err_bad_qos;
@@ -404,6 +377,7 @@ dds_entity_t dds_create_writer (dds_entity_t participant_or_publisher, dds_entit
   wr->m_xp = ddsi_xpack_new (gv, async_mode);
   wrinfo = dds_whc_make_wrinfo (wr, wqos);
   wr->m_whc = dds_whc_new (gv, wrinfo);
+  wr->m_loans = dds_loan_manager_create (0);
   dds_whc_free_wrinfo (wrinfo);
   // We now have the QoS which defaults to "false", but it used to be controlled by a global setting
   // (that most people were sensible enough to leave at false and that this deprecated now).  Or'ing
@@ -412,39 +386,14 @@ dds_entity_t dds_create_writer (dds_entity_t participant_or_publisher, dds_entit
   // we can have another look.
   wr->whc_batch = wqos->writer_batching.batch_updates || gv->config.whc_batch;
 
-#ifdef DDS_HAS_SHM
-  assert(wqos->present & DDSI_QP_LOCATOR_MASK);
-  if (!(gv->config.enable_shm && dds_shm_compatible_qos_and_topic (wqos, tp, true)))
-    wqos->ignore_locator_type |= DDSI_LOCATOR_KIND_SHEM;
-#endif
-
   struct ddsi_sertype *sertype = ddsi_sertype_derive_sertype (tp->m_stype, data_representation,
     wqos->present & DDSI_QP_TYPE_CONSISTENCY_ENFORCEMENT ? wqos->type_consistency : ddsi_default_qos_topic.type_consistency);
   if (!sertype)
     sertype = tp->m_stype;
 
-  rc = ddsi_new_writer (&wr->m_wr, &wr->m_entity.m_guid, NULL, pp, tp->m_name, sertype, wqos, wr->m_whc, dds_writer_status_cb, wr);
+  rc = ddsi_new_writer (&wr->m_wr, &wr->m_entity.m_guid, NULL, pp, tp->m_name, sertype, wqos, wr->m_whc, dds_writer_status_cb, wr, tp->m_ktopic);
   assert(rc == DDS_RETCODE_OK);
   ddsi_thread_state_asleep (ddsi_lookup_thread_state ());
-
-#ifdef DDS_HAS_SHM
-  if (wr->m_wr->has_iceoryx)
-  {
-    DDS_CLOG (DDS_LC_SHM, &wr->m_entity.m_domain->gv.logconfig, "Writer's topic name will be DDS:Cyclone:%s\n", wr->m_topic->m_name);
-    iox_pub_options_t opts = create_iox_pub_options(wqos);
-
-    // NB: This may fail due to icoeryx being out of internal resources for publishers
-    //     In this case terminate is called by iox_pub_init.
-    //     it is currently (iceoryx 2.0 and lower) not possible to change this to
-    //     e.g. return a nullptr and handle the error here.
-
-    char *part_topic = dds_shm_partition_topic (wqos, wr->m_topic);
-    assert (part_topic != NULL);
-    wr->m_iox_pub = iox_pub_init(&(iox_pub_storage_t){0}, gv->config.iceoryx_service, wr->m_topic->m_stype->type_name, part_topic, &opts);
-    ddsrt_free (part_topic);
-    memset(wr->m_iox_pub_loans, 0, sizeof(wr->m_iox_pub_loans));
-  }
-#endif
 
   wr->m_entity.m_iid = ddsi_get_entity_instanceid (&wr->m_entity.m_domain->gv, &wr->m_entity.m_guid);
   dds_entity_register_child (&pub->m_entity, &wr->m_entity);
@@ -461,6 +410,7 @@ dds_entity_t dds_create_writer (dds_entity_t participant_or_publisher, dds_entit
     ddsi_xpack_sendq_init(gv);
     ddsi_xpack_sendq_start(gv);
   }
+
   ddsrt_mutex_unlock (&gv->sendq_running_lock);
   return writer;
 
@@ -500,41 +450,6 @@ dds_entity_t dds_get_publisher (dds_entity_t writer)
     dds_entity_unpin (e);
     return pubh;
   }
-}
-
-dds_return_t dds__writer_data_allocator_init (const dds_writer *wr, dds_data_allocator_t *data_allocator)
-{
-#ifdef DDS_HAS_SHM
-  dds_iox_allocator_t *d = (dds_iox_allocator_t *) data_allocator->opaque.bytes;
-  ddsrt_mutex_init(&d->mutex);
-  if (NULL != wr->m_iox_pub)
-  {
-    d->kind = DDS_IOX_ALLOCATOR_KIND_PUBLISHER;
-    d->ref.pub = wr->m_iox_pub;
-  }
-  else
-  {
-    d->kind = DDS_IOX_ALLOCATOR_KIND_NONE;
-  }
-  return DDS_RETCODE_OK;
-#else
-  (void) wr;
-  (void) data_allocator;
-  return DDS_RETCODE_OK;
-#endif
-}
-
-dds_return_t dds__writer_data_allocator_fini (const dds_writer *wr, dds_data_allocator_t *data_allocator)
-{
-#ifdef DDS_HAS_SHM
-  dds_iox_allocator_t *d = (dds_iox_allocator_t *) data_allocator->opaque.bytes;
-  ddsrt_mutex_destroy(&d->mutex);
-  d->kind = DDS_IOX_ALLOCATOR_KIND_FINI;
-#else
-  (void) data_allocator;
-#endif
-  (void) wr;
-  return DDS_RETCODE_OK;
 }
 
 dds_return_t dds__ddsi_writer_wait_for_acks (struct dds_writer *wr, ddsi_guid_t *rdguid, dds_time_t abstimeout)

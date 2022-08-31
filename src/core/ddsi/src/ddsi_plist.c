@@ -2119,6 +2119,9 @@ static const struct piddesc piddesc_eclipse[] = {
   { DDSI_PID_PAD, PDF_QOS, DDSI_QP_LOCATOR_MASK, "CYCLONE_LOCATOR_MASK",
     offsetof(struct ddsi_plist, qos.ignore_locator_type), membersize(struct ddsi_plist, qos.ignore_locator_type),
     {.desc = { Xu, XSTOP } }, 0 },
+  { DDSI_PID_PAD, PDF_QOS, DDSI_VIRTUAL_INTERFACES, "CYCLONE_VIRTUAL_INTERFACE",
+    offsetof(struct ddsi_plist, qos.virtual_interfaces), membersize(struct ddsi_plist, qos.virtual_interfaces),
+    {.desc = { XQ, XS, XSTOP, XSTOP } }, 0 },
 #ifdef DDS_HAS_TOPIC_DISCOVERY
   PP  (CYCLONE_TOPIC_GUID,               topic_guid, XG),
 #endif
@@ -2224,11 +2227,11 @@ static const struct piddesc_index piddesc_vendor_index[] = {
    initialized by ddsi_plist_init_tables; will assert when
    table too small or too large */
 #ifdef DDS_HAS_TYPE_DISCOVERY
+static const struct piddesc *piddesc_unalias[19 + SECURITY_PROC_ARRAY_SIZE];
+static const struct piddesc *piddesc_fini[19 + SECURITY_PROC_ARRAY_SIZE];
+#else
 static const struct piddesc *piddesc_unalias[18 + SECURITY_PROC_ARRAY_SIZE];
 static const struct piddesc *piddesc_fini[18 + SECURITY_PROC_ARRAY_SIZE];
-#else
-static const struct piddesc *piddesc_unalias[17 + SECURITY_PROC_ARRAY_SIZE];
-static const struct piddesc *piddesc_fini[17 + SECURITY_PROC_ARRAY_SIZE];
 #endif
 static uint64_t plist_fini_mask, qos_fini_mask;
 static ddsrt_once_t table_init_control = DDSRT_ONCE_INIT;
@@ -2883,19 +2886,6 @@ static enum do_locator_result do_locator (ddsi_locators_t *ls, uint64_t present,
           return DOLOC_INVALID;
       }
       break;
-#ifdef DDS_HAS_SHM
-    case DDSI_LOCATOR_KIND_SHEM:
-      if (!ddsi_vendor_is_eclipse (dd->vendorid))
-        return DOLOC_IGNORED;
-      else
-      {
-        if (!ddsi_is_valid_port (fact, loc.port))
-          return DOLOC_INVALID;
-        if (0 != memcmp(loc.address, gv->loc_iceoryx_addr.address, 16))
-          return DOLOC_IGNORED;
-      }
-      break;
-#endif
     case DDSI_LOCATOR_KIND_INVALID:
       if (!locator_address_zero (&loc))
         return DOLOC_INVALID;
@@ -2917,6 +2907,9 @@ static enum do_locator_result do_locator (ddsi_locators_t *ls, uint64_t present,
           return DOLOC_INVALID;
       }
       break;
+    case NN_LOCATOR_KIND_SHEM:
+      add_locator (ls, present, wanted, fl, &loc);
+      return DOLOC_ACCEPTED;
     default:
       return DOLOC_IGNORED;
   }
@@ -3572,7 +3565,7 @@ void ddsi_xqos_init_empty (dds_qos_t *dest)
 }
 
 const dds_qos_t ddsi_default_qos_reader = {
-  .present = DDSI_QP_PRESENTATION | DDSI_QP_DURABILITY | DDSI_QP_DEADLINE | DDSI_QP_LATENCY_BUDGET | DDSI_QP_LIVELINESS | DDSI_QP_DESTINATION_ORDER | DDSI_QP_HISTORY | DDSI_QP_RESOURCE_LIMITS | DDSI_QP_TRANSPORT_PRIORITY | DDSI_QP_OWNERSHIP | DDSI_QP_CYCLONE_IGNORELOCAL | DDSI_QP_TOPIC_DATA | DDSI_QP_GROUP_DATA | DDSI_QP_USER_DATA | DDSI_QP_PARTITION | DDSI_QP_RELIABILITY | DDSI_QP_TIME_BASED_FILTER | DDSI_QP_ADLINK_READER_DATA_LIFECYCLE | DDSI_QP_ADLINK_READER_LIFESPAN | DDSI_QP_TYPE_CONSISTENCY_ENFORCEMENT | DDSI_QP_LOCATOR_MASK | DDSI_QP_DATA_REPRESENTATION,
+  .present = DDSI_QP_PRESENTATION | DDSI_QP_DURABILITY | DDSI_QP_DEADLINE | DDSI_QP_LATENCY_BUDGET | DDSI_QP_LIVELINESS | DDSI_QP_DESTINATION_ORDER | DDSI_QP_HISTORY | DDSI_QP_RESOURCE_LIMITS | DDSI_QP_TRANSPORT_PRIORITY | DDSI_QP_OWNERSHIP | DDSI_QP_CYCLONE_IGNORELOCAL | DDSI_QP_TOPIC_DATA | DDSI_QP_GROUP_DATA | DDSI_QP_USER_DATA | DDSI_QP_PARTITION | DDSI_QP_RELIABILITY | DDSI_QP_TIME_BASED_FILTER | DDSI_QP_ADLINK_READER_DATA_LIFECYCLE | DDSI_QP_ADLINK_READER_LIFESPAN | DDSI_QP_TYPE_CONSISTENCY_ENFORCEMENT | DDSI_QP_VIRTUAL_INTERFACES | DDSI_QP_DATA_REPRESENTATION,
   .aliased = DDSI_QP_DATA_REPRESENTATION,
   .presentation.access_scope = DDS_PRESENTATION_INSTANCE,
   .presentation.coherent_access = 0,
@@ -3611,13 +3604,14 @@ const dds_qos_t ddsi_default_qos_reader = {
   .type_consistency.ignore_member_names = false,
   .type_consistency.prevent_type_widening = false,
   .type_consistency.force_type_validation = false,
-  .ignore_locator_type = 0,
+  .virtual_interfaces.supported_virtual_interface_kinds.n = 0,
+  .virtual_interfaces.supported_virtual_interface_kinds.strs = NULL,
   .data_representation.value.n = 1,
   .data_representation.value.ids = (dds_data_representation_id_t []) { DDS_DATA_REPRESENTATION_XCDR1 }
 };
 
 const dds_qos_t ddsi_default_qos_writer = {
-  .present = DDSI_QP_PRESENTATION | DDSI_QP_DURABILITY | DDSI_QP_DEADLINE | DDSI_QP_LATENCY_BUDGET | DDSI_QP_LIVELINESS | DDSI_QP_DESTINATION_ORDER | DDSI_QP_HISTORY | DDSI_QP_RESOURCE_LIMITS | DDSI_QP_OWNERSHIP | DDSI_QP_CYCLONE_IGNORELOCAL | DDSI_QP_TOPIC_DATA | DDSI_QP_GROUP_DATA | DDSI_QP_USER_DATA | DDSI_QP_PARTITION | DDSI_QP_DURABILITY_SERVICE | DDSI_QP_RELIABILITY | DDSI_QP_OWNERSHIP_STRENGTH | DDSI_QP_TRANSPORT_PRIORITY | DDSI_QP_LIFESPAN | DDSI_QP_ADLINK_WRITER_DATA_LIFECYCLE | DDSI_QP_LOCATOR_MASK | DDSI_QP_DATA_REPRESENTATION | DDSI_QP_CYCLONE_WRITER_BATCHING,
+  .present = DDSI_QP_PRESENTATION | DDSI_QP_DURABILITY | DDSI_QP_DEADLINE | DDSI_QP_LATENCY_BUDGET | DDSI_QP_LIVELINESS | DDSI_QP_DESTINATION_ORDER | DDSI_QP_HISTORY | DDSI_QP_RESOURCE_LIMITS | DDSI_QP_OWNERSHIP | DDSI_QP_CYCLONE_IGNORELOCAL | DDSI_QP_TOPIC_DATA | DDSI_QP_GROUP_DATA | DDSI_QP_USER_DATA | DDSI_QP_PARTITION | DDSI_QP_DURABILITY_SERVICE | DDSI_QP_RELIABILITY | DDSI_QP_OWNERSHIP_STRENGTH | DDSI_QP_TRANSPORT_PRIORITY | DDSI_QP_LIFESPAN | DDSI_QP_ADLINK_WRITER_DATA_LIFECYCLE | DDSI_QP_VIRTUAL_INTERFACES | DDSI_QP_LOCATOR_MASK | DDSI_QP_DATA_REPRESENTATION | DDSI_QP_CYCLONE_WRITER_BATCHING,
   .aliased = DDSI_QP_DATA_REPRESENTATION,
   .presentation.access_scope = DDS_PRESENTATION_INSTANCE,
   .presentation.coherent_access = 0,
@@ -3657,6 +3651,8 @@ const dds_qos_t ddsi_default_qos_writer = {
   .writer_data_lifecycle.autodispose_unregistered_instances = 1,
   .writer_batching.batch_updates = 0,
   .ignore_locator_type = 0,
+  .virtual_interfaces.supported_virtual_interface_kinds.n = 0,
+  .virtual_interfaces.supported_virtual_interface_kinds.strs = NULL,
   .data_representation.value.n = 1,
   .data_representation.value.ids = (dds_data_representation_id_t []) { DDS_DATA_REPRESENTATION_XCDR1 }
 };
