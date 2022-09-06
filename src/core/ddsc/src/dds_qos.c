@@ -935,15 +935,18 @@ bool dds_qget_virtual_interfaces (const dds_qos_t * __restrict qos, uint32_t n_i
 
 dds_return_t dds_ensure_valid_virtual_interfaces (dds_qos_t *qos, const struct ddsi_sertype *sertype, const struct ddsi_domaingv *gv)
 {
-  if (0x0 == (qos->present & QP_VIRTUAL_INTERFACES)) {
+  if (!(qos->present & QP_VIRTUAL_INTERFACES))
+  {
     uint32_t n_supported = 0;
     const char *supported_interfaces[MAX_VIRTUAL_INTERFACES];
     assert(gv->n_virtual_interfaces <= MAX_VIRTUAL_INTERFACES);
 
-    for(uint32_t i = 0; i < gv->n_virtual_interfaces; ++i) {
+    for(uint32_t i = 0; i < gv->n_virtual_interfaces; ++i)
+    {
       ddsi_virtual_interface_t *vi = gv->virtual_interfaces[i];
       if (vi->ops.data_type_supported(sertype->vi_data_type_props) &&
-          vi->ops.qos_supported(qos)) {
+          vi->ops.qos_supported(qos))
+      {
         supported_interfaces[n_supported++] = vi->interface_name;
       }
     }

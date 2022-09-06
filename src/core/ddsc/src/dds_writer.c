@@ -377,7 +377,8 @@ dds_entity_t dds_create_writer (dds_entity_t participant_or_publisher, dds_entit
   wr->m_xp = ddsi_xpack_new (gv, async_mode);
   wrinfo = dds_whc_make_wrinfo (wr, wqos);
   wr->m_whc = dds_whc_new (gv, wrinfo);
-  wr->m_loans = dds_loan_manager_create (0);
+  rc = dds_loan_manager_create (&wr->m_loans, 0);
+  assert(rc == DDS_RETCODE_OK); // FIXME: can be out of resources
   dds_whc_free_wrinfo (wrinfo);
   // We now have the QoS which defaults to "false", but it used to be controlled by a global setting
   // (that most people were sensible enough to leave at false and that this deprecated now).  Or'ing

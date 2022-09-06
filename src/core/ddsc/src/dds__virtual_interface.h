@@ -24,7 +24,7 @@ struct dds_ktopic;
 virtual_interface_topic_identifier_t calculate_topic_identifier(const struct dds_ktopic * ktopic);
 
 /*function used to calculate the interface identifier*/
-loan_origin_type_t calculate_interface_identifier(const struct ddsi_domaingv * cyclone_domain, const char *config_name);
+dds_loan_origin_type_t calculate_interface_identifier(const struct ddsi_domaingv * cyclone_domain, const char *config_name);
 
 /*function used to parse the properties of a data type*/
 virtual_interface_data_type_properties_t calculate_data_type_properties(const dds_topic_descriptor_t * t_d);

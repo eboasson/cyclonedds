@@ -153,7 +153,7 @@ virtual_interface_topic_identifier_t calculate_topic_identifier(
   return ddsrt_mh3(ktopic->name, strlen(ktopic->name), 0x0);
 }
 
-loan_origin_type_t calculate_interface_identifier(
+dds_loan_origin_type_t calculate_interface_identifier(
   const struct ddsi_domaingv * cyclone_domain,
   const char *config_name)
 {
@@ -185,7 +185,7 @@ bool ddsi_virtual_interface_init_generic(
   loc->kind = NN_LOCATOR_KIND_SHEM;
 
   to_init->locator = loc;
-  
+
   return true;
 }
 
@@ -224,7 +224,7 @@ bool ddsi_virtual_interface_topic_cleanup_generic(
 
 ddsi_virtual_interface_pipe_t * ddsi_virtual_interface_pipe_open (
     ddsi_virtual_interface_topic_t * topic,
-  virtual_interface_pipe_type_t pipe_type)
+  dds_virtual_interface_pipe_type_t pipe_type)
 {
   assert (topic && topic->ops.pipe_open);
 

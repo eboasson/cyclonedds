@@ -60,13 +60,13 @@ static dds_return_t dds_read_impl (bool take, dds_entity_t reader_or_condition, 
   ddsi_thread_state_awake (thrst, &entity->m_domain->gv);
 
   /*return outstanding loans*/
-  if (NULL == buf[0])
+  if (buf[0] == NULL)
     memset (buf, 0, sizeof(*buf)*maxs);
   else if ((ret = dds_return_reader_loan(rd, buf, (int32_t)bufsz)) != DDS_RETCODE_OK)
     goto fail_pinned;
 
   /*populate the output samples with pointers to loaned samples*/
-  if (loan || NULL == buf[0])
+  if (loan || buf[0] == NULL)
   {
     bool error_encountered = false;
     ddsrt_mutex_lock (&rd->m_entity.m_mutex);
@@ -74,8 +74,9 @@ static dds_return_t dds_read_impl (bool take, dds_entity_t reader_or_condition, 
     /*resize loan pool*/
     for (uint32_t i = rd->m_loan_pool->n_samples_managed; i < maxs && !error_encountered; i++)
     {
-      dds_loaned_sample_t *ls = dds_heap_loan(rd->m_topic->m_stype);
-      error_encountered = (ls == NULL || !dds_loan_manager_add_loan(rd->m_loan_pool, ls));
+      dds_loaned_sample_t *ls;
+      ret = dds_heap_loan(rd->m_topic->m_stype, &ls);
+      error_encountered = (ret != DDS_RETCODE_OK || (ret = dds_loan_manager_add_loan(rd->m_loan_pool, ls)) != DDS_RETCODE_OK);
     }
 
     ddsrt_mutex_unlock (&rd->m_entity.m_mutex);
@@ -474,16 +475,15 @@ dds_return_t dds_return_reader_loan (dds_reader *rd, void **buf, int32_t bufsz)
 
     if (loan)
     {
-      bool success = true;
       if (!loan->loan_origin)
-        success = dds_loan_manager_move_loan(rd->m_loan_pool, loan) &&
-                  dds_loaned_sample_reset_sample(loan);
+      {
+        if ((ret = dds_loan_manager_move_loan(rd->m_loan_pool, loan)) == DDS_RETCODE_OK)
+          ret = dds_loaned_sample_reset_sample(loan);
+      }
       else
-        success = dds_loan_manager_remove_loan(loan);
+        ret = dds_loan_manager_remove_loan(loan);
 
-      if (!success)
-        ret = DDS_RETCODE_ERROR;
-      else
+      if (ret == DDS_RETCODE_OK)
         buf[s] = NULL;
     }
   }

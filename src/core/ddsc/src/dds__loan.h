@@ -1,4 +1,4 @@
-// Copyright(c) 2006 to 2019 ZettaScale Technology and others
+// Copyright(c) 2006 to 2023 ZettaScale Technology and others
 //
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License v. 2.0 which is available at
@@ -18,7 +18,7 @@
 extern "C" {
 #endif
 
-dds_loaned_sample_t* dds_heap_loan(const struct ddsi_sertype *type);
+dds_return_t dds_heap_loan (const struct ddsi_sertype *type, dds_loaned_sample_t **loaned_sample);
 
 #if defined(__cplusplus)
 }
