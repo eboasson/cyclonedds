@@ -45,15 +45,15 @@ struct ddsi_virtual_interface_topic_list_elem {
 
 /* adds a topic to the list, will create the first list entry if it does not yet exist
 */
-DDS_EXPORT bool add_topic_to_list (
-  ddsi_virtual_interface_topic_t * toadd,
-  ddsi_virtual_interface_topic_list_elem_t ** addto);
+DDS_EXPORT dds_return_t dds_add_vi_topic_to_list (
+  ddsi_virtual_interface_topic_t * topic,
+  ddsi_virtual_interface_topic_list_elem_t ** list);
 
 /* removes a topic from the list, will set the pointer to the list to null if the last entry is removed
 */
-DDS_EXPORT bool remove_topic_from_list (
-  ddsi_virtual_interface_topic_t * to_remove,
-  ddsi_virtual_interface_topic_list_elem_t ** remove_from);
+DDS_EXPORT dds_return_t dds_remove_vi_topic_from_list (
+  ddsi_virtual_interface_topic_t * topic,
+  ddsi_virtual_interface_topic_list_elem_t ** list);
 
 /* linked list describing a number of pipes
 */
@@ -66,15 +66,15 @@ struct ddsi_virtual_interface_pipe_list_elem {
 
 /* adds a pipe to the list, will create the first list entry if it does not yet exist
 */
-DDS_EXPORT bool add_pipe_to_list (
-  ddsi_virtual_interface_pipe_t * toadd,
-  ddsi_virtual_interface_pipe_list_elem_t ** addto);
+DDS_EXPORT dds_return_t dds_add_vi_pipe_to_list (
+  ddsi_virtual_interface_pipe_t * pipe,
+  ddsi_virtual_interface_pipe_list_elem_t ** list);
 
 /* removes a pipe from the list, will set the pointer to the list to null if the last entry is removed
 */
-DDS_EXPORT bool remove_pipe_from_list (
-  ddsi_virtual_interface_pipe_t * to_remove,
-  ddsi_virtual_interface_pipe_list_elem_t ** remove_from);
+DDS_EXPORT dds_return_t dds_remove_vi_pipe_from_list (
+  ddsi_virtual_interface_pipe_t * pipe,
+  ddsi_virtual_interface_pipe_list_elem_t ** list);
 
 /*identifier used to uniquely identify a topic across different processes*/
 typedef uint32_t virtual_interface_topic_identifier_t;
@@ -279,13 +279,13 @@ struct ddsi_virtual_interface {
  * constructors of class which inherit from ddsi_virtual_interface_t
  */
 DDS_EXPORT bool ddsi_virtual_interface_init_generic(
-  ddsi_virtual_interface_t * to_init);
+  ddsi_virtual_interface_t * virtual_interface);
 
 /**
  * cleanup function for the C-level administration, should be called from all
  * destructors of classes which inherit from ddsi_virtual_interface_t
  */
-DDS_EXPORT bool ddsi_virtual_interface_cleanup_generic(ddsi_virtual_interface_t *to_cleanup);
+DDS_EXPORT bool ddsi_virtual_interface_cleanup_generic(ddsi_virtual_interface_t *virtual_interface);
 
 /* the topic-level virtual interface
 * this will exchange data for readers and writers which are matched through discovery
@@ -304,13 +304,13 @@ struct ddsi_virtual_interface_topic {
  * init function for the C-level administration, should be called from all
  * constructors of classes which inherit from ddsi_virtual_interface_topic_t
  */
-DDS_EXPORT bool ddsi_virtual_interface_topic_init_generic(ddsi_virtual_interface_topic_t *to_init, const ddsi_virtual_interface_t * virtual_interface);
+DDS_EXPORT bool ddsi_virtual_interface_topic_init_generic(ddsi_virtual_interface_topic_t *topic, const ddsi_virtual_interface_t *virtual_interface);
 
 /**
  * cleanup function for the C-level administration, should be called from all
  * destructors of classes which inherit from ddsi_virtual_interface_topic_t
  */
-DDS_EXPORT bool ddsi_virtual_interface_topic_cleanup_generic(ddsi_virtual_interface_topic_t *to_cleanup);
+DDS_EXPORT bool ddsi_virtual_interface_topic_cleanup_generic(ddsi_virtual_interface_topic_t *topic);
 
 /* the definition of one instance of a dds
 * reader/writer using a virtual interface

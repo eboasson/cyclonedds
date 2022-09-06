@@ -2116,7 +2116,7 @@ static const struct piddesc piddesc_eclipse[] = {
     { .desc = { XE2, XSTOP } }, 0 },
   { DDSI_PID_PAD, PDF_QOS, DDSI_VIRTUAL_INTERFACES, "CYCLONE_VIRTUAL_INTERFACE",
     offsetof(struct ddsi_plist, qos.virtual_interfaces), membersize(struct ddsi_plist, qos.virtual_interfaces),
-    {.desc = { XQ, XS, XSTOP, XSTOP } }, 0 },
+    {.desc = { XQ, XS, XSTOP } }, 0 },
 #ifdef DDS_HAS_TOPIC_DISCOVERY
   PP  (CYCLONE_TOPIC_GUID,               topic_guid, XG),
 #endif

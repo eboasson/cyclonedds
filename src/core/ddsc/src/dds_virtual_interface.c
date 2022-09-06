@@ -23,25 +23,25 @@
 #include "dds/ddsi/ddsi_domaingv.h"
 #include "dds/ddsrt/mh3.h"
 
-bool add_topic_to_list (
-  ddsi_virtual_interface_topic_t *toadd,
-  ddsi_virtual_interface_topic_list_elem_t **addto)
+dds_return_t dds_add_vi_topic_to_list (ddsi_virtual_interface_topic_t *topic, ddsi_virtual_interface_topic_list_elem_t **list)
 {
+  if (!topic)
+    return DDS_RETCODE_BAD_PARAMETER;
+
   ddsi_virtual_interface_topic_list_elem_t *ptr = dds_alloc(sizeof(ddsi_virtual_interface_topic_list_elem_t));
-
   if (!ptr)
-    return false;
+    return DDS_RETCODE_OUT_OF_RESOURCES;
 
-  ptr->topic = toadd;
+  ptr->topic = topic;
   ptr->next = NULL;
 
-  if (!*addto) {
+  if (!*list) {
     //there is no list yet
     ptr->prev = NULL;
-    *addto = ptr;
+    *list = ptr;
   } else {
     //add to the end of the list
-    ddsi_virtual_interface_topic_list_elem_t *ptr2 = *addto;
+    ddsi_virtual_interface_topic_list_elem_t *ptr2 = *list;
     while (ptr2->next) {
       ptr2 = ptr2->next;
     }
@@ -49,21 +49,17 @@ bool add_topic_to_list (
     ptr->prev = ptr2;
   }
 
-  return true;
+  return DDS_RETCODE_OK;
 }
 
-bool remove_topic_from_list (
-  ddsi_virtual_interface_topic_t *to_remove,
-  ddsi_virtual_interface_topic_list_elem_t **remove_from)
+dds_return_t dds_remove_vi_topic_from_list (ddsi_virtual_interface_topic_t *topic, ddsi_virtual_interface_topic_list_elem_t **list)
 {
-  assert (to_remove);
+  if (!topic || !list || !*list)
+    return DDS_RETCODE_BAD_PARAMETER;
 
-  if (!remove_from || !*remove_from)
-    return false;
+  ddsi_virtual_interface_topic_list_elem_t *list_entry = *list;
 
-  ddsi_virtual_interface_topic_list_elem_t *list_entry = *remove_from;
-
-  while (list_entry && list_entry->topic != to_remove) {
+  while (list_entry && list_entry->topic != topic) {
     list_entry = list_entry->next;
   }
 
@@ -77,33 +73,33 @@ bool remove_topic_from_list (
   if (list_entry->next)
     list_entry->next->prev = list_entry->prev;
 
-  if (list_entry == *remove_from)
-    *remove_from = list_entry->next;
+  if (list_entry == *list)
+    *list = list_entry->next;
 
   dds_free(list_entry);
 
-  return true;
+  return DDS_RETCODE_OK;
 }
 
-bool add_pipe_to_list (
-  ddsi_virtual_interface_pipe_t *toadd,
-  ddsi_virtual_interface_pipe_list_elem_t **addto)
+dds_return_t dds_add_vi_pipe_to_list (ddsi_virtual_interface_pipe_t *pipe, ddsi_virtual_interface_pipe_list_elem_t **list)
 {
+  if (!pipe)
+    return DDS_RETCODE_BAD_PARAMETER;
+
   ddsi_virtual_interface_pipe_list_elem_t *ptr = dds_alloc(sizeof(ddsi_virtual_interface_pipe_list_elem_t));
-
   if (!ptr)
-    return false;
+    return DDS_RETCODE_OUT_OF_RESOURCES;
 
-  ptr->pipe = toadd;
+  ptr->pipe = pipe;
   ptr->next = NULL;
 
-  if (!*addto) {
+  if (!*list) {
     //there is no list yet
     ptr->prev = NULL;
-    *addto = ptr;
+    *list = ptr;
   } else {
     //add to the end of the list
-    ddsi_virtual_interface_pipe_list_elem_t *ptr2 = *addto;
+    ddsi_virtual_interface_pipe_list_elem_t *ptr2 = *list;
     while (ptr2->next) {
       ptr2 = ptr2->next;
     }
@@ -111,27 +107,25 @@ bool add_pipe_to_list (
     ptr->prev = ptr2;
   }
 
-  return true;
+  return DDS_RETCODE_OK;
 }
 
-bool remove_pipe_from_list (
-  ddsi_virtual_interface_pipe_t *to_remove,
-  ddsi_virtual_interface_pipe_list_elem_t **remove_from)
+dds_return_t dds_remove_vi_pipe_from_list (
+  ddsi_virtual_interface_pipe_t *pipe,
+  ddsi_virtual_interface_pipe_list_elem_t **list)
 {
-  assert (to_remove);
+  if (!pipe || !list || !*list)
+    return DDS_RETCODE_BAD_PARAMETER;
 
-  if (!remove_from || !*remove_from)
-    return false;
+  ddsi_virtual_interface_pipe_list_elem_t *list_entry = *list;
 
-  ddsi_virtual_interface_pipe_list_elem_t *list_entry = *remove_from;
-
-  while (list_entry && list_entry->pipe != to_remove) {
+  while (list_entry && list_entry->pipe != pipe) {
     list_entry = list_entry->next;
   }
 
   if (!list_entry ||  //no entry in the list matching the topic
       !ddsi_virtual_interface_pipe_close(list_entry->pipe))   //destruct failure
-    return false;
+    return DDS_RETCODE_ERROR;
 
   if (list_entry->prev)
     list_entry->prev->next = list_entry->next;
@@ -139,109 +133,95 @@ bool remove_pipe_from_list (
   if (list_entry->next)
     list_entry->next->prev = list_entry->prev;
 
-  if (list_entry == *remove_from)
-    *remove_from = list_entry->next;
+  if (list_entry == *list)
+    *list = list_entry->next;
 
   dds_free(list_entry);
 
-  return true;
+  return DDS_RETCODE_OK;
 }
 
-virtual_interface_topic_identifier_t calculate_topic_identifier(
-  const struct dds_ktopic * ktopic)
+virtual_interface_topic_identifier_t calculate_topic_identifier(const struct dds_ktopic * ktopic)
 {
   return ddsrt_mh3(ktopic->name, strlen(ktopic->name), 0x0);
 }
 
-dds_loan_origin_type_t calculate_interface_identifier(
-  const struct ddsi_domaingv * cyclone_domain,
-  const char *config_name)
+dds_loan_origin_type_t calculate_interface_identifier(const struct ddsi_domaingv * cyclone_domain, const char *config_name)
 {
   uint32_t val = cyclone_domain->config.extDomainId.value;
   uint32_t mid = ddsrt_mh3(&val, sizeof(val), 0x0);
   return ddsrt_mh3(config_name, strlen(config_name), mid);
 }
 
-virtual_interface_data_type_properties_t calculate_data_type_properties(
-  const dds_topic_descriptor_t * t_d)
+virtual_interface_data_type_properties_t calculate_data_type_properties(const dds_topic_descriptor_t * t_d)
 {
   (void) t_d;
 
   return DATA_TYPE_CALCULATED; //TODO!!! IMPLEMENT!!!
 }
 
-bool ddsi_virtual_interface_init_generic(
-  ddsi_virtual_interface_t * to_init)
+bool ddsi_virtual_interface_init_generic(ddsi_virtual_interface_t * virtual_interface)
 {
   struct ddsi_locator * loc = (struct ddsi_locator *)ddsrt_calloc(1,sizeof(ddsi_locator_t));
 
   if (!loc)
     return false;
 
-  ddsi_virtual_interface_node_identifier_t vini = to_init->ops.get_node_id(to_init);
+  ddsi_virtual_interface_node_identifier_t vini = virtual_interface->ops.get_node_id(virtual_interface);
 
   memcpy(loc->address, &vini, sizeof(vini));
-  loc->port = to_init->interface_id;
+  loc->port = virtual_interface->interface_id;
   loc->kind = NN_LOCATOR_KIND_SHEM;
 
-  to_init->locator = loc;
+  virtual_interface->locator = loc;
 
   return true;
 }
 
-bool ddsi_virtual_interface_cleanup_generic(
-  ddsi_virtual_interface_t *to_cleanup)
+bool ddsi_virtual_interface_cleanup_generic(ddsi_virtual_interface_t *virtual_interface)
 {
-  ddsrt_free((void*)to_cleanup->locator);
+  ddsrt_free((void*)virtual_interface->locator);
 
-  while (to_cleanup->topics) {
-    if (!remove_topic_from_list(to_cleanup->topics->topic, &to_cleanup->topics))
+  while (virtual_interface->topics) {
+    if (!dds_remove_vi_topic_from_list(virtual_interface->topics->topic, &virtual_interface->topics))
       return false;
   }
 
   return true;
 }
 
-bool ddsi_virtual_interface_topic_init_generic(
-  ddsi_virtual_interface_topic_t *to_init,
-  const ddsi_virtual_interface_t * virtual_interface)
+bool ddsi_virtual_interface_topic_init_generic(ddsi_virtual_interface_topic_t *topic, const ddsi_virtual_interface_t * virtual_interface)
 {
-  to_init->data_type = ddsrt_mh3(&virtual_interface->interface_id, sizeof(virtual_interface->interface_id), to_init->topic_id);
+  topic->data_type = ddsrt_mh3(&virtual_interface->interface_id, sizeof(virtual_interface->interface_id), topic->topic_id);
 
   return true;
 }
 
-bool ddsi_virtual_interface_topic_cleanup_generic(
-  ddsi_virtual_interface_topic_t *to_cleanup)
+bool ddsi_virtual_interface_topic_cleanup_generic(ddsi_virtual_interface_topic_t *to_cleanup)
 {
   while (to_cleanup->pipes) {
-    if (!remove_pipe_from_list(to_cleanup->pipes->pipe, &to_cleanup->pipes))
+    if (!dds_remove_vi_pipe_from_list(to_cleanup->pipes->pipe, &to_cleanup->pipes))
       return false;
   }
 
   return true;
 }
 
-ddsi_virtual_interface_pipe_t * ddsi_virtual_interface_pipe_open (
-    ddsi_virtual_interface_topic_t * topic,
-  dds_virtual_interface_pipe_type_t pipe_type)
+ddsi_virtual_interface_pipe_t * ddsi_virtual_interface_pipe_open (ddsi_virtual_interface_topic_t * topic, dds_virtual_interface_pipe_type_t pipe_type)
 {
   assert (topic && topic->ops.pipe_open);
 
   return topic->ops.pipe_open(topic, pipe_type);
 }
 
-bool ddsi_virtual_interface_pipe_close(
-  ddsi_virtual_interface_pipe_t *pipe)
+bool ddsi_virtual_interface_pipe_close(ddsi_virtual_interface_pipe_t *pipe)
 {
   assert (pipe && pipe->topic && pipe->topic->ops.pipe_close);
 
   return pipe->topic->ops.pipe_close(pipe);
 }
 
-dds_loaned_sample_t* ddsi_virtual_interface_pipe_request_loan(
-  ddsi_virtual_interface_pipe_t *pipe,
-  uint32_t sz)
+dds_loaned_sample_t* ddsi_virtual_interface_pipe_request_loan(ddsi_virtual_interface_pipe_t *pipe, uint32_t sz)
 {
   assert(pipe && pipe->ops.req_loan);
 

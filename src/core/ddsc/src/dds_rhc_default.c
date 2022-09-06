@@ -2050,7 +2050,7 @@ static int32_t read_w_qminv_inst (struct dds_rhc_default * const __restrict rhc,
   struct trigger_info_qcond trig_qc;
   const uint32_t nread = inst_nread (inst);
   int32_t n = 0;
-  bool use_loans = (NULL != loan_out && NULL != loan_pool);
+  bool use_loans = (loan_out != NULL && loan_pool != NULL);
   get_trigger_info_pre (&pre, inst);
   init_trigger_info_qcond (&trig_qc);
 
@@ -2063,7 +2063,7 @@ static int32_t read_w_qminv_inst (struct dds_rhc_default * const __restrict rhc,
       {
         /* sample state matches too */
         set_sample_info (info_seq + n, inst, sample);
-        if (use_loans && *(values+n) == NULL)  //this indicates that memory needs to be assigned for this sample
+        if (use_loans && *(values + n) == NULL)  //this indicates that memory needs to be assigned for this sample
         {
           dds_loaned_sample_t *ls = sample->sample->loan;
           if (!ls)
@@ -2154,7 +2154,7 @@ static int32_t take_w_qminv_inst (struct dds_rhc_default * const __restrict rhc,
   struct trigger_info_post post;
   struct trigger_info_qcond trig_qc;
   int32_t n = 0;
-  bool use_loans = (NULL != loan_out && NULL != loan_pool);
+  bool use_loans = (loan_out != NULL && loan_pool != NULL);
   get_trigger_info_pre (&pre, inst);
   init_trigger_info_qcond (&trig_qc);
 
@@ -2175,7 +2175,7 @@ static int32_t take_w_qminv_inst (struct dds_rhc_default * const __restrict rhc,
       {
         take_sample_update_conditions (rhc, &pre, &post, &trig_qc, inst, sample->conds, sample->isread);
         set_sample_info (info_seq + n, inst, sample);
-        if (use_loans && *(values+n) == NULL)
+        if (use_loans && *(values + n) == NULL)
         {
           dds_loaned_sample_t *ls = sample->sample->loan;
           if (!ls)

@@ -348,12 +348,16 @@ dds_return_t dds_request_writer_loan(dds_writer *wr, void **samples_ptr, int32_t
   if (n_samples < 0 || !samples_ptr)
     return DDS_RETCODE_BAD_PARAMETER;
 
-  dds_return_t ret = 0;
+  dds_return_t ret = DDS_RETCODE_OK;
+  int32_t index = 0;
 
   ddsrt_mutex_lock (&wr->m_entity.m_mutex);
   dds_loaned_sample_t **loans_ptr = dds_alloc(sizeof(dds_loaned_sample_t*)*(size_t)n_samples);
   if (!loans_ptr)
-    goto fail;
+  {
+    ret = DDS_RETCODE_OUT_OF_RESOURCES;
+    goto fail_alloc;
+  }
 
   //attempt to request loans from virtual interfaces
   struct ddsi_endpoint_common *ec = &wr->m_wr->c;
@@ -361,54 +365,49 @@ dds_return_t dds_request_writer_loan(dds_writer *wr, void **samples_ptr, int32_t
   {
     for (uint32_t i = 0; i < ec->n_virtual_pipes; i++)
     {
-      for (; ret < n_samples; ret++)
+      for (; index < n_samples; index++)
       {
         dds_loaned_sample_t *loan = ddsi_virtual_interface_pipe_request_loan(ec->m_pipes[i], wr->m_topic->m_stype->zerocopy_size);
         if (!loan)
-          break;
-        loans_ptr[ret] = loan;
+        {
+          ret = DDS_RETCODE_ERROR;
+          goto fail;
+        }
+        loans_ptr[index] = loan;
       }
     }
   }
 
   //attempt to request loans from heap based interface
-  if (ret == 0)
+  if (index == 0)
   {
-    for (; ret < n_samples; ret++)
+    for (; index < n_samples; index++)
     {
       dds_loaned_sample_t *loan;
-      if (dds_heap_loan(wr->m_topic->m_stype, &loan) != DDS_RETCODE_OK)
-        break;
-      loans_ptr[ret] = loan;
+      if ((ret = dds_heap_loan(wr->m_topic->m_stype, &loan)) != DDS_RETCODE_OK)
+        goto fail;
+      loans_ptr[index] = loan;
     }
+  }
+
+  assert (index == n_samples);
+  for (int32_t i = 0; i < n_samples; i++)
+  {
+    dds_loan_manager_add_loan(wr->m_loans, loans_ptr[i]);
+    samples_ptr[i] = loans_ptr[i]->sample_ptr;
   }
 
 fail:
-  if (ret != n_samples)  //we couldnt get the number of loans requested
+  if (index != n_samples && loans_ptr != NULL)  //we couldnt get the number of loans requested
   {
-    if (loans_ptr)
-    {
-      for (int32_t i = 0; i < ret; i++)
-        dds_loaned_sample_free(loans_ptr[i]);
-    }
-
-    ret = DDS_RETCODE_OUT_OF_RESOURCES;
+    for (int32_t i = 0; i < index; i++)
+      dds_loaned_sample_free(loans_ptr[i]);
   }
-  else
-  {
-    for (int32_t i = 0; i < n_samples; i++)
-    {
-      dds_loan_manager_add_loan(wr->m_loans, loans_ptr[i]);
-      samples_ptr[i] = loans_ptr[i]->sample_ptr;
-    }
-  }
+  dds_free(loans_ptr);
 
-  if (loans_ptr)
-    dds_free(loans_ptr);
-
+fail_alloc:
   ddsrt_mutex_unlock (&wr->m_entity.m_mutex);
-
-  return ret;
+  return ret < 0 ? ret : index;
 }
 
 dds_return_t dds_return_writer_loan(dds_writer *wr, void **samples_ptr, int32_t n_samples)
