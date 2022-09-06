@@ -485,22 +485,22 @@ void dds_qset_virtual_interfaces (dds_qos_t * __restrict qos, uint32_t n, const 
     return;
 
   //cleanup old data
-  if ((qos->present & QP_VIRTUAL_INTERFACES) && qos->virtual_interfaces.supported_virtual_interface_kinds.strs != NULL) {
-    for (uint32_t i = 0; i < qos->virtual_interfaces.supported_virtual_interface_kinds.n; i++) {
+  if ((qos->present & QP_VIRTUAL_INTERFACES) && qos->virtual_interfaces.supported_virtual_interface_kinds.n > 0)
+  {
+    assert (qos->virtual_interfaces.supported_virtual_interface_kinds.strs != NULL);
+    for (uint32_t i = 0; i < qos->virtual_interfaces.supported_virtual_interface_kinds.n; i++)
       ddsrt_free (qos->virtual_interfaces.supported_virtual_interface_kinds.strs[i]);
-    }
     ddsrt_free (qos->virtual_interfaces.supported_virtual_interface_kinds.strs);
     qos->virtual_interfaces.supported_virtual_interface_kinds.strs = NULL;
   }
 
   //copy in new data
-  if (n) {
-    qos->virtual_interfaces.supported_virtual_interface_kinds.n = n;
-    qos->virtual_interfaces.supported_virtual_interface_kinds.strs = ddsrt_calloc(n, sizeof(char*));
-    for (uint32_t i = 0; i < n; n++) {
-      qos->virtual_interfaces.supported_virtual_interface_kinds.strs[i] = ddsrt_malloc(strlen(values[i])+1);
-      strcpy(qos->virtual_interfaces.supported_virtual_interface_kinds.strs[i], values[i]);
-    }
+  qos->virtual_interfaces.supported_virtual_interface_kinds.n = n;
+  if (n)
+  {
+    qos->virtual_interfaces.supported_virtual_interface_kinds.strs = ddsrt_malloc (n * sizeof(*qos->virtual_interfaces.supported_virtual_interface_kinds.strs));
+    for (uint32_t i = 0; i < n; n++)
+      qos->virtual_interfaces.supported_virtual_interface_kinds.strs[i] = ddsrt_strdup (values[i]);
   }
 
   qos->present |= QP_VIRTUAL_INTERFACES;
@@ -896,38 +896,25 @@ dds_return_t dds_ensure_valid_data_representation (dds_qos_t *qos, uint32_t allo
 }
 
 
-bool dds_qget_virtual_interfaces (const dds_qos_t * __restrict qos, uint32_t n_in, uint32_t *n_out, char ***values)
+bool dds_qget_virtual_interfaces (const dds_qos_t * __restrict qos, uint32_t *n_out, char ***values)
 {
-  if (qos == NULL ||
-      !(qos->present & QP_VIRTUAL_INTERFACES) ||
-      n_out == NULL ||
-      values == NULL) {
+  if (qos == NULL || !(qos->present & QP_VIRTUAL_INTERFACES) || n_out == NULL)
     return false;
-  }
 
-  if (qos->virtual_interfaces.supported_virtual_interface_kinds.n > 0) {
+  if (qos->virtual_interfaces.supported_virtual_interface_kinds.n > 0)
     assert (qos->virtual_interfaces.supported_virtual_interface_kinds.strs != NULL);
-  }
 
-  //cleanup old data
-  if (*values) {
-    for (uint32_t i = 0; i < n_in; i++) {
-      if ((*values)[i]) {
-        ddsrt_free((*values)[i]);
-      }
-    }
-    ddsrt_free(*values);
-    *values = NULL;
-  }
-
-  //copy new data
   *n_out = qos->virtual_interfaces.supported_virtual_interface_kinds.n;
-  if (*n_out > 0) {
-    *values = ddsrt_calloc (sizeof(char*), (*n_out));
-    for (uint32_t i = 0; i < *n_out; i++) {
-      (*values)[i] = ddsrt_malloc(strlen(qos->virtual_interfaces.supported_virtual_interface_kinds.strs[i])+1);
-      strcpy((*values)[i], qos->virtual_interfaces.supported_virtual_interface_kinds.strs[i]);
+  if (values != NULL)
+  {
+    if (*n_out > 0)
+    {
+      *values = ddsrt_malloc ((*n_out) * sizeof(**values));
+      for (uint32_t i = 0; i < *n_out; i++)
+        (*values)[i] = ddsrt_strdup (qos->virtual_interfaces.supported_virtual_interface_kinds.strs[i]);
     }
+    else
+      *values = NULL;
   }
 
   return true;

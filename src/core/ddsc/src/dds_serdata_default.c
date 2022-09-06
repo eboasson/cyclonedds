@@ -476,18 +476,22 @@ static struct ddsi_serdata *serdata_default_from_loaned_sample(const struct ddsi
     force_serialization ||
     ddsi_virtual_interface_pipe_serialization_required(loan->loan_origin);
 
-  struct dds_serdata_default *d = NULL;
-  if (serialize_data) {
+  struct dds_serdata_default *d;
+  if (serialize_data)
+  {
     //maybe if there is a loan and that loan is not the sample, use the loan block as the serialization buffer?
     d = (struct dds_serdata_default *)tpcmn->serdata_ops->from_sample (tpcmn, kind, sample);
-  } else {
+  }
+  else
+  {
     d = serdata_default_new (t, kind, t->write_encoding_version);
 
-    if(d == NULL || !gen_serdata_key_from_sample (t, &d->key, sample))
+    if (d == NULL || !gen_serdata_key_from_sample (t, &d->key, sample))
       return NULL;
   }
 
-  if (d) {
+  if (d)
+  {
     d->c.loan = loan;
     /*transfer ownership of the loan to the serdata*/
     dds_loaned_sample_ref(loan);
@@ -515,16 +519,22 @@ static struct ddsi_serdata *serdata_default_from_loaned_sample(const struct ddsi
         md->cdr_identifier = CDR_ENC_VERSION_UNDEF;
     }
 
-    if (loan->sample_ptr != sample) {  //if the sample we are serializing is itself not loaned
+    if (loan->sample_ptr != sample) //if the sample we are serializing is itself not loaned
+    {
       assert (md->sample_state == DDS_LOANED_SAMPLE_STATE_UNITIALIZED);
-      if (serialize_data) {
+      if (serialize_data)
+      {
         md->sample_state = (kind == SDK_KEY ? DDS_LOANED_SAMPLE_STATE_SERIALIZED_KEY : DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA);
         memcpy(loan->sample_ptr, d->data, md->sample_size);
-      } else {
+      }
+      else
+      {
         md->sample_state = DDS_LOANED_SAMPLE_STATE_RAW;
         memcpy(loan->sample_ptr, sample, md->sample_size);
       }
-    } else {
+    }
+    else
+    {
       md->sample_state = DDS_LOANED_SAMPLE_STATE_RAW;
     }
 
@@ -858,10 +868,7 @@ static struct ddsi_serdata * serdata_default_from_virtual_exchange(const struct 
       break;
   }
 
-  struct ddsi_serdata_default *d = serdata_default_new(
-    tp,
-    sdk,
-    md->cdr_identifier);
+  struct ddsi_serdata_default *d = serdata_default_new(tp, sdk, md->cdr_identifier);
 
   //the loaned sample is serialized
   d->c.hash = md->hash;

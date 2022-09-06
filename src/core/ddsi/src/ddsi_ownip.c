@@ -405,6 +405,13 @@ static void log_arbitrary_selection (struct ddsi_domaingv *gv, const struct ddsi
   GVLOG (DDS_LC_INFO, "\n");
 }
 
+static int compare_virtual_interface_prio (const void *va, const void *vb)
+{
+  const ddsi_virtual_interface_t *vi1 = va;
+  const ddsi_virtual_interface_t *vi2 = vb;
+  return (vi1->priority == vi2->priority) ? 0 : (vi1->priority < vi2->priority) ? 1 : -1;
+}
+
 int ddsi_find_own_ip (struct ddsi_domaingv *gv)
 {
   char addrbuf[DDSI_LOCSTRLEN];
@@ -485,29 +492,25 @@ int ddsi_find_own_ip (struct ddsi_domaingv *gv)
   if (gv->config.virtual_interfaces != NULL)
   {
     struct ddsi_config_virtual_interface_listelem *iface = gv->config.virtual_interfaces;
-    while (iface && gv->n_virtual_interfaces < MAX_VIRTUAL_INTERFACES) {
+    while (iface && gv->n_virtual_interfaces < MAX_VIRTUAL_INTERFACES)
+    {
       GVLOG(DDS_LC_INFO, "Loading virtual interface %s\n", iface->cfg.name);
       ddsi_virtual_interface_t *vi = NULL;
-      if (ddsi_virtual_interface_load(gv, &iface->cfg, &vi)) {
+      if (ddsi_virtual_interface_load(gv, &iface->cfg, &vi))
+      {
         gv->virtual_interfaces[gv->n_virtual_interfaces++] = vi;
-      } else {
+      }
+      else
+      {
         GVERROR ("error loading virtual interface \"%s\"\n", iface->cfg.name);
+        ok = false;
         break;
       }
       iface = iface->next;
     }
 
-    //sort virtual interfaces by priority (maybe create a more elegant solution?)
-    for (uint32_t i = 0; i < gv->n_virtual_interfaces; i++) {
-      for (uint32_t j = i+1; j < gv->n_virtual_interfaces; j++) {
-        ddsi_virtual_interface_t *vi1 = gv->virtual_interfaces[i];
-        ddsi_virtual_interface_t *vi2 = gv->virtual_interfaces[j];
-        if (vi1->priority < vi2->priority) {
-          gv->virtual_interfaces[i] = vi2;
-          gv->virtual_interfaces[j] = vi1;
-        }
-      }
-    }
+    //sort virtual interfaces by priority
+    qsort (gv->virtual_interfaces, gv->n_virtual_interfaces, sizeof (*gv->virtual_interfaces), compare_virtual_interface_prio);
   }
 
   gv->using_link_local_intf = false;
@@ -537,7 +540,8 @@ int ddsi_find_own_ip (struct ddsi_domaingv *gv)
         ddsrt_free (gv->interfaces[i].name);
     gv->n_interfaces = 0;
 
-    for (uint32_t i = 0; i < gv->n_virtual_interfaces; i++) {
+    for (uint32_t i = 0; i < gv->n_virtual_interfaces; i++)
+    {
       ddsi_virtual_interface_t *vi = gv->virtual_interfaces[i];
       vi->ops.deinit(vi);
       gv->virtual_interfaces[i] = NULL;

@@ -576,7 +576,8 @@ dds_entity_t dds_create_topic_impl (
   ddsi_sertype_unref (*sertype);
   *sertype = sertype_registered;
 
-  for (uint32_t i = 0; i < gv->n_virtual_interfaces && new_ktopic; i++) {
+  for (uint32_t i = 0; i < gv->n_virtual_interfaces && new_ktopic; i++)
+  {
     ddsi_virtual_interface_t *vi = gv->virtual_interfaces[i];
     if (!vi->ops.qos_supported(new_qos) ||
         !vi->ops.data_type_supported(sertype_registered->vi_data_type_props))
@@ -604,12 +605,13 @@ dds_entity_t dds_create_topic_impl (
   return hdl;
 
 virtual_interface_fail:
-  for (uint32_t i = 0; i < ktp->n_virtual_topics; i++) {
+  for (uint32_t i = 0; i < ktp->n_virtual_topics; i++)
+  {
     bool result = ktp->virtual_topics[i]->virtual_interface->ops.topic_destruct(ktp->virtual_topics[i]);
     assert (result);
     ktp->virtual_topics[i] = NULL;
   }
- error:
+error:
   dds_delete_qos (new_qos);
 #ifdef DDS_HAS_TYPE_DISCOVERY
 error_typeref:

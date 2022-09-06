@@ -17,7 +17,8 @@
 dds_return_t dds_loaned_sample_free(dds_loaned_sample_t *loaned_sample)
 {
   dds_return_t ret;
-  assert(loaned_sample && (ddsrt_atomic_ld32(&loaned_sample->refs) == 0));
+  if (loaned_sample == NULL || ddsrt_atomic_ld32(&loaned_sample->refs) > 0)
+    return DDS_RETCODE_BAD_PARAMETER;
 
   if ((ret = dds_loan_manager_remove_loan(loaned_sample)) != DDS_RETCODE_OK)
     return ret;
@@ -30,7 +31,8 @@ dds_return_t dds_loaned_sample_free(dds_loaned_sample_t *loaned_sample)
 dds_return_t dds_loaned_sample_ref(dds_loaned_sample_t *loaned_sample)
 {
   dds_return_t ret;
-  assert(loaned_sample);
+  if (loaned_sample == NULL)
+    return DDS_RETCODE_BAD_PARAMETER;
 
   if (loaned_sample->ops.ref && (ret = loaned_sample->ops.ref(loaned_sample)) != DDS_RETCODE_OK)
     return ret;
@@ -42,7 +44,8 @@ dds_return_t dds_loaned_sample_ref(dds_loaned_sample_t *loaned_sample)
 dds_return_t dds_loaned_sample_unref(dds_loaned_sample_t *loaned_sample)
 {
   dds_return_t ret;
-  assert(loaned_sample && ddsrt_atomic_ld32(&loaned_sample->refs));
+  if (loaned_sample == NULL || ddsrt_atomic_ld32(&loaned_sample->refs) == 0)
+    return DDS_RETCODE_BAD_PARAMETER;
 
   if (loaned_sample->ops.unref && (ret = loaned_sample->ops.unref(loaned_sample)) != DDS_RETCODE_OK)
     return ret;
@@ -62,19 +65,21 @@ dds_return_t dds_loaned_sample_reset_sample(dds_loaned_sample_t *loaned_sample)
   return DDS_RETCODE_OK;
 }
 
-static dds_return_t dds_loan_manager_expand_cap(dds_loan_manager_t *manager, uint32_t expand)
+static dds_return_t dds_loan_manager_expand_cap(dds_loan_manager_t *manager, uint32_t n)
 {
   if (manager == NULL)
     return DDS_RETCODE_BAD_PARAMETER;
+  if (n > UINT32_MAX - manager->n_samples_cap)
+    return DDS_RETCODE_OUT_OF_RANGE;
 
-  uint32_t newcap = manager->n_samples_cap + expand;
+  uint32_t newcap = manager->n_samples_cap + n;
   dds_loaned_sample_t **newarray = NULL;
   if (newcap > 0)
   {
     newarray = dds_realloc(manager->samples, sizeof(**newarray) * newcap);
     if (newarray == NULL)
       return DDS_RETCODE_OUT_OF_RESOURCES;
-    memset(newarray + manager->n_samples_cap, 0, sizeof(**newarray) * expand);
+    memset(newarray + manager->n_samples_cap, 0, sizeof(**newarray) * n);
   }
   manager->samples = newarray;
   manager->n_samples_cap = newcap;
@@ -84,18 +89,16 @@ static dds_return_t dds_loan_manager_expand_cap(dds_loan_manager_t *manager, uin
 
 dds_return_t dds_loan_manager_create(dds_loan_manager_t **manager, uint32_t initial_cap)
 {
-  dds_return_t ret;
   if (manager == NULL)
     return DDS_RETCODE_BAD_PARAMETER;
 
+  dds_return_t ret = DDS_RETCODE_OK;
   if ((*manager = dds_alloc(sizeof(**manager))) == NULL)
     return DDS_RETCODE_OUT_OF_RESOURCES;
+  memset (*manager, 0, sizeof (**manager));
   if ((ret = dds_loan_manager_expand_cap(*manager, initial_cap)) != DDS_RETCODE_OK)
-  {
     dds_free(*manager);
-    return ret;
-  }
-  return DDS_RETCODE_OK;
+  return ret;
 }
 
 dds_return_t dds_loan_manager_free(dds_loan_manager_t *manager)
@@ -120,7 +123,8 @@ dds_return_t dds_loan_manager_free(dds_loan_manager_t *manager)
 dds_return_t dds_loan_manager_add_loan(dds_loan_manager_t *manager, dds_loaned_sample_t *loaned_sample)
 {
   dds_return_t ret;
-  assert(manager && loaned_sample && !loaned_sample->manager);
+  if (manager == NULL || loaned_sample == NULL || loaned_sample->manager != NULL)
+    return DDS_RETCODE_BAD_PARAMETER;
 
   //expand
   if (manager->n_samples_managed == manager->n_samples_cap)
@@ -150,7 +154,8 @@ dds_return_t dds_loan_manager_add_loan(dds_loan_manager_t *manager, dds_loaned_s
 dds_return_t dds_loan_manager_move_loan(dds_loan_manager_t *manager, dds_loaned_sample_t *loaned_sample)
 {
   dds_return_t ret;
-  assert(loaned_sample && manager);
+  if (manager == NULL || loaned_sample == NULL)
+    return DDS_RETCODE_BAD_PARAMETER;
 
   if ((ret = dds_loaned_sample_ref(loaned_sample)) != DDS_RETCODE_OK)
     return ret;
@@ -168,7 +173,8 @@ err:
 
 dds_return_t dds_loan_manager_remove_loan(dds_loaned_sample_t *loaned_sample)
 {
-  assert(loaned_sample);
+  if (loaned_sample == NULL)
+    return DDS_RETCODE_BAD_PARAMETER;
 
   dds_loan_manager_t *mgr = loaned_sample->manager;
   if (!mgr)
@@ -191,7 +197,8 @@ dds_return_t dds_loan_manager_remove_loan(dds_loaned_sample_t *loaned_sample)
 
 dds_loaned_sample_t *dds_loan_manager_find_loan(const dds_loan_manager_t *manager, const void *loaned_sample)
 {
-  assert(manager);
+  if (manager == NULL)
+    return NULL;
 
   for (uint32_t i = 0; i < manager->n_samples_cap && loaned_sample; i++)
   {
@@ -204,10 +211,8 @@ dds_loaned_sample_t *dds_loan_manager_find_loan(const dds_loan_manager_t *manage
 
 dds_loaned_sample_t *dds_loan_manager_get_loan(dds_loan_manager_t *manager)
 {
-  if (!manager)
+  if (manager == NULL || manager->samples == NULL)
     return NULL;
-
-  assert(manager->samples);
 
   for (uint32_t i = 0; i < manager->n_samples_cap; i++)
   {
