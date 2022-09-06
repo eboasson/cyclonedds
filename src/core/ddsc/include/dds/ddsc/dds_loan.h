@@ -14,8 +14,8 @@
 // API extension
 // defines functions needed for loaning and shared memory usage
 
-#ifndef _DDS_LOAN_API_H_
-#define _DDS_LOAN_API_H_
+#ifndef _DDS_LOAN_H_
+#define _DDS_LOAN_H_
 
 #include "dds/ddsc/dds_basic_types.h"
 #include "dds/ddsrt/retcode.h"
@@ -27,18 +27,18 @@ extern "C" {
 #endif
 
 /*state of the data contained in a memory block*/
-typedef enum loaned_sample_state {
-  LOANED_SAMPLE_STATE_UNITIALIZED,
-  LOANED_SAMPLE_STATE_RAW,
-  LOANED_SAMPLE_STATE_SERIALIZED_KEY,
-  LOANED_SAMPLE_STATE_SERIALIZED_DATA
-} loaned_sample_state_t;
+typedef enum dds_loaned_sample_state {
+  DDS_LOANED_SAMPLE_STATE_UNITIALIZED,
+  DDS_LOANED_SAMPLE_STATE_RAW,
+  DDS_LOANED_SAMPLE_STATE_SERIALIZED_KEY,
+  DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA
+} dds_loaned_sample_state_t;
 
 /*identifier used to distinguish between raw data types (C/C++/Python/...)*/
-typedef uint32_t loan_data_type_t;
+typedef uint32_t dds_loan_data_type_t;
 
 /*identifier used to distinguish between types of loans (heap/iceoryx/...)*/
-typedef uint32_t loan_origin_type_t;
+typedef uint32_t dds_loan_origin_type_t;
 
 /*forward declarations of struct, so pointer can be made*/
 struct dds_loan_manager;
@@ -47,27 +47,27 @@ struct dds_virtual_interface_metadata;
 struct ddsi_virtual_interface_pipe;
 
 /*implementation specific loaned sample cleanup function*/
-typedef bool (*dds_loaned_sample_fini_f)(
-  struct dds_loaned_sample *to_fini);
+typedef void (*dds_loaned_sample_free_f)(
+  struct dds_loaned_sample *loaned_sample);
 
 /*implementation specific loaned sample reference increment function*/
-typedef bool (*dds_loaned_sample_incr_refs_f)(
-  struct dds_loaned_sample *to_incr);
+typedef dds_return_t (*dds_loaned_sample_ref_f)(
+  struct dds_loaned_sample *loaned_sample);
 
 /*implementation specific loaned sample reference decrement function*/
-typedef bool (*dds_loaned_sample_decr_refs_f)(
-  struct dds_loaned_sample *to_decr);
+typedef dds_return_t (*dds_loaned_sample_unref_f)(
+  struct dds_loaned_sample *loaned_sample);
 
 /*implementation specific loaned sample contents reset function*/
-typedef bool (*dds_loaned_sample_reset_f)(
-  struct dds_loaned_sample *to_reset);
+typedef void (*dds_loaned_sample_reset_f)(
+  struct dds_loaned_sample *loaned_sample);
 
 /*container for implementation specific operations*/
 typedef struct dds_loaned_sample_ops {
-  dds_loaned_sample_fini_f            fini;
-  dds_loaned_sample_incr_refs_f       incr;
-  dds_loaned_sample_decr_refs_f       decr;
-  dds_loaned_sample_reset_f           reset;
+  dds_loaned_sample_free_f    free;
+  dds_loaned_sample_ref_f     ref;
+  dds_loaned_sample_unref_f   unref;
+  dds_loaned_sample_reset_f   reset;
 } dds_loaned_sample_ops_t;
 
 /* the definition of a block of memory originating
@@ -86,23 +86,23 @@ typedef struct dds_loaned_sample {
 /* generic loaned sample cleanup function will be called
    when the loaned sample runs out of refs or is retracted,
    calls the implementation specific functions */
-bool dds_loaned_sample_fini(
-  dds_loaned_sample_t *to_fini);
+dds_return_t dds_loaned_sample_free(
+  dds_loaned_sample_t *loaned_sample);
 
 /* generic function which increases the references for this sample,
    calls the implementation specific functions*/
-bool dds_loaned_sample_incr_refs(
-  dds_loaned_sample_t *to_incr);
+dds_return_t dds_loaned_sample_ref(
+  dds_loaned_sample_t *loaned_sample);
 
 /* generic function which decreases the references for this sample,
    calls the implementation specific functions*/
-bool dds_loaned_sample_decr_refs(
-  dds_loaned_sample_t *to_decr);
+dds_return_t dds_loaned_sample_unref(
+  dds_loaned_sample_t *loaned_sample);
 
 /* generic function which resets the contents for this sample
    calls the implementation specific functions*/
-bool dds_loaned_sample_reset_sample(
-  dds_loaned_sample_t *to_reset);
+dds_return_t dds_loaned_sample_reset_sample(
+  dds_loaned_sample_t *loaned_sample);
 
 /*an implementation specific loan manager*/
 typedef struct dds_loan_manager {
@@ -114,32 +114,33 @@ typedef struct dds_loan_manager {
 } dds_loan_manager_t;
 
 /*loan manager create function*/
-dds_loan_manager_t *dds_loan_manager_create(
+dds_return_t dds_loan_manager_create(
+  dds_loan_manager_t **manager,
   uint32_t initial_cap);
 
 /** loan manager fini function ensures that the containers are
   * cleaned up and all loans are returned*/
-bool dds_loan_manager_fini(
-  dds_loan_manager_t *to_fini);
+dds_return_t dds_loan_manager_free(
+  dds_loan_manager_t *manager);
 
 /** add a loan to be stored by this manager */
-bool dds_loan_manager_add_loan(
+dds_return_t dds_loan_manager_add_loan(
   dds_loan_manager_t *manager,
-  dds_loaned_sample_t *to_add);
+  dds_loaned_sample_t *loaned_sample);
 
 /** removes a loan from storage by this manager */
-bool dds_loan_manager_remove_loan(
-  dds_loaned_sample_t *to_remove);
+dds_return_t dds_loan_manager_remove_loan(
+  dds_loaned_sample_t *loaned_sample);
 
 /** moves a loan from storage to another */
-bool dds_loan_manager_move_loan(
+dds_return_t dds_loan_manager_move_loan(
   dds_loan_manager_t *manager,
-  dds_loaned_sample_t *to_move);
+  dds_loaned_sample_t *loaned_sample);
 
 /** finds a whether a sample corresponds to a loan on this manager */
 dds_loaned_sample_t *dds_loan_manager_find_loan(
   const dds_loan_manager_t *manager,
-  const void *sample);
+  const void *loaned_sample);
 
 /** gets the first managed loan from this manager */
 dds_loaned_sample_t *dds_loan_manager_get_loan(
@@ -148,4 +149,4 @@ dds_loaned_sample_t *dds_loan_manager_get_loan(
 #if defined(__cplusplus)
 }
 #endif
-#endif
+#endif /* _DDS_LOAN_H_ */

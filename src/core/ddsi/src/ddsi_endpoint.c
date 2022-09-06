@@ -436,8 +436,8 @@ static void endpoint_common_init (struct ddsi_entity_common *e, struct ddsi_endp
     ddsi_virtual_interface_topic_t *vit = ktp->virtual_topics[i];
     if (!vit->virtual_interface->ops.qos_supported(qos))
       continue;
-    ddsi_virtual_interface_pipe_t *pipe = ddsi_virtual_interface_pipe_open(vit, kind == DDSI_EK_READER ?  VIRTUAL_INTERFACE_PIPE_TYPE_SOURCE : VIRTUAL_INTERFACE_PIPE_TYPE_SINK);
-    if (NULL == pipe)
+    ddsi_virtual_interface_pipe_t *pipe = ddsi_virtual_interface_pipe_open(vit, kind == DDSI_EK_READER ?  DDS_VIRTUAL_INTERFACE_PIPE_TYPE_SOURCE : DDS_VIRTUAL_INTERFACE_PIPE_TYPE_SINK);
+    if (pipe == NULL)
       goto err_pipe_open;
     c->m_pipes[c->n_virtual_pipes++] = pipe;
   }

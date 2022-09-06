@@ -1,129 +1,134 @@
+/*
+ * Copyright(c) 2022 ZettaScale Technology and others
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License v. 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0, or the Eclipse Distribution License
+ * v. 1.0 which is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
+ */
+
 #include "dds__loan.h"
-
 #include "dds__entity.h"
-
 #include <string.h>
 
-bool dds_loaned_sample_fini(
-  dds_loaned_sample_t *to_fini)
+dds_return_t dds_loaned_sample_free(dds_loaned_sample_t *loaned_sample)
 {
-  assert(to_fini && (ddsrt_atomic_ld32(&to_fini->refs) == 0));
+  dds_return_t ret;
+  assert(loaned_sample && (ddsrt_atomic_ld32(&loaned_sample->refs) == 0));
 
-  if (!dds_loan_manager_remove_loan(to_fini))
-    return false;
-  if (to_fini->ops.fini)
-    return to_fini->ops.fini(to_fini);
+  if ((ret = dds_loan_manager_remove_loan(loaned_sample)) != DDS_RETCODE_OK)
+    return ret;
+  if (loaned_sample->ops.free)
+    loaned_sample->ops.free (loaned_sample);
+
+  return DDS_RETCODE_OK;
+}
+
+dds_return_t dds_loaned_sample_ref(dds_loaned_sample_t *loaned_sample)
+{
+  dds_return_t ret;
+  assert(loaned_sample);
+
+  if (loaned_sample->ops.ref && (ret = loaned_sample->ops.ref(loaned_sample)) != DDS_RETCODE_OK)
+    return ret;
+
+  ddsrt_atomic_inc32(&loaned_sample->refs);
+  return DDS_RETCODE_OK;
+}
+
+dds_return_t dds_loaned_sample_unref(dds_loaned_sample_t *loaned_sample)
+{
+  dds_return_t ret;
+  assert(loaned_sample && ddsrt_atomic_ld32(&loaned_sample->refs));
+
+  if (loaned_sample->ops.unref && (ret = loaned_sample->ops.unref(loaned_sample)) != DDS_RETCODE_OK)
+    return ret;
+  else if (ddsrt_atomic_dec32_ov (&loaned_sample->refs) > 1)
+    return DDS_RETCODE_OK;
+  else if ((ret = dds_loan_manager_remove_loan(loaned_sample)) != DDS_RETCODE_OK)
+    return ret;
   else
-    return true;
+    return dds_loaned_sample_free(loaned_sample);
 }
 
-bool dds_loaned_sample_incr_refs(
-  dds_loaned_sample_t *to_incr)
+dds_return_t dds_loaned_sample_reset_sample(dds_loaned_sample_t *loaned_sample)
 {
-  assert(to_incr);
-
-  if (to_incr->ops.incr && !to_incr->ops.incr(to_incr))
-    return false;
-
-  ddsrt_atomic_inc32(&to_incr->refs);
-  return true;
+  assert(loaned_sample && ddsrt_atomic_ld32(&loaned_sample->refs));
+  if (loaned_sample->ops.reset)
+    loaned_sample->ops.reset(loaned_sample);
+  return DDS_RETCODE_OK;
 }
 
-bool dds_loaned_sample_decr_refs(
-  dds_loaned_sample_t *to_decr)
+static dds_return_t dds_loan_manager_expand_cap(dds_loan_manager_t *manager, uint32_t expand)
 {
-  assert(to_decr && ddsrt_atomic_ld32(&to_decr->refs));
+  if (manager == NULL)
+    return DDS_RETCODE_BAD_PARAMETER;
 
-  if (to_decr->ops.decr && !to_decr->ops.decr(to_decr))
-    return false;
-  else if (ddsrt_atomic_dec32_ov (&to_decr->refs) > 1)
-    return true;
-  else if (!dds_loan_manager_remove_loan(to_decr))
-    return false;
-  else
-    return dds_loaned_sample_fini(to_decr);
-}
-
-bool dds_loaned_sample_reset_sample(
-  dds_loaned_sample_t *to_reset)
-{
-  assert(to_reset && ddsrt_atomic_ld32(&to_reset->refs));
-
-  if (to_reset->ops.reset)
-    return to_reset->ops.reset(to_reset);
-  else
-    return true;
-}
-
-static bool dds_loan_manager_expand_cap(
-  dds_loan_manager_t *to_expand,
-  uint32_t by_this)
-{
-  assert (to_expand);
-
-  uint32_t newcap = to_expand->n_samples_cap + by_this;
-
-  dds_loaned_sample_t **newarray = dds_realloc(to_expand->samples, sizeof(dds_loaned_sample_t*)*newcap);
-
-  if (newcap && NULL == newarray)
-    return false;
-
-  memset(newarray+to_expand->n_samples_cap, 0, sizeof(dds_loaned_sample_t*)*(newcap-to_expand->n_samples_cap));
-  to_expand->n_samples_cap = newcap;
-  to_expand->samples = newarray;
-
-  return true;
-}
-
-dds_loan_manager_t *dds_loan_manager_create(
-  uint32_t initial_cap)
-{
-  dds_loan_manager_t *mgr = dds_alloc(sizeof(dds_loan_manager_t));
-
-  if (!mgr || !dds_loan_manager_expand_cap(mgr, initial_cap))
-    goto fail;
-
-  return mgr;
-
-fail:
-  dds_free(mgr);
-  return NULL;
-}
-
-bool dds_loan_manager_fini(
-  dds_loan_manager_t *to_fini)
-{
-  assert(to_fini);
-
-  for (uint32_t i = 0; i < to_fini->n_samples_cap; i++)
+  uint32_t newcap = manager->n_samples_cap + expand;
+  dds_loaned_sample_t **newarray = NULL;
+  if (newcap > 0)
   {
-    dds_loaned_sample_t *s = to_fini->samples[i];
+    newarray = dds_realloc(manager->samples, sizeof(**newarray) * newcap);
+    if (newarray == NULL)
+      return DDS_RETCODE_OUT_OF_RESOURCES;
+    memset(newarray + manager->n_samples_cap, 0, sizeof(**newarray) * expand);
+  }
+  manager->samples = newarray;
+  manager->n_samples_cap = newcap;
 
-    if (s && !dds_loan_manager_remove_loan(s))
-      return false;
-    else
-      to_fini->samples[i] = NULL;
+  return DDS_RETCODE_OK;
+}
+
+dds_return_t dds_loan_manager_create(dds_loan_manager_t **manager, uint32_t initial_cap)
+{
+  dds_return_t ret;
+  if (manager == NULL)
+    return DDS_RETCODE_BAD_PARAMETER;
+
+  if ((*manager = dds_alloc(sizeof(**manager))) == NULL)
+    return DDS_RETCODE_OUT_OF_RESOURCES;
+  if ((ret = dds_loan_manager_expand_cap(*manager, initial_cap)) != DDS_RETCODE_OK)
+  {
+    dds_free(*manager);
+    return ret;
+  }
+  return DDS_RETCODE_OK;
+}
+
+dds_return_t dds_loan_manager_free(dds_loan_manager_t *manager)
+{
+  dds_return_t ret;
+  if (manager == NULL)
+    return DDS_RETCODE_BAD_PARAMETER;
+
+  for (uint32_t i = 0; i < manager->n_samples_cap; i++)
+  {
+    dds_loaned_sample_t *s = manager->samples[i];
+    if (s && (ret = dds_loan_manager_remove_loan(s)) != DDS_RETCODE_OK)
+      return ret;
+    manager->samples[i] = NULL;
   }
 
-  dds_free(to_fini->samples);
-  dds_free(to_fini);
-
-  return true;
+  dds_free(manager->samples);
+  dds_free(manager);
+  return DDS_RETCODE_OK;
 }
 
-bool dds_loan_manager_add_loan(
-  dds_loan_manager_t *manager,
-  dds_loaned_sample_t *to_add)
+dds_return_t dds_loan_manager_add_loan(dds_loan_manager_t *manager, dds_loaned_sample_t *loaned_sample)
 {
-  assert(manager && to_add && !to_add->manager);
+  dds_return_t ret;
+  assert(manager && loaned_sample && !loaned_sample->manager);
 
   //expand
   if (manager->n_samples_managed == manager->n_samples_cap)
   {
     uint32_t cap = manager->n_samples_cap;
-    uint32_t newcap = cap ? cap*2 : 1;
-    if (!dds_loan_manager_expand_cap(manager, newcap-cap))
-      return false;
+    uint32_t newcap = cap ? cap * 2 : 1;
+    if ((ret = dds_loan_manager_expand_cap(manager, newcap - cap)) != DDS_RETCODE_OK)
+      return ret;
   }
 
   //add
@@ -131,66 +136,73 @@ bool dds_loan_manager_add_loan(
   {
     if (!manager->samples[i])
     {
-      to_add->loan_idx = i;
-      manager->samples[i] = to_add;
+      loaned_sample->loan_idx = i;
+      manager->samples[i] = loaned_sample;
       break;
     }
   }
-  to_add->manager = manager;
+  loaned_sample->manager = manager;
   manager->n_samples_managed++;
 
-  return dds_loaned_sample_incr_refs(to_add);
-}
-bool dds_loan_manager_move_loan(
-  dds_loan_manager_t *manager,
-  dds_loaned_sample_t *to_move)
-{
-  assert(to_move && manager);
-
-  return dds_loaned_sample_incr_refs(to_move) &&
-         dds_loan_manager_remove_loan(to_move) &&
-         dds_loan_manager_add_loan(manager, to_move) &&
-         dds_loaned_sample_decr_refs(to_move);
+  return dds_loaned_sample_ref(loaned_sample);
 }
 
-bool dds_loan_manager_remove_loan(
-  dds_loaned_sample_t *to_remove)
+dds_return_t dds_loan_manager_move_loan(dds_loan_manager_t *manager, dds_loaned_sample_t *loaned_sample)
 {
-  assert(to_remove);
+  dds_return_t ret;
+  assert(loaned_sample && manager);
 
-  dds_loan_manager_t *mgr = to_remove->manager;
+  if ((ret = dds_loaned_sample_ref(loaned_sample)) != DDS_RETCODE_OK)
+    return ret;
+
+  if ((ret = dds_loan_manager_remove_loan(loaned_sample)) != DDS_RETCODE_OK
+      || (ret = dds_loan_manager_add_loan(manager, loaned_sample)) != DDS_RETCODE_OK)
+    goto err;
+
+  return dds_loaned_sample_unref(loaned_sample);
+
+err:
+  dds_loaned_sample_unref(loaned_sample);
+  return ret;
+}
+
+dds_return_t dds_loan_manager_remove_loan(dds_loaned_sample_t *loaned_sample)
+{
+  assert(loaned_sample);
+
+  dds_loan_manager_t *mgr = loaned_sample->manager;
   if (!mgr)
-    return true;
+    return DDS_RETCODE_OK;
   if (mgr->n_samples_managed == 0 ||
-      to_remove->loan_idx >= mgr->n_samples_cap ||
-      to_remove != mgr->samples[to_remove->loan_idx])
-    return false;
+      loaned_sample->loan_idx >= mgr->n_samples_cap ||
+      loaned_sample != mgr->samples[loaned_sample->loan_idx])
+    return DDS_RETCODE_BAD_PARAMETER;
 
-  mgr->samples[to_remove->loan_idx] = NULL;
+  mgr->samples[loaned_sample->loan_idx] = NULL;
   mgr->n_samples_managed--;
-  to_remove->loan_idx = (uint32_t)-1;
-  to_remove->manager = NULL;
+  loaned_sample->loan_idx = (uint32_t) - 1;
+  loaned_sample->manager = NULL;
 
-  return ddsrt_atomic_ld32(&to_remove->refs) ? dds_loaned_sample_decr_refs(to_remove) : true;
+  if (ddsrt_atomic_ld32(&loaned_sample->refs) > 0)
+    return dds_loaned_sample_unref(loaned_sample);
+
+  return DDS_RETCODE_OK;
 }
 
-dds_loaned_sample_t *dds_loan_manager_find_loan(
-  const dds_loan_manager_t *manager,
-  const void *sample)
+dds_loaned_sample_t *dds_loan_manager_find_loan(const dds_loan_manager_t *manager, const void *loaned_sample)
 {
   assert(manager);
 
-  for (uint32_t i = 0; i < manager->n_samples_cap && sample; i++)
+  for (uint32_t i = 0; i < manager->n_samples_cap && loaned_sample; i++)
   {
-    if (manager->samples[i] && manager->samples[i]->sample_ptr == sample)
+    if (manager->samples[i] && manager->samples[i]->sample_ptr == loaned_sample)
       return manager->samples[i];
   }
 
   return NULL;
 }
 
-dds_loaned_sample_t *dds_loan_manager_get_loan(
-  dds_loan_manager_t *manager)
+dds_loaned_sample_t *dds_loan_manager_get_loan(dds_loan_manager_t *manager)
 {
   if (!manager)
     return NULL;
@@ -211,74 +223,60 @@ typedef struct dds_heap_loan {
   const struct ddsi_sertype *m_stype;
 } dds_heap_loan_t;
 
-static bool heap_fini(
-  dds_loaned_sample_t *to_fini)
+static void heap_free(dds_loaned_sample_t *loaned_sample)
 {
-  assert(to_fini);
-
-  dds_heap_loan_t *hl = (dds_heap_loan_t*)to_fini;
-
+  assert(loaned_sample);
+  dds_heap_loan_t *hl = (dds_heap_loan_t*)loaned_sample;
   dds_free(hl->c.metadata);
-
   ddsi_sertype_free_sample(hl->m_stype, hl->c.sample_ptr, DDS_FREE_ALL);
-
   dds_free(hl);
-
-  return true;
 }
 
-static bool heap_reset(
-  dds_loaned_sample_t *to_reset)
+static void heap_reset(dds_loaned_sample_t *loaned_sample)
 {
-  assert(to_reset);
-
-  dds_heap_loan_t *hl = (dds_heap_loan_t*)to_reset;
-
+  assert(loaned_sample);
+  dds_heap_loan_t *hl = (dds_heap_loan_t*)loaned_sample;
   memset(hl->c.metadata, 0, sizeof(*(hl->c.metadata)));
-
   ddsi_sertype_zero_sample(hl->m_stype, hl->c.sample_ptr);
-
-  return true;
 }
 
 const dds_loaned_sample_ops_t dds_heap_loan_ops = {
-  .fini = heap_fini,
-  .incr = NULL,
-  .decr = NULL,
+  .free = heap_free,
+  .ref = NULL,
+  .unref = NULL,
   .reset = heap_reset
 };
 
-dds_loaned_sample_t* dds_heap_loan(const struct ddsi_sertype *type)
+dds_return_t dds_heap_loan(const struct ddsi_sertype *type, dds_loaned_sample_t **loaned_sample)
 {
-  dds_heap_loan_t *s = dds_alloc(sizeof(dds_heap_loan_t));
-  dds_virtual_interface_metadata_t *md = dds_alloc(sizeof(dds_virtual_interface_metadata_t));
+  if (type == NULL || loaned_sample == NULL)
+    return DDS_RETCODE_BAD_PARAMETER;
 
-  if (s)
+  dds_heap_loan_t *s = dds_alloc(sizeof(*s));
+  if (s == NULL)
+    return DDS_RETCODE_OUT_OF_RESOURCES;
+
+  if ((s->c.metadata = dds_alloc(sizeof(*s->c.metadata))) == NULL)
   {
-    s->c.metadata = md;
-    s->c.ops = dds_heap_loan_ops;
-    s->m_stype = type;
-    s->c.sample_ptr = ddsi_sertype_alloc_sample(type);
+    dds_free(s);
+    return DDS_RETCODE_OUT_OF_RESOURCES;
   }
 
-  if (md)
+  s->c.ops = dds_heap_loan_ops;
+  s->m_stype = type;
+  if ((s->c.sample_ptr = ddsi_sertype_alloc_sample(type)) == NULL)
   {
-    md->block_size = sizeof(dds_virtual_interface_metadata_t);
-    //md->sample_size =
-    md->sample_state = LOANED_SAMPLE_STATE_RAW;
-    md->cdr_identifier = CDR_ENC_VERSION_UNDEF;
-    md->cdr_options = 0;
+    dds_free(s);
+    dds_free(s->c.metadata);
+    return DDS_RETCODE_OUT_OF_RESOURCES;
   }
 
-  if (!md || !s)
-  {
-    if (md)
-      dds_free(md);
-    if (s)
-      dds_free(s);
+  s->c.metadata->block_size = sizeof(dds_virtual_interface_metadata_t);
+  s->c.metadata->sample_state = DDS_LOANED_SAMPLE_STATE_RAW;
+  s->c.metadata->cdr_identifier = CDR_ENC_VERSION_UNDEF;
+  s->c.metadata->cdr_options = 0;
 
-    return NULL;
-  }
+  *loaned_sample = (dds_loaned_sample_t *) s;
 
-  return (dds_loaned_sample_t*)s;
+  return DDS_RETCODE_OK;
 }

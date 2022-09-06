@@ -378,7 +378,8 @@ dds_entity_t dds_create_writer (dds_entity_t participant_or_publisher, dds_entit
   wr->m_xp = ddsi_xpack_new (gv, async_mode);
   wrinfo = whc_make_wrinfo (wr, wqos);
   wr->m_whc = whc_new (gv, wrinfo);
-  wr->m_loans = dds_loan_manager_create(0);
+  rc = dds_loan_manager_create(&wr->m_loans, 0);
+  assert(rc == DDS_RETCODE_OK); // FIXME: can be out of resources
   whc_free_wrinfo (wrinfo);
   wr->whc_batch = gv->config.whc_batch;
 

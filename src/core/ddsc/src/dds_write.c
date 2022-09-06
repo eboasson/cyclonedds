@@ -296,11 +296,12 @@ static bool requires_serialization(struct dds_topic *topic)
 
 static bool allows_serialization_into_buffer(struct dds_topic *topic)
 {
-  return (NULL != topic->m_stype->ops->serialize_into) &&
-         (NULL != topic->m_stype->ops->get_serialized_size);
+  return topic->m_stype->ops->serialize_into != NULL &&
+      topic->m_stype->ops->get_serialized_size != NULL;
 }
 
-static bool get_required_buffer_size(struct dds_topic *topic, const void *sample, uint32_t *sz) {
+static bool get_required_buffer_size(struct dds_topic *topic, const void *sample, uint32_t *sz)
+{
   assert (topic && sz && sample);
 
   if (!requires_serialization(topic))
@@ -334,16 +335,16 @@ static dds_return_t dds_write_basic_impl (struct thread_state * const ts, dds_wr
     ret = DDS_RETCODE_ERROR;
   }
 
-  if (ret == DDS_RETCODE_OK) {
+  if (ret == DDS_RETCODE_OK)
     ret = deliver_locally (ddsi_wr, d, tk);
-  }
 
   ddsi_tkmap_instance_unref (wr->m_entity.m_domain->gv.m_tkmap, tk);
 
   return ret;
 }
 
-dds_return_t dds_request_writer_loan(dds_writer *wr, void **samples_ptr, int32_t n_samples) {
+dds_return_t dds_request_writer_loan(dds_writer *wr, void **samples_ptr, int32_t n_samples)
+{
   if (n_samples < 0 || !samples_ptr)
     return DDS_RETCODE_BAD_PARAMETER;
 
@@ -371,12 +372,12 @@ dds_return_t dds_request_writer_loan(dds_writer *wr, void **samples_ptr, int32_t
   }
 
   //attempt to request loans from heap based interface
-  if (0 == ret)
+  if (ret == 0)
   {
     for (; ret < n_samples; ret++)
     {
-      dds_loaned_sample_t *loan = dds_heap_loan(wr->m_topic->m_stype);
-      if (!loan)
+      dds_loaned_sample_t *loan;
+      if (dds_heap_loan(wr->m_topic->m_stype, &loan) != DDS_RETCODE_OK)
         break;
       loans_ptr[ret] = loan;
     }
@@ -388,7 +389,7 @@ fail:
     if (loans_ptr)
     {
       for (int32_t i = 0; i < ret; i++)
-        dds_loaned_sample_fini(loans_ptr[i]);
+        dds_loaned_sample_free(loans_ptr[i]);
     }
 
     ret = DDS_RETCODE_OUT_OF_RESOURCES;
@@ -410,7 +411,8 @@ fail:
   return ret;
 }
 
-dds_return_t dds_return_writer_loan(dds_writer *wr, void **samples_ptr, int32_t n_samples) {
+dds_return_t dds_return_writer_loan(dds_writer *wr, void **samples_ptr, int32_t n_samples)
+{
   if (n_samples < 0/* || !samples_ptr*/)  //samples_ptr can be NULL???
     return DDS_RETCODE_BAD_PARAMETER;
 
@@ -426,9 +428,8 @@ dds_return_t dds_return_writer_loan(dds_writer *wr, void **samples_ptr, int32_t 
     if (loan)
     {
       /* refs(0):  user has discarded the sample already*/
-      if (!dds_loaned_sample_decr_refs(loan) ||
-          !dds_loan_manager_remove_loan(loan))
-        ret = DDS_RETCODE_ERROR;
+      if ((ret = dds_loaned_sample_unref(loan)) == DDS_RETCODE_OK)
+        ret = dds_loan_manager_remove_loan(loan);
     }
     else
     {
@@ -450,7 +451,7 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
   const bool writekey = action & DDS_WR_KEY_BIT;
   struct ddsi_writer *ddsi_wr = wr->m_wr;
   int ret = DDS_RETCODE_OK;
-  struct ddsi_serdata *d = NULL;
+  struct ddsi_serdata *d;
 
   if (data == NULL)
     return DDS_RETCODE_BAD_PARAMETER;
@@ -492,22 +493,19 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
   ddsrt_mutex_unlock (&ddsi_wr->e.lock);
 
   // 5. Create a correct serdata
-  if (loan)
-    d = ddsi_serdata_from_loaned_sample (ddsi_wr->type, writekey ? SDK_KEY : SDK_DATA, data, loan, remote_readers);
-  else
-    d = ddsi_serdata_from_sample (ddsi_wr->type, writekey ? SDK_KEY : SDK_DATA, data);
+  d = loan ?
+    ddsi_serdata_from_loaned_sample (ddsi_wr->type, writekey ? SDK_KEY : SDK_DATA, data, loan, remote_readers) :
+    ddsi_serdata_from_sample (ddsi_wr->type, writekey ? SDK_KEY : SDK_DATA, data);
 
   //the supplied loan may no longer be necessary here
   if (supplied_loan && supplied_loan != loan)
-  {
-    dds_loaned_sample_decr_refs (supplied_loan);
-    dds_loan_manager_remove_loan (supplied_loan);
-  }
+    dds_loaned_sample_unref (supplied_loan);
 
   if (loan && loan != supplied_loan)
     dds_loan_manager_add_loan (wr->m_loans, loan);
 
-  if(d == NULL) {
+  if (d == NULL)
+  {
     ret = DDS_RETCODE_BAD_PARAMETER;
     goto return_loan;
   }
@@ -540,7 +538,7 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
     }
     else
     {
-      dds_loaned_sample_decr_refs(loan); //loan refs(0)
+      dds_loaned_sample_unref(loan); //loan refs(0)
       d->loan = NULL;
     }
   }
@@ -549,11 +547,10 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
   return ret;
 
 unref_serdata:
-  if (d)
-    ddsi_serdata_unref(d); // refc(d) = 0
+  ddsi_serdata_unref(d); // refc(d) = 0
 return_loan:
   if(loan)
-    dds_loaned_sample_fini(loan);
+    (void) dds_loaned_sample_free(loan);
   thread_state_asleep (thrst);
   return ret;
 }

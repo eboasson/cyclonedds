@@ -74,10 +74,10 @@ static dds_return_t dds_reader_delete (dds_entity *e)
   dds_reader * const rd = (dds_reader *) e;
 
   if (rd->m_loans)
-    dds_loan_manager_fini(rd->m_loans);
+    dds_loan_manager_free(rd->m_loans);
 
   if (rd->m_loan_pool)
-    dds_loan_manager_fini(rd->m_loan_pool);
+    dds_loan_manager_free(rd->m_loan_pool);
 
   ddsi_thread_state_awake (ddsi_lookup_thread_state (), &e->m_domain->gv);
   dds_rhc_free (rd->m_rhc);
@@ -575,8 +575,10 @@ static dds_entity_t dds_create_reader_int (dds_entity_t participant_or_subscribe
   rd->m_sample_rejected_status.last_reason = DDS_NOT_REJECTED;
   rd->m_topic = tp;
   rd->m_rhc = rhc ? rhc : dds_rhc_default_new (rd, tp->m_stype);
-  rd->m_loans = dds_loan_manager_create(0);
-  rd->m_loan_pool = dds_loan_manager_create(0);
+  rc = dds_loan_manager_create(&rd->m_loans, 0);
+  assert (rc == DDS_RETCODE_OK); // FIXME: can be out of resources
+  rc = dds_loan_manager_create(&rd->m_loan_pool, 0);
+  assert (rc == DDS_RETCODE_OK); // FIXME: can be out of resources
   if (dds_rhc_associate (rd->m_rhc, rd, tp->m_stype, rd->m_entity.m_domain->gv.m_tkmap) < 0)
   {
     /* FIXME: see also create_querycond, need to be able to undo entity_init */
@@ -644,20 +646,21 @@ err_pin_topic:
   return rc;
 }
 
-dds_return_t dds_reader_store_external (
-  dds_entity_t reader,
-  dds_loaned_sample_t *data)
+dds_return_t dds_reader_store_external (dds_entity_t reader, dds_loaned_sample_t *data)
 {
-  dds_return_t ret = DDS_RETCODE_OK;
-  dds_entity * e = NULL;
+  dds_return_t ret;
+  dds_entity * e;
 
-  dds_reader * dds_rd = NULL;
-  if ((ret = dds_entity_pin (reader, &e)) < 0) {
+  dds_reader * dds_rd;
+  if ((ret = dds_entity_pin (reader, &e)) < 0)
     goto pin_fail;
-  } else if (NULL == e) {
+  if (e == NULL)
+  {
     ret = DDS_RETCODE_ALREADY_DELETED;
     goto pin_fail;
-  } else if (dds_entity_kind(e) != DDS_KIND_READER) {
+  }
+  if (dds_entity_kind(e) != DDS_KIND_READER)
+  {
     ret = DDS_RETCODE_ILLEGAL_OPERATION;
     goto kind_fail;
   }
@@ -665,7 +668,7 @@ dds_return_t dds_reader_store_external (
 
   struct ddsi_reader * rd = dds_rd->m_rd;
   struct ddsi_serdata * _sd = ddsi_serdata_from_virtual_exchange(dds_rd->m_topic->m_stype, data);
-  if (NULL == _sd)
+  if (_sd == NULL)
     goto kind_fail;
 
   struct ddsi_domaingv * gv = rd->e.gv;
@@ -675,47 +678,46 @@ dds_return_t dds_reader_store_external (
   struct dds_qos * xqos = NULL;
   dds_virtual_interface_metadata_t *md = data->metadata;
   struct ddsi_entity_common * e_c = ddsi_entidx_lookup_guid_untyped (gv->entity_index, &md->guid);
-  if (e_c == NULL || (e_c->kind != DDSI_EK_PROXY_WRITER && e_c->kind != DDSI_EK_WRITER)) {
+  if (e_c == NULL || (e_c->kind != DDSI_EK_PROXY_WRITER && e_c->kind != DDSI_EK_WRITER))
+  {
     ret = DDS_RETCODE_NOT_FOUND;
     goto writer_fail;
-  } else if (e_c->kind == DDSI_EK_PROXY_WRITER) {
-    xqos = ((struct ddsi_proxy_writer *) e_c)->c.xqos;
-  } else {
-    xqos = ((struct ddsi_writer *) e_c)->xqos;
   }
+  else if (e_c->kind == DDSI_EK_PROXY_WRITER)
+    xqos = ((struct ddsi_proxy_writer *) e_c)->c.xqos;
+  else
+    xqos = ((struct ddsi_writer *) e_c)->xqos;
 
   //what if the sample is overwritten?
   //if the sample is not matched to this reader, return ownership to the virtual interface?
 
   ddsi_make_writer_info(&wi, e_c, xqos, _sd->statusinfo);
   struct ddsi_tkmap_instance * tk = ddsi_tkmap_lookup_instance_ref (gv->m_tkmap, _sd);
-  if (NULL == tk) {
+  if (tk == NULL)
+  {
     ret = DDS_RETCODE_BAD_PARAMETER;
-  } else {
-    if (!dds_rhc_store(dds_rd->m_rhc, &wi, _sd, tk))  //the reader history cache is now the owner of _sd?
-      ret = DDS_RETCODE_ERROR;
-    else
-      ddsi_serdata_unref(_sd);
+    goto instance_ref_fail;
+  }
+
+  if (!dds_rhc_store(dds_rd->m_rhc, &wi, _sd, tk))  //the reader history cache is now the owner of _sd?
+  {
+    ret = DDS_RETCODE_ERROR;
+    goto rhc_store_fail;
   }
 
   if (_sd->loan)
-  {
-    if (ret == DDS_RETCODE_OK && !dds_loan_manager_add_loan(dds_rd->m_loans, _sd->loan))
-      //refs(1) the serdata is now the owner of this sample
-      ret = DDS_RETCODE_ERROR;
+    ret = dds_loan_manager_add_loan(dds_rd->m_loans, _sd->loan);
 
-    if (ret != DDS_RETCODE_OK)
-      ddsi_serdata_unref(_sd);
-  }
-
+  ddsi_serdata_unref(_sd);
+rhc_store_fail:
   ddsi_tkmap_instance_unref(gv->m_tkmap, tk);
+instance_ref_fail:
 writer_fail:
   ddsrt_mutex_unlock (&rd->e.lock);
   ddsi_thread_state_asleep(ddsi_lookup_thread_state());
 kind_fail:
   dds_entity_unpin(e);
 pin_fail:
-
   return ret;
 }
 

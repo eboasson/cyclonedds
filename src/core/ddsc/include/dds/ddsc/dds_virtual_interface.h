@@ -108,17 +108,17 @@ typedef uint64_t ddsi_virtual_interface_node_identifier_t;
 #define DATA_TYPE_IS_FIXED_SIZE               DATA_TYPE_CONTAINS_INDIRECTIONS >> 1
 
 /*the type of a pipe*/
-typedef enum virtual_interface_pipe_type {
-  VIRTUAL_INTERFACE_PIPE_TYPE_UNSET,
-  VIRTUAL_INTERFACE_PIPE_TYPE_SOURCE,
-  VIRTUAL_INTERFACE_PIPE_TYPE_SINK
-} virtual_interface_pipe_type_t;
+typedef enum dds_virtual_interface_pipe_type {
+  DDS_VIRTUAL_INTERFACE_PIPE_TYPE_UNSET,
+  DDS_VIRTUAL_INTERFACE_PIPE_TYPE_SOURCE,
+  DDS_VIRTUAL_INTERFACE_PIPE_TYPE_SINK
+} dds_virtual_interface_pipe_type_t;
 
 /*describes the data which is transferred in addition to just the sample*/  //move to dds_loan.h?
 typedef struct dds_virtual_interface_metadata {
-  loaned_sample_state_t sample_state;
-  loan_data_type_t data_type;
-  loan_origin_type_t data_origin;
+  dds_loaned_sample_state_t sample_state;
+  dds_loan_data_type_t data_type;
+  dds_loan_origin_type_t data_origin;
   uint32_t sample_size;
   uint32_t block_size;
   ddsi_guid_t guid;
@@ -138,7 +138,7 @@ typedef bool (*ddsi_virtual_interface_match_locator_f) (
   const struct ddsi_locator * locator
 );
 
-/* returns true when a data type is supported 
+/* returns true when a data type is supported
 */
 typedef bool (*ddsi_virtual_interface_data_type_supported_f) (
   virtual_interface_data_type_properties_t data_type_props
@@ -164,7 +164,7 @@ typedef bool (*ddsi_virtual_interface_topic_destruct_f) (
   ddsi_virtual_interface_topic_t * vi_topic
 );
 
-/* checks whether serialization is required on this 
+/* checks whether serialization is required on this
 * returns true on success
 */
 typedef bool (*ddsi_virtual_interface_serialization_required_f) (
@@ -176,7 +176,7 @@ typedef bool (*ddsi_virtual_interface_serialization_required_f) (
 */
 typedef ddsi_virtual_interface_pipe_t* (*ddsi_virtual_interface_pipe_open_f) (
   ddsi_virtual_interface_topic_t * topic,  /*the topic to create the pipe on*/
-  virtual_interface_pipe_type_t pipe_type /*type type of pipe to open*/
+  dds_virtual_interface_pipe_type_t pipe_type /*type type of pipe to open*/
 );
 
 /* closes a pipe
@@ -270,7 +270,7 @@ struct ddsi_virtual_interface {
   const char * interface_name; /*type of interface being used*/
   int32_t priority; /*priority of choosing this interface*/
   const struct ddsi_locator * locator; /*the locator for this virtual interface*/
-  loan_origin_type_t interface_id; /*the unique id of this interface*/
+  dds_loan_origin_type_t interface_id; /*the unique id of this interface*/
   ddsi_virtual_interface_topic_list_elem_t * topics; /*associated topics*/
 };
 
@@ -295,7 +295,7 @@ struct ddsi_virtual_interface_topic {
   ddsi_virtual_interface_topic_ops_t ops; /*associated functions*/
   ddsi_virtual_interface_t * virtual_interface; /*the virtual interface which created this pipe*/
   virtual_interface_topic_identifier_t topic_id; /*unique identifier of topic representation*/
-  loan_data_type_t data_type; /*the unique identifier associated with the data type of this topic*/
+  dds_loan_data_type_t data_type; /*the unique identifier associated with the data type of this topic*/
   ddsi_virtual_interface_pipe_list_elem_t * pipes; /*associated pipes*/
   virtual_interface_data_type_properties_t data_type_props; /*the properties of the datatype associated with this topic*/
 };
@@ -318,7 +318,7 @@ DDS_EXPORT bool ddsi_virtual_interface_topic_cleanup_generic(ddsi_virtual_interf
 struct ddsi_virtual_interface_pipe {
   ddsi_virtual_interface_pipe_ops_t ops; /*associated functions*/
   ddsi_virtual_interface_topic_t * topic; /*the topic this pipe belongs to*/
-  virtual_interface_pipe_type_t pipe_type; /*type type of pipe*/
+  dds_virtual_interface_pipe_type_t pipe_type; /*type type of pipe*/
 };
 
 /**
@@ -326,7 +326,7 @@ struct ddsi_virtual_interface_pipe {
  */
 ddsi_virtual_interface_pipe_t * ddsi_virtual_interface_pipe_open (
   ddsi_virtual_interface_topic_t * topic,  /*the topic to create the pipe on*/
-  virtual_interface_pipe_type_t pipe_type /*type type of pipe to open*/);
+  dds_virtual_interface_pipe_type_t pipe_type /*type type of pipe to open*/);
 
 /**
  * closes a pipe
@@ -349,7 +349,7 @@ DDS_EXPORT bool ddsi_virtual_interface_pipe_serialization_required(ddsi_virtual_
 */
 typedef bool (*ddsi_virtual_interface_create_fn) (
   ddsi_virtual_interface_t **virtual_interface, /*output for the virtual interface to be created*/
-  loan_origin_type_t identifier, /*the unique identifier for this interface*/
+  dds_loan_origin_type_t identifier, /*the unique identifier for this interface*/
   const char *config /*virtual interface-specific configuration*/
 );
 #endif // DDS_VIRTUAL_INTERFACE_H

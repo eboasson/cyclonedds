@@ -5,8 +5,4 @@ module HelloWorldData
     long b,c;
     string s;
   };
-
-  struct NSC_Model {
-    string a,b,c;
-  };
 };

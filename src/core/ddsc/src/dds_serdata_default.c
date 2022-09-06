@@ -144,7 +144,7 @@ static void serdata_default_free(struct ddsi_serdata *dcmn)
   /* refs(0)  user has discarded the sample already,
      refs(1)  user still has the loan*/
   if (d->c.loan)
-    dds_loaned_sample_decr_refs(d->c.loan);
+    dds_loaned_sample_unref(d->c.loan);
 
   if (d->size > MAX_SIZE_FOR_POOL || !ddsi_freelist_push (&d->serpool->freelist, d))
     dds_free (d);
@@ -491,7 +491,7 @@ static struct ddsi_serdata *serdata_default_from_loaned_sample(const struct ddsi
   if (d) {
     d->c.loan = loan;
     /*transfer ownership of the loan to the serdata*/
-    dds_loaned_sample_incr_refs(loan);
+    dds_loaned_sample_ref(loan);
     dds_loan_manager_remove_loan(loan);
 
     struct dds_virtual_interface_metadata *md = loan->metadata;
@@ -517,16 +517,16 @@ static struct ddsi_serdata *serdata_default_from_loaned_sample(const struct ddsi
     }
 
     if (loan->sample_ptr != sample) {  //if the sample we are serializing is itself not loaned
-      assert (md->sample_state == LOANED_SAMPLE_STATE_UNITIALIZED);
+      assert (md->sample_state == DDS_LOANED_SAMPLE_STATE_UNITIALIZED);
       if (serialize_data) {
-        md->sample_state = (kind == SDK_KEY ? LOANED_SAMPLE_STATE_SERIALIZED_KEY : LOANED_SAMPLE_STATE_SERIALIZED_DATA);
+        md->sample_state = (kind == SDK_KEY ? DDS_LOANED_SAMPLE_STATE_SERIALIZED_KEY : DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA);
         memcpy(loan->sample_ptr, d->data, md->sample_size);
       } else {
-        md->sample_state = LOANED_SAMPLE_STATE_RAW;
+        md->sample_state = DDS_LOANED_SAMPLE_STATE_RAW;
         memcpy(loan->sample_ptr, sample, md->sample_size);
       }
     } else {
-      md->sample_state = LOANED_SAMPLE_STATE_RAW;
+      md->sample_state = DDS_LOANED_SAMPLE_STATE_RAW;
     }
 
     md->hash = d->c.hash;
@@ -843,17 +843,19 @@ static struct ddsi_serdata * serdata_default_from_virtual_exchange(const struct 
   const struct ddsi_sertype_default *tp = (const struct ddsi_sertype_default *)type;
   dds_virtual_interface_metadata_t *md = data->metadata;
   enum ddsi_serdata_kind sdk = 0;
-  switch (md->sample_state) {
-    case LOANED_SAMPLE_STATE_SERIALIZED_KEY:
+  switch (md->sample_state)
+  {
+    case DDS_LOANED_SAMPLE_STATE_SERIALIZED_KEY:
       sdk = SDK_KEY;
       break;
-    case LOANED_SAMPLE_STATE_RAW:
-    case LOANED_SAMPLE_STATE_SERIALIZED_DATA:
+    case DDS_LOANED_SAMPLE_STATE_RAW:
+    case DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA:
       sdk = SDK_DATA;
       break;
     default:
       assert(false); //???
       sdk = SDK_EMPTY;
+      break;
   }
 
   struct ddsi_serdata_default *d = serdata_default_new(
@@ -871,18 +873,20 @@ static struct ddsi_serdata * serdata_default_from_virtual_exchange(const struct 
   d->hdr.identifier = CDR_ENC_TO_NATIVE(md->cdr_identifier);
   d->hdr.options = md->cdr_options;
 
-  if (md->sample_state == LOANED_SAMPLE_STATE_SERIALIZED_KEY ||
-      md->sample_state == LOANED_SAMPLE_STATE_SERIALIZED_DATA) {
-    dds_loaned_sample_t *ls = dds_heap_loan(type);
+  if (md->sample_state == DDS_LOANED_SAMPLE_STATE_SERIALIZED_KEY ||
+      md->sample_state == DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA)
+  {
+    dds_loaned_sample_t *ls;
+    dds_heap_loan(type, &ls); // FIXME: check return code
     dds_istream_t is;
     dds_istream_init (&is, md->sample_size, data->sample_ptr, md->cdr_identifier);
     dds_stream_read_sample (&is, ls->sample_ptr, tp);
-    dds_loaned_sample_fini(data);
+    (void) dds_loaned_sample_free(data);
     data = ls;
   }
 
   d->c.loan = data;
-  dds_loaned_sample_incr_refs(data);
+  dds_loaned_sample_ref(data);
 
   return (struct ddsi_serdata *)d;
 }
