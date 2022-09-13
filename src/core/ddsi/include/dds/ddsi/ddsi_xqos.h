@@ -126,11 +126,6 @@ typedef struct ddsi_stringseq {
   char **strs;
 } ddsi_stringseq_t;
 
-typedef struct ddsi_uint16seq {
-  uint32_t n;
-  uint16_t *vals;
-} ddsi_uint16seq_t;
-
 typedef ddsi_stringseq_t dds_partition_qospolicy_t;
 
 typedef struct dds_reliability_qospolicy {
