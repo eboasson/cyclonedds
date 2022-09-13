@@ -1016,7 +1016,7 @@ static int virtual_interface_init(struct ddsi_domaingv *gv, const ddsi_virtual_i
     if (gv->interfaces[i].if_index >= intf->if_index)
       intf->if_index = gv->interfaces[i].if_index + 1;
   intf->link_local = true; // Makes it so that non-local addresses are ignored
-  memcpy(&intf->loc, vi->locator, sizeof(intf->loc));
+  intf->loc = *vi->locator;
   intf->extloc = intf->loc;
   intf->loopback = false;
   intf->mc_capable = true; // FIXME: matters most for discovery, this avoids auto-lack-of-multicast-mitigation
