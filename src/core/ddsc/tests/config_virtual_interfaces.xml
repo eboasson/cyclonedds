@@ -19,7 +19,7 @@
     <General>
       <Interfaces>
       <NetworkInterface address="127.0.0.1" />
-      <VirtualInterface name="iox" library="/home/reicher/iox_vi/install/lib/libiox_interface.so" priority ="1000000" />
+      <VirtualInterface name="iox" library="/Users/erik/C/iceoryx-virtual-interface/CC/src/libiox_interface.dylib" priority ="1000000" />
       </Interfaces>
       <AllowMulticast>true</AllowMulticast>
       <EnableMulticastLoopback>true</EnableMulticastLoopback>

@@ -35,10 +35,8 @@ bool ddsi_virtual_interface_load(struct ddsi_domaingv *gv, struct ddsi_config_vi
   if (ddsrt_dlopen(toload, true, &handle) != DDS_RETCODE_OK)
   {
     char buf[1024];
-    if (DDS_RETCODE_OK == ddsrt_dlerror(buf, sizeof(buf)))
-      GVERROR("Failed to load virtual interface library '%s' with error \"%s\".\n", toload, buf);
-    else
-      GVERROR("Failed to load virtual interface library '%s' with an unknown error.\n", toload);
+    (void) ddsrt_dlerror(buf, sizeof(buf));
+    GVERROR("Failed to load virtual interface library '%s' with error \"%s\".\n", toload, buf);
     ok = false;
     goto err;
   }
