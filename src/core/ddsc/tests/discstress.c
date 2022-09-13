@@ -388,7 +388,7 @@ static uint32_t createwriter_subscriber (void *varg)
           CU_ASSERT_FATAL (0);
         }
 
-        rc = dds_return_loan (readers[xs[i]], raw, rc);
+        rc = dds_return_loan (readers[xs[i]], raw, n);
         CU_ASSERT_FATAL (rc == 0);
 
         /* Flip-flop between create & deleting a reader to ensure matching activity on the proxy
