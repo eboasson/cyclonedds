@@ -18,7 +18,6 @@
 
 #include "dds/ddsrt/heap.h"
 
-#include "dds__alloc.h"
 #include "dds/ddsi/ddsi_locator.h"
 #include "dds/ddsi/ddsi_domaingv.h"
 #include "dds/ddsrt/mh3.h"
@@ -171,7 +170,7 @@ bool ddsi_virtual_interface_init_generic(ddsi_virtual_interface_t * virtual_inte
 
   memcpy(loc->address, &vini, sizeof(vini));
   loc->port = virtual_interface->interface_id;
-  loc->kind = NN_LOCATOR_KIND_SHEM;
+  loc->kind = DDSI_LOCATOR_KIND_SHEM;
 
   virtual_interface->locator = loc;
 

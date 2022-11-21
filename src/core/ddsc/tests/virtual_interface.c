@@ -19,8 +19,8 @@
 #include "dds/ddsrt/cdtors.h"
 #include "dds/ddsrt/environ.h"
 #include "dds/ddsrt/heap.h"
-#include "dds/ddsi/q_misc.h"
 #include "dds/ddsi/ddsi_xqos.h"
+#include "ddsi__misc.h"
 
 #include "test_common.h"
 

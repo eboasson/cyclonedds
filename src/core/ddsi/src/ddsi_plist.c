@@ -2114,7 +2114,7 @@ static const struct piddesc piddesc_eclipse[] = {
   { DDSI_PID_PAD, PDF_QOS, DDSI_QP_CYCLONE_IGNORELOCAL, "CYCLONE_IGNORELOCAL",
     offsetof (struct ddsi_plist, qos.ignorelocal), membersize (struct ddsi_plist, qos.ignorelocal),
     { .desc = { XE2, XSTOP } }, 0 },
-  { DDSI_PID_PAD, PDF_QOS, DDSI_VIRTUAL_INTERFACES, "CYCLONE_VIRTUAL_INTERFACE",
+  { DDSI_PID_PAD, PDF_QOS, DDSI_QP_VIRTUAL_INTERFACES, "CYCLONE_VIRTUAL_INTERFACE",
     offsetof(struct ddsi_plist, qos.virtual_interfaces), membersize(struct ddsi_plist, qos.virtual_interfaces),
     {.desc = { XQ, XS, XSTOP } }, 0 },
 #ifdef DDS_HAS_TOPIC_DISCOVERY
@@ -2902,8 +2902,8 @@ static enum do_locator_result do_locator (ddsi_locators_t *ls, uint64_t present,
           return DOLOC_INVALID;
       }
       break;
-    case NN_LOCATOR_KIND_SHEM:
-      if (!vendor_is_eclipse (dd->vendorid))
+    case DDSI_LOCATOR_KIND_SHEM:
+      if (!ddsi_vendor_is_eclipse (dd->vendorid))
         return DOLOC_IGNORED;
       add_locator (ls, present, wanted, fl, &loc);
       return DOLOC_ACCEPTED;

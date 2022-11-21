@@ -314,7 +314,7 @@ static bool get_required_buffer_size(struct dds_topic *topic, const void *sample
   return true;
 }
 
-static dds_return_t dds_write_basic_impl (struct thread_state * const ts, dds_writer *wr, struct ddsi_serdata *d)
+static dds_return_t dds_write_basic_impl (struct ddsi_thread_state * const ts, dds_writer *wr, struct ddsi_serdata *d)
 {
   struct ddsi_writer *ddsi_wr = wr->m_wr;
   dds_return_t ret = DDS_RETCODE_OK;
@@ -325,11 +325,11 @@ static dds_return_t dds_write_basic_impl (struct thread_state * const ts, dds_wr
   struct ddsi_tkmap_instance *tk = ddsi_tkmap_lookup_instance_ref (wr->m_entity.m_domain->gv.m_tkmap, d);
 
   (void) ddsi_serdata_ref(d);
-  ret = write_sample_gc (ts, wr->m_xp, ddsi_wr, d, tk);
+  ret = ddsi_write_sample_gc (ts, wr->m_xp, ddsi_wr, d, tk);
   if (ret >= 0) {
     /* Flush out write unless configured to batch */
     if (!wr->whc_batch)
-      nn_xpack_send (wr->m_xp, false);
+      ddsi_xpack_send (wr->m_xp, false);
     ret = DDS_RETCODE_OK;
   } else if (ret != DDS_RETCODE_TIMEOUT) {
     ret = DDS_RETCODE_ERROR;
@@ -459,7 +459,7 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
   if (!evalute_topic_filter (wr, data, writekey))
     return DDS_RETCODE_OK;
 
-  thread_state_awake (thrst, &wr->m_entity.m_domain->gv);
+  ddsi_thread_state_awake (thrst, &wr->m_entity.m_domain->gv);
 
   // 3. Check whether data is loaned
   dds_loaned_sample_t *supplied_loan = dds_loan_manager_find_loan(wr->m_loans, data);
@@ -510,8 +510,8 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
   }
 
   // refc(d) = 1 after successful construction
-  d->statusinfo = (((action & DDS_WR_DISPOSE_BIT) ? NN_STATUSINFO_DISPOSE : 0) |
-                  ((action & DDS_WR_UNREGISTER_BIT) ? NN_STATUSINFO_UNREGISTER : 0));
+  d->statusinfo = (((action & DDS_WR_DISPOSE_BIT) ? DDSI_STATUSINFO_DISPOSE : 0) |
+                  ((action & DDS_WR_UNREGISTER_BIT) ? DDSI_STATUSINFO_UNREGISTER : 0));
   d->timestamp.v = tstamp;
 
   // 6. Deliver the data
@@ -542,7 +542,7 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
     }
   }
 
-  thread_state_asleep (thrst);
+  ddsi_thread_state_asleep (thrst);
   return ret;
 
 unref_serdata:
@@ -550,7 +550,7 @@ unref_serdata:
 return_loan:
   if(loan)
     (void) dds_loaned_sample_free(loan);
-  thread_state_asleep (thrst);
+  ddsi_thread_state_asleep (thrst);
   return ret;
 }
 

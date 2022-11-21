@@ -10,9 +10,11 @@
  * SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
  */
 
+#include <string.h>
+#include "dds/ddsi/ddsi_sertype.h"
+#include "dds/cdr/dds_cdrstream.h"
 #include "dds__loan.h"
 #include "dds__entity.h"
-#include <string.h>
 
 dds_return_t dds_loaned_sample_free(dds_loaned_sample_t *loaned_sample)
 {
@@ -278,7 +280,7 @@ dds_return_t dds_heap_loan(const struct ddsi_sertype *type, dds_loaned_sample_t 
 
   s->c.metadata->block_size = sizeof(dds_virtual_interface_metadata_t);
   s->c.metadata->sample_state = DDS_LOANED_SAMPLE_STATE_RAW;
-  s->c.metadata->cdr_identifier = CDR_ENC_VERSION_UNDEF;
+  s->c.metadata->cdr_identifier = DDSI_RTPS_CDR_ENC_VERSION_UNDEF;
   s->c.metadata->cdr_options = 0;
 
   *loaned_sample = (dds_loaned_sample_t *) s;

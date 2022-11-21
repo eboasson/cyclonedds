@@ -478,7 +478,7 @@ void dds_qset_virtual_interfaces (dds_qos_t * __restrict qos, uint32_t n, const 
     return;
 
   //cleanup old data
-  if ((qos->present & QP_VIRTUAL_INTERFACES) && qos->virtual_interfaces.supported_virtual_interface_kinds.n > 0)
+  if ((qos->present & DDSI_QP_VIRTUAL_INTERFACES) && qos->virtual_interfaces.supported_virtual_interface_kinds.n > 0)
   {
     assert (qos->virtual_interfaces.supported_virtual_interface_kinds.strs != NULL);
     for (uint32_t i = 0; i < qos->virtual_interfaces.supported_virtual_interface_kinds.n; i++)
@@ -496,7 +496,7 @@ void dds_qset_virtual_interfaces (dds_qos_t * __restrict qos, uint32_t n, const 
       qos->virtual_interfaces.supported_virtual_interface_kinds.strs[i] = ddsrt_strdup (values[i]);
   }
 
-  qos->present |= QP_VIRTUAL_INTERFACES;
+  qos->present |= DDSI_QP_VIRTUAL_INTERFACES;
 }
 
 bool dds_qget_userdata (const dds_qos_t * __restrict qos, void **value, size_t *sz)
@@ -882,7 +882,7 @@ dds_return_t dds_ensure_valid_data_representation (dds_qos_t *qos, uint32_t allo
 
 bool dds_qget_virtual_interfaces (const dds_qos_t * __restrict qos, uint32_t *n_out, char ***values)
 {
-  if (qos == NULL || !(qos->present & QP_VIRTUAL_INTERFACES) || n_out == NULL)
+  if (qos == NULL || !(qos->present & DDSI_QP_VIRTUAL_INTERFACES) || n_out == NULL)
     return false;
 
   if (qos->virtual_interfaces.supported_virtual_interface_kinds.n > 0)
@@ -906,7 +906,7 @@ bool dds_qget_virtual_interfaces (const dds_qos_t * __restrict qos, uint32_t *n_
 
 dds_return_t dds_ensure_valid_virtual_interfaces (dds_qos_t *qos, const struct ddsi_sertype *sertype, const struct ddsi_domaingv *gv)
 {
-  if (!(qos->present & QP_VIRTUAL_INTERFACES))
+  if (!(qos->present & DDSI_QP_VIRTUAL_INTERFACES))
   {
     uint32_t n_supported = 0;
     const char *supported_interfaces[MAX_VIRTUAL_INTERFACES];

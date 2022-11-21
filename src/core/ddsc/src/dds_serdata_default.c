@@ -502,22 +502,22 @@ static struct ddsi_serdata *serdata_default_from_loaned_sample(const struct ddsi
     md->cdr_options = d->hdr.options;
     switch (d->hdr.identifier)
     {
-      case CDR_BE:
-      case CDR_LE:
-      case PL_CDR_BE:
-      case PL_CDR_LE:
-        md->cdr_identifier = CDR_ENC_VERSION_1;
+      case DDSI_RTPS_CDR_BE:
+      case DDSI_RTPS_CDR_LE:
+      case DDSI_RTPS_PL_CDR_BE:
+      case DDSI_RTPS_PL_CDR_LE:
+        md->cdr_identifier = DDSI_RTPS_CDR_ENC_VERSION_1;
         break;
-      case CDR2_BE:
-      case CDR2_LE:
-      case D_CDR2_BE:
-      case D_CDR2_LE:
-      case PL_CDR2_BE:
-      case PL_CDR2_LE:
-        md->cdr_identifier = CDR_ENC_VERSION_2;
+      case DDSI_RTPS_CDR2_BE:
+      case DDSI_RTPS_CDR2_LE:
+      case DDSI_RTPS_D_CDR2_BE:
+      case DDSI_RTPS_D_CDR2_LE:
+      case DDSI_RTPS_PL_CDR2_BE:
+      case DDSI_RTPS_PL_CDR2_LE:
+        md->cdr_identifier = DDSI_RTPS_CDR_ENC_VERSION_2;
         break;
       default:
-        md->cdr_identifier = CDR_ENC_VERSION_UNDEF;
+        md->cdr_identifier = DDSI_RTPS_CDR_ENC_VERSION_UNDEF;
     }
 
     if (loan->sample_ptr != sample) //if the sample we are serializing is itself not loaned
@@ -850,7 +850,7 @@ static void serdata_default_get_keyhash (const struct ddsi_serdata *serdata_comm
 
 static struct ddsi_serdata * serdata_default_from_virtual_exchange(const struct ddsi_sertype *type, dds_loaned_sample_t *data)
 {
-  const struct ddsi_sertype_default *tp = (const struct ddsi_sertype_default *)type;
+  const struct dds_sertype_default *tp = (const struct dds_sertype_default *)type;
   dds_virtual_interface_metadata_t *md = data->metadata;
   enum ddsi_serdata_kind sdk = 0;
   switch (md->sample_state)
@@ -868,7 +868,7 @@ static struct ddsi_serdata * serdata_default_from_virtual_exchange(const struct 
       break;
   }
 
-  struct ddsi_serdata_default *d = serdata_default_new(tp, sdk, md->cdr_identifier);
+  struct dds_serdata_default *d = serdata_default_new(tp, sdk, md->cdr_identifier);
 
   //the loaned sample is serialized
   d->c.hash = md->hash;
@@ -877,7 +877,7 @@ static struct ddsi_serdata * serdata_default_from_virtual_exchange(const struct 
   memcpy(d->key.u.stbuf, md->keyhash.value, DDS_FIXED_KEY_MAX_SIZE);
   d->key.keysize = (unsigned)md->keysize;
   d->key.buftype = KEYBUFTYPE_STATIC;
-  d->hdr.identifier = CDR_ENC_TO_NATIVE(md->cdr_identifier);
+  d->hdr.identifier = DDSI_RTPS_CDR_ENC_TO_NATIVE(md->cdr_identifier);
   d->hdr.options = md->cdr_options;
 
   if (md->sample_state == DDS_LOANED_SAMPLE_STATE_SERIALIZED_KEY ||
@@ -887,7 +887,7 @@ static struct ddsi_serdata * serdata_default_from_virtual_exchange(const struct 
     dds_heap_loan(type, &ls); // FIXME: check return code
     dds_istream_t is;
     dds_istream_init (&is, md->sample_size, data->sample_ptr, md->cdr_identifier);
-    dds_stream_read_sample (&is, ls->sample_ptr, tp);
+    dds_stream_read_sample (&is, ls->sample_ptr, &dds_cdrstream_default_allocator, &tp->type);
     (void) dds_loaned_sample_free(data);
     data = ls;
   }

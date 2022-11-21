@@ -1617,7 +1617,7 @@ err_set_ext_address:
   }
 err_set_recvips:
 err_virtual_interface:
-err_find_own_ip:
+err_ddsi_find_own_ip:
   for (int i = 0; i < gv->n_interfaces; i++)
     ddsrt_free (gv->interfaces[i].name);
   ddsi_tran_factories_fini (gv);

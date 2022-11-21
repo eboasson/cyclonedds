@@ -710,7 +710,7 @@ void ddsi_writer_add_connection (struct ddsi_writer *wr, struct ddsi_proxy_reade
 
   ddsrt_mutex_lock (&wr->e.lock);
   if (pretend_everything_acked || prd->local_virtual)
-    m->seq = MAX_SEQ_NUMBER;
+    m->seq = DDSI_MAX_SEQ_NUMBER;
   else
     m->seq = wr->seq;
   m->last_seq = m->seq;
@@ -1072,7 +1072,7 @@ void ddsi_proxy_writer_add_connection (struct ddsi_proxy_writer *pwr, struct dds
 
   ddsrt_avl_insert_ipath (&ddsi_pwr_readers_treedef, &pwr->readers, m, &path);
 
-  local_reader_ary_insert(&pwr->rdary, rd);
+  ddsi_local_reader_ary_insert(&pwr->rdary, rd);
 
   ddsrt_mutex_unlock (&pwr->e.lock);
   ddsi_send_entityid_to_pwr (pwr, &rd->e.guid);

@@ -13,7 +13,7 @@
 #define DDSI_VIRTUAL_INTERFACE_LOADER_H
 
 #include "dds/ddsc/dds_virtual_interface.h"
-#include "dds/ddsi/ddsi_config_impl.h"
+#include "dds/ddsi/ddsi_config.h"
 #include "dds/ddsrt/dynlib.h"
 
 bool ddsi_virtual_interface_load(struct ddsi_domaingv *gv, struct ddsi_config_virtual_interface *config, ddsi_virtual_interface_t **out);
