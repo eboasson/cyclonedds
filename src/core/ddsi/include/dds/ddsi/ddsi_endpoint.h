@@ -17,6 +17,7 @@
 #include "dds/ddsrt/fibheap.h"
 #include "dds/ddsi/ddsi_entity.h"
 #include "dds/ddsi/ddsi_hbcontrol.h"
+#include "dds/dds.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -46,7 +47,7 @@ struct ddsi_endpoint_common {
   struct ddsi_participant *pp;
   ddsi_guid_t group_guid;
   uint32_t n_virtual_pipes;
-  ddsi_virtual_interface_pipe_t* m_pipes[MAX_VIRTUAL_INTERFACES];
+  struct ddsi_virtual_interface_pipe* m_pipes[MAX_VIRTUAL_INTERFACES];
 #ifdef DDS_HAS_TYPE_DISCOVERY
   struct ddsi_type_pair *type_pair;
 #endif

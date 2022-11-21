@@ -444,7 +444,7 @@ static bool wras_cover_locatorset (struct ddsi_domaingv const * const gv, struct
       return false;
     cover_info_t x;
     int lidx = (int) (l - locs->locs);
-    if (l->c.kind == NN_LOCATOR_KIND_SHEM) // FIXME: a gross hack
+    if (l->c.kind == DDSI_LOCATOR_KIND_SHEM) // FIXME: a gross hack
     {
       x = CI_VIRTUAL;
     }

@@ -27,7 +27,6 @@
 #include "dds/ddsi/ddsi_ownip.h"
 #include "dds/ddsi/ddsi_protocol.h"
 #include "dds/ddsi/ddsi_sockwaitset.h"
-#include "dds/ddsi/ddsi_config_impl.h"
 #include "dds/ddsc/dds_virtual_interface.h"
 
 #if defined (__cplusplus)

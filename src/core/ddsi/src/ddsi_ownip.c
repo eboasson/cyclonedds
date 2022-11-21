@@ -24,6 +24,7 @@
 #include "dds/ddsi/ddsi_log.h"
 #include "dds/ddsi/ddsi_domaingv.h"
 #include "dds/ddsi/ddsi_unused.h"
+#include "dds/ddsi/ddsi_virtual_interface_loader.h"
 #include "ddsi__ownip.h"
 #include "ddsi__misc.h"
 #include "ddsi__addrset.h" /* unspec locator */

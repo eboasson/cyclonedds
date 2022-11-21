@@ -51,13 +51,13 @@ static void count_local_virtuals (const ddsi_xlocator_t *loc, void * varg)
   }
 }
 
-static bool proxy_is_local_virtual(const struct ddsi_domaingv *gv, struct addrset *as)
+static bool proxy_is_local_virtual(const struct ddsi_domaingv *gv, struct ddsi_addrset *as)
 {
   proxy_is_local_virtual_helper_t hlp = {.loc = NULL, .matches_to_loc = 0};
   for (uint32_t i = 0; i < gv->n_virtual_interfaces; i++)
   {
     hlp.loc = gv->virtual_interfaces[i]->locator;
-    addrset_forall (as, count_local_virtuals, &hlp);
+    ddsi_addrset_forall (as, count_local_virtuals, &hlp);
   }
   return hlp.matches_to_loc > 0;
 }
