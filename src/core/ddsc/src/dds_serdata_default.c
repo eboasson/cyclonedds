@@ -603,8 +603,10 @@ static struct dds_serdata_default *serdata_default_from_sample_cdr_common (const
       }
       break;
     case SDK_DATA:
-      if (!dds_stream_write_sample (&os, sample, &tp->type))
+      if (!dds_stream_write_sample (&os, sample, &tp->type)) {
+        dds_ostream_fini (&os);
         return NULL;
+      }
       ostream_add_to_serdata_default (&os, &d);
       if (!gen_serdata_key_from_sample (tp, &d->key, sample))
         return NULL;
