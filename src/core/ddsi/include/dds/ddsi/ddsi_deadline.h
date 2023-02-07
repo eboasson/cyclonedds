@@ -34,8 +34,8 @@ struct ddsi_deadline_adm {
 
 struct deadline_elem {
   struct ddsrt_circlist_elem e;
-  ddsrt_mtime_t t_deadline;
-  ddsrt_mtime_t t_last_trigger;
+  ddsrt_mtime_t t_next_deadline;
+  ddsrt_mtime_t t_last_update;
   uint32_t deadlines_missed;
 };
 
@@ -74,7 +74,7 @@ inline void ddsi_deadline_register_instance_locked (struct ddsi_deadline_adm *de
 inline void ddsi_deadline_reregister_instance_locked (struct ddsi_deadline_adm *deadline_adm, struct deadline_elem *elem, ddsrt_mtime_t tnow)
 {
   if (deadline_adm->dur != DDS_INFINITY)
-    ddsi_deadline_register_instance_real (deadline_adm, elem, elem->t_deadline, tnow);
+    ddsi_deadline_register_instance_real (deadline_adm, elem, elem->t_next_deadline, tnow);
 }
 
 /** @component deadline_qos */
@@ -82,7 +82,7 @@ inline void ddsi_deadline_unregister_instance_locked (struct ddsi_deadline_adm *
 {
   if (deadline_adm->dur != DDS_INFINITY)
   {
-    assert (elem->t_deadline.v != DDS_NEVER);
+    assert (elem->t_next_deadline.v != DDS_NEVER);
     ddsi_deadline_unregister_instance_real (deadline_adm, elem);
   }
 }
@@ -92,7 +92,7 @@ inline void ddsi_deadline_renew_instance_locked (struct ddsi_deadline_adm *deadl
 {
   if (deadline_adm->dur != DDS_INFINITY)
   {
-    assert (elem->t_deadline.v != DDS_NEVER);
+    assert (elem->t_next_deadline.v != DDS_NEVER);
     ddsi_deadline_renew_instance_real (deadline_adm, elem);
   }
 }
