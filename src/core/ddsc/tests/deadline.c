@@ -486,12 +486,14 @@ CU_Test(ddsc_deadline, update)
     rc = dds_get_status_changes (wr, &status);
   }
 
+  tprintf ("create event at tnow+DEADLINE\n");
   struct ddsi_domaingv *gvptr = get_domaingv (wr);
   ddsrt_mtime_t now = ddsrt_time_monotonic();
   ddsrt_mtime_t next = ddsrt_mtime_add_duration(now, DEADLINE);
   struct ddsi_xevent *xev = ddsi_qxev_callback(gvptr->xevents, next, cb, NULL);
   CU_ASSERT_FATAL(xev != NULL);
 
+  tprintf ("write1,2\n");
   /*write*/
   Space_Type1 msg1 = { 1, 0, 0 }, //this is the main instance whose deadline will expire but get pushed back
               msg2 = { 2, 0, 0 }; //this is a secondary instance whose deadline will get pushed back all the time
@@ -516,16 +518,19 @@ CU_Test(ddsc_deadline, update)
   CU_ASSERT_EQUAL (ostatus.last_instance_handle, 0);
 
   dds_sleepfor(DEADLINE/2);
+  tprintf ("write3\n");
   rc = dds_write(wr, &msg2);  /* expires @ 1.5*DEADLINE */
   CU_ASSERT_EQUAL_FATAL(rc, DDS_RETCODE_OK);
   dds_sleepfor(DEADLINE/2);
 
+  tprintf ("write4,5\n");
   rc = dds_write(wr, &msg1);  /* expires @ 2*DEADLINE */
   CU_ASSERT_EQUAL_FATAL(rc, DDS_RETCODE_OK);
   rc = dds_write(wr, &msg2);  /* expires @ 2*DEADLINE */
   CU_ASSERT_EQUAL_FATAL(rc, DDS_RETCODE_OK);
 
   dds_sleepfor(DEADLINE/2);
+  tprintf ("write6\n");
   rc = dds_write(wr, &msg2);  /* expires @ 2.5*DEADLINE */
   CU_ASSERT_EQUAL_FATAL(rc, DDS_RETCODE_OK);
 
@@ -544,19 +549,20 @@ CU_Test(ddsc_deadline, update)
              (ostatus.total_count == 1 && ostatus.last_instance_handle == ih));
 
   dds_sleepfor(DEADLINE/2);
+  tprintf ("write7\n");
   rc = dds_write(wr, &msg2);  /* expires @ 3*DEADLINE */
   CU_ASSERT_EQUAL_FATAL(rc, DDS_RETCODE_OK);
   dds_sleepfor(DEADLINE/2);
 
   rc = dds_get_requested_deadline_missed_status (rd, &rstatus);
   CU_ASSERT_EQUAL_FATAL(rc, DDS_RETCODE_OK);
-  printf ("rstatus.total_count = %"PRIu32"\n", rstatus.total_count);
+  tprintf ("rstatus.total_count = %"PRIu32"\n", rstatus.total_count);
   CU_ASSERT_EQUAL (rstatus.total_count, 2);
   CU_ASSERT_EQUAL (rstatus.last_instance_handle, ih);
 
   rc = dds_get_offered_deadline_missed_status (wr, &ostatus);
   CU_ASSERT_EQUAL_FATAL(rc, DDS_RETCODE_OK);
-  printf ("ostatus.total_count = %"PRIu32"\n", ostatus.total_count);
+  tprintf ("ostatus.total_count = %"PRIu32"\n", ostatus.total_count);
   CU_ASSERT_EQUAL (ostatus.total_count, 2);
   CU_ASSERT_EQUAL (ostatus.last_instance_handle, ih);
 
