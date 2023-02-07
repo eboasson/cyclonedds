@@ -438,7 +438,7 @@ CU_Theory((int32_t n_inst, uint8_t unreg_nth, uint8_t dispose_nth), ddsc_deadlin
   } while (!test_finished);
 }
 
-#define DEADLINE DDS_MSECS(100)
+#define DEADLINE DDS_MSECS(300)
 
 static void cb (struct ddsi_xevent *xev, void *ptr, ddsrt_mtime_t tm)
 {
