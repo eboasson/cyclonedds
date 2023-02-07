@@ -548,11 +548,13 @@ CU_Test(ddsc_deadline, update)
 
   rc = dds_get_requested_deadline_missed_status (rd, &rstatus);
   CU_ASSERT_EQUAL_FATAL(rc, DDS_RETCODE_OK);
+  printf ("rstatus.total_count = %"PRIu32"\n", rstatus.total_count);
   CU_ASSERT_EQUAL (rstatus.total_count, 2);
   CU_ASSERT_EQUAL (rstatus.last_instance_handle, ih);
 
   rc = dds_get_offered_deadline_missed_status (wr, &ostatus);
   CU_ASSERT_EQUAL_FATAL(rc, DDS_RETCODE_OK);
+  printf ("ostatus.total_count = %"PRIu32"\n", ostatus.total_count);
   CU_ASSERT_EQUAL (ostatus.total_count, 2);
   CU_ASSERT_EQUAL (ostatus.last_instance_handle, ih);
 
