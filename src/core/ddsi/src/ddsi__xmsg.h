@@ -254,7 +254,8 @@ void ddsi_xmsg_addpar_sentinel_bo (struct ddsi_xmsg * m, enum ddsrt_byte_order_s
 /** @component rtps_submsg */
 int ddsi_xmsg_addpar_sentinel_ifparam (struct ddsi_xmsg *m);
 
-
+/** @component rtps_msg */
+uint32_t ddsi_xpack_space_remaining (const struct ddsi_xpack *xp);
 
 /** @component rtps_msg */
 int ddsi_xpack_addmsg (struct ddsi_xpack *xp, struct ddsi_xmsg *m, const uint32_t flags);

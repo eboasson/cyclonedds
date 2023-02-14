@@ -781,7 +781,7 @@ static void transmit_sample_lgmsg_unlocks_wr (struct ddsi_xpack *xp, struct ddsi
 #endif
   assert(xp);
   assert(0 < nfrags_lim && nfrags_lim <= nfrags);
-  uint32_t nf_in_submsg = isnew ? (wr->e.gv->config.max_msg_size / wr->e.gv->config.fragment_size) : 1;
+  uint32_t nf_in_submsg = isnew ? (ddsi_xpack_space_remaining (xp) / wr->e.gv->config.fragment_size) : 1;
   if (nf_in_submsg == 0)
     nf_in_submsg = 1;
   else if (nf_in_submsg > UINT16_MAX)
