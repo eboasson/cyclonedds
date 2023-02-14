@@ -1383,6 +1383,15 @@ static int ddsi_xmsg_is_rexmit (const struct ddsi_xmsg *m)
   return 0;
 }
 
+uint32_t ddsi_xpack_space_remaining (const struct ddsi_xpack *xp)
+{
+  // overrunning max_msg_size happens when it is set smaller than the minimum required
+  const uint32_t max_msg_size = xp->gv->config.max_msg_size;
+  const uint32_t max_overhead = /*RTPS*/ 20 + /*LEN*/ 8 + /*DST*/ 16;
+  const uint32_t current = xp->msg_len.length + max_overhead;
+  return (current < max_msg_size) ? max_msg_size - current : 0;
+}
+
 static int ddsi_xpack_mayaddmsg (const struct ddsi_xpack *xp, const struct ddsi_xmsg *m, const uint32_t flags)
 {
   const bool rexmit = xp->includes_rexmit || ddsi_xmsg_is_rexmit (m);
