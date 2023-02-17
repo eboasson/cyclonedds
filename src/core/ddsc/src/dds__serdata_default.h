@@ -43,7 +43,9 @@ struct dds_serdata_default_key {
 };
 
 struct dds_serdatapool {
-  struct ddsi_freelist freelist;
+  struct ddsi_freelist freelist_small;
+  struct ddsi_freelist freelist_medium;
+  struct ddsi_freelist freelist_large;
 };
 
 /* Debug builds may want to keep some additional state */

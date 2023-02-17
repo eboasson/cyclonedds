@@ -36,8 +36,12 @@
    minimum-size (well, 4 bytes) samples as fast as possible over loopback
    while using large messages -- actually, it stands to reason that this would
    be the same as the WHC node pool size */
-#define MAX_POOL_SIZE 8192
-#define MAX_SIZE_FOR_POOL 256
+#define MAX_POOL_SIZE_SMALL 8192
+#define MAX_SIZE_FOR_POOL_SMALL 256
+#define MAX_POOL_SIZE_MEDIUM 64
+#define MAX_SIZE_FOR_POOL_MEDIUM 131072
+#define MAX_POOL_SIZE_LARGE 8
+#define MAX_SIZE_FOR_POOL_LARGE 1048576
 #define DEFAULT_NEW_SIZE 128
 #define CHUNK_SIZE 128
 
@@ -52,7 +56,9 @@ struct dds_serdatapool * dds_serdatapool_new (void)
 {
   struct dds_serdatapool * pool;
   pool = ddsrt_malloc (sizeof (*pool));
-  ddsi_freelist_init (&pool->freelist, MAX_POOL_SIZE, offsetof (struct dds_serdata_default, next));
+  ddsi_freelist_init (&pool->freelist_small,  MAX_POOL_SIZE_SMALL, offsetof (struct dds_serdata_default, next));
+  ddsi_freelist_init (&pool->freelist_medium, MAX_POOL_SIZE_MEDIUM, offsetof (struct dds_serdata_default, next));
+  ddsi_freelist_init (&pool->freelist_large,  MAX_POOL_SIZE_LARGE, offsetof (struct dds_serdata_default, next));
   return pool;
 }
 
@@ -67,7 +73,9 @@ static void serdata_free_wrap (void *elem)
 
 void dds_serdatapool_free (struct dds_serdatapool * pool)
 {
-  ddsi_freelist_fini (&pool->freelist, serdata_free_wrap);
+  ddsi_freelist_fini (&pool->freelist_large, serdata_free_wrap);
+  ddsi_freelist_fini (&pool->freelist_medium, serdata_free_wrap);
+  ddsi_freelist_fini (&pool->freelist_small, serdata_free_wrap);
   ddsrt_free (pool);
 }
 
@@ -150,8 +158,25 @@ static void serdata_default_free(struct ddsi_serdata *dcmn)
   free_iox_chunk(d->c.iox_subscriber, &d->c.iox_chunk);
 #endif
 
-  if (d->size > MAX_SIZE_FOR_POOL || !ddsi_freelist_push (&d->serpool->freelist, d))
+  if (d->size <= MAX_SIZE_FOR_POOL_SMALL)
+  {
+    if (!ddsi_freelist_push (&d->serpool->freelist_small, d))
+      dds_free (d);
+  }
+  else if (d->size <= MAX_SIZE_FOR_POOL_MEDIUM)
+  {
+    if (d->pos < d->size / 2 || !ddsi_freelist_push (&d->serpool->freelist_medium, d))
+      dds_free (d);
+  }
+  else if (d->size <= MAX_SIZE_FOR_POOL_LARGE)
+  {
+    if (d->pos < d->size / 2 || !ddsi_freelist_push (&d->serpool->freelist_large, d))
+      dds_free (d);
+  }
+  else
+  {
     dds_free (d);
+  }
 }
 
 static void serdata_default_init(struct dds_serdata_default *d, const struct dds_sertype_default *tp, enum ddsi_serdata_kind kind, uint32_t xcdr_version)
@@ -181,7 +206,11 @@ static struct dds_serdata_default *serdata_default_allocnew (struct dds_serdatap
 static struct dds_serdata_default *serdata_default_new_size (const struct dds_sertype_default *tp, enum ddsi_serdata_kind kind, uint32_t size, uint32_t xcdr_version)
 {
   struct dds_serdata_default *d;
-  if (size <= MAX_SIZE_FOR_POOL && (d = ddsi_freelist_pop (&tp->serpool->freelist)) != NULL)
+  if ((d = ddsi_freelist_pop (&tp->serpool->freelist_large)) != NULL)
+    ddsrt_atomic_st32 (&d->c.refc, 1);
+  else if ((d = ddsi_freelist_pop (&tp->serpool->freelist_medium)) != NULL)
+    ddsrt_atomic_st32 (&d->c.refc, 1);
+  else if ((d = ddsi_freelist_pop (&tp->serpool->freelist_small)) != NULL)
     ddsrt_atomic_st32 (&d->c.refc, 1);
   else if ((d = serdata_default_allocnew (tp->serpool, size)) == NULL)
     return NULL;
