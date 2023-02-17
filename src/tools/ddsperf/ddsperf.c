@@ -144,6 +144,9 @@ static bool reliable = true;
    always uses KEEP_LAST 1. */
 static int32_t histdepth = 0;
 
+/* Sets latency budget on writer to use send queue */
+static bool asyncwrite = false;
+
 /* Publishing rate in Hz, HUGE_VAL means as fast as possible,
    0 means no throughput data is published at all */
 static double pub_rate;
@@ -1794,6 +1797,7 @@ OPTIONS:\n\
   -n N                number of key values to use for data (only for\n\
                       topics with a key value)\n\
   -u                  best-effort instead of reliable\n\
+  -q                  use send queue for publishing data\n\
   -k all|N            keep-all or keep-last-N for data (ping/pong is\n\
                       always keep-last-1)\n\
   -c                  subscribe to CPU stats from peers and show them\n\
@@ -2132,13 +2136,14 @@ int main (int argc, char *argv[])
 
   argv0 = argv[0];
 
-  while ((opt = getopt (argc, argv, "1cd:D:i:n:k:ulLK:T:Q:R:Xh")) != EOF)
+  while ((opt = getopt (argc, argv, "1cd:D:i:n:k:ulLK:T:qQ:R:Xh")) != EOF)
   {
     int pos;
     switch (opt)
     {
       case '1': substat_every_second = true; break;
       case 'c': collect_stats = true; break;
+      case 'q': asyncwrite = true; break;
       case 'd': {
         char *col;
         (void) ddsrt_strlcpy (netload_if, optarg, sizeof (netload_if));
@@ -2368,6 +2373,7 @@ int main (int argc, char *argv[])
   else
     dds_qset_history (qos, DDS_HISTORY_KEEP_LAST, histdepth);
   dds_qset_resource_limits (qos, 10000, DDS_LENGTH_UNLIMITED, DDS_LENGTH_UNLIMITED);
+  dds_qset_latency_budget (qos, DDS_INFINITY);
   dds_qset_ignorelocal (qos, ignorelocal);
   listener = dds_create_listener ((void *) (uintptr_t) MM_WR_DATA);
   dds_lset_subscription_matched (listener, subscription_matched_listener);
@@ -2376,6 +2382,7 @@ int main (int argc, char *argv[])
   dds_delete_listener (listener);
   listener = dds_create_listener ((void *) (uintptr_t) MM_RD_DATA);
   dds_lset_publication_matched (listener, publication_matched_listener);
+  dds_qset_latency_budget (qos, asyncwrite ? DDS_INFINITY : 0);
   if ((wr_data = dds_create_writer (pub, tp_data, qos, listener)) < 0)
     error2 ("dds_create_writer(%s) failed: %d\n", tpname_data, (int) wr_data);
   dds_delete_listener (listener);
