@@ -14,6 +14,10 @@
 #include "dds/ddsrt/attributes.h"
 #include "dds/ddsrt/heap.h"
 
+#ifdef DDS_HAS_MIMALLOC
+#include "mimalloc-override.h"
+#endif
+
 void *
 ddsrt_malloc_s(size_t size)
 {

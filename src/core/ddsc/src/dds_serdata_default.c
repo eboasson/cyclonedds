@@ -158,6 +158,7 @@ static void serdata_default_free(struct ddsi_serdata *dcmn)
   free_iox_chunk(d->c.iox_subscriber, &d->c.iox_chunk);
 #endif
 
+#ifndef DDS_HAS_MIMALLOC
   if (d->size <= MAX_SIZE_FOR_POOL_SMALL)
   {
     if (!ddsi_freelist_push (&d->serpool->freelist_small, d))
@@ -174,6 +175,7 @@ static void serdata_default_free(struct ddsi_serdata *dcmn)
       dds_free (d);
   }
   else
+#endif
   {
     dds_free (d);
   }
@@ -206,14 +208,20 @@ static struct dds_serdata_default *serdata_default_allocnew (struct dds_serdatap
 static struct dds_serdata_default *serdata_default_new_size (const struct dds_sertype_default *tp, enum ddsi_serdata_kind kind, uint32_t size, uint32_t xcdr_version)
 {
   struct dds_serdata_default *d;
+#ifndef DDS_HAS_MIMALLOC
   if ((d = ddsi_freelist_pop (&tp->serpool->freelist_large)) != NULL)
     ddsrt_atomic_st32 (&d->c.refc, 1);
   else if ((d = ddsi_freelist_pop (&tp->serpool->freelist_medium)) != NULL)
     ddsrt_atomic_st32 (&d->c.refc, 1);
   else if ((d = ddsi_freelist_pop (&tp->serpool->freelist_small)) != NULL)
     ddsrt_atomic_st32 (&d->c.refc, 1);
-  else if ((d = serdata_default_allocnew (tp->serpool, size)) == NULL)
-    return NULL;
+  else {
+#endif
+    if ((d = serdata_default_allocnew (tp->serpool, size)) == NULL)
+      return NULL;
+#ifndef DDS_HAS_MIMALLOC
+  }
+#endif
   serdata_default_init (d, tp, kind, xcdr_version);
   return d;
 }
