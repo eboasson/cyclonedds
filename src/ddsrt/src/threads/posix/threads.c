@@ -15,6 +15,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <pthread.h>
+#include <stdlib.h>
 
 #include <sys/types.h>
 #include <unistd.h>
@@ -178,8 +179,8 @@ static void *os_startRoutineWrapper (void *threadContext)
 
   /* Free the thread context resources, arguments is responsibility */
   /* for the caller of os_procCreate                                */
-  ddsrt_free(context->name);
-  ddsrt_free(context);
+  free(context->name);
+  free(context);
 
 #if defined(__VXWORKS__) && !defined(_WRS_KERNEL)
   struct sched_param sched_param;
@@ -309,8 +310,8 @@ ddsrt_thread_create (
   }
 
   /* Construct context structure & start thread */
-  ctx = ddsrt_malloc (sizeof (thread_context_t));
-  ctx->name = ddsrt_strdup(name);
+  ctx = malloc (sizeof (thread_context_t));
+  ctx->name = strdup(name);
   ctx->routine = start_routine;
   ctx->arg = arg;
 
@@ -335,8 +336,8 @@ ddsrt_thread_create (
   return DDS_RETCODE_OK;
 
 err_create:
-  ddsrt_free (ctx->name);
-  ddsrt_free (ctx);
+  free (ctx->name);
+  free (ctx);
 err:
   pthread_attr_destroy (&attr);
   return DDS_RETCODE_ERROR;
@@ -531,7 +532,7 @@ dds_return_t ddsrt_thread_cleanup_push (void (*routine) (void *), void *arg)
   assert(routine != NULL);
 
   thread_init();
-  if ((tail = ddsrt_calloc(1, sizeof(*tail))) != NULL) {
+  if ((tail = calloc(1, sizeof(*tail))) != NULL) {
     prev = pthread_getspecific(thread_cleanup_key);
     tail->prev = prev;
     tail->routine = routine;
@@ -559,7 +560,7 @@ dds_return_t ddsrt_thread_cleanup_pop (int execute)
     if (execute) {
       tail->routine(tail->arg);
     }
-    ddsrt_free(tail);
+    free(tail);
   }
   return DDS_RETCODE_OK;
 }
@@ -573,7 +574,7 @@ static void thread_cleanup_fini(void *arg)
     prev = tail->prev;
     assert(tail->routine != NULL);
     tail->routine(tail->arg);
-    ddsrt_free(tail);
+    free(tail);
     tail = prev;
   }
 
