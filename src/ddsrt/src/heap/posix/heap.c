@@ -16,12 +16,22 @@
 
 #ifdef DDS_HAS_MIMALLOC
 #include "mimalloc-override.h"
+#else
+#include "c__mmbase.h"
+#include <string.h>
+static struct c_mm_s *mm;
 #endif
 
 void *
 ddsrt_malloc_s(size_t size)
 {
-  return malloc(size ? size : 1); /* Allocate memory even if size == 0 */
+  if (mm == NULL)
+  {
+    mm = c_mmCreate(0, 80*1024*1024, 0);
+    if (mm == NULL)
+      abort ();
+  }
+  return c_mmMalloc(mm,size ? size : 1); /* Allocate memory even if size == 0 */
 }
 
 void *
@@ -58,7 +68,10 @@ ddsrt_calloc_s(size_t count, size_t size)
   if (count == 0 || size == 0) {
     count = size = 1;
   }
-  return calloc(count, size);
+  void *ptr = ddsrt_malloc (count * size);
+  if (ptr)
+    memset (ptr, 0, count * size);
+  return ptr;
 }
 
 void *
@@ -83,13 +96,19 @@ ddsrt_realloc_s(void *memblk, size_t size)
      not all platforms will return newmem == NULL. We consistently do, so the
      result of a non-failing ddsrt_realloc_s always needs to be free'd, like
      ddsrt_malloc_s(0). */
-  return realloc(memblk, size ? size : 1);
+  if (mm == NULL)
+  {
+    mm = c_mmCreate(0, 80*1024*1024, 0);
+    if (mm == NULL)
+      abort ();
+  }
+  return c_mmRealloc(mm, memblk, size ? size : 1);
 }
 
 void
 ddsrt_free(void *ptr)
 {
   if (ptr) {
-    free (ptr);
+    c_mmFree (mm, ptr);
   }
 }

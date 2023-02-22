@@ -209,6 +209,13 @@ else()
 
   list(APPEND sources
     "${source_dir}/src/heap/posix/heap.c")
+  if(NOT ENABLE_MIMALLOC)
+    list(APPEND sources
+      "${source_dir}/src/heap/posix/c_mmbaseAdv.c"
+      "${source_dir}/src/heap/posix/c_mmheap.c")
+    list(APPEND headers
+      "${source_dir}/src/heap/posix/c_mmheap.h")
+  endif()
 
   if(WIN32)
     set(DDSRT_HAVE_NETSTAT TRUE)
