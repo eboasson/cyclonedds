@@ -826,25 +826,25 @@ static void free_deferred_free_list (struct dds_whc_default_node *deferred_free_
   if (deferred_free_list)
   {
     struct dds_whc_default_node *cur, *last;
-#ifndef DDS_HAS_MIMALLOC
+#if 0 //ndef DDS_HAS_MIMALLOC
     uint32_t n = 0;
 #endif
     cur = deferred_free_list;
     last = NULL;
     while (cur)
     {
-#ifndef DDS_HAS_MIMALLOC
+#if 0 //ndef DDS_HAS_MIMALLOC
       n++;
 #endif
       if (!cur->borrowed)
         free_whc_node_contents (cur);
       last = cur;
       cur = cur->next_seq;
-#ifdef DDS_HAS_MIMALLOC
+#if 1 //def DDS_HAS_MIMALLOC
       ddsrt_free (last);
 #endif
     }
-#ifndef DDS_HAS_MIMALLOC
+#if 0 //ndef DDS_HAS_MIMALLOC
     cur = ddsi_freelist_pushmany (&whc_node_freelist, deferred_free_list, last, n);
     while (cur)
     {
@@ -1122,7 +1122,7 @@ static struct dds_whc_default_node *whc_default_insert_seq (struct whc_impl *whc
   DDSRT_UNUSED_ARG (exp);
 #endif
 
-#ifndef DDS_HAS_MIMALLOC
+#if 0 //ndef DDS_HAS_MIMALLOC
   if ((newn = ddsi_freelist_pop (&whc_node_freelist)) == NULL)
 #endif
     newn = ddsrt_malloc (sizeof (*newn));

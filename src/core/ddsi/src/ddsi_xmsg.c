@@ -274,14 +274,14 @@ static struct ddsi_xmsg *ddsi_xmsg_allocnew (struct ddsi_xmsgpool *pool, size_t 
 struct ddsi_xmsg *ddsi_xmsg_new (struct ddsi_xmsgpool *pool, const ddsi_guid_t *src_guid, struct ddsi_participant *pp, size_t expected_size, enum ddsi_xmsg_kind kind)
 {
   struct ddsi_xmsg *m;
-#ifndef DDS_HAS_MIMALLOC
+#if 0 //ndef DDS_HAS_MIMALLOC
   if ((m = ddsi_freelist_pop (&pool->freelist)) != NULL)
     ddsi_xmsg_reinit (m, kind);
   else {
 #endif
     if ((m = ddsi_xmsg_allocnew (pool, expected_size, kind)) == NULL)
       return NULL;
-#ifndef DDS_HAS_MIMALLOC
+#if 0 //ndef DDS_HAS_MIMALLOC
   }
 #endif
   m->data->src.guid_prefix = ddsi_hton_guid_prefix (src_guid->prefix);
@@ -329,7 +329,7 @@ void ddsi_xmsg_free (struct ddsi_xmsg *m)
       break;
   }
   /* Only cache the smallest xmsgs; data messages store the payload by reference and are small */
-#ifndef DDS_HAS_MIMALLOC
+#if 0 //ndef DDS_HAS_MIMALLOC
   if (m->maxsz > DDSI_XMSG_CHUNK_SIZE || !ddsi_freelist_push (&m->pool->freelist, m))
 #endif
   {
