@@ -89,21 +89,21 @@ static dds_return_t dds_loan_manager_expand_cap(dds_loan_manager_t *manager, uin
   return DDS_RETCODE_OK;
 }
 
-dds_return_t dds_loan_manager_create(dds_loan_manager_t **manager, uint32_t initial_cap)
+dds_return_t dds_loan_manager_create (dds_loan_manager_t **manager, uint32_t initial_cap)
 {
   if (manager == NULL)
     return DDS_RETCODE_BAD_PARAMETER;
 
   dds_return_t ret = DDS_RETCODE_OK;
-  if ((*manager = dds_alloc(sizeof(**manager))) == NULL)
+  if ((*manager = dds_alloc (sizeof (**manager))) == NULL)
     return DDS_RETCODE_OUT_OF_RESOURCES;
   memset (*manager, 0, sizeof (**manager));
-  if ((ret = dds_loan_manager_expand_cap(*manager, initial_cap)) != DDS_RETCODE_OK)
-    dds_free(*manager);
+  if ((ret = dds_loan_manager_expand_cap (*manager, initial_cap)) != DDS_RETCODE_OK)
+    dds_free (*manager);
   return ret;
 }
 
-dds_return_t dds_loan_manager_free(dds_loan_manager_t *manager)
+dds_return_t dds_loan_manager_free (dds_loan_manager_t *manager)
 {
   dds_return_t ret;
   if (manager == NULL)
@@ -112,13 +112,13 @@ dds_return_t dds_loan_manager_free(dds_loan_manager_t *manager)
   for (uint32_t i = 0; i < manager->n_samples_cap; i++)
   {
     dds_loaned_sample_t *s = manager->samples[i];
-    if (s && (ret = dds_loan_manager_remove_loan(s)) != DDS_RETCODE_OK)
+    if (s && (ret = dds_loan_manager_remove_loan (s)) != DDS_RETCODE_OK)
       return ret;
     manager->samples[i] = NULL;
   }
 
-  dds_free(manager->samples);
-  dds_free(manager);
+  dds_free (manager->samples);
+  dds_free (manager);
   return DDS_RETCODE_OK;
 }
 
@@ -278,7 +278,7 @@ dds_return_t dds_heap_loan(const struct ddsi_sertype *type, dds_loaned_sample_t 
     return DDS_RETCODE_OUT_OF_RESOURCES;
   }
 
-  s->c.metadata->block_size = sizeof(dds_virtual_interface_metadata_t);
+  s->c.metadata->block_size = sizeof (struct dds_virtual_interface_metadata);
   s->c.metadata->sample_state = DDS_LOANED_SAMPLE_STATE_RAW;
   s->c.metadata->cdr_identifier = DDSI_RTPS_CDR_ENC_VERSION_UNDEF;
   s->c.metadata->cdr_options = 0;

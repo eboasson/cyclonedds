@@ -28,6 +28,7 @@
 #include "dds/ddsi/ddsi_threadmon.h"
 #include "dds/ddsi/ddsi_tkmap.h"
 #include "dds/ddsi/ddsi_iid.h"
+#include "dds/ddsi/ddsi_virtual_interface.h"
 #include "ddsi__protocol.h"
 #include "ddsi__misc.h"
 #include "ddsi__config_impl.h"
@@ -994,15 +995,15 @@ static void free_conns (struct ddsi_domaingv *gv)
   }
 }
 
-static int virtual_interface_init(struct ddsi_domaingv *gv, const ddsi_virtual_interface_t *vi)
+static int create_vnet_interface_for_virtual_interface (struct ddsi_domaingv *gv, const char *virtual_interface_name, const ddsi_locator_t locator)
 {
-  assert(vi);
-  assert(gv);
+  assert (gv);
+  assert (virtual_interface_name);
 
   // FIXME: this can be done more elegantly when properly supporting multiple transports
-  if (ddsi_vnet_init (gv, vi->interface_name, DDSI_LOCATOR_KIND_SHEM) < 0)
+  if (ddsi_vnet_init (gv, virtual_interface_name, DDSI_LOCATOR_KIND_SHEM) < 0)
     return -1;
-  ddsi_factory_find (gv, vi->interface_name)->m_enable = true;
+  ddsi_factory_find (gv, virtual_interface_name)->m_enable = true;
 
   if (gv->n_interfaces == MAX_XMIT_CONNS)
   {
@@ -1017,13 +1018,14 @@ static int virtual_interface_init(struct ddsi_domaingv *gv, const ddsi_virtual_i
     if (gv->interfaces[i].if_index >= intf->if_index)
       intf->if_index = gv->interfaces[i].if_index + 1;
   intf->link_local = true; // Makes it so that non-local addresses are ignored
-  intf->loc = *vi->locator;
+  intf->loc = locator;
   intf->extloc = intf->loc;
   intf->loopback = false;
   intf->mc_capable = true; // FIXME: matters most for discovery, this avoids auto-lack-of-multicast-mitigation
   intf->mc_flaky = false;
-  intf->name = ddsrt_strdup (vi->interface_name);
+  intf->name = ddsrt_strdup (virtual_interface_name);
   intf->point_to_point = false;
+  intf->is_virtual = true;
   intf->netmask.kind = DDSI_LOCATOR_KIND_INVALID;
   intf->netmask.port = DDSI_LOCATOR_PORT_INVALID;
   memset (intf->netmask.address, 0, sizeof (intf->netmask.address) - 6);
@@ -1031,7 +1033,7 @@ static int virtual_interface_init(struct ddsi_domaingv *gv, const ddsi_virtual_i
   return 0;
 }
 
-int ddsi_init (struct ddsi_domaingv *gv)
+int ddsi_init (struct ddsi_domaingv *gv, struct ddsi_virtual_interface_locators *virtual_interface_locators)
 {
   uint32_t port_disc_uc = 0;
   uint32_t port_data_uc = 0;
@@ -1122,10 +1124,13 @@ int ddsi_init (struct ddsi_domaingv *gv)
     goto err_ddsi_find_own_ip;
   }
 
-  for (uint32_t i = 0; i < gv->n_virtual_interfaces; i++)
+  if (virtual_interface_locators != NULL)
   {
-    if (virtual_interface_init(gv, gv->virtual_interfaces[i]) < 0)
-      goto err_virtual_interface;
+    for (uint32_t i = 0; i < virtual_interface_locators->length; i++)
+    {
+      if (create_vnet_interface_for_virtual_interface (gv, virtual_interface_locators->items[i].virtual_interface_name, virtual_interface_locators->items[i].locator) < 0)
+        goto err_virtual_interface;
+    }
   }
 
   if (gv->config.allowMulticast)
@@ -1891,16 +1896,6 @@ void ddsi_fini (struct ddsi_domaingv *gv)
   ddsrt_mutex_destroy (&gv->participant_set_lock);
   ddsrt_cond_destroy (&gv->participant_set_cond);
   free_special_types (gv);
-
-  for (uint32_t i = 0; i < gv->n_virtual_interfaces; i++) {
-    ddsi_virtual_interface_t *vi = gv->virtual_interfaces[i];
-    if (!vi->ops.deinit(vi)) {
-      //something went wrong during de-initialization of virtual interface
-    } else {
-      gv->virtual_interfaces[i] = NULL;
-    }
-  }
-
   ddsrt_mutex_destroy(&gv->naming_lock);
 
 #ifdef DDS_HAS_TOPIC_DISCOVERY

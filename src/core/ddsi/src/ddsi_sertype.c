@@ -27,7 +27,6 @@
 #include "ddsi__plist_generic.h"
 #include "ddsi__serdata_pserop.h"
 #include "dds/cdr/dds_cdrstream.h"
-#include "dds__virtual_interface.h"
 
 #ifndef _WIN32
 void ddsi_sertype_v0 (struct ddsi_sertype_v0 *dummy)

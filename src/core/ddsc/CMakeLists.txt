@@ -77,7 +77,8 @@ prepend(hdrs_private_ddsc "${CMAKE_CURRENT_LIST_DIR}/src/"
   dds__serdata_default.h
   dds__get_status.h
   dds__loan.h
-  dds__virtual_interface.h)
+  dds__virtual_interface.h
+)
 
 prepend(hdrs_public_ddsc "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>/dds/"
   dds.h

@@ -416,7 +416,7 @@ static bool is_onlylocal_endpoint (struct ddsi_participant *pp, const char *topi
   return false;
 }
 
-static void endpoint_common_init (struct ddsi_entity_common *e, struct ddsi_endpoint_common *c, struct ddsi_domaingv *gv, enum ddsi_entity_kind kind, const struct ddsi_guid *guid, const struct ddsi_guid *group_guid, struct ddsi_participant *pp, bool onlylocal, const struct ddsi_sertype *sertype, const dds_qos_t *qos, struct dds_ktopic *ktp)
+static void endpoint_common_init (struct ddsi_entity_common *e, struct ddsi_endpoint_common *c, struct ddsi_domaingv *gv, enum ddsi_entity_kind kind, const struct ddsi_guid *guid, const struct ddsi_guid *group_guid, struct ddsi_participant *pp, bool onlylocal, const struct ddsi_sertype *sertype, struct ddsi_virtual_locators_set *virtual_locators)
 {
 #ifndef DDS_HAS_TYPE_DISCOVERY
   DDSRT_UNUSED_ARG (sertype);
@@ -428,18 +428,15 @@ static void endpoint_common_init (struct ddsi_entity_common *e, struct ddsi_endp
   else
     memset (&c->group_guid, 0, sizeof (c->group_guid));
 
-  c->n_virtual_pipes = 0;
-  memset(c->m_pipes, 0x0, sizeof(c->m_pipes));
-
-  for (uint32_t i = 0; ktp && i < ktp->n_virtual_topics; i++)
+  if (virtual_locators)
   {
-    ddsi_virtual_interface_topic_t *vit = ktp->virtual_topics[i];
-    if (!vit->virtual_interface->ops.qos_supported(qos))
-      continue;
-    ddsi_virtual_interface_pipe_t *pipe = ddsi_virtual_interface_pipe_open(vit, kind == DDSI_EK_READER ?  DDS_VIRTUAL_INTERFACE_PIPE_TYPE_SOURCE : DDS_VIRTUAL_INTERFACE_PIPE_TYPE_SINK);
-    if (pipe == NULL)
-      goto err_pipe_open;
-    c->m_pipes[c->n_virtual_pipes++] = pipe;
+    c->virtual_locators.length = virtual_locators->length;
+    if (virtual_locators->length > 0)
+      c->virtual_locators.locators = ddsrt_memdup (virtual_locators->locators, virtual_locators->length * sizeof (*virtual_locators->locators));
+  }
+  else
+  {
+    c->virtual_locators.length = 0;
   }
 
 #ifdef DDS_HAS_TYPE_DISCOVERY
@@ -458,16 +455,6 @@ static void endpoint_common_init (struct ddsi_entity_common *e, struct ddsi_endp
 #endif
 
   return;
-
-err_pipe_open:
-  for (uint32_t i = 0; i < c->n_virtual_pipes; i++)
-  {
-    ddsi_virtual_interface_pipe_t *pipe = c->m_pipes[i];
-    assert(pipe);
-    bool close_result = ddsi_virtual_interface_pipe_close(pipe);
-    assert (close_result);
-  }
-  //more cleanup?
 }
 
 static void endpoint_common_fini (struct ddsi_entity_common *e, struct ddsi_endpoint_common *c)
@@ -491,6 +478,9 @@ static void endpoint_common_fini (struct ddsi_entity_common *e, struct ddsi_endp
     /* only for the (almost pseudo) writers used for generating the built-in topics */
     assert (ddsi_is_local_orphan_endpoint (e));
   }
+  if (c->virtual_locators.length > 0)
+    ddsrt_free (c->virtual_locators.locators);
+
   ddsi_entity_common_fini (e);
 }
 
@@ -931,7 +921,7 @@ static void ddsi_new_writer_guid_common_init (struct ddsi_writer *wr, const char
   ddsi_local_reader_ary_init (&wr->rdary);
 }
 
-dds_return_t ddsi_new_writer_guid (struct ddsi_writer **wr_out, const struct ddsi_guid *guid, const struct ddsi_guid *group_guid, struct ddsi_participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, struct ddsi_whc *whc, ddsi_status_cb_t status_cb, void *status_entity, struct dds_ktopic *ktp)
+dds_return_t ddsi_new_writer_guid (struct ddsi_writer **wr_out, const struct ddsi_guid *guid, const struct ddsi_guid *group_guid, struct ddsi_participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, struct ddsi_whc *whc, ddsi_status_cb_t status_cb, void *status_entity, struct ddsi_virtual_locators_set *virtual_locators)
 {
   struct ddsi_writer *wr;
   ddsrt_mtime_t tnow = ddsrt_time_monotonic ();
@@ -950,7 +940,7 @@ dds_return_t ddsi_new_writer_guid (struct ddsi_writer **wr_out, const struct dds
    the participant */
 
   const bool onlylocal = is_onlylocal_endpoint (pp, topic_name, type, xqos);
-  endpoint_common_init (&wr->e, &wr->c, pp->e.gv, DDSI_EK_WRITER, guid, group_guid, pp, onlylocal, type, xqos, ktp);
+  endpoint_common_init (&wr->e, &wr->c, pp->e.gv, DDSI_EK_WRITER, guid, group_guid, pp, onlylocal, type, virtual_locators);
   ddsi_new_writer_guid_common_init(wr, topic_name, type, xqos, whc, status_cb, status_entity);
 
 #ifdef DDS_HAS_SECURITY
@@ -1015,7 +1005,7 @@ dds_return_t ddsi_new_writer_guid (struct ddsi_writer **wr_out, const struct dds
   return 0;
 }
 
-dds_return_t ddsi_new_writer (struct ddsi_writer **wr_out, struct ddsi_guid *wrguid, const struct ddsi_guid *group_guid, struct ddsi_participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, struct ddsi_whc * whc, ddsi_status_cb_t status_cb, void *status_cb_arg, struct dds_ktopic *ktp)
+dds_return_t ddsi_new_writer (struct ddsi_writer **wr_out, struct ddsi_guid *wrguid, const struct ddsi_guid *group_guid, struct ddsi_participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, struct ddsi_whc * whc, ddsi_status_cb_t status_cb, void *status_cb_arg, struct ddsi_virtual_locators_set *virtual_locators)
 {
   dds_return_t rc;
   uint32_t kind;
@@ -1027,7 +1017,7 @@ dds_return_t ddsi_new_writer (struct ddsi_writer **wr_out, struct ddsi_guid *wrg
   kind = type->typekind_no_key ? DDSI_ENTITYID_KIND_WRITER_NO_KEY : DDSI_ENTITYID_KIND_WRITER_WITH_KEY;
   if ((rc = ddsi_participant_allocate_entityid (&wrguid->entityid, kind, pp)) < 0)
     return rc;
-  return ddsi_new_writer_guid (wr_out, wrguid, group_guid, pp, topic_name, type, xqos, whc, status_cb, status_cb_arg, ktp);
+  return ddsi_new_writer_guid (wr_out, wrguid, group_guid, pp, topic_name, type, xqos, whc, status_cb, status_cb_arg, virtual_locators);
 }
 
 struct ddsi_local_orphan_writer *ddsi_new_local_orphan_writer (struct ddsi_domaingv *gv, ddsi_entityid_t entityid, const char *topic_name, struct ddsi_sertype *type, const struct dds_qos *xqos, struct ddsi_whc *whc)
@@ -1044,8 +1034,11 @@ struct ddsi_local_orphan_writer *ddsi_new_local_orphan_writer (struct ddsi_domai
   memset (&guid.prefix, 0, sizeof (guid.prefix));
   guid.entityid = entityid;
   ddsi_entity_common_init (&wr->e, gv, &guid, DDSI_EK_WRITER, ddsrt_time_wallclock (), DDSI_VENDORID_ECLIPSE, true);
+
+  // FIXME: use endpoint_common_init to initalize
   wr->c.pp = NULL;
   memset (&wr->c.group_guid, 0, sizeof (wr->c.group_guid));
+  wr->c.virtual_locators.length = 0;
 
 #ifdef DDS_HAS_TYPE_DISCOVERY
   wr->c.type_pair = NULL;
@@ -1446,9 +1439,8 @@ static void reader_init_network_partition (struct ddsi_reader *rd)
 }
 #endif /* DDS_HAS_NETWORK_PARTITIONS */
 
-dds_return_t ddsi_new_reader_guid (struct ddsi_reader **rd_out, const struct ddsi_guid *guid, const struct ddsi_guid *group_guid, struct ddsi_participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, struct ddsi_rhc *rhc, ddsi_status_cb_t status_cb, void * status_entity, struct dds_ktopic *ktp)
+dds_return_t ddsi_new_reader_guid (struct ddsi_reader **rd_out, const struct ddsi_guid *guid, const struct ddsi_guid *group_guid, struct ddsi_participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, struct ddsi_rhc *rhc, ddsi_status_cb_t status_cb, void * status_entity, struct ddsi_virtual_locators_set *virtual_locators)
 {
-
   /* see ddsi_new_writer_guid for commenets */
 
   struct ddsi_reader *rd;
@@ -1464,7 +1456,7 @@ dds_return_t ddsi_new_reader_guid (struct ddsi_reader **rd_out, const struct dds
     *rd_out = rd;
 
   const bool onlylocal = is_onlylocal_endpoint (pp, topic_name, type, xqos);
-  endpoint_common_init (&rd->e, &rd->c, pp->e.gv, DDSI_EK_READER, guid, group_guid, pp, onlylocal, type, xqos, ktp);
+  endpoint_common_init (&rd->e, &rd->c, pp->e.gv, DDSI_EK_READER, guid, group_guid, pp, onlylocal, type, virtual_locators);
 
   /* Copy QoS, merging in defaults */
   rd->xqos = ddsrt_malloc (sizeof (*rd->xqos));
@@ -1533,7 +1525,7 @@ dds_return_t ddsi_new_reader_guid (struct ddsi_reader **rd_out, const struct dds
   return 0;
 }
 
-dds_return_t ddsi_new_reader (struct ddsi_reader **rd_out, struct ddsi_guid *rdguid, const struct ddsi_guid *group_guid, struct ddsi_participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, struct ddsi_rhc * rhc, ddsi_status_cb_t status_cb, void *status_cb_arg, struct dds_ktopic *ktp)
+dds_return_t ddsi_new_reader (struct ddsi_reader **rd_out, struct ddsi_guid *rdguid, const struct ddsi_guid *group_guid, struct ddsi_participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, struct ddsi_rhc * rhc, ddsi_status_cb_t status_cb, void *status_cb_arg, struct ddsi_virtual_locators_set *virtual_locators)
 {
   dds_return_t rc;
   uint32_t kind;
@@ -1542,7 +1534,7 @@ dds_return_t ddsi_new_reader (struct ddsi_reader **rd_out, struct ddsi_guid *rdg
   kind = type->typekind_no_key ? DDSI_ENTITYID_KIND_READER_NO_KEY : DDSI_ENTITYID_KIND_READER_WITH_KEY;
   if ((rc = ddsi_participant_allocate_entityid (&rdguid->entityid, kind, pp)) < 0)
     return rc;
-  return ddsi_new_reader_guid (rd_out, rdguid, group_guid, pp, topic_name, type, xqos, rhc, status_cb, status_cb_arg, ktp);
+  return ddsi_new_reader_guid (rd_out, rdguid, group_guid, pp, topic_name, type, xqos, rhc, status_cb, status_cb_arg, virtual_locators);
 }
 
 static void gc_delete_reader (struct ddsi_gcreq *gcreq)

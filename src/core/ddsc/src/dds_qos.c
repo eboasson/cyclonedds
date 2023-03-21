@@ -904,25 +904,22 @@ bool dds_qget_virtual_interfaces (const dds_qos_t * __restrict qos, uint32_t *n_
   return true;
 }
 
-dds_return_t dds_ensure_valid_virtual_interfaces (dds_qos_t *qos, const struct ddsi_sertype *sertype, const struct ddsi_domaingv *gv)
+dds_return_t dds_ensure_valid_virtual_interfaces (dds_qos_t *qos, ddsi_data_type_properties_t data_type_props, const struct dds_virtual_interfaces_set *vi_set)
 {
   if (!(qos->present & DDSI_QP_VIRTUAL_INTERFACES))
   {
     uint32_t n_supported = 0;
-    const char *supported_interfaces[MAX_VIRTUAL_INTERFACES];
-    assert(gv->n_virtual_interfaces <= MAX_VIRTUAL_INTERFACES);
+    const char *supported_interfaces[DDS_MAX_VIRTUAL_INTERFACES];
+    assert (vi_set->length <= DDS_MAX_VIRTUAL_INTERFACES);
 
-    for(uint32_t i = 0; i < gv->n_virtual_interfaces; ++i)
+    for (uint32_t i = 0; i < vi_set->length; ++i)
     {
-      ddsi_virtual_interface_t *vi = gv->virtual_interfaces[i];
-      if (vi->ops.data_type_supported(sertype->vi_data_type_props) &&
-          vi->ops.qos_supported(qos))
-      {
+      struct dds_virtual_interface *vi = vi_set->interfaces[i];
+      if (vi->ops.data_type_supported (data_type_props) && vi->ops.qos_supported (qos))
         supported_interfaces[n_supported++] = vi->interface_name;
-      }
     }
 
-    dds_qset_virtual_interfaces(qos, n_supported, supported_interfaces);
+    dds_qset_virtual_interfaces (qos, n_supported, supported_interfaces);
   }
 
   return DDS_RETCODE_OK;

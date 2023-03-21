@@ -721,14 +721,12 @@ static void wras_drop_covered_readers (int locidx, struct costmap *wm, struct co
   }
 }
 
-static bool match_locator_to_virtual_interface(
-  const struct ddsi_endpoint_common *local_endpoint,
-  ddsi_xlocator_t remote_locator)
+static bool is_virtual_locator (const struct ddsi_endpoint_common *local_endpoint, ddsi_xlocator_t remote_locator)
 {
-  assert(local_endpoint);
-  for (uint32_t i = 0; i < local_endpoint->n_virtual_pipes; i++)
+  assert (local_endpoint);
+  for (uint32_t i = 0; i < local_endpoint->virtual_locators.length; i++)
   {
-    if (memcmp(local_endpoint->m_pipes[i]->topic->virtual_interface->locator, &remote_locator.c, sizeof(ddsi_locator_t)) == 0)
+    if (memcmp (&local_endpoint->virtual_locators.locators[i], &remote_locator.c, sizeof (ddsi_locator_t)) == 0)
       return true;
   }
 
@@ -778,7 +776,7 @@ struct ddsi_addrset *ddsi_compute_writer_addrset (const struct ddsi_writer *wr)
     {
       wras_trace_cover (gv, locs, wm, covered);
       ELOGDISC (wr, "  best = %d\n", best);
-      if (!match_locator_to_virtual_interface(&wr->c, locs->locs[best]))
+      if (!is_virtual_locator(&wr->c, locs->locs[best]))
         wras_add_locator (gv, newas, best, locs, covered);
 
       wras_drop_covered_readers (best, wm, covered);

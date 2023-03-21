@@ -475,7 +475,7 @@ static struct ddsi_serdata *serdata_default_from_loaned_sample(const struct ddsi
 
   bool serialize_data =
     force_serialization ||
-    ddsi_virtual_interface_pipe_serialization_required(loan->loan_origin);
+    dds_virtual_interface_pipe_serialization_required(loan->loan_origin);
 
   struct dds_serdata_default *d;
   if (serialize_data)
@@ -848,10 +848,10 @@ static void serdata_default_get_keyhash (const struct ddsi_serdata *serdata_comm
   dds_ostreamBE_fini (&os, &dds_cdrstream_default_allocator);
 }
 
-static struct ddsi_serdata * serdata_default_from_virtual_exchange(const struct ddsi_sertype *type, dds_loaned_sample_t *data)
+static struct ddsi_serdata * serdata_default_from_virtual_exchange (const struct ddsi_sertype *type, dds_loaned_sample_t *data)
 {
   const struct dds_sertype_default *tp = (const struct dds_sertype_default *)type;
-  dds_virtual_interface_metadata_t *md = data->metadata;
+  struct dds_virtual_interface_metadata *md = data->metadata;
   enum ddsi_serdata_kind sdk = 0;
   switch (md->sample_state)
   {

@@ -14,6 +14,7 @@
 
 #include <stdbool.h>
 #include "dds/export.h"
+#include "dds/ddsi/ddsi_virtual_interface.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -26,7 +27,7 @@ struct ddsi_domaingv;
 int ddsi_config_prep (struct ddsi_domaingv *gv, struct ddsi_cfgst *cfgst);
 
 /** @component ddsi_init */
-int ddsi_init (struct ddsi_domaingv *gv);
+int ddsi_init (struct ddsi_domaingv *gv, struct ddsi_virtual_interface_locators *virtual_interface_locators);
 
 /** @component ddsi_init */
 int ddsi_start (struct ddsi_domaingv *gv);

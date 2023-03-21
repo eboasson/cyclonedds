@@ -13,6 +13,8 @@
 #define DDS__QOS_H
 
 #include "dds/ddsi/ddsi_xqos.h"
+#include "dds/ddsi/ddsi_sertype.h"
+#include "dds__types.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -59,7 +61,7 @@ extern "C" {
 dds_return_t dds_ensure_valid_data_representation (dds_qos_t *qos, uint32_t allowed_data_representations, bool topicqos);
 
 /** @component qos_obj */
-dds_return_t dds_ensure_valid_virtual_interfaces (dds_qos_t *qos, const struct ddsi_sertype *sertype, const struct ddsi_domaingv *gv);
+dds_return_t dds_ensure_valid_virtual_interfaces (dds_qos_t *qos, ddsi_data_type_properties_t data_type_props, const struct dds_virtual_interfaces_set *vi_set);
 
 /** @component qos_obj */
 void dds_apply_entity_naming(dds_qos_t *qos, /* optional */ dds_qos_t *parent_qos, struct ddsi_domaingv *gv);
