@@ -86,7 +86,6 @@ set(srcs_ddsi
   ddsi_xmsg.c
   ddsi_freelist.c
   ddsi_hbcontrol.c
-  ddsi_virtual_interface_loader.c
 )
 
 set(hdrs_ddsi
@@ -141,6 +140,7 @@ set(hdrs_ddsi
   ddsi_whc.h
   ddsi_xevent.h
   ddsi_xmsg.h
+  ddsi_virtual_interface.h
 )
 
 set(hdrs_private_ddsi

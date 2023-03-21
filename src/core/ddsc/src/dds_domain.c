@@ -14,12 +14,6 @@
 #include "dds/ddsrt/process.h"
 #include "dds/ddsrt/heap.h"
 #include "dds/ddsrt/hopscotch.h"
-#include "dds__init.h"
-#include "dds/ddsc/dds_rhc.h"
-#include "dds__domain.h"
-#include "dds__builtin.h"
-#include "dds__whc_builtintopic.h"
-#include "dds__entity.h"
 #include "dds/ddsi/ddsi_iid.h"
 #include "dds/ddsi/ddsi_tkmap.h"
 #include "dds/ddsi/ddsi_serdata.h"
@@ -29,7 +23,14 @@
 #include "dds/ddsi/ddsi_domaingv.h"
 #include "dds/ddsi/ddsi_typelib.h"
 #include "dds/ddsi/ddsi_init.h"
+#include "dds/ddsc/dds_rhc.h"
+#include "dds__init.h"
+#include "dds__domain.h"
+#include "dds__builtin.h"
+#include "dds__whc_builtintopic.h"
+#include "dds__entity.h"
 #include "dds__serdata_default.h"
+#include "dds__virtual_interface.h"
 
 static dds_return_t dds_domain_free (dds_entity *vdomain);
 
@@ -63,7 +64,7 @@ struct config_source {
 
 static dds_entity_t dds_domain_init (dds_domain *domain, dds_domainid_t domain_id, const struct config_source *config, bool implicit)
 {
-  dds_entity_t domh;
+  dds_entity_t ret, domh;
 
   if ((domh = dds_entity_init (&domain->m_entity, &dds_global.m_entity, DDS_KIND_DOMAIN, implicit, true, NULL, NULL, 0)) < 0)
     return domh;
@@ -108,7 +109,7 @@ static dds_entity_t dds_domain_init (dds_domain *domain, dds_domainid_t domain_i
       if (domain->cfgst == NULL)
       {
         DDS_ILOG (DDS_LC_CONFIG, domain_id, "Failed to parse configuration\n");
-        domh = DDS_RETCODE_ERROR;
+        ret = DDS_RETCODE_ERROR;
         goto fail_config;
       }
       assert (domain_id == DDS_DOMAIN_DEFAULT || domain_id == domain->gv.config.domainId);
@@ -119,14 +120,28 @@ static dds_entity_t dds_domain_init (dds_domain *domain, dds_domainid_t domain_i
   if (ddsi_config_prep (&domain->gv, domain->cfgst) != 0)
   {
     DDS_ILOG (DDS_LC_CONFIG, domain->m_id, "Failed to configure RTPS\n");
-    domh = DDS_RETCODE_ERROR;
+    ret = DDS_RETCODE_ERROR;
     goto fail_ddsi_config;
   }
 
-  if (ddsi_init (&domain->gv) < 0)
+  if ((ret = dds_virtual_interfaces_init (&domain->gv, domain)) != DDS_RETCODE_OK)
+    goto fail_virtual_interface_init;
+
+  struct ddsi_virtual_interface_locators virtual_interface_locators;
+  virtual_interface_locators.length = domain->virtual_interfaces.length;
+  virtual_interface_locators.items = dds_alloc (domain->virtual_interfaces.length * sizeof (*virtual_interface_locators.items));
+  for (uint32_t n = 0; n < domain->virtual_interfaces.length; n++)
+  {
+    virtual_interface_locators.items[n].virtual_interface_name = dds_string_dup (domain->virtual_interfaces.interfaces[n]->interface_name);
+    virtual_interface_locators.items[n].locator = *domain->virtual_interfaces.interfaces[n]->locator;
+  }
+
+  ret = ddsi_init (&domain->gv, &virtual_interface_locators);
+  dds_free (virtual_interface_locators.items);
+  if (ret < 0)
   {
     DDS_ILOG (DDS_LC_CONFIG, domain->m_id, "Failed to initialize RTPS\n");
-    domh = DDS_RETCODE_ERROR;
+    ret = DDS_RETCODE_ERROR;
     goto fail_ddsi_init;
   }
 
@@ -143,14 +158,14 @@ static dds_entity_t dds_domain_init (dds_domain *domain, dds_domainid_t domain_i
       if (dds_global.threadmon == NULL)
       {
         DDS_ILOG (DDS_LC_CONFIG, domain->m_id, "Failed to create a thread liveliness monitor\n");
-        domh = DDS_RETCODE_OUT_OF_RESOURCES;
+        ret = DDS_RETCODE_OUT_OF_RESOURCES;
         goto fail_threadmon_new;
       }
       /* FIXME: thread properties */
       if (ddsi_threadmon_start (dds_global.threadmon, "threadmon") < 0)
       {
         DDS_ILOG (DDS_LC_ERROR, domain->m_id, "Failed to start the thread liveliness monitor\n");
-        domh = DDS_RETCODE_ERROR;
+        ret = DDS_RETCODE_ERROR;
         goto fail_threadmon_start;
       }
     }
@@ -161,7 +176,7 @@ static dds_entity_t dds_domain_init (dds_domain *domain, dds_domainid_t domain_i
   if (ddsi_start (&domain->gv) < 0)
   {
     DDS_ILOG (DDS_LC_CONFIG, domain->m_id, "Failed to start RTPS\n");
-    domh = DDS_RETCODE_ERROR;
+    ret = DDS_RETCODE_ERROR;
     goto fail_ddsi_start;
   }
 
@@ -184,12 +199,18 @@ fail_threadmon_new:
   ddsi_fini (&domain->gv);
   dds_serdatapool_free (domain->serpool);
 fail_ddsi_init:
+  for (uint32_t i = 0; i < domain->virtual_interfaces.length; i++)
+  {
+    domain->virtual_interfaces.interfaces[i]->ops.deinit(domain->virtual_interfaces.interfaces[i]);
+    domain->virtual_interfaces.interfaces[i] = NULL;
+  }
+fail_virtual_interface_init:
 fail_ddsi_config:
   if (domain->cfgst)
     ddsi_config_fini (domain->cfgst);
 fail_config:
   dds_handle_delete (&domain->m_entity.m_hdllink);
-  return domh;
+  return ret;
 }
 
 dds_domain *dds_domain_find_locked (dds_domainid_t id)
@@ -311,6 +332,9 @@ static dds_return_t dds_domain_free (dds_entity *vdomain)
     ddsi_threadmon_unregister_domain (dds_global.threadmon, &domain->gv);
 
   ddsi_fini (&domain->gv);
+
+  dds_virtual_interfaces_fini (domain);
+
   dds_serdatapool_free (domain->serpool);
 
   /* tearing down the top-level object has more consequences, so it waits until signalled that all

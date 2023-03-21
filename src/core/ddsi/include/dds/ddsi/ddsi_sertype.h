@@ -20,7 +20,6 @@
 #include "dds/ddsc/dds_public_alloc.h"
 #include "dds/cdr/dds_cdrstream.h"
 #include "dds/export.h"
-#include "dds/ddsc/dds_virtual_interface.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -37,6 +36,8 @@ struct ddsi_type_pair;
 #define DDSI_SERTYPE_REGISTERED  0x80000000u // set after setting gv
 #define DDSI_SERTYPE_REFC_MASK   0x0fffffffu
 
+typedef uint64_t ddsi_data_type_properties_t;
+
 struct ddsi_sertype {
   const struct ddsi_sertype_ops *ops;
   const struct ddsi_serdata_ops *serdata_ops;
@@ -51,7 +52,7 @@ struct ddsi_sertype {
   ddsrt_atomic_uint32_t flags_refc; /* counts refs from entities (topic, reader, writer), not from data */
   const struct ddsi_sertype *base_sertype; /* counted ref to sertype used to derive this sertype, used to overwrite the serdata_ops for a specific data representation */
   uint32_t zerocopy_size;
-  virtual_interface_data_type_properties_t vi_data_type_props; /* representation of properties of the data type relevant to the virtual interface */
+  ddsi_data_type_properties_t data_type_props; /* representation of properties of the data type */
 };
 
 /* The old and the new happen to have the same memory layout on a 64-bit machine
@@ -134,8 +135,7 @@ typedef struct ddsi_sertype * (*ddsi_sertype_derive_t) (const struct ddsi_sertyp
 
 /* Generate the datatype properties flags for this type
    Used in the virtual interface to determine essential properties of the type*/
-//find out a way to get dds_topic_descriptor_t from sertype?
-typedef virtual_interface_data_type_properties_t (*ddsi_sertype_calculate_datatype_properties_t) (const dds_topic_descriptor_t *td);
+typedef ddsi_data_type_properties_t (* ddsi_sertype_calculate_datatype_properties_t) (const dds_topic_descriptor_t *desc);
 
 struct ddsi_sertype_v0;
 typedef void (*ddsi_sertype_v0_t) (struct ddsi_sertype_v0 *dummy);

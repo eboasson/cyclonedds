@@ -351,22 +351,21 @@ dds_return_t dds_request_writer_loan(dds_writer *wr, void **samples_ptr, int32_t
   int32_t index = 0;
 
   ddsrt_mutex_lock (&wr->m_entity.m_mutex);
-  dds_loaned_sample_t **loans_ptr = dds_alloc(sizeof(dds_loaned_sample_t*)*(size_t)n_samples);
+  dds_loaned_sample_t **loans_ptr = dds_alloc (sizeof(dds_loaned_sample_t*)*(size_t)n_samples);
   if (!loans_ptr)
   {
     ret = DDS_RETCODE_OUT_OF_RESOURCES;
     goto fail_alloc;
   }
 
-  //attempt to request loans from virtual interfaces
-  struct ddsi_endpoint_common *ec = &wr->m_wr->c;
+  // attempt to request loans from virtual interfaces
   if (wr->m_topic->m_stype->fixed_size)
   {
-    for (uint32_t i = 0; i < ec->n_virtual_pipes; i++)
+    for (uint32_t i = 0; i < wr->m_endpoint.virtual_pipes.length; i++)
     {
       for (; index < n_samples; index++)
       {
-        dds_loaned_sample_t *loan = ddsi_virtual_interface_pipe_request_loan(ec->m_pipes[i], wr->m_topic->m_stype->zerocopy_size);
+        dds_loaned_sample_t *loan = dds_virtual_interface_pipe_request_loan (wr->m_endpoint.virtual_pipes.pipes[i], wr->m_topic->m_stype->zerocopy_size);
         if (!loan)
         {
           ret = DDS_RETCODE_ERROR;
@@ -383,7 +382,7 @@ dds_return_t dds_request_writer_loan(dds_writer *wr, void **samples_ptr, int32_t
     for (; index < n_samples; index++)
     {
       dds_loaned_sample_t *loan;
-      if ((ret = dds_heap_loan(wr->m_topic->m_stype, &loan)) != DDS_RETCODE_OK)
+      if ((ret = dds_heap_loan (wr->m_topic->m_stype, &loan)) != DDS_RETCODE_OK)
         goto fail;
       loans_ptr[index] = loan;
     }
@@ -392,7 +391,7 @@ dds_return_t dds_request_writer_loan(dds_writer *wr, void **samples_ptr, int32_t
   assert (index == n_samples);
   for (int32_t i = 0; i < n_samples; i++)
   {
-    dds_loan_manager_add_loan(wr->m_loans, loans_ptr[i]);
+    dds_loan_manager_add_loan (wr->m_loans, loans_ptr[i]);
     samples_ptr[i] = loans_ptr[i]->sample_ptr;
   }
 
@@ -400,9 +399,9 @@ fail:
   if (index != n_samples && loans_ptr != NULL)  //we couldnt get the number of loans requested
   {
     for (int32_t i = 0; i < index; i++)
-      dds_loaned_sample_free(loans_ptr[i]);
+      dds_loaned_sample_free (loans_ptr[i]);
   }
-  dds_free(loans_ptr);
+  dds_free (loans_ptr);
 
 fail_alloc:
   ddsrt_mutex_unlock (&wr->m_entity.m_mutex);
@@ -470,15 +469,11 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
   uint32_t required_size = 0;
   if (!loan && get_required_buffer_size(wr->m_topic, data, &required_size))
   {
-    struct ddsi_endpoint_common *ec = &wr->m_wr->c;
     if (required_size)
     {
-      //attempt to get a loan from a virtual interface
-      for (uint32_t i = 0; i < ec->n_virtual_pipes && !loan; i++)
-      {
-        ddsi_virtual_interface_pipe_t *p = ec->m_pipes[i];
-        loan = ddsi_virtual_interface_pipe_request_loan(p, required_size);
-      }
+      // attempt to get a loan from a virtual interface
+      for (uint32_t i = 0; i < wr->m_endpoint.virtual_pipes.length && !loan; i++)
+        loan = dds_virtual_interface_pipe_request_loan (wr->m_endpoint.virtual_pipes.pipes[i], required_size);
     }
   }
 
@@ -516,27 +511,27 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
   // 6. Deliver the data
 
   // 6.a Deliver via network
-  if ((ret = dds_write_basic_impl(thrst, wr, d)) != DDS_RETCODE_OK)
+  if ((ret = dds_write_basic_impl (thrst, wr, d)) != DDS_RETCODE_OK)
     goto unref_serdata;
 
   // 6.b Deliver through virtual interface
   if (loan)
   {
-    ddsi_virtual_interface_pipe_t *pipe = loan->loan_origin;
+    struct dds_virtual_interface_pipe *pipe = loan->loan_origin;
 
-    //populate metadata fields
-    dds_virtual_interface_metadata_t *md = loan->metadata;
-    md->guid = ddsi_wr->e.guid;
+    // populate metadata fields
+    struct dds_virtual_interface_metadata *md = loan->metadata;
+    memcpy (&md->guid, &ddsi_wr->e.guid, sizeof (md->guid));
     md->timestamp = d->timestamp.v;
     md->statusinfo = d->statusinfo;
-    if (!pipe->ops.sink_data(pipe, loan))
+    if (!pipe->ops.sink_data (pipe, loan))
     {
       ret = DDS_RETCODE_ERROR;
       goto unref_serdata;
     }
     else
     {
-      dds_loaned_sample_unref(loan); //loan refs(0)
+      dds_loaned_sample_unref (loan); //loan refs(0)
       d->loan = NULL;
     }
   }
@@ -545,10 +540,10 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
   return ret;
 
 unref_serdata:
-  ddsi_serdata_unref(d); // refc(d) = 0
+  ddsi_serdata_unref (d); // refc(d) = 0
 return_loan:
   if(loan)
-    (void) dds_loaned_sample_free(loan);
+    (void) dds_loaned_sample_free (loan);
   ddsi_thread_state_asleep (thrst);
   return ret;
 }

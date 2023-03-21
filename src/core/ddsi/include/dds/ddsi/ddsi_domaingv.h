@@ -27,7 +27,6 @@
 #include "dds/ddsi/ddsi_ownip.h"
 #include "dds/ddsi/ddsi_protocol.h"
 #include "dds/ddsi/ddsi_sockwaitset.h"
-#include "dds/ddsc/dds_virtual_interface.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -186,10 +185,6 @@ struct ddsi_domaingv {
   /* whether we're using a link-local address (and therefore
      only listening to multicasts on that interface) */
   int using_link_local_intf;
-
-  /* virtual interfaces. */
-  uint32_t n_virtual_interfaces;
-  ddsi_virtual_interface_t* virtual_interfaces[MAX_VIRTUAL_INTERFACES];
 
   /* Addressing: actual own (preferred) IP address, IP address
      advertised in discovery messages (so that an external IP address on

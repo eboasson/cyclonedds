@@ -246,71 +246,68 @@ static bool sertype_default_serialize_into (const struct ddsi_sertype *type, con
   return dds_stream_write_sample(&os, &dds_cdrstream_default_allocator, sample, &type_default->type);
 }
 
-static virtual_interface_data_type_properties_t opcode_to_props(uint32_t oc)
+static dds_virtual_interface_data_type_properties_t opcode_to_props(uint32_t oc)
 {
   switch (oc)
   {
     case DDS_OP_VAL_UNI:
       //extensibility of union?
-      return DATA_TYPE_CONTAINS_UNION;
-      break;
+      return DDS_DATA_TYPE_CONTAINS_UNION;
     case DDS_OP_VAL_STU:
       //extensibility of struct?
-      return DATA_TYPE_CONTAINS_STRUCT;
-      break;
+      return DDS_DATA_TYPE_CONTAINS_STRUCT;
     case DDS_OP_VAL_BMK:
       //extensibility of bitmask?
-      return DATA_TYPE_CONTAINS_BITMASK;
-      break;
+      return DDS_DATA_TYPE_CONTAINS_BITMASK;
     case DDS_OP_VAL_ENU:
       //extensibility of enum?
-      return DATA_TYPE_CONTAINS_ENUM;
-      break;
+      return DDS_DATA_TYPE_CONTAINS_ENUM;
     case DDS_OP_VAL_STR:
-      return DATA_TYPE_CONTAINS_STRING;
-      break;
+      return DDS_DATA_TYPE_CONTAINS_STRING;
     case DDS_OP_VAL_BST:
-      return DATA_TYPE_CONTAINS_BSTRING;
-      break;
+      return DDS_DATA_TYPE_CONTAINS_BSTRING;
     case DDS_OP_VAL_SEQ:
-      return DATA_TYPE_CONTAINS_SEQUENCE;
-      break;
+      return DDS_DATA_TYPE_CONTAINS_SEQUENCE;
     case DDS_OP_VAL_BSQ:
-      return DATA_TYPE_CONTAINS_BSEQUENCE;
-      break;
+      return DDS_DATA_TYPE_CONTAINS_BSEQUENCE;
     case DDS_OP_VAL_ARR:
-      return DATA_TYPE_CONTAINS_ARRAY;
-      break;
+      return DDS_DATA_TYPE_CONTAINS_ARRAY;
     case DDS_OP_VAL_EXT:
-      return DATA_TYPE_CONTAINS_EXTERNAL;
-      break;
+      return DDS_DATA_TYPE_CONTAINS_EXTERNAL;
     default:
       return 0;
   }
 }
 
-static virtual_interface_data_type_properties_t sertype_default_calculate_datatype_props(
-  const dds_topic_descriptor_t *td)
+#define TYPES_WITH_INDIRECTIONS \
+        (DDS_DATA_TYPE_CONTAINS_OPTIONAL \
+       | DDS_DATA_TYPE_CONTAINS_STRING \
+       | DDS_DATA_TYPE_CONTAINS_BSTRING \
+       | DDS_DATA_TYPE_CONTAINS_WSTRING \
+       | DDS_DATA_TYPE_CONTAINS_SEQUENCE \
+       | DDS_DATA_TYPE_CONTAINS_BSEQUENCE \
+       | DDS_DATA_TYPE_CONTAINS_OPTIONAL \
+       | DDS_DATA_TYPE_CONTAINS_EXTERNAL)
+
+static ddsi_data_type_properties_t sertype_default_calculate_datatype_props (const dds_topic_descriptor_t *desc)
 {
-  virtual_interface_data_type_properties_t returnval = DATA_TYPE_CALCULATED;
+  ddsi_data_type_properties_t prop = DDS_DATA_TYPE_CALCULATED;
 
-  for (uint32_t i = 0; i < td->m_nops; i++)
+  // FIXME: skip non-ADR ops
+  for (uint32_t i = 0; i < desc->m_nops; i++)
   {
-    uint32_t op = td->m_ops[i];
+    uint32_t op = desc->m_ops[i];
     if (op & DDS_OP_FLAG_OPT)
-      returnval |= DATA_TYPE_CONTAINS_OPTIONAL;
+      prop |= DDS_DATA_TYPE_CONTAINS_OPTIONAL;
 
-    returnval |= opcode_to_props(DDS_OP_TYPE(op));
-    returnval |= opcode_to_props(DDS_OP_SUBTYPE(op));
+    prop |= opcode_to_props (DDS_OP_TYPE (op));
+    prop |= opcode_to_props (DDS_OP_SUBTYPE (op));
   }
 
-  if (returnval &
-       (DATA_TYPE_CONTAINS_OPTIONAL | DATA_TYPE_CONTAINS_STRING | DATA_TYPE_CONTAINS_BSTRING |
-        DATA_TYPE_CONTAINS_WSTRING | DATA_TYPE_CONTAINS_SEQUENCE | DATA_TYPE_CONTAINS_BSEQUENCE |
-        DATA_TYPE_CONTAINS_OPTIONAL | DATA_TYPE_CONTAINS_EXTERNAL))
-    returnval |= DATA_TYPE_CONTAINS_INDIRECTIONS;
+  if (prop & TYPES_WITH_INDIRECTIONS)
+    prop |= DDS_DATA_TYPE_CONTAINS_INDIRECTIONS;
 
-  return returnval;
+  return prop;
 }
 
 const struct ddsi_sertype_ops dds_sertype_ops_default = {
@@ -385,11 +382,11 @@ dds_return_t dds_sertype_default_init (const struct dds_domain *domain, struct d
   }
   st->type.ops.nops = dds_stream_countops (desc->m_ops, desc->m_nkeys, desc->m_keys);
   st->type.ops.ops = ddsrt_memdup (desc->m_ops, st->type.ops.nops * sizeof (*st->type.ops.ops));
-  st->c.vi_data_type_props = DATA_TYPE_CALCULATED;
+  st->c.data_type_props = 0ull;
   if (st->c.ops->calculate_datatype_props)
-    st->c.vi_data_type_props |= st->c.ops->calculate_datatype_props(desc);
+    st->c.data_type_props |= st->c.ops->calculate_datatype_props (desc);
   if (st->c.fixed_size)
-    st->c.vi_data_type_props |= DATA_TYPE_IS_FIXED_SIZE;
+    st->c.data_type_props |= DDS_DATA_TYPE_IS_FIXED_SIZE;
 
   if (min_xcdrv == DDSI_RTPS_CDR_ENC_VERSION_2 && dds_stream_type_nesting_depth (desc->m_ops) > DDS_CDRSTREAM_MAX_NESTING_DEPTH)
   {
@@ -420,7 +417,7 @@ dds_return_t dds_sertype_default_init (const struct dds_domain *domain, struct d
     st->typemap_ser.sz = 0;
   }
 
-  st->c.vi_data_type_props = calculate_data_type_properties(desc);
+  st->c.data_type_props = dds_calculate_data_type_properties (desc);
   st->type.opt_size_xcdr1 = (st->c.allowed_data_representation & DDS_DATA_REPRESENTATION_FLAG_XCDR1) ? dds_stream_check_optimize (&st->type, DDSI_RTPS_CDR_ENC_VERSION_1) : 0;
   if (st->type.opt_size_xcdr1 > 0)
     GVTRACE ("Marshalling XCDR1 for type: %s is %soptimised\n", st->c.type_name, st->type.opt_size_xcdr1 ? "" : "not ");

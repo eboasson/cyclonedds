@@ -32,6 +32,7 @@ struct ddsi_network_interface {
   unsigned loopback: 1;
   unsigned link_local: 1;
   unsigned prefer_multicast: 1;
+  unsigned is_virtual: 1;
   int32_t priority;
   char *name;
 };

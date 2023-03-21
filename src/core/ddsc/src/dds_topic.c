@@ -576,17 +576,20 @@ dds_entity_t dds_create_topic_impl (
   ddsi_sertype_unref (*sertype);
   *sertype = sertype_registered;
 
-  for (uint32_t i = 0; i < gv->n_virtual_interfaces && new_ktopic; i++)
+  dds_domain *dom = pp->m_entity.m_domain;
+  for (uint32_t i = 0; new_ktopic && i < dom->virtual_interfaces.length; i++)
   {
-    ddsi_virtual_interface_t *vi = gv->virtual_interfaces[i];
-    if (!vi->ops.qos_supported(new_qos) ||
-        !vi->ops.data_type_supported(sertype_registered->vi_data_type_props))
+    struct dds_virtual_interface *vi = dom->virtual_interfaces.interfaces[i];
+    if (!vi->ops.qos_supported (new_qos) ||
+        !vi->ops.data_type_supported (sertype_registered->data_type_props))
       continue;
-    ddsi_virtual_interface_topic_t *vit = vi->ops.topic_create(vi, calculate_topic_identifier(ktp), sertype_registered->vi_data_type_props);
-    if (!vit)
+    struct dds_virtual_interface_topic *vit = vi->ops.topic_create (vi, dds_calculate_topic_identifier (ktp), sertype_registered->data_type_props);
+    if (vit == NULL)
+    {
+      rc = DDS_RETCODE_ERROR;
       goto virtual_interface_fail;
-    else
-      ktp->virtual_topics[ktp->n_virtual_topics++] = vit;
+    }
+    ktp->virtual_topics.topics[ktp->virtual_topics.length++] = vit;
   }
 
   const bool new_topic_def = register_topic_type_for_discovery (gv, pp, ktp, is_builtin, sertype_registered);
@@ -605,11 +608,11 @@ dds_entity_t dds_create_topic_impl (
   return hdl;
 
 virtual_interface_fail:
-  for (uint32_t i = 0; i < ktp->n_virtual_topics; i++)
+  for (uint32_t i = 0; i < ktp->virtual_topics.length; i++)
   {
-    bool result = ktp->virtual_topics[i]->virtual_interface->ops.topic_destruct(ktp->virtual_topics[i]);
+    bool result = ktp->virtual_topics.topics[i]->virtual_interface->ops.topic_destruct (ktp->virtual_topics.topics[i]);
     assert (result);
-    ktp->virtual_topics[i] = NULL;
+    ktp->virtual_topics.topics[i] = NULL;
   }
 error:
   dds_delete_qos (new_qos);

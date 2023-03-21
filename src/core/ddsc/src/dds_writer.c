@@ -23,6 +23,8 @@
 #include "dds/ddsi/ddsi_xmsg.h"
 #include "dds/ddsi/ddsi_entity_index.h"
 #include "dds/ddsi/ddsi_security_omg.h"
+#include "dds/ddsi/ddsi_tkmap.h"
+#include "dds/ddsi/ddsi_statistics.h"
 #include "dds/cdr/dds_cdrstream.h"
 #include "dds__writer.h"
 #include "dds__listener.h"
@@ -31,10 +33,9 @@
 #include "dds__topic.h"
 #include "dds__get_status.h"
 #include "dds__qos.h"
-#include "dds/ddsi/ddsi_tkmap.h"
 #include "dds__whc.h"
 #include "dds__statistics.h"
-#include "dds/ddsi/ddsi_statistics.h"
+#include "dds__virtual_interface.h"
 
 #ifdef DDS_HAS_SHM
 #include "dds__shm_qos.h"
@@ -200,6 +201,7 @@ static dds_return_t dds_writer_delete (dds_entity *e)
   ddsi_xpack_free (wr->m_xp);
   ddsi_thread_state_asleep (ddsi_lookup_thread_state ());
   dds_entity_drop_ref (&wr->m_topic->m_entity);
+  dds_loan_manager_free (wr->m_loans);
   return DDS_RETCODE_OK;
 }
 
@@ -336,7 +338,7 @@ dds_entity_t dds_create_writer (dds_entity_t participant_or_publisher, dds_entit
 
   if ((rc = dds_ensure_valid_data_representation (wqos, tp->m_stype->allowed_data_representation, false)) != 0)
     goto err_data_repr;
-  if ((rc = dds_ensure_valid_virtual_interfaces (wqos, tp->m_stype, gv)) != 0)
+  if ((rc = dds_ensure_valid_virtual_interfaces (wqos, tp->m_stype->data_type_props, &pub->m_entity.m_domain->virtual_interfaces)) != 0)
     goto err_data_repr;
 
   if ((rc = ddsi_xqos_valid (&gv->logconfig, wqos)) < 0 || (rc = validate_writer_qos(wqos)) != DDS_RETCODE_OK)
@@ -387,13 +389,22 @@ dds_entity_t dds_create_writer (dds_entity_t participant_or_publisher, dds_entit
   // we can have another look.
   wr->whc_batch = wqos->writer_batching.batch_updates || gv->config.whc_batch;
 
+  if ((rc = dds_endpoint_init_virtual_interface (&wr->m_endpoint, qos, tp->m_ktopic ? &tp->m_ktopic->virtual_topics : NULL, DDS_VIRTUAL_INTERFACE_PIPE_TYPE_SINK)) != DDS_RETCODE_OK)
+    goto err_pipe_open;
+
   struct ddsi_sertype *sertype = ddsi_sertype_derive_sertype (tp->m_stype, data_representation,
     wqos->present & DDSI_QP_TYPE_CONSISTENCY_ENFORCEMENT ? wqos->type_consistency : ddsi_default_qos_topic.type_consistency);
   if (!sertype)
     sertype = tp->m_stype;
 
-  rc = ddsi_new_writer (&wr->m_wr, &wr->m_entity.m_guid, NULL, pp, tp->m_name, sertype, wqos, wr->m_whc, dds_writer_status_cb, wr, tp->m_ktopic);
+  struct ddsi_virtual_locators_set virtual_locators;
+  virtual_locators.length = wr->m_entity.m_domain->virtual_interfaces.length;
+  virtual_locators.locators = dds_alloc (virtual_locators.length * sizeof (*virtual_locators.locators));
+  for (uint32_t n = 0; n < virtual_locators.length; n++)
+    virtual_locators.locators[n] = *wr->m_entity.m_domain->virtual_interfaces.interfaces[n]->locator;
+  rc = ddsi_new_writer (&wr->m_wr, &wr->m_entity.m_guid, NULL, pp, tp->m_name, sertype, wqos, wr->m_whc, dds_writer_status_cb, wr, &virtual_locators);
   assert(rc == DDS_RETCODE_OK);
+  dds_free (virtual_locators.locators);
   ddsi_thread_state_asleep (ddsi_lookup_thread_state ());
 
   wr->m_entity.m_iid = ddsi_get_entity_instanceid (&wr->m_entity.m_domain->gv, &wr->m_entity.m_guid);
@@ -415,6 +426,7 @@ dds_entity_t dds_create_writer (dds_entity_t participant_or_publisher, dds_entit
   ddsrt_mutex_unlock (&gv->sendq_running_lock);
   return writer;
 
+err_pipe_open:
 #ifdef DDS_HAS_SECURITY
 err_not_allowed:
   ddsi_thread_state_asleep (ddsi_lookup_thread_state ());

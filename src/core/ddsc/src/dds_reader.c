@@ -15,16 +15,6 @@
 #include "dds/ddsrt/static_assert.h"
 #include "dds/ddsrt/io.h"
 #include "dds/ddsrt/heap.h"
-#include "dds__participant.h"
-#include "dds__subscriber.h"
-#include "dds__reader.h"
-#include "dds__listener.h"
-#include "dds__init.h"
-#include "dds/ddsc/dds_rhc.h"
-#include "dds__rhc_default.h"
-#include "dds__topic.h"
-#include "dds__get_status.h"
-#include "dds__qos.h"
 #include "dds/ddsi/ddsi_entity.h"
 #include "dds/ddsi/ddsi_endpoint.h"
 #include "dds/ddsi/ddsi_thread.h"
@@ -36,8 +26,19 @@
 #include "dds/ddsi/ddsi_statistics.h"
 #include "dds/ddsi/ddsi_endpoint_match.h"
 #include "dds/ddsi/ddsi_tkmap.h"
+#include "dds/ddsc/dds_rhc.h"
+#include "dds__participant.h"
+#include "dds__subscriber.h"
+#include "dds__reader.h"
+#include "dds__listener.h"
+#include "dds__init.h"
+#include "dds__rhc_default.h"
+#include "dds__topic.h"
+#include "dds__get_status.h"
+#include "dds__qos.h"
 #include "dds__builtin.h"
 #include "dds__statistics.h"
+#include "dds__virtual_interface.h"
 
 DECL_ENTITY_LOCK_UNLOCK (dds_reader)
 
@@ -586,24 +587,34 @@ static dds_entity_t dds_create_reader_int (dds_entity_t participant_or_subscribe
   }
   dds_entity_add_ref_locked (&tp->m_entity);
 
+  if ((rc = dds_endpoint_init_virtual_interface (&rd->m_endpoint, qos, tp->m_ktopic ? &tp->m_ktopic->virtual_topics : NULL, DDS_VIRTUAL_INTERFACE_PIPE_TYPE_SOURCE)) != DDS_RETCODE_OK)
+    goto err_pipe_open;
+
   /* FIXME: listeners can come too soon ... should set mask based on listeners
      then atomically set the listeners, save the mask to a pending set and clear
      it; and then invoke those listeners that are in the pending set */
   dds_entity_init_complete (&rd->m_entity);
 
+  struct ddsi_virtual_locators_set virtual_locators;
+  virtual_locators.length = rd->m_entity.m_domain->virtual_interfaces.length;
+  virtual_locators.locators = ddsrt_malloc (virtual_locators.length * sizeof (*virtual_locators.locators));
+  for (uint32_t n = 0; n < virtual_locators.length; n++)
+    virtual_locators.locators[n] = *rd->m_entity.m_domain->virtual_interfaces.interfaces[n]->locator;
+
   /* Reader gets the sertype from the topic, as the serdata functions the reader uses are
      not specific for a data representation (the representation can be retrieved from the cdr header) */
-  rc = ddsi_new_reader (&rd->m_rd, &rd->m_entity.m_guid, NULL, pp, tp->m_name, tp->m_stype, rqos, &rd->m_rhc->common.rhc, dds_reader_status_cb, rd, tp->m_ktopic);
+  rc = ddsi_new_reader (&rd->m_rd, &rd->m_entity.m_guid, NULL, pp, tp->m_name, tp->m_stype, rqos, &rd->m_rhc->common.rhc, dds_reader_status_cb, rd, &virtual_locators);
   assert (rc == DDS_RETCODE_OK); /* FIXME: can be out-of-resources at the very least */
+  ddsrt_free (virtual_locators.locators);
   ddsi_thread_state_asleep (ddsi_lookup_thread_state ());
 
   rd->m_entity.m_iid = ddsi_get_entity_instanceid (&rd->m_entity.m_domain->gv, &rd->m_entity.m_guid);
   dds_entity_register_child (&sub->m_entity, &rd->m_entity);
 
-  for (uint32_t i = 0; i < rd->m_rd->c.n_virtual_pipes; i++)
+  for (uint32_t i = 0; i < rd->m_endpoint.virtual_pipes.length; i++)
   {
-    ddsi_virtual_interface_pipe_t *pipe = rd->m_rd->c.m_pipes[i];
-    if (pipe->ops.set_on_source && !pipe->ops.set_on_source(pipe, reader))
+    struct dds_virtual_interface_pipe *pipe = rd->m_endpoint.virtual_pipes.pipes[i];
+    if (pipe->ops.set_on_source && !pipe->ops.set_on_source (pipe, reader))
       goto err_pipe_setcb;
   }
 
@@ -626,13 +637,14 @@ static dds_entity_t dds_create_reader_int (dds_entity_t participant_or_subscribe
 
 err_pipe_setcb:
   rc = DDS_RETCODE_ERROR;
-  for (uint32_t i = 0; i < rd->m_rd->c.n_virtual_pipes; i++) {
-    ddsi_virtual_interface_pipe_t *pipe = rd->m_rd->c.m_pipes[i];
+  for (uint32_t i = 0; i < rd->m_endpoint.virtual_pipes.length; i++) {
+    struct dds_virtual_interface_pipe *pipe = rd->m_endpoint.virtual_pipes.pipes[i];
     if (!pipe)
       continue;
-    bool close_result = ddsi_virtual_interface_pipe_close(pipe);
+    bool close_result = dds_virtual_interface_pipe_close (pipe);
     assert (close_result);
   }
+err_pipe_open:
 err_bad_qos:
 err_data_repr:
   dds_delete_qos (rqos);
@@ -667,8 +679,8 @@ dds_return_t dds_reader_store_external (dds_entity_t reader, dds_loaned_sample_t
   dds_rd = (dds_reader*)e;
 
   struct ddsi_reader * rd = dds_rd->m_rd;
-  struct ddsi_serdata * _sd = ddsi_serdata_from_virtual_exchange(dds_rd->m_topic->m_stype, data);
-  if (_sd == NULL)
+  struct ddsi_serdata * sd = ddsi_serdata_from_virtual_exchange (dds_rd->m_topic->m_stype, data);
+  if (sd == NULL)
     goto kind_fail;
 
   struct ddsi_domaingv * gv = rd->e.gv;
@@ -676,8 +688,10 @@ dds_return_t dds_reader_store_external (dds_entity_t reader, dds_loaned_sample_t
   ddsrt_mutex_lock (&rd->e.lock);
   struct ddsi_writer_info wi;
   struct dds_qos * xqos = NULL;
-  dds_virtual_interface_metadata_t *md = data->metadata;
-  struct ddsi_entity_common * e_c = ddsi_entidx_lookup_guid_untyped (gv->entity_index, &md->guid);
+  struct dds_virtual_interface_metadata *md = data->metadata;
+  struct ddsi_guid guid;
+  memcpy (&guid, &md->guid, sizeof (guid));
+  struct ddsi_entity_common * e_c = ddsi_entidx_lookup_guid_untyped (gv->entity_index, &guid);
   if (e_c == NULL || (e_c->kind != DDSI_EK_PROXY_WRITER && e_c->kind != DDSI_EK_WRITER))
   {
     ret = DDS_RETCODE_NOT_FOUND;
@@ -691,32 +705,32 @@ dds_return_t dds_reader_store_external (dds_entity_t reader, dds_loaned_sample_t
   //what if the sample is overwritten?
   //if the sample is not matched to this reader, return ownership to the virtual interface?
 
-  ddsi_make_writer_info(&wi, e_c, xqos, _sd->statusinfo);
-  struct ddsi_tkmap_instance * tk = ddsi_tkmap_lookup_instance_ref (gv->m_tkmap, _sd);
+  ddsi_make_writer_info (&wi, e_c, xqos, sd->statusinfo);
+  struct ddsi_tkmap_instance * tk = ddsi_tkmap_lookup_instance_ref (gv->m_tkmap, sd);
   if (tk == NULL)
   {
     ret = DDS_RETCODE_BAD_PARAMETER;
     goto instance_ref_fail;
   }
 
-  if (!dds_rhc_store(dds_rd->m_rhc, &wi, _sd, tk))  //the reader history cache is now the owner of _sd?
+  if (!dds_rhc_store (dds_rd->m_rhc, &wi, sd, tk))  //the reader history cache is now the owner of _sd?
   {
     ret = DDS_RETCODE_ERROR;
     goto rhc_store_fail;
   }
 
-  if (_sd->loan)
-    ret = dds_loan_manager_add_loan(dds_rd->m_loans, _sd->loan);
+  if (sd->loan)
+    ret = dds_loan_manager_add_loan (dds_rd->m_loans, sd->loan);
 
-  ddsi_serdata_unref(_sd);
+  ddsi_serdata_unref (sd);
 rhc_store_fail:
-  ddsi_tkmap_instance_unref(gv->m_tkmap, tk);
+  ddsi_tkmap_instance_unref (gv->m_tkmap, tk);
 instance_ref_fail:
 writer_fail:
   ddsrt_mutex_unlock (&rd->e.lock);
-  ddsi_thread_state_asleep(ddsi_lookup_thread_state());
+  ddsi_thread_state_asleep (ddsi_lookup_thread_state());
 kind_fail:
-  dds_entity_unpin(e);
+  dds_entity_unpin (e);
 pin_fail:
   return ret;
 }

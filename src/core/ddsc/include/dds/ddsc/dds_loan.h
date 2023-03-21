@@ -44,7 +44,7 @@ typedef uint32_t dds_loan_origin_type_t;
 struct dds_loan_manager;
 struct dds_loaned_sample;
 struct dds_virtual_interface_metadata;
-struct ddsi_virtual_interface_pipe;
+struct dds_virtual_interface_pipe;
 
 /*implementation specific loaned sample cleanup function*/
 typedef void (*dds_loaned_sample_free_f)(
@@ -75,7 +75,7 @@ typedef struct dds_loaned_sample_ops {
 */
 typedef struct dds_loaned_sample {
   dds_loaned_sample_ops_t ops; /*the implementation specific ops for this sample*/
-  struct ddsi_virtual_interface_pipe *loan_origin; /*the origin of the loan*/
+  struct dds_virtual_interface_pipe *loan_origin; /*the origin of the loan*/
   struct dds_loan_manager *manager; /*the associated manager*/
   struct dds_virtual_interface_metadata * metadata; /*pointer to the associated metadata*/
   void * sample_ptr; /*pointer to the loaned sample*/

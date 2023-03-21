@@ -256,6 +256,11 @@ typedef struct dds_cyclonedds_entity {
   struct ddsi_threadmon *threadmon;
 } dds_cyclonedds_entity;
 
+struct dds_virtual_interfaces_set {
+  uint32_t length;
+  struct dds_virtual_interface *interfaces[DDS_MAX_VIRTUAL_INTERFACES];
+};
+
 typedef struct dds_domain {
   struct dds_entity m_entity;
 
@@ -283,6 +288,8 @@ typedef struct dds_domain {
 
   /* Transmit side: pool for the serializer & transmit messages */
   struct dds_serdatapool *serpool;
+
+  struct dds_virtual_interfaces_set virtual_interfaces;
 } dds_domain;
 
 typedef struct dds_subscriber {
@@ -324,6 +331,11 @@ struct ktopic_type_guid {
 };
 #endif
 
+struct dds_virtual_topics_set {
+  uint32_t length;
+  struct dds_virtual_interface_topic *topics[DDS_MAX_VIRTUAL_INTERFACES];
+};
+
 typedef struct dds_ktopic {
   /* name -> <QoS> mapping for topics, part of the participant
      and protected by the participant's lock (including the actual QoS
@@ -340,9 +352,7 @@ typedef struct dds_ktopic {
 #ifdef DDS_HAS_TOPIC_DISCOVERY
   struct ddsrt_hh *topic_guid_map; /* mapping of this ktopic to ddsi topics */
 #endif
-  /* virtual topics. */
-  uint32_t n_virtual_topics;
-  ddsi_virtual_interface_topic_t* virtual_topics[MAX_VIRTUAL_INTERFACES];
+  struct dds_virtual_topics_set virtual_topics;
 } dds_ktopic;
 
 typedef struct dds_participant {
@@ -351,8 +361,18 @@ typedef struct dds_participant {
   ddsrt_avl_tree_t m_ktopics; /* [m_entity.m_mutex] */
 } dds_participant;
 
+struct dds_virtual_pipes_set {
+  uint32_t length;
+  struct dds_virtual_interface_pipe *pipes[DDS_MAX_VIRTUAL_INTERFACES];
+};
+
+struct dds_endpoint {
+  struct dds_virtual_pipes_set virtual_pipes;
+};
+
 typedef struct dds_reader {
   struct dds_entity m_entity;
+  struct dds_endpoint m_endpoint;
   struct dds_topic *m_topic; /* refc'd, constant, lock(rd) -> lock(tp) allowed */
   struct dds_rhc *m_rhc; /* aliases m_rd->rhc with a wider interface, FIXME: but m_rd owns it for resource management */
   struct ddsi_reader *m_rd;
@@ -371,6 +391,7 @@ typedef struct dds_reader {
 
 typedef struct dds_writer {
   struct dds_entity m_entity;
+  struct dds_endpoint m_endpoint;
   struct dds_topic *m_topic; /* refc'd, constant, lock(wr) -> lock(tp) allowed */
   struct ddsi_xpack *m_xp;
   struct ddsi_writer *m_wr;
