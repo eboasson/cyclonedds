@@ -44,6 +44,7 @@ prepend(srcs_ddsc "${CMAKE_CURRENT_LIST_DIR}/src/"
   dds_serdata_default.c
   dds_sertype_default.c
   dds_loan.c
+  dds_heap_loan.c
   dds_virtual_interface.c
 )
 
@@ -77,6 +78,7 @@ prepend(hdrs_private_ddsc "${CMAKE_CURRENT_LIST_DIR}/src/"
   dds__serdata_default.h
   dds__get_status.h
   dds__loan.h
+  dds__heap_loan.h
   dds__virtual_interface.h
 )
 

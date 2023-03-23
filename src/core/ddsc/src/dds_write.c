@@ -30,6 +30,7 @@
 #include "dds/ddsi/ddsi_deliver_locally.h"
 #include "dds/ddsi/ddsi_addrset.h"
 #include "dds/ddsc/dds_loan.h"
+#include "dds__heap_loan.h"
 
 struct ddsi_serdata_plain { struct ddsi_serdata p; };
 struct ddsi_serdata_any   { struct ddsi_serdata a; };

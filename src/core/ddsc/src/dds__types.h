@@ -25,6 +25,7 @@
 #include "dds/ddsi/ddsi_builtin_topic_if.h"
 #include "dds/ddsc/dds_virtual_interface.h"
 #include "dds__handles.h"
+#include "dds__loan.h"
 
 
 #if defined (__cplusplus)
@@ -43,6 +44,7 @@ struct dds_ktopic;
 struct dds_readcond;
 struct dds_guardcond;
 struct dds_statuscond;
+struct dds_loan_manager;
 
 struct ddsi_sertype;
 struct ddsi_rhc;
@@ -377,8 +379,8 @@ typedef struct dds_reader {
   struct dds_topic *m_topic; /* refc'd, constant, lock(rd) -> lock(tp) allowed */
   struct dds_rhc *m_rhc; /* aliases m_rd->rhc with a wider interface, FIXME: but m_rd owns it for resource management */
   struct ddsi_reader *m_rd;
-  dds_loan_manager_t *m_loan_pool; /*administration of cached loans*/
-  dds_loan_manager_t *m_loans; /*administration of outstanding loans*/
+  struct dds_loan_manager *m_loan_pool; /*administration of cached loans*/
+  struct dds_loan_manager *m_loans; /*administration of outstanding loans*/
 
   /* Status metrics */
 
@@ -398,7 +400,7 @@ typedef struct dds_writer {
   struct ddsi_writer *m_wr;
   struct ddsi_whc *m_whc; /* FIXME: ownership still with underlying DDSI writer (cos of DDSI built-in writers )*/
   bool whc_batch; /* FIXME: channels + latency budget */
-  dds_loan_manager_t *m_loans; /*administration of associated loans*/
+  struct dds_loan_manager *m_loans; /*administration of associated loans*/
 
   /* Status metrics */
 

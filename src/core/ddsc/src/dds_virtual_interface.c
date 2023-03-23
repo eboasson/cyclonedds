@@ -33,17 +33,14 @@ dds_return_t dds_add_vi_topic_to_list (struct dds_virtual_interface_topic *topic
 
   if (!*list)
   {
-    //there is no list yet
     ptr->prev = NULL;
     *list = ptr;
   }
   else
   {
-    //add to the end of the list
     struct dds_virtual_interface_topic_list_elem *ptr2 = *list;
-    while (ptr2->next) {
+    while (ptr2->next)
       ptr2 = ptr2->next;
-    }
     ptr2->next = ptr;
     ptr->prev = ptr2;
   }
@@ -56,27 +53,27 @@ dds_return_t dds_remove_vi_topic_from_list (struct dds_virtual_interface_topic *
   if (!topic || !list || !*list)
     return DDS_RETCODE_BAD_PARAMETER;
 
+  dds_return_t ret = DDS_RETCODE_OK;
   struct dds_virtual_interface_topic_list_elem *list_entry = *list;
 
   while (list_entry && list_entry->topic != topic)
     list_entry = list_entry->next;
 
-  if (!list_entry ||  //no entry in the list matching the topic
-      !list_entry->topic->virtual_interface->ops.topic_destruct (list_entry->topic)) //destruct failure
-    return false;
+  if (list_entry != NULL && (ret = list_entry->topic->virtual_interface->ops.topic_destruct (list_entry->topic)) == DDS_RETCODE_OK)
+  {
+    if (list_entry->prev)
+      list_entry->prev->next = list_entry->next;
 
-  if (list_entry->prev)
-    list_entry->prev->next = list_entry->next;
+    if (list_entry->next)
+      list_entry->next->prev = list_entry->prev;
 
-  if (list_entry->next)
-    list_entry->next->prev = list_entry->prev;
+    if (list_entry == *list)
+      *list = list_entry->next;
 
-  if (list_entry == *list)
-    *list = list_entry->next;
+    dds_free (list_entry);
+  }
 
-  dds_free (list_entry);
-
-  return DDS_RETCODE_OK;
+  return ret;
 }
 
 dds_return_t dds_add_vi_pipe_to_list (struct dds_virtual_interface_pipe *pipe, struct dds_virtual_interface_pipe_list_elem **list)
@@ -93,13 +90,11 @@ dds_return_t dds_add_vi_pipe_to_list (struct dds_virtual_interface_pipe *pipe, s
 
   if (!*list)
   {
-    //there is no list yet
     ptr->prev = NULL;
     *list = ptr;
   }
   else
   {
-    //add to the end of the list
     struct dds_virtual_interface_pipe_list_elem *ptr2 = *list;
     while (ptr2->next)
       ptr2 = ptr2->next;
@@ -115,34 +110,34 @@ dds_return_t dds_remove_vi_pipe_from_list (struct dds_virtual_interface_pipe *pi
   if (!pipe || !list || !*list)
     return DDS_RETCODE_BAD_PARAMETER;
 
+  dds_return_t ret = DDS_RETCODE_OK;
   struct dds_virtual_interface_pipe_list_elem *list_entry = *list;
 
   while (list_entry && list_entry->pipe != pipe)
     list_entry = list_entry->next;
 
-  //no entry in the list matching the topic or destruct failure
-  if (!list_entry || !dds_virtual_interface_pipe_close (list_entry->pipe))
-    return DDS_RETCODE_ERROR;
+  if (list_entry != NULL && (ret = dds_virtual_interface_pipe_close (list_entry->pipe)) == DDS_RETCODE_OK)
+  {
+    if (list_entry->prev)
+      list_entry->prev->next = list_entry->next;
 
-  if (list_entry->prev)
-    list_entry->prev->next = list_entry->next;
+    if (list_entry->next)
+      list_entry->next->prev = list_entry->prev;
 
-  if (list_entry->next)
-    list_entry->next->prev = list_entry->prev;
+    if (list_entry == *list)
+      *list = list_entry->next;
 
-  if (list_entry == *list)
-    *list = list_entry->next;
+    dds_free (list_entry);
+  }
 
-  dds_free (list_entry);
-
-  return DDS_RETCODE_OK;
+  return ret;
 }
 
-bool dds_virtual_interface_init_generic (struct dds_virtual_interface * virtual_interface)
+dds_return_t dds_virtual_interface_init_generic (struct dds_virtual_interface * virtual_interface)
 {
   struct ddsi_locator *loc = dds_alloc (sizeof (ddsi_locator_t));
-  if (!loc)
-    return false;
+  if (loc == NULL)
+    return DDS_RETCODE_OUT_OF_RESOURCES;
   memset (loc, 0, sizeof (*loc));
 
   dds_virtual_interface_node_identifier_t vini = virtual_interface->ops.get_node_id (virtual_interface);
@@ -153,38 +148,35 @@ bool dds_virtual_interface_init_generic (struct dds_virtual_interface * virtual_
 
   virtual_interface->locator = loc;
 
-  return true;
+  return DDS_RETCODE_OK;
 }
 
-bool dds_virtual_interface_cleanup_generic (struct dds_virtual_interface *virtual_interface)
+dds_return_t dds_virtual_interface_cleanup_generic (struct dds_virtual_interface *virtual_interface)
 {
-  dds_free ((void*) virtual_interface->locator);
+  dds_return_t ret = DDS_RETCODE_OK;
+  dds_free ((void *) virtual_interface->locator);
 
-  while (virtual_interface->topics) {
-    if (!dds_remove_vi_topic_from_list (virtual_interface->topics->topic, &virtual_interface->topics))
-      return false;
-  }
+  while (ret == DDS_RETCODE_OK && virtual_interface->topics)
+    ret = dds_remove_vi_topic_from_list (virtual_interface->topics->topic, &virtual_interface->topics);
 
-  return true;
+  return ret;
 }
 
-bool dds_virtual_interface_topic_init_generic (struct dds_virtual_interface_topic *topic, const struct dds_virtual_interface * virtual_interface)
+dds_return_t dds_virtual_interface_topic_init_generic (struct dds_virtual_interface_topic *vi_topic, const struct dds_virtual_interface * virtual_interface)
 {
-  topic->data_type = ddsrt_mh3 (&virtual_interface->interface_id, sizeof (virtual_interface->interface_id), topic->topic_id);
-  return true;
+  vi_topic->data_type = ddsrt_mh3 (&virtual_interface->interface_id, sizeof (virtual_interface->interface_id), vi_topic->topic_id);
+  return DDS_RETCODE_OK;
 }
 
-bool dds_virtual_interface_topic_cleanup_generic (struct dds_virtual_interface_topic *to_cleanup)
+dds_return_t dds_virtual_interface_topic_cleanup_generic (struct dds_virtual_interface_topic *vi_topic)
 {
-  while (to_cleanup->pipes)
-  {
-    if (!dds_remove_vi_pipe_from_list (to_cleanup->pipes->pipe, &to_cleanup->pipes))
-      return false;
-  }
-  return true;
+  dds_return_t ret = DDS_RETCODE_OK;
+  while (ret == DDS_RETCODE_OK && vi_topic->pipes)
+    ret = dds_remove_vi_pipe_from_list (vi_topic->pipes->pipe, &vi_topic->pipes);
+  return ret;
 }
 
-dds_loaned_sample_t* dds_virtual_interface_pipe_request_loan (struct dds_virtual_interface_pipe *pipe, uint32_t sz)
+dds_loaned_sample_t * dds_virtual_interface_pipe_request_loan (struct dds_virtual_interface_pipe *pipe, uint32_t sz)
 {
   assert (pipe && pipe->ops.req_loan);
   return pipe->ops.req_loan (pipe, sz);
@@ -233,7 +225,7 @@ dds_return_t dds_virtual_interface_load (const struct ddsi_domaingv *gv, struct 
   {
     char buf[1024];
     (void) ddsrt_dlerror (buf, sizeof(buf));
-    GVERROR("Failed to load virtual interface library '%s' with error \"%s\".\n", lib_name, buf);
+    GVERROR ("Failed to load virtual interface library '%s' with error \"%s\".\n", lib_name, buf);
     goto err_dlopen;
   }
 
@@ -297,12 +289,13 @@ dds_return_t dds_virtual_interfaces_init (const struct ddsi_domaingv *gv, dds_do
 dds_return_t dds_virtual_interfaces_fini (dds_domain *domain)
 {
   dds_return_t ret = DDS_RETCODE_OK;
-  for (uint32_t i = 0; i < domain->virtual_interfaces.length; i++)
+  for (uint32_t i = 0; ret == DDS_RETCODE_OK && i < domain->virtual_interfaces.length; i++)
   {
     struct dds_virtual_interface *vi = domain->virtual_interfaces.interfaces[i];
     if (!vi->ops.deinit (vi))
       ret = DDS_RETCODE_ERROR;
-    domain->virtual_interfaces.interfaces[i] = NULL;
+    else
+      domain->virtual_interfaces.interfaces[i] = NULL;
   }
   return ret;
 }
@@ -316,7 +309,7 @@ struct dds_virtual_interface_pipe * dds_virtual_interface_pipe_open (struct dds_
 dds_return_t dds_virtual_interface_pipe_close (struct dds_virtual_interface_pipe *pipe)
 {
   assert (pipe && pipe->topic && pipe->topic->ops.pipe_close);
-  return pipe->topic->ops.pipe_close (pipe) ? DDS_RETCODE_OK : DDS_RETCODE_ERROR;
+  return pipe->topic->ops.pipe_close (pipe);
 }
 
 dds_return_t dds_endpoint_init_virtual_interface (struct dds_endpoint *ep, const dds_qos_t *qos, struct dds_virtual_topics_set *virtual_topics, enum dds_virtual_interface_pipe_type pipe_type)
