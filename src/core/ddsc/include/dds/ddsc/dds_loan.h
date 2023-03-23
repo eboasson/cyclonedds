@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2021 ZettaScale Technology
+ * Copyright(c) 2021-2023 ZettaScale Technology
  * Copyright(c) 2021 Apex.AI, Inc
  *
  * This program and the accompanying materials are made available under the
@@ -11,22 +11,30 @@
  * SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
  */
 
-// API extension
-// defines functions needed for loaning and shared memory usage
+/**
+ * @defgroup loan (Loaned samples)
+ * @ingroup dds
+ */
 
-#ifndef _DDS_LOAN_H_
-#define _DDS_LOAN_H_
+#ifndef DDS_LOAN_H
+#define DDS_LOAN_H
 
+#include "dds/export.h"
 #include "dds/ddsc/dds_basic_types.h"
 #include "dds/ddsrt/retcode.h"
 #include "dds/ddsrt/atomics.h"
-#include "dds/export.h"
 
 #if defined(__cplusplus)
 extern "C" {
 #endif
 
-/*state of the data contained in a memory block*/
+struct dds_loan_manager;
+struct dds_loaned_sample;
+struct dds_virtual_interface_pipe;
+
+/**
+ * @brief State of the data contained in a memory block
+ */
 typedef enum dds_loaned_sample_state {
   DDS_LOANED_SAMPLE_STATE_UNITIALIZED,
   DDS_LOANED_SAMPLE_STATE_RAW,
@@ -34,35 +42,66 @@ typedef enum dds_loaned_sample_state {
   DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA
 } dds_loaned_sample_state_t;
 
-/*identifier used to distinguish between raw data types (C/C++/Python/...)*/
+/**
+ * @brief Identifier used to distinguish between raw data types (C/C++/Python/...)
+ */
 typedef uint32_t dds_loan_data_type_t;
 
-/*identifier used to distinguish between types of loans (heap/iceoryx/...)*/
+/**
+ * @brief Identifier used to distinguish between types of loans (heap/iceoryx/...)
+ */
 typedef uint32_t dds_loan_origin_type_t;
 
-/*forward declarations of struct, so pointer can be made*/
-struct dds_loan_manager;
-struct dds_loaned_sample;
-struct dds_virtual_interface_metadata;
-struct dds_virtual_interface_pipe;
+/**
+ * @brief describes the data which is transferred in addition to just the sample
+ */
+typedef struct dds_virtual_interface_metadata {
+  dds_loaned_sample_state_t sample_state;
+  dds_loan_data_type_t data_type;
+  dds_loan_origin_type_t data_origin;
+  uint32_t sample_size;
+  uint32_t block_size;
+  dds_guid_t guid;
+  dds_time_t timestamp;
+  uint32_t statusinfo;
+  uint32_t hash;
+  uint16_t cdr_identifier;
+  uint16_t cdr_options;
+  unsigned char keyhash[16];
+  uint32_t keysize : 30;  // to mirror fixed width of dds_serdata_default_key.keysize
+} dds_virtual_interface_metadata_t;
 
-/*implementation specific loaned sample cleanup function*/
-typedef void (*dds_loaned_sample_free_f)(
-  struct dds_loaned_sample *loaned_sample);
+/**
+ * @brief Definition for function to cleanup loaned sample
+ *
+ * @param[in] loaned_sample  A loaned sample
+ */
+typedef void (*dds_loaned_sample_free_f) (struct dds_loaned_sample *loaned_sample);
 
-/*implementation specific loaned sample reference increment function*/
-typedef dds_return_t (*dds_loaned_sample_ref_f)(
-  struct dds_loaned_sample *loaned_sample);
+/**
+ * @brief Definition for function to increment refcount on a loaned sample
+ *
+ * @param[in] loaned_sample  A loaned sample
+ */
+typedef dds_return_t (*dds_loaned_sample_ref_f) (struct dds_loaned_sample *loaned_sample);
 
-/*implementation specific loaned sample reference decrement function*/
-typedef dds_return_t (*dds_loaned_sample_unref_f)(
-  struct dds_loaned_sample *loaned_sample);
+/**
+ * @brief Definition for function to decrement refcount on a loaned sample
+ *
+ * @param[in] loaned_sample  A loaned sample
+ */
+typedef dds_return_t (*dds_loaned_sample_unref_f) (struct dds_loaned_sample *loaned_sample);
 
-/*implementation specific loaned sample contents reset function*/
-typedef void (*dds_loaned_sample_reset_f)(
-  struct dds_loaned_sample *loaned_sample);
+/**
+ * @brief Definition for function to reset contents of a loaned sample
+ *
+ * @param[in] loaned_sample  A loaned sample
+ */
+typedef void (*dds_loaned_sample_reset_f) (struct dds_loaned_sample *loaned_sample);
 
-/*container for implementation specific operations*/
+/**
+ * @brief Container for implementation specific operations
+ */
 typedef struct dds_loaned_sample_ops {
   dds_loaned_sample_free_f    free;
   dds_loaned_sample_ref_f     ref;
@@ -70,9 +109,9 @@ typedef struct dds_loaned_sample_ops {
   dds_loaned_sample_reset_f   reset;
 } dds_loaned_sample_ops_t;
 
-/* the definition of a block of memory originating
-* from a virtual interface
-*/
+/**
+ * @brief The definition of a block of memory originating from a virtual interface
+ */
 typedef struct dds_loaned_sample {
   dds_loaned_sample_ops_t ops; /*the implementation specific ops for this sample*/
   struct dds_virtual_interface_pipe *loan_origin; /*the origin of the loan*/
@@ -83,70 +122,8 @@ typedef struct dds_loaned_sample {
   ddsrt_atomic_uint32_t refs; /*the number of references to this loan*/
 } dds_loaned_sample_t;
 
-/* generic loaned sample cleanup function will be called
-   when the loaned sample runs out of refs or is retracted,
-   calls the implementation specific functions */
-dds_return_t dds_loaned_sample_free(
-  dds_loaned_sample_t *loaned_sample);
-
-/* generic function which increases the references for this sample,
-   calls the implementation specific functions*/
-dds_return_t dds_loaned_sample_ref(
-  dds_loaned_sample_t *loaned_sample);
-
-/* generic function which decreases the references for this sample,
-   calls the implementation specific functions*/
-dds_return_t dds_loaned_sample_unref(
-  dds_loaned_sample_t *loaned_sample);
-
-/* generic function which resets the contents for this sample
-   calls the implementation specific functions*/
-dds_return_t dds_loaned_sample_reset_sample(
-  dds_loaned_sample_t *loaned_sample);
-
-/*an implementation specific loan manager*/
-typedef struct dds_loan_manager {
-  //map better?
-  dds_loaned_sample_t **samples;
-  uint32_t n_samples_cap;
-  uint32_t n_samples_managed;
-  //mutex?
-} dds_loan_manager_t;
-
-/*loan manager create function*/
-dds_return_t dds_loan_manager_create(
-  dds_loan_manager_t **manager,
-  uint32_t initial_cap);
-
-/** loan manager fini function ensures that the containers are
-  * cleaned up and all loans are returned*/
-dds_return_t dds_loan_manager_free(
-  dds_loan_manager_t *manager);
-
-/** add a loan to be stored by this manager */
-dds_return_t dds_loan_manager_add_loan(
-  dds_loan_manager_t *manager,
-  dds_loaned_sample_t *loaned_sample);
-
-/** removes a loan from storage by this manager */
-dds_return_t dds_loan_manager_remove_loan(
-  dds_loaned_sample_t *loaned_sample);
-
-/** moves a loan from storage to another */
-dds_return_t dds_loan_manager_move_loan(
-  dds_loan_manager_t *manager,
-  dds_loaned_sample_t *loaned_sample);
-
-/** finds a whether a sample corresponds to a loan on this manager */
-dds_loaned_sample_t *dds_loan_manager_find_loan(
-  const dds_loan_manager_t *manager,
-  const void *loaned_sample);
-
-/** gets the first managed loan from this manager */
-dds_loaned_sample_t *dds_loan_manager_get_loan(
-  dds_loan_manager_t *manager);
-
 #if defined(__cplusplus)
 }
 #endif
-#endif /* _DDS_LOAN_H_ */
+
+#endif /* DDS_LOAN_H */

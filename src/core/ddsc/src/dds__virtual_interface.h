@@ -49,9 +49,14 @@ dds_virtual_interface_topic_identifier_t dds_calculate_topic_identifier (const s
 /*function used to parse the properties of a data type*/
 dds_virtual_interface_data_type_properties_t dds_calculate_data_type_properties (const dds_topic_descriptor_t *t_d);
 
-/* this is the only function exported from the virtual interface library
-* returns true on success */
-typedef bool (*dds_virtual_interface_create_fn) (
+/**
+ * @brief Definition for the function to load a virtual interface.
+ *
+ * This function is exported from the virtual interface library.
+ *
+ * @returns a DDS return code
+ */
+typedef dds_return_t (*dds_virtual_interface_create_fn) (
   struct dds_virtual_interface **virtual_interface, /*output for the virtual interface to be created*/
   dds_loan_origin_type_t identifier, /*the unique identifier for this interface*/
   const char *config /*virtual interface-specific configuration*/

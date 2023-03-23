@@ -22,6 +22,7 @@
 
 #include "dds/ddsc/dds_virtual_interface.h"
 #include "dds__loan.h"
+#include "dds__heap_loan.h"
 
 /*
   dds_read_impl: Core read/take function. Usually maxs is size of buf and si
@@ -74,7 +75,7 @@ static dds_return_t dds_read_impl (bool take, dds_entity_t reader_or_condition, 
     for (uint32_t i = rd->m_loan_pool->n_samples_managed; i < maxs && ret == DDS_RETCODE_OK; i++)
     {
       dds_loaned_sample_t *ls;
-      if ((ret = dds_heap_loan(rd->m_topic->m_stype, &ls)) == DDS_RETCODE_OK)
+      if ((ret = dds_heap_loan (rd->m_topic->m_stype, &ls)) == DDS_RETCODE_OK)
         ret = dds_loan_manager_add_loan(rd->m_loan_pool, ls);
     }
 

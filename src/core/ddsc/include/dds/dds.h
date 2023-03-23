@@ -333,24 +333,6 @@ dds_sample_info_t;
 /** @}*/ // end group subdata
 
 /**
- * @brief Structure of a GUID in any builtin topic sample.
- * @ingroup builtintopic
- */
-typedef struct dds_builtintopic_guid
-{
-  uint8_t v[16]; /**< 16-byte unique identifier */
-}
-dds_builtintopic_guid_t;
-
-/**
- * @brief Structure of a GUID in any builtin topic sample.
- * @ingroup builtintopic
- * @ref dds_builtintopic_guid_t is a bit of a weird name for what everyone just calls a GUID,
- * so let us try and switch to using the more logical one.
- */
-typedef struct dds_builtintopic_guid dds_guid_t;
-
-/**
  * @brief Sample structure of the Builtin topic DcpsParticipant.
  * @ingroup builtintopic
  */

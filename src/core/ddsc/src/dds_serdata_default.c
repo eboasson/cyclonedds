@@ -25,6 +25,7 @@
 #include "dds/ddsi/ddsi_serdata.h"
 #include "dds__serdata_default.h"
 #include "dds__loan.h"
+#include "dds__heap_loan.h"
 
 /* 8k entries in the freelist seems to be roughly the amount needed to send
    minimum-size (well, 4 bytes) samples as fast as possible over loopback
@@ -542,12 +543,12 @@ static struct ddsi_serdata *serdata_default_from_loaned_sample(const struct ddsi
     switch (d->key.buftype)
     {
       case KEYBUFTYPE_STATIC:
-        memcpy(md->keyhash.value, d->key.u.stbuf, d->key.keysize);
+        memcpy (md->keyhash, d->key.u.stbuf, d->key.keysize);
         break;
       case KEYBUFTYPE_DYNALIAS:
       case KEYBUFTYPE_DYNALLOC:
         assert (d->key.keysize <= DDS_FIXED_KEY_MAX_SIZE);
-        memcpy(md->keyhash.value, d->key.u.dynbuf, d->key.keysize);
+        memcpy (md->keyhash, d->key.u.dynbuf, d->key.keysize);
         break;
       default:
         assert(0);
@@ -874,7 +875,7 @@ static struct ddsi_serdata * serdata_default_from_virtual_exchange (const struct
   d->c.hash = md->hash;
   d->c.statusinfo = md->statusinfo;
   d->c.timestamp.v = md->timestamp;
-  memcpy(d->key.u.stbuf, md->keyhash.value, DDS_FIXED_KEY_MAX_SIZE);
+  memcpy(d->key.u.stbuf, md->keyhash, DDS_FIXED_KEY_MAX_SIZE);
   d->key.keysize = (unsigned)md->keysize;
   d->key.buftype = KEYBUFTYPE_STATIC;
   d->hdr.identifier = DDSI_RTPS_CDR_ENC_TO_NATIVE(md->cdr_identifier);
@@ -884,7 +885,7 @@ static struct ddsi_serdata * serdata_default_from_virtual_exchange (const struct
       md->sample_state == DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA)
   {
     dds_loaned_sample_t *ls;
-    dds_heap_loan(type, &ls); // FIXME: check return code
+    dds_heap_loan (type, &ls); // FIXME: check return code
     dds_istream_t is;
     dds_istream_init (&is, md->sample_size, data->sample_ptr, md->cdr_identifier);
     dds_stream_read_sample (&is, ls->sample_ptr, &dds_cdrstream_default_allocator, &tp->type);
