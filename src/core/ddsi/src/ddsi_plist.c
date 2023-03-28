@@ -2907,7 +2907,7 @@ static enum do_locator_result do_locator (ddsi_locators_t *ls, uint64_t present,
           return DOLOC_INVALID;
       }
       break;
-    case DDSI_LOCATOR_KIND_SHEM:
+    case DDSI_LOCATOR_KIND_VIRTINTF:
       if (!ddsi_vendor_is_eclipse (dd->vendorid))
         return DOLOC_IGNORED;
       add_locator (ls, present, wanted, fl, &loc);

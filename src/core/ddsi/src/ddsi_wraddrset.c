@@ -347,7 +347,7 @@ static readercount_cost_t calc_locator_cost (const struct locset *locs, const st
 
   if (ci & CI_VIRTUAL)
   {
-    if (0 == (ignore & DDSI_LOCATOR_KIND_SHEM))
+    if ((ignore & DDSI_LOCATOR_KIND_VIRTINTF) == 0)
       x.cost = INT32_MIN;
     else
       goto no_readers;
@@ -444,7 +444,7 @@ static bool wras_cover_locatorset (struct ddsi_domaingv const * const gv, struct
       return false;
     cover_info_t x;
     int lidx = (int) (l - locs->locs);
-    if (l->c.kind == DDSI_LOCATOR_KIND_SHEM) // FIXME: a gross hack
+    if (l->c.kind == DDSI_LOCATOR_KIND_VIRTINTF) // FIXME: a gross hack
     {
       x = CI_VIRTUAL;
     }
@@ -684,9 +684,9 @@ static void wras_add_locator (const struct ddsi_domaingv *gv, struct ddsi_addrse
   }
 
   GVLOGDISC ("  %s %s\n", kindstr, ddsi_xlocator_to_string (str, sizeof(str), locp));
-  if (locp->c.kind != DDSI_LOCATOR_KIND_SHEM)
+  if (locp->c.kind != DDSI_LOCATOR_KIND_VIRTINTF)
   {
-    // Iceoryx offload occurs above the RTPS stack, adding it to the address only means
+    // Virtual interface offload occurs above the RTPS stack, adding it to the address only means
     // samples get packed into RTPS messages and the transmit path is traversed without
     // actually sending any packet.  It should be generalized to handle various pub/sub
     // providers.

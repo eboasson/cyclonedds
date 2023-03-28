@@ -1135,7 +1135,7 @@ static ssize_t ddsi_xpack_send1 (const ddsi_xlocator_t *loc, void * varg)
     }
   }
 
-  if (!gv->mute && loc->c.kind != DDSI_LOCATOR_KIND_SHEM)
+  if (!gv->mute && loc->c.kind != DDSI_LOCATOR_KIND_VIRTINTF)
   {
     nbytes = ddsi_xpack_send_rtps(xp, loc);
 
