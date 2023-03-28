@@ -146,7 +146,7 @@ dds_return_t dds_virtual_interface_init_generic (struct dds_virtual_interface * 
 
   memcpy (loc->address, &vini, sizeof (vini));
   loc->port = virtual_interface->interface_id;
-  loc->kind = DDSI_LOCATOR_KIND_SHEM;
+  loc->kind = DDSI_LOCATOR_KIND_VIRTINTF;
 
   virtual_interface->locator = loc;
 

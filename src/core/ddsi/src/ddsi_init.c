@@ -1001,7 +1001,7 @@ static int create_vnet_interface_for_virtual_interface (struct ddsi_domaingv *gv
   assert (virtual_interface_name);
 
   // FIXME: this can be done more elegantly when properly supporting multiple transports
-  if (ddsi_vnet_init (gv, virtual_interface_name, DDSI_LOCATOR_KIND_SHEM) < 0)
+  if (ddsi_vnet_init (gv, virtual_interface_name, DDSI_LOCATOR_KIND_VIRTINTF) < 0)
     return -1;
   ddsi_factory_find (gv, virtual_interface_name)->m_enable = true;
 
