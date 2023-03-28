@@ -302,7 +302,7 @@ The default value is: `empty`
 #### //CycloneDDS/Domain/General/EntityAutoNaming[@seed]
 Text
 
-Provide an initial seed for the entity naming. Your string will be hashed to provide the random state. When provided, the same sequence of names is generated every run. Creating your entities in the same order will ensure they are the same between runs. If you run multiple nodes, set this via environment variable to ensure every node generates unique names. A random starting seed is chosen when left empty, (the default).
+Provide an initial seed for the entity naming. Your string will be hashed to provide the random state. When provided, the same sequence of names is generated every run. Creating your entities in the same order will ensure they are the same between runs. If you run multiple nodes, set this via environment variable to ensure every node generates unique names. A random starting seed is chosen when left empty, (the default). 
 
 The default value is: `<empty>`
 
@@ -348,7 +348,7 @@ This element defines a network interface. You can set autodetermine="true" to au
 ##### //CycloneDDS/Domain/General/Interfaces/NetworkInterface[@address]
 Text
 
-This attribute specifies the address of the interface. With ipv4 allows  matching on the network part if the host part is set to zero.
+This attribute specifies the address of the interface. With ipv4 allows  matching on the network part if the host part is set to zero. 
 
 The default value is: `<empty>`
 
@@ -372,7 +372,7 @@ The default value is: `default`
 ##### //CycloneDDS/Domain/General/Interfaces/NetworkInterface[@name]
 Text
 
-This attribute specifies the name of the interface.
+This attribute specifies the name of the interface. 
 
 The default value is: `<empty>`
 
@@ -418,7 +418,7 @@ The default value is: `<empty>`
 ##### //CycloneDDS/Domain/General/Interfaces/VirtualInterface[@library]
 Text
 
-This attribute specifies the filename of the interface library.
+This attribute specifies the filename of the interface library. 
 
 The default value is: `<empty>`
 
@@ -426,7 +426,7 @@ The default value is: `<empty>`
 ##### //CycloneDDS/Domain/General/Interfaces/VirtualInterface[@name]
 Text
 
-This attribute specifies the name of the interface.
+This attribute specifies the name of the interface. 
 
 The default value is: `<empty>`
 
@@ -1286,7 +1286,7 @@ Examples file URIs:
 
 Content-Type: multipart/signed; protocol="application/x-pkcs7-signature"; micalg="sha-256"; boundary="----F9A8A198D6F08E1285A292ADF14DD04F"
 
-This is an S/MIME signed message
+This is an S/MIME signed message 
 
 ------F9A8A198D6F08E1285A292ADF14DD04F
 
@@ -1298,7 +1298,7 @@ xsi:noNamespaceSchemaLocation="omg\_shared\_ca\_governance.xsd">
 
 <domain\_access\_rules>
 
- . . .
+ . . . 
 
 </domain\_access\_rules>
 
@@ -1843,7 +1843,7 @@ The default value is: `none`
 <!--- generated from ddsi_config.h[547ad091ba52280c57754ab3030d17dfc5ee31de] -->
 <!--- generated from ddsi__cfgunits.h[be1b976c6e9466472b0c331487c05180ec1052d4] -->
 <!--- generated from ddsi__cfgelems.h[c2d743048b9cf0075ce4963101a2c5f245c21c2b] -->
-<!--- generated from ddsi_config.c[ef0cfb3321c48ff1683cd78fe32ced576ded0264] -->
+<!--- generated from ddsi_config.c[5f0cb5abae7f5e5c80bace02ca5eb68dd69e20ed] -->
 <!--- generated from _confgen.h[f2d235d5551cbf920a8a2962831dddeabd2856ac] -->
 <!--- generated from _confgen.c[d74e4fd06e485c5d299dbcc7741cbdb95c5ec706] -->
 <!--- generated from generate_rnc.c[a2ec6e48d33ac14a320c8ec3f320028a737920e0] -->

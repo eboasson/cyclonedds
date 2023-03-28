@@ -138,9 +138,6 @@ DDS_EXPORT void dds_ostreamLE_fini (dds_ostreamLE_t * __restrict os, const struc
 DDS_EXPORT void dds_ostreamBE_init (dds_ostreamBE_t * __restrict os, const struct dds_cdrstream_allocator * __restrict allocator, uint32_t size, uint32_t xcdr_version);
 
 /** @component cdr_serializer */
-uint32_t dds_cdr_alignto4_clear_and_resize (dds_ostream_t * __restrict s, uint32_t xcdr_version);
-
-/** @component cdr_serializer */
 DDS_EXPORT void dds_ostreamBE_fini (dds_ostreamBE_t * __restrict os, const struct dds_cdrstream_allocator * __restrict allocator);
 
 /** @component cdr_serializer */

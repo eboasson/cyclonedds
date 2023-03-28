@@ -38,10 +38,6 @@
 #include "dds__statistics.h"
 #include "dds__virtual_interface.h"
 
-#ifdef DDS_HAS_SHM
-#include "dds__shm_qos.h"
-#endif
-
 DECL_ENTITY_LOCK_UNLOCK (dds_writer)
 
 #define DDS_WRITER_STATUS_MASK                                   \

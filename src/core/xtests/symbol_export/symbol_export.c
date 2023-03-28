@@ -67,10 +67,6 @@
 
 #include "dds/cdr/dds_cdrstream.h"
 
-#ifdef DDS_HAS_SHM
-#include "dds/ddsi/ddsi_shm_transport.h"
-#endif
-
 DDSRT_WARNING_DEPRECATED_OFF
 
 #ifdef DDS_HAS_SECURITY
@@ -617,11 +613,6 @@ int main (int argc, char **argv)
   ddsi_serdata_print (ptr, buf, 0);
   ddsi_serdata_print_untyped (ptr, ptr, buf, 0);
   ddsi_serdata_get_keyhash (ptr, ptr, 0);
-#ifdef DDS_HAS_SHM
-  ddsi_serdata_iox_size (ptr);
-  ddsi_serdata_from_iox (ptr, 0, ptr, ptr);
-  ddsi_serdata_from_loaned_sample (ptr, 0, ptr);
-#endif
 
 #ifdef DDS_HAS_TYPE_DISCOVERY
   // ddsi_typewrap.h
@@ -1004,15 +995,6 @@ int main (int argc, char **argv)
   test_ddsrt_vasprintf (ptr, " ");
   ddsrt_asprintf (ptr, " ");
 
-#if DDS_HAS_SHM
-  // ddsi/ddsi_shm_transport.h
-  // - ROS 2 rmw_cyclonedds_cpp uses these
-  // - Iceoryx integration in ROS 2 will need rework anyway, so
-  //   best to keep these until we change that
-  free_iox_chunk (ptr, ptr2);
-  iceoryx_header_from_chunk (ptr);
-  shm_set_data_state (ptr, (iox_shm_data_state_t)0);
-#endif
   return 0;
 }
 
