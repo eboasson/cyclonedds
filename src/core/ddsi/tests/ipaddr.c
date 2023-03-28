@@ -11,7 +11,7 @@
  */
 
 #include "CUnit/Theory.h"
-#include "dds/ddsi/ddsi_ownip.h"
+#include "dds/ddsi/ddsi_nwinterfaces.h"
 #include "ddsi__ipaddr.h"
 #include "ddsi__tran.h"
 

@@ -25,7 +25,7 @@
 #include "dds/ddsrt/random.h"
 
 #include "dds/ddsi/ddsi_plist.h"
-#include "dds/ddsi/ddsi_ownip.h"
+#include "dds/ddsi/ddsi_nwinterfaces.h"
 #include "dds/ddsi/ddsi_protocol.h"
 #include "dds/ddsi/ddsi_sockwaitset.h"
 

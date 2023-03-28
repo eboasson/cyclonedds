@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2006 to 2022 ZettaScale Technology and others
+ * Copyright(c) 2006 to 2023 ZettaScale Technology and others
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License v. 2.0 which is available at
@@ -9,8 +9,8 @@
  *
  * SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
  */
-#ifndef DDSI_OWNIP_H
-#define DDSI_OWNIP_H
+#ifndef DDSI_NWINTERFACES_H
+#define DDSI_NWINTERFACES_H
 
 #include <stdbool.h>
 
@@ -42,4 +42,4 @@ struct ddsi_network_interface {
 }
 #endif
 
-#endif /* DDSI_OWNIP_H */
+#endif /* DDSI_NWINTERFACES_H */
