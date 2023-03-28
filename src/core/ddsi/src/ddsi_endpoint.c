@@ -1329,7 +1329,7 @@ dds_return_t ddsi_delete_writer (struct ddsi_domaingv *gv, const struct ddsi_gui
     ddsrt_mtime_to_sec_usec (&tsec, &tusec, tsched);
     GVLOGDISC ("delete_writer(guid "PGUIDFMT") - unack'ed samples, will delete when ack'd or at t = %"PRId32".%06"PRId32"\n",
                PGUID (*guid), tsec, tusec);
-    
+
     struct ddsi_delete_writer_xevent_cb_arg arg = { .wr_guid = wr->e.guid };
     ddsi_qxev_callback (gv->xevents, tsched, ddsi_delete_writer_xevent_cb, &arg, sizeof (arg), false);
   }

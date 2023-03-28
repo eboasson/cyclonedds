@@ -481,26 +481,33 @@ void dds_qset_data_representation (dds_qos_t * __restrict qos, uint32_t n, const
 
 void dds_qset_virtual_interfaces (dds_qos_t * __restrict qos, uint32_t n, const char **values)
 {
-  if (qos == NULL || (n && values == NULL))
+  if (qos == NULL || (n > 0 && values == NULL) || n > DDS_MAX_VIRTUAL_INTERFACES)
     return;
 
-  //cleanup old data
+  // check that names are set
+  for (uint32_t i = 0; i < n; i++)
+  {
+    if (strlen (values[i]) == 0)
+      return;
+  }
+
+  // cleanup old data
   if ((qos->present & DDSI_QP_VIRTUAL_INTERFACES) && qos->virtual_interfaces.supported_virtual_interface_kinds.n > 0)
   {
     assert (qos->virtual_interfaces.supported_virtual_interface_kinds.strs != NULL);
     for (uint32_t i = 0; i < qos->virtual_interfaces.supported_virtual_interface_kinds.n; i++)
-      ddsrt_free (qos->virtual_interfaces.supported_virtual_interface_kinds.strs[i]);
-    ddsrt_free (qos->virtual_interfaces.supported_virtual_interface_kinds.strs);
+      dds_free (qos->virtual_interfaces.supported_virtual_interface_kinds.strs[i]);
+    dds_free (qos->virtual_interfaces.supported_virtual_interface_kinds.strs);
     qos->virtual_interfaces.supported_virtual_interface_kinds.strs = NULL;
   }
 
-  //copy in new data
+  // copy in new data
   qos->virtual_interfaces.supported_virtual_interface_kinds.n = n;
-  if (n)
+  if (n > 0)
   {
-    qos->virtual_interfaces.supported_virtual_interface_kinds.strs = ddsrt_malloc (n * sizeof(*qos->virtual_interfaces.supported_virtual_interface_kinds.strs));
-    for (uint32_t i = 0; i < n; n++)
-      qos->virtual_interfaces.supported_virtual_interface_kinds.strs[i] = ddsrt_strdup (values[i]);
+    qos->virtual_interfaces.supported_virtual_interface_kinds.strs = dds_alloc (n * sizeof (*qos->virtual_interfaces.supported_virtual_interface_kinds.strs));
+    for (uint32_t i = 0; i < n; i++)
+      qos->virtual_interfaces.supported_virtual_interface_kinds.strs[i] = dds_string_dup (values[i]);
   }
 
   qos->present |= DDSI_QP_VIRTUAL_INTERFACES;
@@ -909,9 +916,9 @@ bool dds_qget_virtual_interfaces (const dds_qos_t * __restrict qos, uint32_t *n_
   {
     if (*n_out > 0)
     {
-      *values = ddsrt_malloc ((*n_out) * sizeof(**values));
+      *values = dds_alloc ((*n_out) * sizeof (**values));
       for (uint32_t i = 0; i < *n_out; i++)
-        (*values)[i] = ddsrt_strdup (qos->virtual_interfaces.supported_virtual_interface_kinds.strs[i]);
+        (*values)[i] = dds_string_dup (qos->virtual_interfaces.supported_virtual_interface_kinds.strs[i]);
     }
     else
       *values = NULL;
@@ -922,21 +929,38 @@ bool dds_qget_virtual_interfaces (const dds_qos_t * __restrict qos, uint32_t *n_
 
 dds_return_t dds_ensure_valid_virtual_interfaces (dds_qos_t *qos, ddsi_data_type_properties_t data_type_props, const struct dds_virtual_interfaces_set *vi_set)
 {
+  uint32_t n_supported = 0;
+  const char *supported_interfaces[DDS_MAX_VIRTUAL_INTERFACES];
+
   if (!(qos->present & DDSI_QP_VIRTUAL_INTERFACES))
   {
-    uint32_t n_supported = 0;
-    const char *supported_interfaces[DDS_MAX_VIRTUAL_INTERFACES];
     assert (vi_set->length <= DDS_MAX_VIRTUAL_INTERFACES);
-
-    for (uint32_t i = 0; i < vi_set->length; ++i)
+    for (uint32_t i = 0; i < vi_set->length; i++)
     {
       struct dds_virtual_interface *vi = vi_set->interfaces[i];
       if (vi->ops.data_type_supported (data_type_props) && vi->ops.qos_supported (qos))
         supported_interfaces[n_supported++] = vi->interface_name;
     }
-
-    dds_qset_virtual_interfaces (qos, n_supported, supported_interfaces);
   }
+  else
+  {
+    uint32_t n = 0;
+    char **values;
+    dds_qget_virtual_interfaces (qos, &n, &values);
+    for (uint32_t i = 0; i < n; i++)
+    {
+      struct dds_virtual_interface *vi = NULL;
+      for (uint32_t s = 0; vi == NULL && s < vi_set->length; s++)
+      {
+        if (strcmp (vi_set->interfaces[s]->interface_name, values[i]) == 0)
+          vi = vi_set->interfaces[i];
+      }
+      if (vi != NULL && vi->ops.data_type_supported (data_type_props) && vi->ops.qos_supported (qos))
+        supported_interfaces[n_supported++] = vi->interface_name;
+    }
+  }
+
+  dds_qset_virtual_interfaces (qos, n_supported, supported_interfaces);
 
   return DDS_RETCODE_OK;
 }

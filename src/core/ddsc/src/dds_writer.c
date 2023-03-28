@@ -335,7 +335,7 @@ dds_entity_t dds_create_writer (dds_entity_t participant_or_publisher, dds_entit
   if ((rc = dds_ensure_valid_data_representation (wqos, tp->m_stype->allowed_data_representation, false)) != 0)
     goto err_data_repr;
   if ((rc = dds_ensure_valid_virtual_interfaces (wqos, tp->m_stype->data_type_props, &pub->m_entity.m_domain->virtual_interfaces)) != 0)
-    goto err_data_repr;
+    goto err_virtintf;
 
   if ((rc = ddsi_xqos_valid (&gv->logconfig, wqos)) < 0 || (rc = validate_writer_qos(wqos)) != DDS_RETCODE_OK)
     goto err_bad_qos;
@@ -393,14 +393,10 @@ dds_entity_t dds_create_writer (dds_entity_t participant_or_publisher, dds_entit
   if (!sertype)
     sertype = tp->m_stype;
 
-  struct ddsi_virtual_locators_set virtual_locators;
-  virtual_locators.length = wr->m_entity.m_domain->virtual_interfaces.length;
-  virtual_locators.locators = dds_alloc (virtual_locators.length * sizeof (*virtual_locators.locators));
-  for (uint32_t n = 0; n < virtual_locators.length; n++)
-    virtual_locators.locators[n] = *wr->m_entity.m_domain->virtual_interfaces.interfaces[n]->locator;
-  rc = ddsi_new_writer (&wr->m_wr, &wr->m_entity.m_guid, NULL, pp, tp->m_name, sertype, wqos, wr->m_whc, dds_writer_status_cb, wr, &virtual_locators);
+  struct ddsi_virtual_locators_set *vl_set = dds_get_virtual_locators_set (wqos, &wr->m_entity.m_domain->virtual_interfaces);
+  rc = ddsi_new_writer (&wr->m_wr, &wr->m_entity.m_guid, NULL, pp, tp->m_name, sertype, wqos, wr->m_whc, dds_writer_status_cb, wr, vl_set);
   assert(rc == DDS_RETCODE_OK);
-  dds_free (virtual_locators.locators);
+  dds_virtual_locators_set_free (vl_set);
   ddsi_thread_state_asleep (ddsi_lookup_thread_state ());
 
   wr->m_entity.m_iid = ddsi_get_entity_instanceid (&wr->m_entity.m_domain->gv, &wr->m_entity.m_guid);
@@ -429,6 +425,7 @@ err_not_allowed:
 #endif
 err_bad_qos:
 err_data_repr:
+err_virtintf:
   dds_delete_qos(wqos);
   dds_topic_allow_set_qos (tp);
 err_pp_mismatch:

@@ -529,6 +529,8 @@ static dds_entity_t dds_create_reader_int (dds_entity_t participant_or_subscribe
 
   if ((rc = dds_ensure_valid_data_representation (rqos, tp->m_stype->allowed_data_representation, false)) != 0)
     goto err_data_repr;
+  if ((rc = dds_ensure_valid_virtual_interfaces (rqos, tp->m_stype->data_type_props, &sub->m_entity.m_domain->virtual_interfaces)) != 0)
+    goto err_virtintf;
 
   if ((rc = ddsi_xqos_valid (&gv->logconfig, rqos)) < 0 || (rc = validate_reader_qos(rqos)) != DDS_RETCODE_OK)
     goto err_bad_qos;
@@ -595,17 +597,13 @@ static dds_entity_t dds_create_reader_int (dds_entity_t participant_or_subscribe
      it; and then invoke those listeners that are in the pending set */
   dds_entity_init_complete (&rd->m_entity);
 
-  struct ddsi_virtual_locators_set virtual_locators;
-  virtual_locators.length = rd->m_entity.m_domain->virtual_interfaces.length;
-  virtual_locators.locators = ddsrt_malloc (virtual_locators.length * sizeof (*virtual_locators.locators));
-  for (uint32_t n = 0; n < virtual_locators.length; n++)
-    virtual_locators.locators[n] = *rd->m_entity.m_domain->virtual_interfaces.interfaces[n]->locator;
 
   /* Reader gets the sertype from the topic, as the serdata functions the reader uses are
      not specific for a data representation (the representation can be retrieved from the cdr header) */
-  rc = ddsi_new_reader (&rd->m_rd, &rd->m_entity.m_guid, NULL, pp, tp->m_name, tp->m_stype, rqos, &rd->m_rhc->common.rhc, dds_reader_status_cb, rd, &virtual_locators);
+  struct ddsi_virtual_locators_set *vl_set = dds_get_virtual_locators_set (rqos, &rd->m_entity.m_domain->virtual_interfaces);
+  rc = ddsi_new_reader (&rd->m_rd, &rd->m_entity.m_guid, NULL, pp, tp->m_name, tp->m_stype, rqos, &rd->m_rhc->common.rhc, dds_reader_status_cb, rd, vl_set);
   assert (rc == DDS_RETCODE_OK); /* FIXME: can be out-of-resources at the very least */
-  ddsrt_free (virtual_locators.locators);
+  dds_virtual_locators_set_free (vl_set);
   ddsi_thread_state_asleep (ddsi_lookup_thread_state ());
 
   rd->m_entity.m_iid = ddsi_get_entity_instanceid (&rd->m_entity.m_domain->gv, &rd->m_entity.m_guid);
@@ -647,6 +645,7 @@ err_pipe_setcb:
 err_pipe_open:
 err_bad_qos:
 err_data_repr:
+err_virtintf:
   dds_delete_qos (rqos);
   dds_topic_allow_set_qos (tp);
 err_pp_mismatch:
