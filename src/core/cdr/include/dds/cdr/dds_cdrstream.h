@@ -109,6 +109,7 @@ struct dds_cdrstream_desc {
   size_t opt_size_xcdr2;
 };
 
+
 DDSRT_STATIC_ASSERT (offsetof (dds_ostreamLE_t, x) == 0);
 DDSRT_STATIC_ASSERT (offsetof (dds_ostreamBE_t, x) == 0);
 
@@ -135,6 +136,9 @@ DDS_EXPORT void dds_ostreamLE_fini (dds_ostreamLE_t * __restrict os, const struc
 
 /** @component cdr_serializer */
 DDS_EXPORT void dds_ostreamBE_init (dds_ostreamBE_t * __restrict os, const struct dds_cdrstream_allocator * __restrict allocator, uint32_t size, uint32_t xcdr_version);
+
+/** @component cdr_serializer */
+uint32_t dds_cdr_alignto4_clear_and_resize (dds_ostream_t * __restrict s, uint32_t xcdr_version);
 
 /** @component cdr_serializer */
 DDS_EXPORT void dds_ostreamBE_fini (dds_ostreamBE_t * __restrict os, const struct dds_cdrstream_allocator * __restrict allocator);
@@ -233,7 +237,13 @@ uint32_t dds_stream_type_nesting_depth (const uint32_t * __restrict ops);
 bool dds_stream_extensibility (const uint32_t * __restrict ops, enum dds_cdr_type_extensibility *ext);
 
 /** @component cdr_serializer */
+uint64_t dds_stream_data_types (const uint32_t * __restrict ops);
+
+/** @component cdr_serializer */
 DDS_EXPORT void dds_cdrstream_desc_fini (struct dds_cdrstream_desc *desc, const struct dds_cdrstream_allocator * __restrict allocator);
+
+/** @component cdr_serializer */
+DDS_EXPORT void dds_cdrstream_desc_from_topic_desc (struct dds_cdrstream_desc *desc, const dds_topic_descriptor_t *topic_desc);
 
 
 #if defined (__cplusplus)

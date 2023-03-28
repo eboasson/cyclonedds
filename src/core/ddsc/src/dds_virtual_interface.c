@@ -200,13 +200,6 @@ static dds_loan_origin_type_t calculate_interface_identifier (const struct ddsi_
   return ddsrt_mh3 (config_name, strlen (config_name), hashed_id);
 }
 
-dds_virtual_interface_data_type_properties_t dds_calculate_data_type_properties (const dds_topic_descriptor_t * desc)
-{
-  (void) desc;
-  //TODO!!! IMPLEMENT!!!
-  return DDS_DATA_TYPE_CALCULATED;
-}
-
 dds_return_t dds_virtual_interface_load (const struct ddsi_domaingv *gv, struct ddsi_config_virtual_interface *config, struct dds_virtual_interface **out)
 {
   dds_virtual_interface_create_fn creator = NULL;

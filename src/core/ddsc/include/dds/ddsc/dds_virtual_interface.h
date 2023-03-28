@@ -26,28 +26,6 @@ extern "C" {
 
 #define DDS_MAX_VIRTUAL_INTERFACES 8
 
-
-#define DDS_DATA_TYPE_FINAL_MODIFIER              0x1ull << 0
-#define DDS_DATA_TYPE_APPENDABLE_MODIFIER         0x1ull << 1
-#define DDS_DATA_TYPE_MUTABLE_MODIFIER            0x1ull << 2
-
-#define DDS_DATA_TYPE_CONTAINS_UNION              0x1ull << 3
-#define DDS_DATA_TYPE_CONTAINS_BITMASK            0x1ull << 4
-#define DDS_DATA_TYPE_CONTAINS_ENUM               0x1ull << 5
-#define DDS_DATA_TYPE_CONTAINS_STRUCT             0x1ull << 6
-#define DDS_DATA_TYPE_CONTAINS_STRING             0x1ull << 7
-#define DDS_DATA_TYPE_CONTAINS_BSTRING            0x1ull << 8
-#define DDS_DATA_TYPE_CONTAINS_WSTRING            0x1ull << 9
-#define DDS_DATA_TYPE_CONTAINS_SEQUENCE           0x1ull << 10
-#define DDS_DATA_TYPE_CONTAINS_BSEQUENCE          0x1ull << 11
-#define DDS_DATA_TYPE_CONTAINS_ARRAY              0x1ull << 12
-#define DDS_DATA_TYPE_CONTAINS_OPTIONAL           0x1ull << 13
-#define DDS_DATA_TYPE_CONTAINS_EXTERNAL           0x1ull << 14
-
-#define DDS_DATA_TYPE_IS_FIXED_SIZE               0x1ull << 61
-#define DDS_DATA_TYPE_CONTAINS_INDIRECTIONS       0x1ull << 62
-#define DDS_DATA_TYPE_CALCULATED                  0x1ull << 63
-
 struct dds_virtual_interface;
 struct dds_virtual_interface_topic;
 struct dds_virtual_interface_topic_list_elem;
