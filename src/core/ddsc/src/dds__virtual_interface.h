@@ -46,8 +46,6 @@ dds_return_t dds_virtual_interface_pipe_close (struct dds_virtual_interface_pipe
 /*function used to calculate the topic identifier*/
 dds_virtual_interface_topic_identifier_t dds_calculate_topic_identifier (const struct dds_ktopic *ktopic);
 
-/*function used to parse the properties of a data type*/
-dds_virtual_interface_data_type_properties_t dds_calculate_data_type_properties (const dds_topic_descriptor_t *t_d);
 
 /**
  * @brief Definition for the function to load a virtual interface.
