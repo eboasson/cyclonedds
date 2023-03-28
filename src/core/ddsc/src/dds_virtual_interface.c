@@ -17,6 +17,7 @@
 #include "dds/ddsrt/mh3.h"
 #include "dds/ddsi/ddsi_locator.h"
 #include "dds/ddsi/ddsi_domaingv.h"
+#include "dds__types.h"
 #include "dds__virtual_interface.h"
 
 dds_return_t dds_add_vi_topic_to_list (struct dds_virtual_interface_topic *topic, struct dds_virtual_interface_topic_list_elem **list)
