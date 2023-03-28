@@ -41,7 +41,7 @@
 #include "ddsi__lease.h"
 #include "ddsi__entity.h"
 #include "ddsi__participant.h"
-#include "ddsi__ownip.h"
+#include "ddsi__nwinterfaces.h"
 #include "ddsi__xmsg.h"
 #include "ddsi__receive.h"
 #include "ddsi__pcap.h"
@@ -1116,11 +1116,11 @@ int ddsi_init (struct ddsi_domaingv *gv, struct ddsi_virtual_interface_locators 
   }
   gv->m_factory->m_enable = true;
 
-  if (!ddsi_find_own_ip (gv))
+  if (!ddsi_gather_network_interfaces (gv))
   {
-    /* ddsi_find_own_ip already logs a more informative error message */
+    /* ddsi_gather_network_interfaces already logs a more informative error message */
     GVLOG (DDS_LC_CONFIG, "No network interface selected\n");
-    goto err_ddsi_find_own_ip;
+    goto err_gather_nwif;
   }
 
   if (virtual_interface_locators != NULL)
@@ -1621,7 +1621,7 @@ err_set_ext_address:
   }
 err_set_recvips:
 err_virtual_interface:
-err_ddsi_find_own_ip:
+err_gather_nwif:
   for (int i = 0; i < gv->n_interfaces; i++)
     ddsrt_free (gv->interfaces[i].name);
   ddsi_tran_factories_fini (gv);
