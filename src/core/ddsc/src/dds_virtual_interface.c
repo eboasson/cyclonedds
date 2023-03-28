@@ -17,6 +17,7 @@
 #include "dds/ddsrt/mh3.h"
 #include "dds/ddsi/ddsi_locator.h"
 #include "dds/ddsi/ddsi_domaingv.h"
+#include "dds/ddsi/ddsi_endpoint.h"
 #include "dds__types.h"
 #include "dds__virtual_interface.h"
 
@@ -326,4 +327,38 @@ err:
   for (uint32_t i = 0; i < ep->virtual_pipes.length; i++)
     (void) dds_virtual_interface_pipe_close (ep->virtual_pipes.pipes[i]);
   return DDS_RETCODE_ERROR;
+}
+
+struct ddsi_virtual_locators_set *dds_get_virtual_locators_set (const dds_qos_t *qos, const struct dds_virtual_interfaces_set *vi_set)
+{
+  struct ddsi_virtual_locators_set *vl_set = dds_alloc (sizeof (*vl_set));
+  vl_set->length = 0;
+  vl_set->locators = NULL;
+
+  uint32_t n = 0;
+  char **values = NULL;
+  dds_qget_virtual_interfaces (qos, &n, &values);
+  for (uint32_t i = 0; i < n; i++)
+  {
+    struct dds_virtual_interface *vi = NULL;
+    for (uint32_t s = 0; vi == NULL && s < vi_set->length; s++)
+    {
+      if (strcmp (vi_set->interfaces[s]->interface_name, values[i]) == 0)
+        vi = vi_set->interfaces[s];
+    }
+    if (vi)
+    {
+      vl_set->length++;
+      vl_set->locators = dds_realloc (vl_set->locators, vl_set->length * sizeof (*vl_set->locators));
+      vl_set->locators[vl_set->length - 1] = *vi->locator;
+    }
+  }
+  return vl_set;
+}
+
+void dds_virtual_locators_set_free (struct ddsi_virtual_locators_set *vl_set)
+{
+  if (vl_set->length > 0)
+    dds_free (vl_set->locators);
+  dds_free (vl_set);
 }

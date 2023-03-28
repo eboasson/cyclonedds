@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-#define DDS_MAX_VIRTUAL_INTERFACES 8
+#define DDS_MAX_VIRTUAL_INTERFACES 1
 
 struct dds_virtual_interface;
 struct dds_virtual_interface_topic;
