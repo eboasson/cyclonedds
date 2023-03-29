@@ -36,6 +36,7 @@ static void heap_loan_reset (dds_loaned_sample_t *loaned_sample)
   assert (loaned_sample);
   dds_heap_loan_t *hl = (dds_heap_loan_t *) loaned_sample;
   memset (hl->c.metadata, 0, sizeof (*(hl->c.metadata)));
+  ddsi_sertype_free_sample (hl->m_stype, hl->c.sample_ptr, DDS_FREE_CONTENTS);
   ddsi_sertype_zero_sample (hl->m_stype, hl->c.sample_ptr);
 }
 
