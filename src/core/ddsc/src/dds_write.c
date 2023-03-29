@@ -301,17 +301,21 @@ static bool allows_serialization_into_buffer(struct dds_topic *topic)
       topic->m_stype->ops->get_serialized_size != NULL;
 }
 
-static bool get_required_buffer_size(struct dds_topic *topic, const void *sample, uint32_t *sz)
+static bool get_required_buffer_size(struct dds_topic *topic, const void *sample, uint32_t *sz32)
 {
-  assert (topic && sz && sample);
+  size_t sz;
+  assert (topic && sz32 && sample);
 
   if (!requires_serialization(topic))
-    *sz = topic->m_stype->zerocopy_size;
+    sz = topic->m_stype->zerocopy_size;
   else if (allows_serialization_into_buffer(topic))
-    *sz = (uint32_t)ddsi_sertype_get_serialized_size(topic->m_stype, (void*) sample);
+    sz = ddsi_sertype_get_serialized_size(topic->m_stype, (void*) sample);
   else
     return false;
 
+  if (sz == SIZE_MAX || sz > UINT32_MAX)
+    return false; // SIZE_MAX: error value (FIXME) or oversize
+  *sz32 = (uint32_t) sz;
   return true;
 }
 
@@ -538,6 +542,7 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
     }
   }
 
+  ddsi_serdata_unref (d); // refc(d) = 0
   ddsi_thread_state_asleep (thrst);
   return ret;
 

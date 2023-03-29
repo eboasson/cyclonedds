@@ -235,6 +235,8 @@ static size_t sertype_default_get_serialized_size (const struct ddsi_sertype *ty
   //      If the endianness does not change, it appears not to be necessary (maybe for
   //      XTypes)
   struct ddsi_serdata *serdata = ddsi_serdata_from_sample(type, SDK_DATA, sample);
+  if (serdata == NULL)
+    return SIZE_MAX;
   size_t serialized_size = ddsi_serdata_size(serdata) - sizeof(struct dds_cdr_header);
   ddsi_serdata_unref(serdata);
   return serialized_size;
