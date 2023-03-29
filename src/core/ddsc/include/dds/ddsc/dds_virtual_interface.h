@@ -267,7 +267,7 @@ typedef struct dds_virtual_interface_pipe {
  * will create the first list entry if it does not yet exist
  *
  * @param[in] topic     the topic to add
- * @param[in/out] list  list to add the topic to
+ * @param[in,out] list  list to add the topic to
  * @return DDS_RETCODE_OK on success
  */
 DDS_EXPORT dds_return_t dds_add_vi_topic_to_list (struct dds_virtual_interface_topic *topic, struct dds_virtual_interface_topic_list_elem **list);
@@ -278,7 +278,7 @@ DDS_EXPORT dds_return_t dds_add_vi_topic_to_list (struct dds_virtual_interface_t
  * will set the pointer to the list to null if the last entry is removed
  *
  * @param[in] topic     the topic to remove
- * @param[in/out] list  list to remove the topic from
+ * @param[in,out] list  list to remove the topic from
  * @return a DDS return code
  */
 DDS_EXPORT dds_return_t dds_remove_vi_topic_from_list (struct dds_virtual_interface_topic *topic, struct dds_virtual_interface_topic_list_elem **list);
@@ -289,7 +289,7 @@ DDS_EXPORT dds_return_t dds_remove_vi_topic_from_list (struct dds_virtual_interf
  * will create the first list entry if it does not yet exist
  *
  * @param[in] pipe   the pipe to add
- * @param[in/out] list   list to add the pipe to
+ * @param[in,out] list   list to add the pipe to
  * @return a DDS return code
  */
 DDS_EXPORT dds_return_t dds_add_vi_pipe_to_list (struct dds_virtual_interface_pipe *pipe, struct dds_virtual_interface_pipe_list_elem **list);
@@ -300,7 +300,7 @@ DDS_EXPORT dds_return_t dds_add_vi_pipe_to_list (struct dds_virtual_interface_pi
  * will set the pointer to the list to null if the last entry is removed
  *
  * @param[in] pipe  the pipe to remove
- * @param[in/out] list  list to remove the pipe from
+ * @param[in,out] list  list to remove the pipe from
  * @return a DDS return code
  */
 DDS_EXPORT dds_return_t dds_remove_vi_pipe_from_list (struct dds_virtual_interface_pipe *pipe, struct dds_virtual_interface_pipe_list_elem **list);
