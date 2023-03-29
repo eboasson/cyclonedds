@@ -60,9 +60,6 @@ typedef dds_return_t (*dds_virtual_interface_create_fn) (
   const char *config /*virtual interface-specific configuration*/
 );
 
-
-dds_return_t dds_virtual_interface_load (const struct ddsi_domaingv *gv, struct ddsi_config_virtual_interface *config, struct dds_virtual_interface **out);
-
 dds_return_t dds_virtual_interfaces_init (const struct ddsi_domaingv *gv, struct dds_domain *domain);
 
 dds_return_t dds_virtual_interfaces_fini (struct dds_domain *domain);

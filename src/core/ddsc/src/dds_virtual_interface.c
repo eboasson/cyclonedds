@@ -202,7 +202,7 @@ static dds_loan_origin_type_t calculate_interface_identifier (const struct ddsi_
   return ddsrt_mh3 (config_name, strlen (config_name), hashed_id);
 }
 
-dds_return_t dds_virtual_interface_load (const struct ddsi_domaingv *gv, struct ddsi_config_virtual_interface *config, struct dds_virtual_interface **out)
+static dds_return_t virtual_interface_load (const struct ddsi_domaingv *gv, struct ddsi_config_virtual_interface *config, struct dds_virtual_interface **out)
 {
   dds_virtual_interface_create_fn creator = NULL;
   const char *lib_name;
@@ -265,7 +265,7 @@ dds_return_t dds_virtual_interfaces_init (const struct ddsi_domaingv *gv, dds_do
     {
       GVLOG(DDS_LC_INFO, "Loading virtual interface %s\n", iface->cfg.name);
       struct dds_virtual_interface *vi = NULL;
-      if (dds_virtual_interface_load (gv, &iface->cfg, &vi))
+      if (virtual_interface_load (gv, &iface->cfg, &vi))
         domain->virtual_interfaces.interfaces[domain->virtual_interfaces.length++] = vi;
       else
       {
