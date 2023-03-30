@@ -442,7 +442,6 @@ const struct dds_entity_deriver dds_entity_deriver_reader = {
 
 static dds_entity_t dds_create_reader_int (dds_entity_t participant_or_subscriber, dds_entity_t topic, const dds_qos_t *qos, const dds_listener_t *listener, struct dds_rhc *rhc)
 {
-  dds_qos_t *rqos;
   dds_subscriber *sub = NULL;
   dds_entity_t subscriber;
   dds_topic *tp;
@@ -517,7 +516,8 @@ static dds_entity_t dds_create_reader_int (dds_entity_t participant_or_subscribe
   /* Merge qos from topic and subscriber, dds_copy_qos only fails when it is passed a null
      argument, but that isn't the case here */
   struct ddsi_domaingv *gv = &sub->m_entity.m_domain->gv;
-  rqos = dds_create_qos ();
+  dds_qos_t *rqos = dds_create_qos ();
+  bool own_rqos = true;
   if (qos)
     ddsi_xqos_mergein_missing (rqos, qos, DDS_READER_QOS_MASK);
   if (sub->m_entity.m_qos)
@@ -570,6 +570,10 @@ static dds_entity_t dds_create_reader_int (dds_entity_t participant_or_subscribe
   /* Create reader and associated read cache (if not provided by caller) */
   struct dds_reader * const rd = dds_alloc (sizeof (*rd));
   const dds_entity_t reader = dds_entity_init (&rd->m_entity, &sub->m_entity, DDS_KIND_READER, false, true, rqos, listener, DDS_READER_STATUS_MASK);
+
+  // Ownership of rqos is transferred to reader entity
+  own_rqos = false;
+
   // assume DATA_ON_READERS is materialized in the subscriber:
   // - changes to it won't be propagated to this reader until after it has been added to the subscriber's children
   // - data can arrive once `new_reader` is called, requiring raising DATA_ON_READERS if materialized
@@ -646,7 +650,8 @@ err_pipe_open:
 err_bad_qos:
 err_data_repr:
 err_virtintf:
-  dds_delete_qos (rqos);
+  if (own_rqos)
+    dds_delete_qos (rqos);
   dds_topic_allow_set_qos (tp);
 err_pp_mismatch:
   dds_topic_unpin (tp);

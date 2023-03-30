@@ -271,7 +271,6 @@ const struct dds_entity_deriver dds_entity_deriver_writer = {
 dds_entity_t dds_create_writer (dds_entity_t participant_or_publisher, dds_entity_t topic, const dds_qos_t *qos, const dds_listener_t *listener)
 {
   dds_return_t rc;
-  dds_qos_t *wqos;
   dds_publisher *pub = NULL;
   dds_topic *tp;
   dds_entity_t publisher;
@@ -322,7 +321,8 @@ dds_entity_t dds_create_writer (dds_entity_t participant_or_publisher, dds_entit
 
   /* Merge Topic & Publisher qos */
   struct ddsi_domaingv *gv = &pub->m_entity.m_domain->gv;
-  wqos = dds_create_qos ();
+  dds_qos_t *wqos = dds_create_qos ();
+  bool own_wqos = true;
   if (qos)
     ddsi_xqos_mergein_missing (wqos, qos, DDS_WRITER_QOS_MASK);
   if (pub->m_entity.m_qos)
@@ -370,6 +370,10 @@ dds_entity_t dds_create_writer (dds_entity_t participant_or_publisher, dds_entit
   /* Create writer */
   struct dds_writer * const wr = dds_alloc (sizeof (*wr));
   const dds_entity_t writer = dds_entity_init (&wr->m_entity, &pub->m_entity, DDS_KIND_WRITER, false, true, wqos, listener, DDS_WRITER_STATUS_MASK);
+
+  // Ownership of rqos is transferred to reader entity
+  own_wqos = false;
+
   wr->m_topic = tp;
   dds_entity_add_ref_locked (&tp->m_entity);
   wr->m_xp = ddsi_xpack_new (gv, async_mode);
@@ -426,7 +430,8 @@ err_not_allowed:
 err_bad_qos:
 err_data_repr:
 err_virtintf:
-  dds_delete_qos(wqos);
+  if (own_wqos)
+    dds_delete_qos(wqos);
   dds_topic_allow_set_qos (tp);
 err_pp_mismatch:
   dds_topic_unpin (tp);
