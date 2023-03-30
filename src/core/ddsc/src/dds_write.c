@@ -529,9 +529,8 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
     memcpy (&md->guid, &ddsi_wr->e.guid, sizeof (md->guid));
     md->timestamp = d->timestamp.v;
     md->statusinfo = d->statusinfo;
-    if (!pipe->ops.sink_data (pipe, loan))
+    if ((ret = pipe->ops.sink_data (pipe, loan)) != DDS_RETCODE_OK)
     {
-      ret = DDS_RETCODE_ERROR;
       goto unref_serdata;
     }
     else

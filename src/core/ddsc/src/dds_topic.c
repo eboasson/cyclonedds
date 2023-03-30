@@ -610,8 +610,8 @@ dds_entity_t dds_create_topic_impl (
 virtual_interface_fail:
   for (uint32_t i = 0; i < ktp->virtual_topics.length; i++)
   {
-    bool result = ktp->virtual_topics.topics[i]->virtual_interface->ops.topic_destruct (ktp->virtual_topics.topics[i]);
-    assert (result);
+    dds_return_t rc_destruct = ktp->virtual_topics.topics[i]->virtual_interface->ops.topic_destruct (ktp->virtual_topics.topics[i]);
+    assert (rc_destruct == DDS_RETCODE_OK);
     ktp->virtual_topics.topics[i] = NULL;
   }
 error:

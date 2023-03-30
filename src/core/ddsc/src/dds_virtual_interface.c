@@ -287,9 +287,7 @@ dds_return_t dds_virtual_interfaces_fini (dds_domain *domain)
   for (uint32_t i = 0; ret == DDS_RETCODE_OK && i < domain->virtual_interfaces.length; i++)
   {
     struct dds_virtual_interface *vi = domain->virtual_interfaces.interfaces[i];
-    if (!vi->ops.deinit (vi))
-      ret = DDS_RETCODE_ERROR;
-    else
+    if ((ret = vi->ops.deinit (vi)) == DDS_RETCODE_OK)
       domain->virtual_interfaces.interfaces[i] = NULL;
   }
   return ret;

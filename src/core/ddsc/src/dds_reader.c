@@ -612,7 +612,7 @@ static dds_entity_t dds_create_reader_int (dds_entity_t participant_or_subscribe
   for (uint32_t i = 0; i < rd->m_endpoint.virtual_pipes.length; i++)
   {
     struct dds_virtual_interface_pipe *pipe = rd->m_endpoint.virtual_pipes.pipes[i];
-    if (pipe->ops.set_on_source && !pipe->ops.set_on_source (pipe, reader))
+    if (pipe->ops.set_on_source && (rc = pipe->ops.set_on_source (pipe, reader)) != DDS_RETCODE_OK)
       goto err_pipe_setcb;
   }
 
@@ -639,8 +639,8 @@ err_pipe_setcb:
     struct dds_virtual_interface_pipe *pipe = rd->m_endpoint.virtual_pipes.pipes[i];
     if (!pipe)
       continue;
-    bool close_result = dds_virtual_interface_pipe_close (pipe);
-    assert (close_result);
+    dds_return_t rc_close = dds_virtual_interface_pipe_close (pipe);
+    assert (rc_close == DDS_RETCODE_OK);
   }
 err_pipe_open:
 err_bad_qos:

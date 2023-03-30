@@ -333,7 +333,7 @@ static dds_return_t dds_domain_free (dds_entity *vdomain)
 
   ddsi_fini (&domain->gv);
 
-  dds_virtual_interfaces_fini (domain);
+  (void) dds_virtual_interfaces_fini (domain);
 
   dds_serdatapool_free (domain->serpool);
 
