@@ -265,7 +265,7 @@ dds_return_t dds_virtual_interfaces_init (const struct ddsi_domaingv *gv, dds_do
     {
       GVLOG(DDS_LC_INFO, "Loading virtual interface %s\n", iface->cfg.name);
       struct dds_virtual_interface *vi = NULL;
-      if (virtual_interface_load (gv, &iface->cfg, &vi))
+      if (virtual_interface_load (gv, &iface->cfg, &vi) == DDS_RETCODE_OK)
         domain->virtual_interfaces.interfaces[domain->virtual_interfaces.length++] = vi;
       else
       {
