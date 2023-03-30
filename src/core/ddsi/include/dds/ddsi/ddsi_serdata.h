@@ -262,7 +262,9 @@ DDS_INLINE_EXPORT inline struct ddsi_serdata *ddsi_serdata_from_sample (const st
 
 /** @component typesupport_if */
 DDS_INLINE_EXPORT inline struct ddsi_serdata *ddsi_serdata_to_untyped (const struct ddsi_serdata *d) {
-  return d->ops->to_untyped (d);
+  struct ddsi_serdata * const d1 = d->ops->to_untyped (d);
+  assert (d1->loan == NULL);
+  return d1;
 }
 
 /** @component typesupport_if */

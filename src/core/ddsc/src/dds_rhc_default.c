@@ -2098,9 +2098,7 @@ static int32_t read_w_qminv_inst (struct dds_rhc_default * const __restrict rhc,
     set_sample_info_invsample (info_seq + n, inst);
     if (*(values + n) == NULL)
     {
-      dds_loaned_sample_t *ls = inst->tk->m_sample->loan;
-      if (!ls)
-        ls = dds_loan_manager_get_loan(loan_pool);
+      dds_loaned_sample_t *ls = dds_loan_manager_get_loan(loan_pool);
       dds_loan_manager_move_loan(loan_out, ls);
       *(values + n) = ls->sample_ptr;
     }
@@ -2221,8 +2219,13 @@ static int32_t take_w_qminv_inst (struct dds_rhc_default * const __restrict rhc,
 #endif
     take_sample_update_conditions (rhc, &pre, &post, &trig_qc, inst, inst->conds, inst->inv_isread);
     set_sample_info_invsample (info_seq + n, inst);
-    if (*(values + n) || !use_loans)
-      to_invsample (rhc->type, inst->tk->m_sample, values + n, 0, 0);
+    if (*(values + n) == NULL)
+    {
+      dds_loaned_sample_t *ls = dds_loan_manager_get_loan(loan_pool);
+      dds_loan_manager_move_loan(loan_out, ls);
+      *(values + n) = ls->sample_ptr;
+    }
+    to_invsample (rhc->type, inst->tk->m_sample, values + n, 0, 0);
     inst_clear_invsample (rhc, inst, &dummy_trig_qc);
     ++n;
   }
