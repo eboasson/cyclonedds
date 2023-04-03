@@ -2,7 +2,7 @@
 <?xml-model href="https://raw.githubusercontent.com/eclipse-cyclonedds/cyclonedds/master/etc/cyclonedds.xsd"
         schematypens="http://www.w3.org/2001/XMLSchema" ?>
 <!--
-  Copyright(c) 2006 to 2018 ADLINK Technology Limited and others
+  Copyright(c) 2023 ADLINK Technology Limited and others
 
   This program and the accompanying materials are made available under the
   terms of the Eclipse Public License v. 2.0 which is available at
@@ -13,13 +13,11 @@
   SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 -->
 <CycloneDDS xmlns="https://cdds.io/config">
-  <!-- Simple config-file for testing whether a config-file can be picked up
-       correctly. -->
   <Domain id="57">
     <General>
       <Interfaces>
-      <NetworkInterface address="127.0.0.1" />
-      <VirtualInterface name="iox" library="/Users/erik/C/iceoryx-virtual-interface/CC/src/libiox_interface.dylib" priority ="1000000" />
+        <NetworkInterface address="127.0.0.1" />
+        <VirtualInterface name="cdds" library="${CDDS_VIRTINTF_LIB}" priority ="1000000" />
       </Interfaces>
       <AllowMulticast>true</AllowMulticast>
       <EnableMulticastLoopback>true</EnableMulticastLoopback>

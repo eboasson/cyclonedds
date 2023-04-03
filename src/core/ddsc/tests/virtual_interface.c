@@ -71,39 +71,27 @@ CU_Test (ddsc_virtual_interface, create, .init = ddsrt_init, .fini = ddsrt_fini)
   config__check_env ("CYCLONEDDS_URI", CONFIG_ENV_VIRTUAL_INTERFACE);
 
   participant = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-
-  dds_domainid_t did;
-  dds_get_domainid(participant, &did);
-
   CU_ASSERT_FATAL (participant > 0);
 
-  /* Create a Topic. */
-  topic = dds_create_topic (
-    participant, &SC_Model_desc, "SC_Model", NULL, NULL);
-
+  topic = dds_create_topic (participant, &SC_Model_desc, "SC_Model", NULL, NULL);
   CU_ASSERT_FATAL (topic > 0);
 
-  /* Create a Writer. */
   writer = dds_create_writer (participant, topic, NULL, NULL);
-
   CU_ASSERT_FATAL (writer > 0);
 
-  reader = dds_create_reader(participant, topic, NULL, NULL);
+  reader = dds_create_reader (participant, topic, NULL, NULL);
+  CU_ASSERT_FATAL (reader > 0);
 
-  //write
+  // write
   SC_Model mod = {.a = 0x1, .b = 0x4, .c = 0x9};
-
   rc = dds_write(writer, &mod);
-
   CU_ASSERT_EQUAL_FATAL (rc, DDS_RETCODE_OK);
 
+  // read
   samples[0] = SC_Model__alloc ();
-
   rc = dds_read (reader, samples, infos, MAX_SAMPLES, MAX_SAMPLES);
-
   CU_ASSERT_EQUAL_FATAL (rc, 1);
 
   SC_Model_free (samples[0], DDS_FREE_ALL);
-
   dds_delete (participant);
 }

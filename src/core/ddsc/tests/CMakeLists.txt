@@ -159,10 +159,18 @@ if(ENABLE_DEADLINE_MISSED)
   endforeach()
 endif()
 
+# Virtual Interface implementation with Cyclone as transport, for testing
+idlc_generate(TARGET virtintf_cdds_data FILES virtintf_cdds_data.idl)
+set(virtintf_cdds_sources
+  "virtintf_cdds_impl.c"
+  "virtintf_cdds_impl.h")
+add_library(virtintf_cdds SHARED ${virtintf_cdds_sources})
+target_link_libraries(virtintf_cdds PRIVATE ddsc virtintf_cdds_data)
+
 get_test_property(CUnit_ddsc_virtual_interface_create ENVIRONMENT CUnit_ddsc_virtual_interface_create_env)
 set(CUnit_ddsc_virtual_interface_create_file "${CMAKE_CURRENT_LIST_DIR}/config_virtual_interfaces.xml")
 set(CUnit_ddsc_virtual_interface_create_uri "file://${CUnit_ddsc_virtual_interface_create_file}")
-set(CUnit_ddsc_virtual_interface_create_env "CYCLONEDDS_URI=${CUnit_ddsc_virtual_interface_create_uri};${CUnit_ddsc_virtual_interface_create_env}")
+set(CUnit_ddsc_virtual_interface_create_env "CDDS_VIRTINTF_LIB=$<TARGET_FILE:virtintf_cdds>;CYCLONEDDS_URI=${CUnit_ddsc_virtual_interface_create_uri}")
 set_tests_properties(
 	CUnit_ddsc_virtual_interface_create
 	PROPERTIES
