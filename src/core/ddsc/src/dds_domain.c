@@ -137,6 +137,8 @@ static dds_entity_t dds_domain_init (dds_domain *domain, dds_domainid_t domain_i
   }
 
   ret = ddsi_init (&domain->gv, &virtual_interface_locators);
+  for (uint32_t n = 0; n < domain->virtual_interfaces.length; n++)
+    dds_free (virtual_interface_locators.items[n].virtual_interface_name);
   dds_free (virtual_interface_locators.items);
   if (ret < 0)
   {
