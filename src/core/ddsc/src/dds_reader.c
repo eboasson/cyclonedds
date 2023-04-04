@@ -666,8 +666,6 @@ dds_return_t dds_reader_store_external (dds_entity_t reader, dds_loaned_sample_t
 {
   dds_return_t ret;
   dds_entity * e;
-
-  dds_reader * dds_rd;
   if ((ret = dds_entity_pin (reader, &e)) < 0)
     goto pin_fail;
   if (e == NULL)
@@ -675,22 +673,17 @@ dds_return_t dds_reader_store_external (dds_entity_t reader, dds_loaned_sample_t
     ret = DDS_RETCODE_ALREADY_DELETED;
     goto pin_fail;
   }
-  if (dds_entity_kind(e) != DDS_KIND_READER)
+  if (dds_entity_kind (e) != DDS_KIND_READER)
   {
     ret = DDS_RETCODE_ILLEGAL_OPERATION;
     goto kind_fail;
   }
-  dds_rd = (dds_reader*)e;
+  dds_reader *dds_rd = (dds_reader *) e;
+  struct ddsi_reader *rd = dds_rd->m_rd;
+  struct ddsi_domaingv *gv = rd->e.gv;
 
-  struct ddsi_reader * rd = dds_rd->m_rd;
-  struct ddsi_serdata * sd = ddsi_serdata_from_virtual_exchange (dds_rd->m_topic->m_stype, data);
-  if (sd == NULL)
-    goto kind_fail;
-
-  struct ddsi_domaingv * gv = rd->e.gv;
-  ddsi_thread_state_awake(ddsi_lookup_thread_state(), gv);
+  ddsi_thread_state_awake (ddsi_lookup_thread_state (), gv);
   ddsrt_mutex_lock (&rd->e.lock);
-  struct ddsi_writer_info wi;
   struct dds_qos * xqos = NULL;
   struct dds_virtual_interface_metadata *md = data->metadata;
   struct ddsi_guid guid;
@@ -709,6 +702,12 @@ dds_return_t dds_reader_store_external (dds_entity_t reader, dds_loaned_sample_t
   //what if the sample is overwritten?
   //if the sample is not matched to this reader, return ownership to the virtual interface?
 
+  // After this call, loaned sample (data) may be freed
+  struct ddsi_serdata * sd = ddsi_serdata_from_virtual_exchange (dds_rd->m_topic->m_stype, data);
+  if (sd == NULL)
+    goto kind_fail;
+
+  struct ddsi_writer_info wi;
   ddsi_make_writer_info (&wi, e_c, xqos, sd->statusinfo);
   struct ddsi_tkmap_instance * tk = ddsi_tkmap_lookup_instance_ref (gv->m_tkmap, sd);
   if (tk == NULL)
@@ -730,10 +729,10 @@ dds_return_t dds_reader_store_external (dds_entity_t reader, dds_loaned_sample_t
 rhc_store_fail:
   ddsi_tkmap_instance_unref (gv->m_tkmap, tk);
 instance_ref_fail:
+kind_fail:
 writer_fail:
   ddsrt_mutex_unlock (&rd->e.lock);
-  ddsi_thread_state_asleep (ddsi_lookup_thread_state());
-kind_fail:
+  ddsi_thread_state_asleep (ddsi_lookup_thread_state ());
   dds_entity_unpin (e);
 pin_fail:
   return ret;
