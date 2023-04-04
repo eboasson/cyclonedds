@@ -299,21 +299,45 @@ static dds_loaned_sample_t * incoming_sample_to_loan (struct cdds_virtual_interf
   return ls;
 }
 
-static void on_data_available (dds_entity_t reader, void* arg)
+struct take_and_store_args {
+  dds_entity_t reader;
+  struct cdds_virtual_interface_pipe *cvp;
+};
+
+static uint32_t take_and_store_thread (void *a)
 {
-  struct cdds_virtual_interface_pipe *cvp = (struct cdds_virtual_interface_pipe *) arg;
+  struct take_and_store_args *args = (struct take_and_store_args *) a;
+
   dds_return_t ret;
   dds_sample_info_t si;
   void *raw = NULL;
-  while ((ret = dds_take (reader, &raw, &si, 1, 1)) == 1)
+  while ((ret = dds_take (args->reader, &raw, &si, 1, 1)) == 1)
   {
     if (si.valid_data)
     {
-      dds_loaned_sample_t *data = incoming_sample_to_loan(cvp, raw);
-      ret = dds_reader_store_external (cvp->cdds_endpoint, data);
+      dds_loaned_sample_t *data = incoming_sample_to_loan(args->cvp, raw);
+      ret = dds_reader_store_external (args->cvp->cdds_endpoint, data);
       assert (ret == DDS_RETCODE_OK);
     }
   }
+
+  dds_free (args);
+  return 0;
+}
+
+static void on_data_available (dds_entity_t reader, void* arg)
+{
+  struct cdds_virtual_interface_pipe *cvp = (struct cdds_virtual_interface_pipe *) arg;
+  struct take_and_store_args *data = dds_alloc (sizeof (*data));
+  data->cvp = cvp;
+  data->reader = reader;
+
+  ddsrt_thread_t tid;
+  ddsrt_threadattr_t tattr;
+  ddsrt_threadattr_init (&tattr);
+  ddsrt_thread_create (&tid, "take_and_store", &tattr, take_and_store_thread, data);
+
+  ddsrt_thread_join (tid, NULL);
 }
 
 static dds_return_t cdds_vp_set_on_source (struct dds_virtual_interface_pipe *pipe, dds_entity_t reader)
