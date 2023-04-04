@@ -22,7 +22,7 @@ CycloneDDS configuration
 *******************
 
 Attributes: [Id](`//CycloneDDS/Domain[@Id]`_)
-Children: `//CycloneDDS/Domain/Compatibility`_, `//CycloneDDS/Domain/Discovery`_, `//CycloneDDS/Domain/General`_, `//CycloneDDS/Domain/Internal`_, `//CycloneDDS/Domain/Partitioning`_, `//CycloneDDS/Domain/SSL`_, `//CycloneDDS/Domain/Security`_, `//CycloneDDS/Domain/Sizing`_, `//CycloneDDS/Domain/TCP`_, `//CycloneDDS/Domain/Threads`_, `//CycloneDDS/Domain/Tracing`_
+Children: `//CycloneDDS/Domain/Compatibility`_, `//CycloneDDS/Domain/Discovery`_, `//CycloneDDS/Domain/General`_, `//CycloneDDS/Domain/Internal`_, `//CycloneDDS/Domain/Partitioning`_, `//CycloneDDS/Domain/SSL`_, `//CycloneDDS/Domain/Security`_, `//CycloneDDS/Domain/SharedMemory`_, `//CycloneDDS/Domain/Sizing`_, `//CycloneDDS/Domain/TCP`_, `//CycloneDDS/Domain/Threads`_, `//CycloneDDS/Domain/Tracing`_
 
 The General element specifying Domain related settings.
 
@@ -457,7 +457,7 @@ The default value is: ``empty``
 
 Text
 
-Provide an initial seed for the entity naming. Your string will be hashed to provide the random state. When provided, the same sequence of names is generated every run. Creating your entities in the same order will ensure they are the same between runs. If you run multiple nodes, set this via environment variable to ensure every node generates unique names. A random starting seed is chosen when left empty, (the default).
+Provide an initial seed for the entity naming. Your string will be hashed to provide the random state. When provided, the same sequence of names is generated every run. Creating your entities in the same order will ensure they are the same between runs. If you run multiple nodes, set this via environment variable to ensure every node generates unique names. A random starting seed is chosen when left empty, (the default). 
 
 The default value is: ``<empty>``
 
@@ -527,7 +527,7 @@ This element defines a network interface. You can set autodetermine="true" to au
 
 Text
 
-This attribute specifies the address of the interface. With ipv4 allows  matching on the network part if the host part is set to zero.
+This attribute specifies the address of the interface. With ipv4 allows  matching on the network part if the host part is set to zero. 
 
 The default value is: ``<empty>``
 
@@ -563,7 +563,7 @@ The default value is: ``default``
 
 Text
 
-This attribute specifies the name of the interface.
+This attribute specifies the name of the interface. 
 
 The default value is: ``<empty>``
 
@@ -633,7 +633,7 @@ The default value is: ``<empty>``
 
 Text
 
-This attribute specifies the filename of the interface library.
+This attribute specifies the filename of the interface library. 
 
 The default value is: ``<empty>``
 
@@ -645,7 +645,7 @@ The default value is: ``<empty>``
 
 Text
 
-This attribute specifies the name of the interface.
+This attribute specifies the name of the interface. 
 
 The default value is: ``<empty>``
 
@@ -1877,7 +1877,7 @@ Examples file URIs:
 
 Content-Type: multipart/signed; protocol="application/x-pkcs7-signature"; micalg="sha-256"; boundary="----F9A8A198D6F08E1285A292ADF14DD04F"
 
-This is an S/MIME signed message
+This is an S/MIME signed message 
 
 ------F9A8A198D6F08E1285A292ADF14DD04F
 
@@ -1889,7 +1889,7 @@ xsi:noNamespaceSchemaLocation="omg\_shared\_ca\_governance.xsd">
 
 <domain\_access\_rules>
 
- . . .
+ . . . 
 
 </domain\_access\_rules>
 
@@ -2272,6 +2272,14 @@ If a single file is supplied, the is library located by the current working dire
 The default value is: ``dds\_security\_crypto``
 
 
+.. _`//CycloneDDS/Domain/SharedMemory`:
+
+//CycloneDDS/Domain/SharedMemory
+================================
+
+The Shared Memory element allows specifying various parameters related to using shared memory.
+
+
 .. _`//CycloneDDS/Domain/Sizing`:
 
 //CycloneDDS/Domain/Sizing
@@ -2620,14 +2628,14 @@ The categorisation of tracing output is incomplete and hence most of the verbosi
 The default value is: ``none``
 
 ..
-   generated from ddsi_config.h[7f55b8f40b2e7f5984106abb0470128eb3d50017]
-   generated from ddsi__cfgunits.h[bd22f0c0ed210501d0ecd3b07c992eca549ef5aa]
-   generated from ddsi__cfgelems.h[771184755c23b94599f2ffd6e8c242dcea7d2658]
-   generated from ddsi_config.c[fec4d055c2154717183efd6610d46ea48236cdea]
-   generated from _confgen.h[1b1d88a85bd851f4e87118505ded33f7b33b0435]
-   generated from _confgen.c[237308acd53897a34e8c643e16e05a61d73ffd65]
-   generated from generate_rnc.c[b50e4b7ab1d04b2bc1d361a0811247c337b74934]
-   generated from generate_md.c[789b92e422631684352909cfb8bf43f6ceb16a01]
-   generated from generate_rst.c[636ceeed42784e8508dd412b88dfd5f3b44b191b]
-   generated from generate_xsd.c[6b6818d7f17a35d56c376c04ec1410427f34c0f0]
-   generated from generate_defconfig.c[ee80ba6719e71a457a85f1a638fe52f3756916d5]
+   generated from ddsi_config.h[30b618f92731d89cb329d2a268b6329047bcb80c] 
+   generated from ddsi__cfgunits.h[bd22f0c0ed210501d0ecd3b07c992eca549ef5aa] 
+   generated from ddsi__cfgelems.h[38a38936668c8eb07a9d6f46ff05688de9b29e3c] 
+   generated from ddsi_config.c[e6bd7506b08130a0be13b7ff8f5d6ae2bbf5c5a6] 
+   generated from _confgen.h[1b1d88a85bd851f4e87118505ded33f7b33b0435] 
+   generated from _confgen.c[237308acd53897a34e8c643e16e05a61d73ffd65] 
+   generated from generate_rnc.c[b50e4b7ab1d04b2bc1d361a0811247c337b74934] 
+   generated from generate_md.c[789b92e422631684352909cfb8bf43f6ceb16a01] 
+   generated from generate_rst.c[c35cdcdfc0bd4f10a801204a6cc5d540af696b6e] 
+   generated from generate_xsd.c[6b6818d7f17a35d56c376c04ec1410427f34c0f0] 
+   generated from generate_defconfig.c[ee80ba6719e71a457a85f1a638fe52f3756916d5] 

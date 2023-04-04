@@ -54,6 +54,17 @@ enum ddsi_boolean_default {
   DDSI_BOOLDEF_TRUE
 };
 
+/* deprecated shm log level */
+enum ddsi_shm_loglevel {
+  DDSI_SHM_OFF = 0,
+  DDSI_SHM_FATAL,
+  DDSI_SHM_ERROR,
+  DDSI_SHM_WARN,
+  DDSI_SHM_INFO,
+  DDSI_SHM_DEBUG,
+  DDSI_SHM_VERBOSE
+};
+
 #define DDSI_PARTICIPANT_INDEX_AUTO -1
 #define DDSI_PARTICIPANT_INDEX_NONE -2
 
@@ -404,6 +415,12 @@ struct ddsi_config
 #ifdef DDS_HAS_SECURITY
   struct ddsi_config_omg_security_listelem *omg_security_configuration;
 #endif
+
+  /* deprecated shm options */
+  int enable_shm;
+  char *shm_locator;
+  char *iceoryx_service;
+  enum ddsi_shm_loglevel shm_log_lvl;
 
   enum ddsi_config_entity_naming_mode entity_naming_mode;
   ddsrt_prng_seed_t entity_naming_seed;

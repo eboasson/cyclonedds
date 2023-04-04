@@ -26,6 +26,7 @@
 #include "dds/ddsrt/environ.h"
 #include "dds/ddsrt/avl.h"
 #include "dds/ddsrt/xmlparser.h"
+#include "dds/ddsrt/io.h"
 #include "dds/ddsi/ddsi_log.h"
 #include "dds/ddsi/ddsi_unused.h"
 #include "ddsi__config_impl.h"
@@ -185,6 +186,7 @@ DU(deaf_mute);
 #ifdef DDS_HAS_SSL
 DUPF(min_tls_version);
 #endif
+DUPF(shm_loglevel);
 #undef DUPF
 #undef DU
 #undef PF
@@ -949,6 +951,10 @@ GENERIC_ENUM_CTYPE (standards_conformance, enum ddsi_standards_conformance)
 static const char *en_entity_naming_mode_vs[] = { "empty", "fancy", NULL };
 static const enum ddsi_config_entity_naming_mode en_entity_naming_mode_ms[] = { DDSI_ENTITY_NAMING_DEFAULT_EMPTY, DDSI_ENTITY_NAMING_DEFAULT_FANCY, 0 };
 GENERIC_ENUM_CTYPE (entity_naming_mode, enum ddsi_config_entity_naming_mode)
+
+static const char *en_shm_loglevel_vs[] = { "off", "fatal", "error", "warn", "info", "debug", "verbose", NULL };
+static const enum ddsi_shm_loglevel en_shm_loglevel_ms[] = { DDSI_SHM_OFF, DDSI_SHM_FATAL, DDSI_SHM_ERROR, DDSI_SHM_WARN, DDSI_SHM_INFO, DDSI_SHM_DEBUG, DDSI_SHM_VERBOSE, 0 };
+GENERIC_ENUM_CTYPE (shm_loglevel, enum ddsi_shm_loglevel)
 
 /* "trace" is special: it enables (nearly) everything */
 static const char *tracemask_names[] = {
@@ -2200,6 +2206,28 @@ static struct ddsi_config_network_interface * network_interface_find_or_append(s
   return &iface->cfg;
 }
 
+static struct ddsi_config_virtual_interface * virtual_interface_append(struct ddsi_config *cfg, const char * name, const char * library)
+{
+  struct ddsi_config_virtual_interface_listelem * iface = cfg->virtual_interfaces;
+  struct ddsi_config_virtual_interface_listelem ** prev_iface = &cfg->virtual_interfaces;
+
+  if (name == NULL || library == NULL)
+    return NULL;
+  while (iface && iface->cfg.name && ddsrt_strcasecmp(iface->cfg.name, name) != 0)
+    return NULL;
+
+  iface = (struct ddsi_config_virtual_interface_listelem *) malloc(sizeof(*iface));
+  if (!iface) return NULL;
+
+  iface->next = NULL;
+  iface->cfg.name = ddsrt_strdup(name);
+  iface->cfg.library = ddsrt_strdup(library);
+
+  *prev_iface = iface;
+
+  return &iface->cfg;
+}
+
 static int setup_network_partitions (struct ddsi_cfgst *cfgst)
 {
   int ok = 1;
@@ -2334,6 +2362,54 @@ static int convert_deprecated_interface_specification (struct ddsi_cfgst *cfgst)
       iface = iface->next;
     }
   }
+  return 1;
+}
+
+#define IOX_CONFIG_SERVICE_NAME "SERVICE_NAME"
+#define IOX_CONFIG_LOG_LEVEL "LOG_LEVEL"
+#define IOX_CONFIG_LOG_LEVEL_MAX_VALUE_LEN 7
+
+static int convert_deprecated_sharedmemory (struct ddsi_cfgst *cfgst)
+{
+  struct ddsi_config * const cfg = cfgst->cfg;
+
+  if (cfg->enable_shm)
+  {
+    struct ddsi_config_virtual_interface *vi_cfg = virtual_interface_append(cfg, "iox", "iox_interface");
+    if (!vi_cfg)
+      return 0;
+
+    size_t config_str_len = 0;
+    if (cfg->iceoryx_service != NULL)
+      config_str_len += strlen (IOX_CONFIG_SERVICE_NAME) + strlen (cfg->iceoryx_service) + 2; // plus 2 for = and ;
+    if (cfg->shm_log_lvl != DDSI_SHM_OFF)
+      config_str_len += strlen (IOX_CONFIG_LOG_LEVEL) + 9; // max length of log level string, plus 2 for = and ;
+
+    // FIXME no support for this option?
+    if (cfg->shm_locator != NULL && strlen (cfg->shm_locator) > 0)
+      return 0;
+
+    size_t sz = config_str_len + 1;
+    vi_cfg->config = ddsrt_malloc (sz);
+    if (cfg->iceoryx_service != NULL)
+      (void) snprintf (vi_cfg->config, sz, "%s=%s;", IOX_CONFIG_SERVICE_NAME, cfg->iceoryx_service);
+    if (cfg->shm_log_lvl != DDSI_SHM_OFF)
+    {
+      char *level_str = "OFF";
+      switch (cfg->shm_log_lvl) {
+        case DDSI_SHM_OFF: level_str = "OFF"; break;
+        case DDSI_SHM_FATAL: level_str = "FATAL"; break;
+        case DDSI_SHM_ERROR: level_str = "ERROR"; break;
+        case DDSI_SHM_WARN: level_str = "WARN"; break;
+        case DDSI_SHM_INFO: level_str = "INFO"; break;
+        case DDSI_SHM_DEBUG: level_str = "DEBUG"; break;
+        case DDSI_SHM_VERBOSE: level_str = "VERBOSE"; break;
+      };
+      assert (strlen (level_str) <= IOX_CONFIG_LOG_LEVEL_MAX_VALUE_LEN);
+      (void) snprintf (vi_cfg->config + strlen (vi_cfg->config), sz - strlen (vi_cfg->config), "%s=%s;", IOX_CONFIG_LOG_LEVEL, level_str);
+    }
+  }
+
   return 1;
 }
 
@@ -2481,6 +2557,7 @@ struct ddsi_cfgst *ddsi_config_init (const char *config, struct ddsi_config *cfg
 
   ok = ok && setup_network_partitions (cfgst);
   ok = ok && convert_deprecated_interface_specification (cfgst);
+  ok = ok && convert_deprecated_sharedmemory (cfgst);
 
   if (ok)
   {
