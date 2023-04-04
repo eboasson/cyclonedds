@@ -5,8 +5,7 @@
 #include <stdlib.h>
 
 /* An array of one message (aka sample in dds terms) will be used. */
-#define MAX_SAMPLES 8
-#define SUB_PREFIX "===[Subscriber] "
+#define MAX_SAMPLES 1
 
 int main (int argc, char ** argv)
 {
@@ -17,6 +16,7 @@ int main (int argc, char ** argv)
   void *samples[MAX_SAMPLES];
   dds_sample_info_t infos[MAX_SAMPLES];
   dds_return_t rc;
+  dds_qos_t *qos;
   (void)argc;
   (void)argv;
 
@@ -32,65 +32,53 @@ int main (int argc, char ** argv)
     DDS_FATAL("dds_create_topic: %s\n", dds_strretcode(-topic));
 
   /* Create a reliable Reader. */
-  dds_qos_t *qos = dds_create_qos();
-  dds_qset_history (qos, DDS_HISTORY_KEEP_LAST, 2);
-  dds_qset_reliability (qos, DDS_RELIABILITY_BEST_EFFORT, DDS_SECS (0));
+  qos = dds_create_qos ();
+  dds_qset_reliability (qos, DDS_RELIABILITY_RELIABLE, DDS_SECS (10));
   reader = dds_create_reader (participant, topic, qos, NULL);
-  dds_delete_qos(qos);
   if (reader < 0)
     DDS_FATAL("dds_create_reader: %s\n", dds_strretcode(-reader));
+  dds_delete_qos(qos);
 
-  printf (SUB_PREFIX "Waiting for a sample ...\n");
+  printf ("\n=== [Subscriber] Waiting for a sample ...\n");
   fflush (stdout);
 
-  samples[0] = NULL;
+  /* Initialize sample buffer, by pointing the void pointer within
+   * the buffer array to a valid sample memory location. */
+  samples[0] = HelloWorldData_Msg__alloc ();
 
   /* Poll until data has been read. */
-  int sequential_sleeps = 0;
-  int msgsread = 0;
   while (true)
   {
     /* Do the actual read.
      * The return value contains the number of read samples. */
     rc = dds_read (reader, samples, infos, MAX_SAMPLES, MAX_SAMPLES);
-    if (rc < 0) {
+    if (rc < 0)
       DDS_FATAL("dds_read: %s\n", dds_strretcode(-rc));
-    }
 
     /* Check if we read some data and it is valid. */
-    for (int32_t i = 0; i < rc; i++)
+    if ((rc > 0) && (infos[0].valid_data))
     {
-      if (infos[i].valid_data && infos[i].sample_state == DDS_NOT_READ_SAMPLE_STATE)
-      {
-        /* Print Message. */
-        msg = (HelloWorldData_Msg*) samples[i];
-        printf (SUB_PREFIX "Message: %p (a = %8d, b = %8d, c = %8d, s = \"%s\")\n", msg, msg->a, msg->b, msg->c, msg->s);
-        fflush (stdout);
-        msgsread++;
-        sequential_sleeps = 0;
-      }
-    }
-
-    /*if (rc > 0)
-      dds_return_loan(reader, samples, rc);*/
-
-
-    /* Polling sleep. */
-    dds_sleepfor (DDS_MSECS (500));
-    if (msgsread && ++sequential_sleeps > 5) {
-      printf (SUB_PREFIX "Done waiting for data after %d messages.\n", msgsread);
+      /* Print Message. */
+      msg = (HelloWorldData_Msg*) samples[0];
+      printf ("=== [Subscriber] Received : ");
+      printf ("Message (%"PRId32", %s)\n", msg->userID, msg->message);
+      fflush (stdout);
       break;
+    }
+    else
+    {
+      /* Polling sleep. */
+      dds_sleepfor (DDS_MSECS (20));
     }
   }
 
-  printf (SUB_PREFIX "Done reading, cleaning up.\n");
+  /* Free the data location. */
+  HelloWorldData_Msg_free (samples[0], DDS_FREE_ALL);
 
   /* Deleting the participant will delete all its children recursively as well. */
   rc = dds_delete (participant);
   if (rc != DDS_RETCODE_OK)
     DDS_FATAL("dds_delete: %s\n", dds_strretcode(-rc));
-
-  printf (SUB_PREFIX "Finished, exiting.\n");
 
   return EXIT_SUCCESS;
 }
