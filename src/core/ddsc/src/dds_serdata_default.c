@@ -851,7 +851,7 @@ static void serdata_default_get_keyhash (const struct ddsi_serdata *serdata_comm
 
 static struct ddsi_serdata * serdata_default_from_virtual_exchange (const struct ddsi_sertype *type, dds_loaned_sample_t *data)
 {
-  const struct dds_sertype_default *tp = (const struct dds_sertype_default *)type;
+  const struct dds_sertype_default *tp = (const struct dds_sertype_default *) type;
   struct dds_virtual_interface_metadata *md = data->metadata;
   enum ddsi_serdata_kind sdk = 0;
   switch (md->sample_state)
@@ -869,34 +869,32 @@ static struct ddsi_serdata * serdata_default_from_virtual_exchange (const struct
       break;
   }
 
-  struct dds_serdata_default *d = serdata_default_new(tp, sdk, md->cdr_identifier);
-
-  //the loaned sample is serialized
+  struct dds_serdata_default *d = serdata_default_new (tp, sdk, md->cdr_identifier);
   d->c.hash = md->hash;
   d->c.statusinfo = md->statusinfo;
   d->c.timestamp.v = md->timestamp;
-  memcpy(d->key.u.stbuf, md->keyhash, DDS_FIXED_KEY_MAX_SIZE);
-  d->key.keysize = (unsigned)md->keysize;
+  memcpy (d->key.u.stbuf, md->keyhash, DDS_FIXED_KEY_MAX_SIZE);
+  d->key.keysize = (unsigned) md->keysize;
   d->key.buftype = KEYBUFTYPE_STATIC;
-  d->hdr.identifier = DDSI_RTPS_CDR_ENC_TO_NATIVE(md->cdr_identifier);
+  d->hdr.identifier = DDSI_RTPS_CDR_ENC_TO_NATIVE (md->cdr_identifier);
   d->hdr.options = md->cdr_options;
 
-  if (md->sample_state == DDS_LOANED_SAMPLE_STATE_SERIALIZED_KEY ||
-      md->sample_state == DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA)
+  if (md->sample_state == DDS_LOANED_SAMPLE_STATE_SERIALIZED_KEY || md->sample_state == DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA)
   {
+    // the loaned sample is serialized
     dds_loaned_sample_t *ls;
     dds_heap_loan (type, &ls); // FIXME: check return code
     dds_istream_t is;
     dds_istream_init (&is, md->sample_size, data->sample_ptr, md->cdr_identifier);
     dds_stream_read_sample (&is, ls->sample_ptr, &dds_cdrstream_default_allocator, &tp->type);
-    (void) dds_loaned_sample_free(data);
+    (void) dds_loaned_sample_free (data);
     data = ls;
   }
 
   d->c.loan = data;
-  dds_loaned_sample_ref(data);
+  dds_loaned_sample_ref (data);
 
-  return (struct ddsi_serdata *)d;
+  return (struct ddsi_serdata *) d;
 }
 
 const struct ddsi_serdata_ops dds_serdata_ops_cdr = {

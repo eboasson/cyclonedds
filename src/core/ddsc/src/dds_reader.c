@@ -662,6 +662,28 @@ err_pin_topic:
   return rc;
 }
 
+static dds_return_t get_writer_info (struct ddsi_domaingv *gv, dds_guid_t *dds_guid, uint32_t statusinfo, struct ddsi_writer_info *wi)
+{
+  dds_return_t ret = DDS_RETCODE_OK;
+  struct dds_qos *xqos = NULL;
+
+  struct ddsi_guid guid;
+  // FIXME ntoh required?
+  memcpy (&guid, dds_guid, sizeof (guid));
+
+  struct ddsi_entity_common *ec = ddsi_entidx_lookup_guid_untyped (gv->entity_index, &guid);
+  if (ec == NULL || (ec->kind != DDSI_EK_PROXY_WRITER && ec->kind != DDSI_EK_WRITER))
+    ret = DDS_RETCODE_NOT_FOUND;
+  else if (ec->kind == DDSI_EK_PROXY_WRITER)
+    xqos = ((struct ddsi_proxy_writer *) ec)->c.xqos;
+  else
+    xqos = ((struct ddsi_writer *) ec)->xqos;
+
+  ddsi_make_writer_info (wi, ec, xqos, statusinfo);
+
+  return ret;
+}
+
 dds_return_t dds_reader_store_external (dds_entity_t reader, dds_loaned_sample_t *data)
 {
   dds_return_t ret;
@@ -684,31 +706,19 @@ dds_return_t dds_reader_store_external (dds_entity_t reader, dds_loaned_sample_t
 
   ddsi_thread_state_awake (ddsi_lookup_thread_state (), gv);
   ddsrt_mutex_lock (&rd->e.lock);
-  struct dds_qos * xqos = NULL;
-  struct dds_virtual_interface_metadata *md = data->metadata;
-  struct ddsi_guid guid;
-  memcpy (&guid, &md->guid, sizeof (guid));
-  struct ddsi_entity_common * e_c = ddsi_entidx_lookup_guid_untyped (gv->entity_index, &guid);
-  if (e_c == NULL || (e_c->kind != DDSI_EK_PROXY_WRITER && e_c->kind != DDSI_EK_WRITER))
-  {
-    ret = DDS_RETCODE_NOT_FOUND;
-    goto writer_fail;
-  }
-  else if (e_c->kind == DDSI_EK_PROXY_WRITER)
-    xqos = ((struct ddsi_proxy_writer *) e_c)->c.xqos;
-  else
-    xqos = ((struct ddsi_writer *) e_c)->xqos;
 
-  //what if the sample is overwritten?
-  //if the sample is not matched to this reader, return ownership to the virtual interface?
+  // FIXME: what if the sample is overwritten?
+  // if the sample is not matched to this reader, return ownership to the virtual interface?
 
   // After this call, loaned sample (data) may be freed
-  struct ddsi_serdata * sd = ddsi_serdata_from_virtual_exchange (dds_rd->m_topic->m_stype, data);
+  struct ddsi_serdata * sd = ddsi_serdata_from_virtual_exchange (rd->type, data);
   if (sd == NULL)
     goto kind_fail;
 
   struct ddsi_writer_info wi;
-  ddsi_make_writer_info (&wi, e_c, xqos, sd->statusinfo);
+  if ((ret = get_writer_info (gv, &data->metadata->guid, sd->statusinfo, &wi)) != DDS_RETCODE_OK)
+    goto writer_fail;
+
   struct ddsi_tkmap_instance * tk = ddsi_tkmap_lookup_instance_ref (gv->m_tkmap, sd);
   if (tk == NULL)
   {
@@ -716,7 +726,7 @@ dds_return_t dds_reader_store_external (dds_entity_t reader, dds_loaned_sample_t
     goto instance_ref_fail;
   }
 
-  if (!dds_rhc_store (dds_rd->m_rhc, &wi, sd, tk))  //the reader history cache is now the owner of _sd?
+  if (!dds_rhc_store (dds_rd->m_rhc, &wi, sd, tk))  // FIXME: the reader history cache is now the owner of sd?
   {
     ret = DDS_RETCODE_ERROR;
     goto rhc_store_fail;
@@ -726,11 +736,12 @@ dds_return_t dds_reader_store_external (dds_entity_t reader, dds_loaned_sample_t
     ret = dds_loan_manager_add_loan (dds_rd->m_loans, sd->loan);
 
   ddsi_serdata_unref (sd);
+
 rhc_store_fail:
   ddsi_tkmap_instance_unref (gv->m_tkmap, tk);
 instance_ref_fail:
-kind_fail:
 writer_fail:
+kind_fail:
   ddsrt_mutex_unlock (&rd->e.lock);
   ddsi_thread_state_asleep (ddsi_lookup_thread_state ());
   dds_entity_unpin (e);
