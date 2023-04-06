@@ -39,6 +39,8 @@ struct cdds_virtual_interface_pipe {
   struct dds_virtual_interface_pipe c;
   dds_entity_t vi_endpoint;
   dds_entity_t cdds_endpoint;
+  ddsrt_atomic_uint32_t on_data_threads_stop;
+  ddsrt_atomic_uint32_t on_data_threads_count;
 };
 
 static const uint32_t sample_padding = sizeof (struct dds_virtual_interface_metadata) % 8 ? (sizeof (struct dds_virtual_interface_metadata) / 8 + 1) * 8 : sizeof (struct dds_virtual_interface_metadata);
@@ -185,6 +187,8 @@ static struct dds_virtual_interface_pipe * cdds_vt_pipe_open (struct dds_virtual
   cvp->c.ops = vp_ops;
   cvp->c.topic = topic;
   cvp->c.pipe_type = pipe_type;
+  ddsrt_atomic_st32 (&cvp->on_data_threads_stop, 0);
+  ddsrt_atomic_st32 (&cvp->on_data_threads_count, 0);
 
   switch (pipe_type)
   {
@@ -207,6 +211,11 @@ static struct dds_virtual_interface_pipe * cdds_vt_pipe_open (struct dds_virtual
 static dds_return_t cdds_vt_pipe_close (struct dds_virtual_interface_pipe *pipe)
 {
   struct cdds_virtual_interface_pipe *cvp = (struct cdds_virtual_interface_pipe *) pipe;
+
+  ddsrt_atomic_st32 (&cvp->on_data_threads_stop, 1);
+  while (ddsrt_atomic_ld32 (&cvp->on_data_threads_count) > 0)
+    dds_sleepfor (DDS_MSECS (100));
+
   dds_delete (cvp->vi_endpoint);
   dds_free (cvp);
   return DDS_RETCODE_OK;
@@ -299,63 +308,63 @@ static dds_loaned_sample_t * incoming_sample_to_loan (struct cdds_virtual_interf
   return ls;
 }
 
-struct take_and_store_args {
-  dds_entity_t reader;
+struct on_data_available_args {
   struct cdds_virtual_interface_pipe *cvp;
 };
 
-static uint32_t take_and_store_thread (void *a)
+static uint32_t on_data_available_thread (void *a)
 {
-  struct take_and_store_args *args = (struct take_and_store_args *) a;
-
+  struct on_data_available_args *args = (struct on_data_available_args *) a;
+  struct cdds_virtual_interface *cvi = (struct cdds_virtual_interface *) args->cvp->c.topic->virtual_interface;
   dds_return_t ret;
-  dds_sample_info_t si;
-  void *raw = NULL;
-  while ((ret = dds_take (args->reader, &raw, &si, 1, 1)) == 1)
+
+  ddsrt_atomic_inc32 (&args->cvp->on_data_threads_count);
+
+  // attach waitset to virtual interface reader and wait for on_data_available
+  dds_entity_t waitset = dds_create_waitset (cvi->participant);
+  ret = dds_set_status_mask (args->cvp->vi_endpoint, DDS_DATA_AVAILABLE_STATUS);
+  assert (ret == DDS_RETCODE_OK);
+  ret = dds_waitset_attach (waitset, args->cvp->vi_endpoint, args->cvp->vi_endpoint);
+  assert (ret == DDS_RETCODE_OK);
+  while (ddsrt_atomic_ld32 (&args->cvp->on_data_threads_stop) == 0)
   {
-    if (si.valid_data)
+    ret = dds_waitset_wait (waitset, NULL, 0, DDS_MSECS (100));
+    assert (ret >= 0);
+
+    dds_sample_info_t si;
+    void *raw = NULL;
+    dds_return_t n = dds_take (args->cvp->vi_endpoint, &raw, &si, 1, 1);
+    if (n == 1 && si.valid_data)
     {
-      dds_loaned_sample_t *data = incoming_sample_to_loan(args->cvp, raw);
-      ret = dds_reader_store_external (args->cvp->cdds_endpoint, data);
-      assert (ret == DDS_RETCODE_OK);
+      dds_loaned_sample_t *data = incoming_sample_to_loan (args->cvp, raw);
+      (void) dds_reader_store_external (args->cvp->cdds_endpoint, data);
     }
   }
 
+  ddsrt_atomic_dec32 (&args->cvp->on_data_threads_count);
   dds_free (args);
   return 0;
-}
-
-static void on_data_available (dds_entity_t reader, void* arg)
-{
-  struct cdds_virtual_interface_pipe *cvp = (struct cdds_virtual_interface_pipe *) arg;
-  struct take_and_store_args *data = dds_alloc (sizeof (*data));
-  data->cvp = cvp;
-  data->reader = reader;
-
-  ddsrt_thread_t tid;
-  ddsrt_threadattr_t tattr;
-  ddsrt_threadattr_init (&tattr);
-  ddsrt_thread_create (&tid, "take_and_store", &tattr, take_and_store_thread, data);
-
-  ddsrt_thread_join (tid, NULL);
 }
 
 static dds_return_t cdds_vp_set_on_source (struct dds_virtual_interface_pipe *pipe, dds_entity_t reader)
 {
   struct cdds_virtual_interface_pipe *cvp = (struct cdds_virtual_interface_pipe *) pipe;
   cvp->cdds_endpoint = reader;
-  dds_listener_t *listener = dds_create_listener (cvp);
-  dds_lset_data_available (listener, on_data_available);
-  dds_return_t ret = dds_set_listener (cvp->vi_endpoint, listener);
-  assert (ret == DDS_RETCODE_OK);
-  dds_delete_listener (listener);
+
+  struct on_data_available_args *data = dds_alloc (sizeof (*data));
+  data->cvp = cvp;
+
+  ddsrt_thread_t tid;
+  ddsrt_threadattr_t tattr;
+  ddsrt_threadattr_init (&tattr);
+  ddsrt_thread_create (&tid, "virtintf_cdds_ondata", &tattr, on_data_available_thread, data);
   return DDS_RETCODE_OK;
 }
 
 static void cdds_loaned_sample_free (struct dds_loaned_sample *loaned_sample)
 {
   dds_free (loaned_sample->metadata);
-  // dds_free (loaned_sample->sample_ptr);
+  // FIXME: dds_free (loaned_sample->sample_ptr);
   dds_free (loaned_sample);
 }
 

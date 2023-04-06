@@ -82,15 +82,30 @@ CU_Test (ddsc_virtual_interface, create, .init = ddsrt_init, .fini = ddsrt_fini)
   reader = dds_create_reader (participant, topic, NULL, NULL);
   CU_ASSERT_FATAL (reader > 0);
 
+  sync_reader_writer (participant, reader, participant, writer);
+
   // write
   SC_Model mod = {.a = 0x1, .b = 0x4, .c = 0x9};
-  rc = dds_write(writer, &mod);
+  rc = dds_write (writer, &mod);
   CU_ASSERT_EQUAL_FATAL (rc, DDS_RETCODE_OK);
 
   // read
   samples[0] = SC_Model__alloc ();
-  rc = dds_read (reader, samples, infos, MAX_SAMPLES, MAX_SAMPLES);
-  CU_ASSERT_EQUAL_FATAL (rc, 1);
+  dds_entity_t ws = dds_create_waitset (participant);
+  dds_set_status_mask (reader, DDS_DATA_AVAILABLE_STATUS);
+  dds_waitset_attach (ws, reader, reader);
+  bool sample_read = false;
+  do
+  {
+    dds_waitset_wait (ws, NULL, 0, DDS_MSECS (100));
+    rc = dds_read (reader, samples, infos, MAX_SAMPLES, MAX_SAMPLES);
+    if (rc > 0 && infos[0].valid_data)
+    {
+      CU_ASSERT_EQUAL_FATAL (rc, 1);
+      sample_read = true;
+    }
+  }
+  while (!sample_read);
 
   SC_Model_free (samples[0], DDS_FREE_ALL);
   dds_delete (participant);
