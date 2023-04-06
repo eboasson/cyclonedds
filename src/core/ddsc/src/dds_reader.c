@@ -673,7 +673,10 @@ static dds_return_t get_writer_info (struct ddsi_domaingv *gv, dds_guid_t *dds_g
 
   struct ddsi_entity_common *ec = ddsi_entidx_lookup_guid_untyped (gv->entity_index, &guid);
   if (ec == NULL || (ec->kind != DDSI_EK_PROXY_WRITER && ec->kind != DDSI_EK_WRITER))
+  {
     ret = DDS_RETCODE_NOT_FOUND;
+    goto err;
+  }
   else if (ec->kind == DDSI_EK_PROXY_WRITER)
     xqos = ((struct ddsi_proxy_writer *) ec)->c.xqos;
   else
@@ -681,6 +684,7 @@ static dds_return_t get_writer_info (struct ddsi_domaingv *gv, dds_guid_t *dds_g
 
   ddsi_make_writer_info (wi, ec, xqos, statusinfo);
 
+err:
   return ret;
 }
 
