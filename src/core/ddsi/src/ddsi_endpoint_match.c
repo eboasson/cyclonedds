@@ -787,7 +787,8 @@ void ddsi_writer_add_local_connection (struct ddsi_writer *wr, struct ddsi_reade
             PGUID (wr->e.guid), PGUID (rd->e.guid));
   m->rd_guid = rd->e.guid;
   ddsrt_avl_insert_ipath (&ddsi_wr_local_readers_treedef, &wr->local_readers, m, &path);
-  ddsi_local_reader_ary_insert(&wr->rdary, rd);
+  if (wr->c.virtual_locators.length == 0 || rd->c.virtual_locators.length == 0)
+    ddsi_local_reader_ary_insert(&wr->rdary, rd);
 
   /* Store available data into the late joining reader when it is reliable (we don't do
      historical data for best-effort data over the wire, so also not locally). */
