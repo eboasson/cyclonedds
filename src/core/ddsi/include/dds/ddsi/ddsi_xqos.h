@@ -196,9 +196,7 @@ typedef struct dds_data_representation_qospolicy {
   dds_data_representation_id_seq_t value;
 } dds_data_representation_qospolicy_t;
 
-typedef struct dds_virtual_interfaces_qospolicy {
-  ddsi_stringseq_t supported_virtual_interface_kinds;
-} dds_virtual_interfaces_qospolicy_t;
+typedef ddsi_stringseq_t dds_virtual_interfaces_qospolicy_t;
 
 /***/
 
