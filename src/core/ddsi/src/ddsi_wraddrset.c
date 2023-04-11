@@ -780,7 +780,6 @@ struct ddsi_addrset *ddsi_compute_writer_addrset (const struct ddsi_writer *wr)
   }
   else
   {
-    assert(wr->xqos->present & DDSI_QP_VIRTUAL_INTERFACES);
     struct costmap *wm = wras_calc_costmap (locs, covered, 0);
     int best;
     newas = ddsi_new_addrset ();
