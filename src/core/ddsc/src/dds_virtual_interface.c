@@ -350,7 +350,10 @@ struct ddsi_virtual_locators_set *dds_get_virtual_locators_set (const dds_qos_t 
       vl_set->locators = dds_realloc (vl_set->locators, vl_set->length * sizeof (*vl_set->locators));
       vl_set->locators[vl_set->length - 1] = *vi->locator;
     }
+    dds_free (values[i]);
   }
+  if (n > 0)
+    dds_free (values);
   return vl_set;
 }
 

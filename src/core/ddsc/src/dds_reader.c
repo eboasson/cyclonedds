@@ -715,12 +715,13 @@ dds_return_t dds_reader_store_external (dds_entity_t reader, dds_loaned_sample_t
   // if the sample is not matched to this reader, return ownership to the virtual interface?
 
   // After this call, loaned sample (data) may be freed
+  dds_guid_t guid = data->metadata->guid;
   struct ddsi_serdata * sd = ddsi_serdata_from_virtual_exchange (rd->type, data);
   if (sd == NULL)
     goto kind_fail;
 
   struct ddsi_writer_info wi;
-  if ((ret = get_writer_info (gv, &data->metadata->guid, sd->statusinfo, &wi)) != DDS_RETCODE_OK)
+  if ((ret = get_writer_info (gv, &guid, sd->statusinfo, &wi)) != DDS_RETCODE_OK)
     goto writer_fail;
 
   struct ddsi_tkmap_instance * tk = ddsi_tkmap_lookup_instance_ref (gv->m_tkmap, sd);

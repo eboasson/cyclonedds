@@ -268,7 +268,7 @@ static dds_return_t cdds_vp_sink_data (struct dds_virtual_interface_pipe *pipe, 
   memcpy (&sample.guid, &data->metadata->guid, sizeof (sample.guid));
   memcpy (&sample.keyhash, data->metadata->keyhash, sizeof (sample.keyhash));
   sample.data._length = sample.data._maximum = data->metadata->sample_size;
-  sample.data._release = false;
+  sample.data._release = true;
   sample.data._buffer = data->sample_ptr;
   dds_write (cvp->vi_endpoint, &sample);
   return DDS_RETCODE_OK;
@@ -280,10 +280,8 @@ static dds_loaned_sample_t * cdds_vp_source_data (struct dds_virtual_interface_p
   return NULL;
 }
 
-static dds_loaned_sample_t * incoming_sample_to_loan (struct cdds_virtual_interface_pipe *cvp, const void *sample)
+static dds_loaned_sample_t * incoming_sample_to_loan (struct cdds_virtual_interface_pipe *cvp, struct cdds_virtintf_data *vi_sample)
 {
-  struct cdds_virtintf_data *vi_sample = (struct cdds_virtintf_data *) sample;
-
   struct dds_virtual_interface_metadata *vmd = dds_alloc (sizeof (*vmd));
   vmd->block_size = vi_sample->block_size;
   vmd->cdr_identifier = vi_sample->cdr_identifier;
@@ -332,13 +330,14 @@ static uint32_t on_data_available_thread (void *a)
     assert (ret >= 0);
 
     dds_sample_info_t si;
-    void *raw = NULL;
-    dds_return_t n = dds_take (args->cvp->vi_endpoint, &raw, &si, 1, 1);
+    struct cdds_virtintf_data *sample = dds_alloc (sizeof (*sample));
+    dds_return_t n = dds_take (args->cvp->vi_endpoint, (void **) &sample, &si, 1, 1);
     if (n == 1 && si.valid_data)
     {
-      dds_loaned_sample_t *data = incoming_sample_to_loan (args->cvp, raw);
+      dds_loaned_sample_t *data = incoming_sample_to_loan (args->cvp, sample);
       (void) dds_reader_store_external (args->cvp->cdds_endpoint, data);
     }
+    dds_free (sample);
   }
 
   ddsrt_atomic_dec32 (&args->cvp->on_data_threads_count);
@@ -364,7 +363,7 @@ static dds_return_t cdds_vp_set_on_source (struct dds_virtual_interface_pipe *pi
 static void cdds_loaned_sample_free (struct dds_loaned_sample *loaned_sample)
 {
   dds_free (loaned_sample->metadata);
-  // FIXME: dds_free (loaned_sample->sample_ptr);
+  dds_free (loaned_sample->sample_ptr);
   dds_free (loaned_sample);
 }
 

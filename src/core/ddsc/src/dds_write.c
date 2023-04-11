@@ -535,8 +535,7 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
     }
     else
     {
-      dds_loaned_sample_unref (loan); //loan refs(0)
-      d->loan = NULL;
+      dds_loaned_sample_unref (loan); // d can have a ref
     }
   }
 
