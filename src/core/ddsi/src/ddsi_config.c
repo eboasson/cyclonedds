@@ -2375,6 +2375,10 @@ static int convert_deprecated_sharedmemory (struct ddsi_cfgst *cfgst)
 
   if (cfg->enable_shm)
   {
+    // FIXME no support for this option?
+    if (cfg->shm_locator != NULL && strlen (cfg->shm_locator) > 0)
+      return 0;
+
     struct ddsi_config_virtual_interface *vi_cfg = virtual_interface_append(cfg, "iox", "iox_interface");
     if (!vi_cfg)
       return 0;
@@ -2384,10 +2388,6 @@ static int convert_deprecated_sharedmemory (struct ddsi_cfgst *cfgst)
       config_str_len += strlen (IOX_CONFIG_SERVICE_NAME) + strlen (cfg->iceoryx_service) + 2; // plus 2 for = and ;
     if (cfg->shm_log_lvl != DDSI_SHM_OFF)
       config_str_len += strlen (IOX_CONFIG_LOG_LEVEL) + 9; // max length of log level string, plus 2 for = and ;
-
-    // FIXME no support for this option?
-    if (cfg->shm_locator != NULL && strlen (cfg->shm_locator) > 0)
-      return 0;
 
     size_t sz = config_str_len + 1;
     vi_cfg->config = ddsrt_malloc (sz);
