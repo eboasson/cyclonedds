@@ -473,20 +473,17 @@ static struct ddsi_serdata *serdata_default_from_loaned_sample(const struct ddsi
   */
   const struct dds_sertype_default *t = (const struct dds_sertype_default *)tpcmn;
 
-  bool serialize_data =
-    force_serialization ||
-    dds_virtual_interface_pipe_serialization_required(loan->loan_origin);
+  bool serialize_data = force_serialization || dds_virtual_interface_pipe_serialization_required (loan->loan_origin);
 
   struct dds_serdata_default *d;
   if (serialize_data)
   {
-    //maybe if there is a loan and that loan is not the sample, use the loan block as the serialization buffer?
-    d = (struct dds_serdata_default *)tpcmn->serdata_ops->from_sample (tpcmn, kind, sample);
+    // maybe if there is a loan and that loan is not the sample, use the loan block as the serialization buffer?
+    d = (struct dds_serdata_default *) tpcmn->serdata_ops->from_sample (tpcmn, kind, sample);
   }
   else
   {
     d = serdata_default_new (t, kind, t->write_encoding_version);
-
     if (d == NULL || !gen_serdata_key_from_sample (t, &d->key, sample))
       return NULL;
   }
@@ -494,9 +491,9 @@ static struct ddsi_serdata *serdata_default_from_loaned_sample(const struct ddsi
   if (d)
   {
     d->c.loan = loan;
-    /*transfer ownership of the loan to the serdata*/
-    dds_loaned_sample_ref(loan);
-    dds_loan_manager_remove_loan(loan);
+    // transfer ownership of the loan to the serdata
+    dds_loaned_sample_ref (loan);
+    dds_loan_manager_remove_loan (loan);
 
     struct dds_virtual_interface_metadata *md = loan->metadata;
     md->cdr_options = d->hdr.options;
@@ -526,12 +523,12 @@ static struct ddsi_serdata *serdata_default_from_loaned_sample(const struct ddsi
       if (serialize_data)
       {
         md->sample_state = (kind == SDK_KEY ? DDS_LOANED_SAMPLE_STATE_SERIALIZED_KEY : DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA);
-        memcpy(loan->sample_ptr, d->data, md->sample_size);
+        memcpy (loan->sample_ptr, d->data, md->sample_size);
       }
       else
       {
         md->sample_state = DDS_LOANED_SAMPLE_STATE_RAW;
-        memcpy(loan->sample_ptr, sample, md->sample_size);
+        memcpy (loan->sample_ptr, sample, md->sample_size);
       }
     }
     else
@@ -556,15 +553,25 @@ static struct ddsi_serdata *serdata_default_from_loaned_sample(const struct ddsi
     md->keysize = d->key.keysize;
   }
 
-  return (struct ddsi_serdata *)d;
+  return (struct ddsi_serdata *) d;
 }
 
 
 static void istream_from_serdata_default (dds_istream_t * __restrict s, const struct dds_serdata_default * __restrict d)
 {
-  s->m_buffer = (const unsigned char *) d;
-  s->m_index = (uint32_t) offsetof (struct dds_serdata_default, data);
-  s->m_size = d->size + s->m_index;
+  if (d->c.loan != NULL)
+  {
+    assert (d->c.loan->metadata->sample_state == DDS_LOANED_SAMPLE_STATE_SERIALIZED_KEY || d->c.loan->metadata->sample_state == DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA);
+    s->m_buffer = d->c.loan->sample_ptr;
+    s->m_index = 0;
+    s->m_size = d->c.loan->metadata->sample_size;
+  }
+  else
+  {
+    s->m_buffer = (const unsigned char *) d;
+    s->m_index = (uint32_t) offsetof (struct dds_serdata_default, data);
+    s->m_size = d->size + s->m_index;
+  }
 #if DDSRT_ENDIAN == DDSRT_LITTLE_ENDIAN
   assert (DDSI_RTPS_CDR_ENC_LE (d->hdr.identifier));
 #elif DDSRT_ENDIAN == DDSRT_BIG_ENDIAN
@@ -754,11 +761,18 @@ static bool serdata_default_to_sample_cdr (const struct ddsi_serdata *serdata_co
   dds_istream_t is;
   if (bufptr) abort(); else { (void)buflim; } /* FIXME: haven't implemented that bit yet! */
   assert (DDSI_RTPS_CDR_ENC_IS_NATIVE (d->hdr.identifier));
-  istream_from_serdata_default(&is, d);
-  if (d->c.kind == SDK_KEY)
-    dds_stream_read_key (&is, sample, &dds_cdrstream_default_allocator, &tp->type);
+  if (d->c.loan != NULL && d->c.loan->metadata->sample_state == DDS_LOANED_SAMPLE_STATE_RAW)
+  {
+    memcpy (sample, d->c.loan->sample_ptr, d->c.loan->metadata->sample_size);
+  }
   else
-    dds_stream_read_sample (&is, sample, &dds_cdrstream_default_allocator, &tp->type);
+  {
+    istream_from_serdata_default (&is, d);
+    if (d->c.kind == SDK_KEY)
+      dds_stream_read_key (&is, sample, &dds_cdrstream_default_allocator, &tp->type);
+    else
+      dds_stream_read_sample (&is, sample, &dds_cdrstream_default_allocator, &tp->type);
+  }
   return true; /* FIXME: can't conversion to sample fail? */
 }
 
@@ -772,8 +786,12 @@ static bool serdata_default_untyped_to_sample_cdr (const struct ddsi_sertype *se
   assert (d->c.ops == sertype_common->serdata_ops);
   assert (DDSI_RTPS_CDR_ENC_IS_NATIVE (d->hdr.identifier));
   if (bufptr) abort(); else { (void)buflim; } /* FIXME: haven't implemented that bit yet! */
-  istream_from_serdata_default(&is, d);
-  dds_stream_read_key (&is, sample, &dds_cdrstream_default_allocator, &tp->type);
+
+  if (d->c.loan == NULL || d->c.loan->metadata->sample_state != DDS_LOANED_SAMPLE_STATE_RAW)
+  {
+    istream_from_serdata_default (&is, d);
+    dds_stream_read_key (&is, sample, &dds_cdrstream_default_allocator, &tp->type);
+  }
   return true; /* FIXME: can't conversion to sample fail? */
 }
 
@@ -790,11 +808,18 @@ static size_t serdata_default_print_cdr (const struct ddsi_sertype *sertype_comm
   const struct dds_serdata_default *d = (const struct dds_serdata_default *)serdata_common;
   const struct dds_sertype_default *tp = (const struct dds_sertype_default *)sertype_common;
   dds_istream_t is;
-  istream_from_serdata_default (&is, d);
-  if (d->c.kind == SDK_KEY)
-    return dds_stream_print_key (&is, &tp->type, buf, size);
+  if (d->c.loan != NULL && d->c.loan->metadata->sample_state == DDS_LOANED_SAMPLE_STATE_RAW)
+  {
+    return (size_t) snprintf (buf, size, "[RAW]");
+  }
   else
-    return dds_stream_print_sample (&is, &tp->type, buf, size);
+  {
+    istream_from_serdata_default (&is, d);
+    if (d->c.kind == SDK_KEY)
+      return dds_stream_print_key (&is, &tp->type, buf, size);
+    else
+      return dds_stream_print_sample (&is, &tp->type, buf, size);
+  }
 }
 
 static void serdata_default_get_keyhash (const struct ddsi_serdata *serdata_common, struct ddsi_keyhash *buf, bool force_md5)
