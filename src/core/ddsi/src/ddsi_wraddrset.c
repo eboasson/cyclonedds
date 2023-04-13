@@ -780,7 +780,12 @@ struct ddsi_addrset *ddsi_compute_writer_addrset (const struct ddsi_writer *wr)
   }
   else
   {
-    struct costmap *wm = wras_calc_costmap (locs, covered, 0);
+    /* FIXME: ignore reader's locators of kind virtual interface if the writer
+       doesn't have virtual pipes. This works in case of a single virtual interface,
+       but as soon as >1 virtual interfaces are supported, needs to be fixed
+       in wras_collect_all_locs */
+    dds_locator_mask_t ignore = wr->c.virtual_locators.length == 0 ? DDSI_LOCATOR_KIND_VIRTINTF : 0;
+    struct costmap *wm = wras_calc_costmap (locs, covered, ignore);
     int best;
     newas = ddsi_new_addrset ();
     while ((best = wras_choose_locator (locs, wm)) > INT32_MIN)

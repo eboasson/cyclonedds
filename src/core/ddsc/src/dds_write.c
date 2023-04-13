@@ -430,8 +430,8 @@ dds_return_t dds_return_writer_loan(dds_writer *wr, void **samples_ptr, int32_t 
     if (loan)
     {
       /* refs(0):  user has discarded the sample already*/
-      if ((ret = dds_loaned_sample_unref(loan)) == DDS_RETCODE_OK)
-        ret = dds_loan_manager_remove_loan(loan);
+      //FIXME: not required? if ((ret = dds_loaned_sample_unref(loan)) == DDS_RETCODE_OK)
+      ret = dds_loan_manager_remove_loan(loan);
     }
     else
     {

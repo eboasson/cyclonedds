@@ -4078,8 +4078,8 @@ dds_reader_store_external (
  * @returns A dds_return_t indicating success or failure, either the number of loans received,
  *          or a failure code.
  *
- * @retval DDS_RETCODE_OK
- *             The operation was successful.
+ * @retval >= 0
+ *             The operation was successful, returns the number of loans.
  * @retval DDS_RETCODE_BAD_PARAMETER
  *             The from_virtual parameter is not a valid parameter.
  * @retval DDS_RETCODE_ILLEGAL_OPERATION
