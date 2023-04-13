@@ -33,14 +33,8 @@
 #include "VIDataModels.h"
 
 
-static const struct virtintf_locator {
-  unsigned char a[16];
-} virtintf_locators[] = {
-  {{1}}, {{1}}, {{2}}, {{2}}
-};
 #define MAX_DOMAINS 4
 #define MAX_READERS_PER_DOMAIN 2
-DDSRT_STATIC_ASSERT (MAX_DOMAINS == sizeof (virtintf_locators) / sizeof (virtintf_locators[0]));
 
 static bool failed;
 
@@ -90,19 +84,19 @@ static bool endpoint_has_virtintf_enabled (dds_entity_t rd_or_wr)
 {
   dds_return_t rc;
   struct dds_entity *x;
-  bool iceoryx_enabled = false;
+  bool virtintf_enabled = false;
   rc = dds_entity_pin (rd_or_wr, &x);
   CU_ASSERT_FATAL (rc == DDS_RETCODE_OK);
   switch (dds_entity_kind (x))
   {
     case DDS_KIND_READER: {
       struct dds_reader const * const rd = (struct dds_reader *) x;
-      iceoryx_enabled = (rd->m_endpoint.virtual_pipes.length > 0);
+      virtintf_enabled = (rd->m_endpoint.virtual_pipes.length > 0);
       break;
     }
     case DDS_KIND_WRITER: {
       struct dds_writer const * const wr = (struct dds_writer *) x;
-      iceoryx_enabled = (wr->m_endpoint.virtual_pipes.length > 0);
+      virtintf_enabled = (wr->m_endpoint.virtual_pipes.length > 0);
       break;
     }
     default: {
@@ -111,7 +105,7 @@ static bool endpoint_has_virtintf_enabled (dds_entity_t rd_or_wr)
     }
   }
   dds_entity_unpin (x);
-  return iceoryx_enabled;
+  return virtintf_enabled;
 }
 
 static uint32_t reader_unicast_port (dds_entity_t rdhandle)
@@ -181,8 +175,8 @@ static dds_entity_t create_endpoint (dds_entity_t tp, bool use_virtintf, dds_ent
   CU_ASSERT_FATAL (qos != NULL);
   dds_qset_reliability (qos, DDS_RELIABILITY_RELIABLE, 0);
   dds_qset_writer_data_lifecycle (qos, false);
-  if (!use_virtintf) // for now, keep-all suffices to not use Iceoryx
-    dds_qset_history (qos, DDS_HISTORY_KEEP_ALL, 0);
+  if (!use_virtintf)
+    dds_qset_virtual_interfaces (qos, 0, NULL);
   dds_entity_t ep = f (dds_get_participant (tp), tp, qos, NULL);
   CU_ASSERT_FATAL (ep > 0);
   dds_delete_qos (qos);
@@ -437,7 +431,7 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
   CU_ASSERT_FATAL (ws > 0);
 
   char topicname[100];
-  create_unique_topic_name ("test_iceoryx", topicname, sizeof (topicname));
+  create_unique_topic_name ("test_virtintf", topicname, sizeof (topicname));
   for (int i = 0; i < MAX_DOMAINS; i++)
   {
     pp[i] = create_participant ((dds_domainid_t) i); // FIXME: vary shm_enable for i > 0
@@ -456,8 +450,8 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
 
     // rdmode: trit 0: reader 0; trit 1: reader 1; ...
     //   0: no reader
-    //   1: non-iceoryx reader
-    //   2: iceoryx reader
+    //   1: non-virtual interface reader
+    //   2: virtual interface reader
     // reader i exists in domain floor(i/MAX_READERS_PER_DOMAIN)
     // exists i >= 0 . (trit i > 0)
     // forall 0 <= j < i . (trit i == 0 || trit j != 0)
@@ -478,7 +472,7 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
 
       if (wr_use_virtintf)
       {
-        // Currently unsupported? Iceoryx writer with DDS readers in same domain
+        // Currently unsupported? virtual interface writer with DDS readers in same domain
         bool skip = false;
         for (int i = 0; !skip && i < MAX_READERS_PER_DOMAIN; i++)
           if (rdmode[i] == 1)
@@ -487,20 +481,20 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
           goto skip;
       }
 
-      // We want to be certain that local delivery happens via Iceoryx, which is tricky
+      // We want to be certain that local delivery happens via the virtual interface, which is tricky
       // because we rather try not to make it visible at the API level. We test it here by
       // preventing the local short-circuit from working by temporarily forcing the "fast
       // path" reader count to 0, so that nothing will get delivered if it picks the wrong
       // path.
       bool override_fastpath_rdcount = wr_use_virtintf;
 
-      print (&tb, "wr: %s; rds:", wr_use_virtintf ? "vi" : "dds");
+      print (&tb, "wr: %s; rds:", wr_use_virtintf ? "vi " : "dds");
       for (int i = 0; rdmode[i] != 0; i++)
       {
         const int dom = i / MAX_READERS_PER_DOMAIN;
         if (i > 0 && dom > (i - 1) / MAX_READERS_PER_DOMAIN)
           print (&tb, " |");
-        print (&tb, " %s", (rdmode[i] == 2) ? "vi" : "dds");
+        print (&tb, " %s", (rdmode[i] == 2) ? "vi " : "dds");
 
         rds[i] = create_reader (tp[dom], rdmode[i] == 2);
         const uint32_t port = reader_unicast_port (rds[i]);
@@ -511,7 +505,7 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
         else if (wr_use_virtintf && dom <= 1 && rdmode[i] == 2)
         {
           // dom 0, 1: same Iceoryx "domain" (service name, locator)
-          // Iceoryx should be used -> no locator expected in addrset
+          // virtual interface should be used -> no locator expected in addrset
         }
         else
         {
@@ -672,7 +666,7 @@ CU_Test(ddsc_virtintf, return_loan)
 
   for (int i = 0; i < 10000; i ++)
   {
-    void *sample[3];
+    void *sample[3] = { NULL, NULL, NULL };
     rc = dds_request_loan (wr, sample, 3);
     CU_ASSERT_FATAL (rc == 3);
     rc = dds_return_loan (wr, sample, 3);

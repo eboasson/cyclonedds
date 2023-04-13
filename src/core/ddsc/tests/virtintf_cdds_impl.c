@@ -19,14 +19,15 @@
 #include "virtintf_cdds_impl.h"
 #include "virtintf_cdds_data.h"
 
-#define DDS_DOMAINID 0
+#define DDS_DOMAINID 50
 #define DDS_CONFIG \
   "<Tracing><OutputFile>cyclonedds_virtintf_impl.${CYCLONEDDS_DOMAIN_ID}.${CYCLONEDDS_PID}.log</OutputFile><Verbosity>finest</Verbosity></Tracing>" \
-  "<Discovery><ExternalDomainId>5</ExternalDomainId></Discovery>"
+  "<Discovery><ExternalDomainId>51</ExternalDomainId></Discovery>"
+
+static dds_entity_t g_domain = -1;
 
 struct cdds_virtual_interface {
   struct dds_virtual_interface c;
-  dds_entity_t domain;
   dds_entity_t participant;
 };
 
@@ -112,12 +113,18 @@ static struct dds_virtual_interface_topic * cdds_vi_topic_create (struct dds_vir
     dds_virtual_interface_topic_identifier_t topic_identifier, dds_virtual_interface_data_type_properties_t data_type_props)
 {
   struct cdds_virtual_interface *cvi = (struct cdds_virtual_interface *) vi;
-  if (cvi->domain == -1)
+  if (g_domain == -1)
   {
     char *conf = ddsrt_expand_envvars (DDS_CONFIG, DDS_DOMAINID);
-    cvi->domain = dds_create_domain (DDS_DOMAINID, conf);
-    cvi->participant = dds_create_participant (DDS_DOMAINID, NULL, NULL);
+    g_domain = dds_create_domain (DDS_DOMAINID, conf);
+    assert (g_domain >= 0);
     ddsrt_free (conf);
+  }
+
+  if (cvi->participant == -1)
+  {
+    cvi->participant = dds_create_participant (DDS_DOMAINID, NULL, NULL);
+    assert (cvi->participant >= 0);
   }
 
   struct cdds_virtual_interface_topic *cvt = dds_alloc (sizeof (*cvt));
@@ -148,7 +155,8 @@ static dds_return_t cdds_vi_topic_destruct (struct dds_virtual_interface_topic *
 static uint32_t deinit_thread (void *arg)
 {
   struct cdds_virtual_interface *cvi = (struct cdds_virtual_interface *) arg;
-  dds_delete (cvi->domain);
+  dds_delete (cvi->participant);
+  dds_free (cvi);
   return 0;
 }
 
@@ -327,17 +335,18 @@ static uint32_t on_data_available_thread (void *a)
   while (ddsrt_atomic_ld32 (&args->cvp->on_data_threads_stop) == 0)
   {
     ret = dds_waitset_wait (waitset, NULL, 0, DDS_MSECS (100));
-    assert (ret >= 0);
-
-    dds_sample_info_t si;
-    struct cdds_virtintf_data *sample = dds_alloc (sizeof (*sample));
-    dds_return_t n = dds_take (args->cvp->vi_endpoint, (void **) &sample, &si, 1, 1);
-    if (n == 1 && si.valid_data)
+    if (ret >= 0)
     {
-      dds_loaned_sample_t *data = incoming_sample_to_loan (args->cvp, sample);
-      (void) dds_reader_store_external (args->cvp->cdds_endpoint, data);
+      dds_sample_info_t si;
+      struct cdds_virtintf_data *sample = dds_alloc (sizeof (*sample));
+      dds_return_t n = dds_take (args->cvp->vi_endpoint, (void **) &sample, &si, 1, 1);
+      if (n == 1 && si.valid_data)
+      {
+        dds_loaned_sample_t *data = incoming_sample_to_loan (args->cvp, sample);
+        (void) dds_reader_store_external (args->cvp->cdds_endpoint, data);
+      }
+      dds_free (sample);
     }
-    dds_free (sample);
   }
 
   ddsrt_atomic_dec32 (&args->cvp->on_data_threads_count);
@@ -382,7 +391,7 @@ dds_return_t cdds_create_virtual_interface (dds_virtual_interface_t **virtual_in
   vi->c.interface_id = identifier;
   vi->c.ops = vi_ops;
   dds_virtual_interface_init_generic (&vi->c);
-  vi->domain = -1;
+  vi->participant = -1;
 
   *virtual_interface = (dds_virtual_interface_t *) vi;
   return DDS_RETCODE_OK;
