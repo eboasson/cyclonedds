@@ -593,7 +593,7 @@ static dds_entity_t dds_create_reader_int (dds_entity_t participant_or_subscribe
   }
   dds_entity_add_ref_locked (&tp->m_entity);
 
-  if ((rc = dds_endpoint_init_virtual_interface (&rd->m_endpoint, qos, tp->m_ktopic ? &tp->m_ktopic->virtual_topics : NULL, DDS_VIRTUAL_INTERFACE_PIPE_TYPE_SOURCE)) != DDS_RETCODE_OK)
+  if ((rc = dds_endpoint_open_virtual_pipes (&rd->m_endpoint, rqos, tp->m_ktopic ? &tp->m_ktopic->virtual_topics : NULL, DDS_VIRTUAL_INTERFACE_PIPE_TYPE_SOURCE)) != DDS_RETCODE_OK)
     goto err_pipe_open;
 
   /* FIXME: listeners can come too soon ... should set mask based on listeners

@@ -64,7 +64,7 @@ dds_return_t dds_virtual_interfaces_init (const struct ddsi_domaingv *gv, struct
 
 dds_return_t dds_virtual_interfaces_fini (struct dds_domain *domain);
 
-dds_return_t dds_endpoint_init_virtual_interface (struct dds_endpoint *ep, const dds_qos_t *qos, struct dds_virtual_topics_set *virtual_topics, enum dds_virtual_interface_pipe_type pipe_type);
+dds_return_t dds_endpoint_open_virtual_pipes (struct dds_endpoint *ep, const dds_qos_t *qos, struct dds_virtual_topics_set *virtual_topics, enum dds_virtual_interface_pipe_type pipe_type);
 struct ddsi_virtual_locators_set *dds_get_virtual_locators_set (const dds_qos_t *qos, const struct dds_virtual_interfaces_set *vi_set);
 void dds_virtual_locators_set_free (struct ddsi_virtual_locators_set *vl_set);
 

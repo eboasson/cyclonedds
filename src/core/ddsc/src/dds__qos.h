@@ -41,7 +41,7 @@ extern "C" {
    DDSI_QP_RESOURCE_LIMITS | DDSI_QP_ADLINK_READER_DATA_LIFECYCLE |                         \
    DDSI_QP_CYCLONE_IGNORELOCAL | DDSI_QP_PROPERTY_LIST |                                    \
    DDSI_QP_TYPE_CONSISTENCY_ENFORCEMENT | DDSI_QP_DATA_REPRESENTATION |                     \
-   DDSI_QP_ENTITY_NAME)
+   DDSI_QP_ENTITY_NAME | DDSI_QP_VIRTUAL_INTERFACES)
 
 #define DDS_SUBSCRIBER_QOS_MASK                                                             \
   (DDSI_QP_PARTITION | DDSI_QP_PRESENTATION | DDSI_QP_GROUP_DATA |                          \
@@ -54,13 +54,16 @@ extern "C" {
    DDSI_QP_LIFESPAN | DDSI_QP_DESTINATION_ORDER | DDSI_QP_HISTORY |                         \
    DDSI_QP_RESOURCE_LIMITS | DDSI_QP_ADLINK_WRITER_DATA_LIFECYCLE |                         \
    DDSI_QP_CYCLONE_IGNORELOCAL | DDSI_QP_PROPERTY_LIST | DDSI_QP_DATA_REPRESENTATION |      \
-   DDSI_QP_ENTITY_NAME | DDSI_QP_CYCLONE_WRITER_BATCHING)
+   DDSI_QP_ENTITY_NAME | DDSI_QP_VIRTUAL_INTERFACES | DDSI_QP_CYCLONE_WRITER_BATCHING)
 
 /** @component qos_obj */
 dds_return_t dds_ensure_valid_data_representation (dds_qos_t *qos, uint32_t allowed_data_representations, bool topicqos);
 
 /** @component qos_obj */
 dds_return_t dds_ensure_valid_virtual_interfaces (dds_qos_t *qos, ddsi_data_type_properties_t data_type_props, const struct dds_virtual_interfaces_set *vi_set);
+
+/** @component qos_obj */
+bool dds_qos_has_virtual_interface (const dds_qos_t *qos, const char *virtual_interface_name);
 
 /** @component qos_obj */
 void dds_apply_entity_naming(dds_qos_t *qos, /* optional */ dds_qos_t *parent_qos, struct ddsi_domaingv *gv);

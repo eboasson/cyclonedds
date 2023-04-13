@@ -20,6 +20,7 @@
 #include "dds/ddsi/ddsi_endpoint.h"
 #include "dds__types.h"
 #include "dds__virtual_interface.h"
+#include "dds__qos.h"
 
 dds_return_t dds_add_vi_topic_to_list (struct dds_virtual_interface_topic *topic, struct dds_virtual_interface_topic_list_elem **list)
 {
@@ -156,6 +157,7 @@ dds_return_t dds_virtual_interface_init_generic (struct dds_virtual_interface * 
 dds_return_t dds_virtual_interface_cleanup_generic (struct dds_virtual_interface *virtual_interface)
 {
   dds_return_t ret = DDS_RETCODE_OK;
+  dds_free ((void *) virtual_interface->interface_name);
   dds_free ((void *) virtual_interface->locator);
 
   while (ret == DDS_RETCODE_OK && virtual_interface->topics)
@@ -305,13 +307,15 @@ dds_return_t dds_virtual_interface_pipe_close (struct dds_virtual_interface_pipe
   return pipe->topic->ops.pipe_close (pipe);
 }
 
-dds_return_t dds_endpoint_init_virtual_interface (struct dds_endpoint *ep, const dds_qos_t *qos, struct dds_virtual_topics_set *virtual_topics, enum dds_virtual_interface_pipe_type pipe_type)
+dds_return_t dds_endpoint_open_virtual_pipes (struct dds_endpoint *ep, const dds_qos_t *qos, struct dds_virtual_topics_set *virtual_topics, enum dds_virtual_interface_pipe_type pipe_type)
 {
   ep->virtual_pipes.length = 0;
   memset (ep->virtual_pipes.pipes, 0, sizeof (ep->virtual_pipes.pipes));
   for (uint32_t i = 0; virtual_topics != NULL && i < virtual_topics->length; i++)
   {
     struct dds_virtual_interface_topic *vi_topic = virtual_topics->topics[i];
+    if (!dds_qos_has_virtual_interface (qos, vi_topic->virtual_interface->interface_name))
+      continue;
     if (!vi_topic->virtual_interface->ops.qos_supported (qos))
       continue;
     struct dds_virtual_interface_pipe *pipe;
@@ -333,27 +337,15 @@ struct ddsi_virtual_locators_set *dds_get_virtual_locators_set (const dds_qos_t 
   vl_set->length = 0;
   vl_set->locators = NULL;
 
-  uint32_t n = 0;
-  char **values = NULL;
-  dds_qget_virtual_interfaces (qos, &n, &values);
-  for (uint32_t i = 0; i < n; i++)
+  for (uint32_t s = 0; s < vi_set->length; s++)
   {
-    struct dds_virtual_interface *vi = NULL;
-    for (uint32_t s = 0; vi == NULL && s < vi_set->length; s++)
-    {
-      if (strcmp (vi_set->interfaces[s]->interface_name, values[i]) == 0)
-        vi = vi_set->interfaces[s];
-    }
-    if (vi)
+    if (dds_qos_has_virtual_interface (qos, vi_set->interfaces[s]->interface_name))
     {
       vl_set->length++;
       vl_set->locators = dds_realloc (vl_set->locators, vl_set->length * sizeof (*vl_set->locators));
-      vl_set->locators[vl_set->length - 1] = *vi->locator;
+      vl_set->locators[vl_set->length - 1] = *(vi_set->interfaces[s]->locator);
     }
-    dds_free (values[i]);
   }
-  if (n > 0)
-    dds_free (values);
   return vl_set;
 }
 

@@ -967,6 +967,23 @@ dds_return_t dds_ensure_valid_virtual_interfaces (dds_qos_t *qos, ddsi_data_type
   return DDS_RETCODE_OK;
 }
 
+bool dds_qos_has_virtual_interface (const dds_qos_t *qos, const char *virtual_interface_name)
+{
+  uint32_t n = 0;
+  char **values;
+  bool found = false;
+  dds_qget_virtual_interfaces (qos, &n, &values);
+  for (uint32_t i = 0; !found && i < n; i++)
+  {
+    if (strcmp (virtual_interface_name, values[i]) == 0)
+      found = true;
+    dds_free (values[i]);
+  }
+  if (n > 0)
+    dds_free (values);
+  return found;
+}
+
 bool dds_qget_entity_name (const dds_qos_t * __restrict qos, char **name)
 {
   if (qos == NULL || name == NULL || !(qos->present & DDSI_QP_ENTITY_NAME))
@@ -976,7 +993,8 @@ bool dds_qget_entity_name (const dds_qos_t * __restrict qos, char **name)
   return *name != NULL;
 }
 
-void dds_apply_entity_naming(dds_qos_t *qos, /* optional */ dds_qos_t *parent_qos, struct ddsi_domaingv *gv) {
+void dds_apply_entity_naming(dds_qos_t *qos, /* optional */ dds_qos_t *parent_qos, struct ddsi_domaingv *gv)
+{
   if (gv->config.entity_naming_mode == DDSI_ENTITY_NAMING_DEFAULT_FANCY && !(qos->present & DDSI_QP_ENTITY_NAME)) {
     char name_buf[16];
     ddsrt_mutex_lock(&gv->naming_lock);

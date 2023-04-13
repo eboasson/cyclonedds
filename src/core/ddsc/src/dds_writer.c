@@ -389,7 +389,7 @@ dds_entity_t dds_create_writer (dds_entity_t participant_or_publisher, dds_entit
   // we can have another look.
   wr->whc_batch = wqos->writer_batching.batch_updates || gv->config.whc_batch;
 
-  if ((rc = dds_endpoint_init_virtual_interface (&wr->m_endpoint, qos, tp->m_ktopic ? &tp->m_ktopic->virtual_topics : NULL, DDS_VIRTUAL_INTERFACE_PIPE_TYPE_SINK)) != DDS_RETCODE_OK)
+  if ((rc = dds_endpoint_open_virtual_pipes (&wr->m_endpoint, wqos, tp->m_ktopic ? &tp->m_ktopic->virtual_topics : NULL, DDS_VIRTUAL_INTERFACE_PIPE_TYPE_SINK)) != DDS_RETCODE_OK)
     goto err_pipe_open;
 
   struct ddsi_sertype *sertype = ddsi_sertype_derive_sertype (tp->m_stype, data_representation,
