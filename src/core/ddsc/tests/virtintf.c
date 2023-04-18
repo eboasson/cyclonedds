@@ -32,6 +32,8 @@
 #include "DynamicData.h"
 #include "VIDataModels.h"
 
+const uint32_t start_test_index = 0;
+
 static const struct vi_locator {
   unsigned char a[16];
 } vi_locators[] = {
@@ -448,6 +450,7 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
     gvs[i] = get_domaingv (pp[i]);
   }
 
+  uint32_t test_index = 0;
   for (int wr_use_virtintf = 1; wr_use_virtintf <= 1; wr_use_virtintf++)
   {
     const dds_entity_t wr = create_writer (tp[0], (wr_use_virtintf != 0));
@@ -496,9 +499,14 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
       // path.
       bool override_fastpath_rdcount = wr_use_virtintf;
 
-      print (&tb, "wr: %s; rds:", wr_use_virtintf ? "vi " : "dds");
+      if (test_index++ >= start_test_index)
+        print (&tb, "%05u -- wr: %s; rds:", test_index, wr_use_virtintf ? "vi " : "dds");
+      else
+        continue;
+
       for (int i = 0; rdmode[i] != 0; i++)
       {
+
         const int dom = i / MAX_READERS_PER_DOMAIN;
         if (i > 0 && dom > (i - 1) / MAX_READERS_PER_DOMAIN)
           print (&tb, " |");
