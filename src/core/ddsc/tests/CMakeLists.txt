@@ -168,6 +168,9 @@ set(virtintf_cdds_sources
   "virtintf_cdds_impl.c"
   "virtintf_cdds_impl.h")
 add_library(virtintf_cdds SHARED ${virtintf_cdds_sources})
+target_include_directories(
+  virtintf_cdds PRIVATE
+  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../ddsi/include>")
 target_link_libraries(virtintf_cdds PRIVATE ddsc virtintf_cdds_data)
 
 get_test_property(CUnit_ddsc_virtual_interface_create ENVIRONMENT CUnit_ddsc_virtual_interface_create_env)

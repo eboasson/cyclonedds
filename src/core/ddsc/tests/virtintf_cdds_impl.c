@@ -15,6 +15,10 @@
 #include "dds/ddsrt/environ.h"
 #include "dds/ddsrt/threads.h"
 #include "dds/ddsrt/heap.h"
+#include "dds/ddsrt/string.h"
+#include "dds/ddsrt/strtol.h"
+#include "dds/ddsi/ddsi_locator.h"
+#include "dds/ddsi/ddsi_protocol.h"
 #include "dds/ddsc/dds_virtual_interface.h"
 #include "virtintf_cdds_impl.h"
 #include "virtintf_cdds_data.h"
@@ -381,9 +385,32 @@ static void cdds_loaned_sample_reset (struct dds_loaned_sample *loaned_sample)
   (void) loaned_sample;
 }
 
+static char * get_config_option_value (const char *conf, const char *option_name)
+{
+  char *copy = ddsrt_strdup(conf), *cursor = copy, *tok;
+  while ((tok = ddsrt_strsep(&cursor, ",/|;")) != NULL)
+  {
+    if (strlen(tok) == 0)
+      continue;
+    char *name = ddsrt_strsep(&tok, "=");
+    if (name == NULL || tok == NULL)
+    {
+      ddsrt_free(copy);
+      return NULL;
+    }
+    if (strcmp(name, option_name) == 0)
+    {
+      char *ret = ddsrt_strdup(tok);
+      ddsrt_free(copy);
+      return ret;
+    }
+  }
+  ddsrt_free(copy);
+  return NULL;
+}
+
 dds_return_t cdds_create_virtual_interface (dds_virtual_interface_t **virtual_interface, dds_loan_origin_type_t identifier, const char *config)
 {
-  (void) config;
   assert (virtual_interface);
 
   struct cdds_virtual_interface *vi = dds_alloc (sizeof (*vi));
@@ -392,6 +419,27 @@ dds_return_t cdds_create_virtual_interface (dds_virtual_interface_t **virtual_in
   vi->c.ops = vi_ops;
   dds_virtual_interface_init_generic (&vi->c);
   vi->participant = -1;
+
+  if (config != NULL && strlen (config) > 0)
+  {
+    char *lstr = get_config_option_value (config, "LOCATOR");
+    if (lstr != NULL && strlen (lstr) > 0 && strlen (lstr) < 32)
+    {
+      dds_free (vi);
+      return DDS_RETCODE_BAD_PARAMETER;
+    }
+    memset ((char *) vi->c.locator->address, 0, sizeof (vi->c.locator->address));
+    for (uint32_t n = 0; n < 32; n++)
+    {
+      int32_t num;
+      if ((num = ddsrt_todigit (lstr[n])) < 0 || num >= 16)
+      {
+        dds_free (vi);
+        return DDS_RETCODE_BAD_PARAMETER;
+      }
+      ((char *) (vi->c.locator->address))[n / 2] += (char) ((n % 1) ? (num << 4) : num);
+    }
+  }
 
   *virtual_interface = (dds_virtual_interface_t *) vi;
   return DDS_RETCODE_OK;

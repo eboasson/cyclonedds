@@ -2375,10 +2375,6 @@ static int convert_deprecated_sharedmemory (struct ddsi_cfgst *cfgst)
 
   if (cfg->enable_shm)
   {
-    // FIXME no support for this option?
-    if (cfg->shm_locator != NULL && strlen (cfg->shm_locator) > 0)
-      return 0;
-
     struct ddsi_config_virtual_interface *vi_cfg = virtual_interface_append(cfg, "iox", "iox_interface");
     if (!vi_cfg)
       return 0;

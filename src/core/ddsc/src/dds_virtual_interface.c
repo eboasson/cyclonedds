@@ -138,7 +138,7 @@ dds_return_t dds_remove_vi_pipe_from_list (struct dds_virtual_interface_pipe *pi
 
 dds_return_t dds_virtual_interface_init_generic (struct dds_virtual_interface * virtual_interface)
 {
-  struct ddsi_locator *loc = dds_alloc (sizeof (ddsi_locator_t));
+  struct ddsi_locator *loc = dds_alloc (sizeof (*loc));
   if (loc == NULL)
     return DDS_RETCODE_OUT_OF_RESOURCES;
   memset (loc, 0, sizeof (*loc));

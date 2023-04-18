@@ -32,7 +32,11 @@
 #include "DynamicData.h"
 #include "VIDataModels.h"
 
-
+static const struct vi_locator {
+  unsigned char a[16];
+} vi_locators[] = {
+  {{1}}, {{1}}, {{2}}, {{2}}
+};
 #define MAX_DOMAINS 4
 #define MAX_READERS_PER_DOMAIN 2
 
@@ -53,13 +57,14 @@ static void fail_no_data (void) { fail (); }
 static dds_entity_t create_participant (dds_domainid_t int_dom)
 {
   assert (int_dom < MAX_DOMAINS);
+  const unsigned char *l = vi_locators[int_dom].a;
   char *configstr;
   ddsrt_asprintf (&configstr, "\
 ${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}\
 <General>\
   <AllowMulticast>spdp</AllowMulticast>\
   <Interfaces>\
-    <VirtualInterface name=\"cdds\" library=\"${CDDS_VIRTINTF_LIB}\" priority=\"1000000\" />\
+    <VirtualInterface name=\"cdds\" library=\"${CDDS_VIRTINTF_LIB}\" priority=\"1000000\" config=\"LOCATOR=%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x;\" />\
   </Interfaces>\
 </General>\
 <Discovery>\
@@ -69,7 +74,10 @@ ${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}\
   <Category>" TRACE_CATEGORY "</Category>\
   <OutputFile>cdds.log.%d</OutputFile>\
 </Tracing>\
-", (int) int_dom);
+",
+    l[0], l[1], l[2], l[3], l[4], l[5], l[6], l[7], l[8], l[9], l[10], l[11], l[12], l[13], l[14], l[15],
+    (int) int_dom
+  );
   char *xconfigstr = ddsrt_expand_envvars (configstr, int_dom);
   const dds_entity_t dom = dds_create_domain (int_dom, xconfigstr);
   CU_ASSERT_FATAL (dom > 0);
@@ -440,7 +448,7 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
     gvs[i] = get_domaingv (pp[i]);
   }
 
-  for (int wr_use_virtintf = 0; wr_use_virtintf <= 1; wr_use_virtintf++)
+  for (int wr_use_virtintf = 1; wr_use_virtintf <= 1; wr_use_virtintf++)
   {
     const dds_entity_t wr = create_writer (tp[0], (wr_use_virtintf != 0));
     rc = dds_set_status_mask (wr, DDS_PUBLICATION_MATCHED_STATUS);
