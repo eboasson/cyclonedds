@@ -41,9 +41,16 @@ struct typeinfo {
   size_t size; // sizeof(T)
 };
 
+struct type_hashid_map {
+  DDS_XTypes_EquivalenceHash id;
+  DDS_XTypes_TypeObject *typeobj; // complete type object for type T
+  int lineno;
+};
+
 // For convenience, the DDS participant and the type cache are globals
 static dds_entity_t participant;
 static struct ddsrt_hh *typecache;
+static struct ddsrt_hh *type_hashid_map;
 
 // Hash table requires a hash function and an equality test.  The key in the hash table is the address
 // of the type object or type identifier.  The hash function distinguishes between 32-bit and 64-bit
@@ -64,6 +71,155 @@ static int typecache_equal (const void *va, const void *vb)
   return a->key.key == b->key.key;
 }
 
+// Hash table requires a hash function and an equality test.  The key in the hash table is the address
+// of the type object or type identifier.  The hash function distinguishes between 32-bit and 64-bit
+// pointers, the equality test can simply use pointer equality.
+static uint32_t type_hashid_map_hash (const void *vinfo)
+{
+  const struct type_hashid_map *info = vinfo;
+  uint32_t h;
+  memcpy (&h, info->id, sizeof (h));
+  return h;
+}
+
+static int type_hashid_map_equal (const void *va, const void *vb)
+{
+  const struct type_hashid_map *a = va;
+  const struct type_hashid_map *b = vb;
+  return memcmp (a->id, b->id, sizeof (a->id)) == 0;
+}
+
+static bool load_deps_to (const DDS_XTypes_CompleteTypeObject *typeobj);
+
+static bool load_deps_failed (void)
+{
+  return false;
+}
+
+static bool load_deps_simple (uint8_t disc)
+{
+  switch (disc)
+  {
+    case DDS_XTypes_TK_NONE:
+    case DDS_XTypes_TK_BOOLEAN:
+    case DDS_XTypes_TK_BYTE:
+    case DDS_XTypes_TK_INT16:
+    case DDS_XTypes_TK_INT32:
+    case DDS_XTypes_TK_INT64:
+    case DDS_XTypes_TK_UINT16:
+    case DDS_XTypes_TK_UINT32:
+    case DDS_XTypes_TK_UINT64:
+    case DDS_XTypes_TK_FLOAT32:
+    case DDS_XTypes_TK_FLOAT64:
+    case DDS_XTypes_TK_FLOAT128:
+    case DDS_XTypes_TK_INT8:
+    case DDS_XTypes_TK_UINT8:
+    case DDS_XTypes_TK_CHAR8:
+    case DDS_XTypes_TK_CHAR16:
+    case DDS_XTypes_TK_STRING8:
+    case DDS_XTypes_TK_STRING16:
+      return true;
+    default:
+      return false;
+  }
+}
+
+static bool load_deps_ti (const DDS_XTypes_TypeIdentifier *typeid)
+{
+  if (load_deps_simple (typeid->_d))
+    return true;
+  switch (typeid->_d)
+  {
+    case DDS_XTypes_TI_STRING8_SMALL:
+    case DDS_XTypes_TI_STRING8_LARGE:
+      return true;
+    case DDS_XTypes_TI_PLAIN_SEQUENCE_SMALL:
+      return load_deps_ti (typeid->_u.seq_sdefn.element_identifier);
+    case DDS_XTypes_TI_PLAIN_SEQUENCE_LARGE:
+      return load_deps_ti (typeid->_u.seq_ldefn.element_identifier);
+    case DDS_XTypes_TI_PLAIN_ARRAY_SMALL:
+      return load_deps_ti (typeid->_u.array_sdefn.element_identifier);
+    case DDS_XTypes_TI_PLAIN_ARRAY_LARGE:
+      return load_deps_ti (typeid->_u.array_ldefn.element_identifier);
+    case DDS_XTypes_EK_COMPLETE: {
+      struct type_hashid_map templ, *info;
+      memcpy (templ.id, typeid->_u.equivalence_hash, sizeof (templ.id));
+      if ((info = ddsrt_hh_lookup (type_hashid_map, &templ)) != NULL)
+        return true;
+      else
+      {
+        dds_typeobj_t *typeobj;
+        if (dds_get_typeobj (participant, (const dds_typeid_t *) typeid, 0, &typeobj) < 0)
+          return load_deps_failed ();
+        DDS_XTypes_TypeObject * const xtypeobj = (DDS_XTypes_TypeObject *) typeobj;
+        info = malloc (sizeof (*info));
+        memcpy (info->id, typeid->_u.equivalence_hash, sizeof (info->id));
+        info->typeobj = xtypeobj;
+        info->lineno = 0;
+        ddsrt_hh_add (type_hashid_map, info);
+        return load_deps_to (&xtypeobj->_u.complete);
+      }
+    }
+    default: {
+      printf ("type id discriminant %u encountered, sorry\n", (unsigned) typeid->_d);
+      abort ();
+      return load_deps_failed ();
+    }
+  }
+}
+
+static bool load_deps_to (const DDS_XTypes_CompleteTypeObject *typeobj)
+{
+  if (load_deps_simple (typeobj->_d))
+    return true;
+  switch (typeobj->_d)
+  {
+    case DDS_XTypes_TK_ALIAS:
+      return load_deps_ti (&typeobj->_u.alias_type.body.common.related_type);
+    case DDS_XTypes_TK_ENUM:
+      return true;
+    case DDS_XTypes_TK_SEQUENCE:
+      return load_deps_ti (&typeobj->_u.sequence_type.element.common.type);
+    case DDS_XTypes_TK_STRUCTURE: {
+      const DDS_XTypes_CompleteStructType *t = &typeobj->_u.struct_type;
+      if (!load_deps_ti (&t->header.base_type))
+        return load_deps_failed ();
+      for (uint32_t i = 0; i < t->member_seq._length; i++) {
+        if (!load_deps_ti (&t->member_seq._buffer[i].common.member_type_id))
+          return load_deps_failed ();
+      }
+      return true;
+    }
+    case DDS_XTypes_TK_UNION: {
+      const DDS_XTypes_CompleteUnionType *t = &typeobj->_u.union_type;
+      if (!load_deps_ti (&t->discriminator.common.type_id))
+        return load_deps_failed ();
+      for (uint32_t i = 0; i < t->member_seq._length; i++) {
+        if (!load_deps_ti (&t->member_seq._buffer[i].common.type_id))
+          return load_deps_failed ();
+      }
+      return true;
+    }
+    default: {
+      printf ("type object discriminant %u encountered, sorry\n", (unsigned) typeobj->_d);
+      abort ();
+      return load_deps_failed ();
+    }
+  }
+}
+
+static DDS_XTypes_TypeObject *load_type_with_deps (const dds_typeinfo_t *typeinfo)
+{
+  DDS_XTypes_TypeInformation const * const xtypeinfo = (DDS_XTypes_TypeInformation *) typeinfo;
+  if (!load_deps_ti (&xtypeinfo->complete.typeid_with_size.type_id))
+    return NULL;
+  struct type_hashid_map templ, *info;
+  memcpy (templ.id, &xtypeinfo->complete.typeid_with_size.type_id._u.equivalence_hash, sizeof (templ.id));
+  if ((info = ddsrt_hh_lookup (type_hashid_map, &templ)) == NULL)
+    return NULL;
+  return (DDS_XTypes_TypeObject *) info->typeobj;
+}
+
 // Building the type cache: the TypeObjects come in a variety of formats (see the spec for the details,
 // much is omitted here for simplicity), but it comes down to:
 // - a TypeObject describing a "simple" type
@@ -79,14 +235,17 @@ static int typecache_equal (const void *va, const void *vb)
 struct ppc {
   bool bol;
   int indent;
+  int lineno;
 };
 
 static void ppc_init (struct ppc *ppc)
 {
   ppc->bol = true;
   ppc->indent = 0;
+  ppc->lineno = 1;
 }
 
+static int ppc_lineno (struct ppc *ppc) { return ppc->lineno; }
 static void ppc_indent (struct ppc *ppc) { ppc->indent += 2; }
 static void ppc_outdent (struct ppc *ppc) { ppc->indent -= 2; }
 
@@ -98,10 +257,12 @@ static void ppc_print (struct ppc *ppc, const char *fmt, ...)
   va_list ap;
   va_start (ap, fmt);
   if (ppc->bol)
-    printf ("%*s", ppc->indent, "");
+    printf ("%3d %*s", ppc->lineno, ppc->indent, "");
   vprintf (fmt, ap);
   va_end (ap);
   ppc->bol = (fmt[0] == 0) ? 0 : (fmt[strlen (fmt) - 1] == '\n');
+  if (ppc->bol)
+    ++ppc->lineno;
 }
 
 static void ppc_print_equivhash (struct ppc *ppc, const DDS_XTypes_EquivalenceHash id)
@@ -278,19 +439,287 @@ static void ppc_print_memberdetail_sans_name (struct ppc *ppc, const DDS_XTypes_
   ppc_print_annots (ppc, detail->ann_custom);
 }
 
-static void build_typecache_to (struct ppc *ppc, const DDS_XTypes_CompleteTypeObject *typeobj, size_t *align, size_t *size);
+static void ppc_print_to (struct ppc *ppc, const DDS_XTypes_CompleteTypeObject *typeobj);
 
-static bool build_typecache_simple (struct ppc *ppc, const uint8_t disc, size_t *align, size_t *size)
+static bool ppc_print_simple (struct ppc *ppc, const uint8_t disc)
+{
+  switch (disc)
+  {
+#define CASE(disc) DDS_XTypes_TK_##disc: ppc_print (ppc, "%s\n", #disc); return true
+    case CASE(NONE);
+    case CASE(BOOLEAN);
+    case CASE(BYTE);
+    case CASE(INT16);
+    case CASE(INT32);
+    case CASE(INT64);
+    case CASE(UINT16);
+    case CASE(UINT32);
+    case CASE(UINT64);
+    case CASE(FLOAT32);
+    case CASE(FLOAT64);
+    case CASE(FLOAT128);
+    case CASE(INT8);
+    case CASE(UINT8);
+    case CASE(CHAR8);
+    case CASE(CHAR16);
+    case CASE(STRING8);
+    case CASE(STRING16);
+#undef CASE
+  }
+  return false;
+}
+
+static struct type_hashid_map *lookup_hashid (const DDS_XTypes_EquivalenceHash hashid)
+{
+  struct type_hashid_map templ, *info;
+  memcpy (templ.id, hashid, sizeof (templ.id));
+  if ((info = ddsrt_hh_lookup (type_hashid_map, &templ)) == NULL)
+    abort ();
+  return info;
+}
+
+static const DDS_XTypes_CompleteTypeObject *get_complete_typeobj_for_hashid (const DDS_XTypes_EquivalenceHash hashid)
+{
+  struct type_hashid_map *info;
+  if ((info = lookup_hashid (hashid)) == NULL)
+    abort ();
+  return &info->typeobj->_u.complete;
+}
+
+static void ppc_print_ti (struct ppc *ppc, const DDS_XTypes_TypeIdentifier *typeid)
+{
+  if (ppc_print_simple (ppc, typeid->_d))
+    return;
+  switch (typeid->_d)
+  {
+    case DDS_XTypes_TI_STRING8_SMALL:
+    case DDS_XTypes_TI_STRING8_LARGE: {
+      const uint32_t bound = (typeid->_d == DDS_XTypes_TI_STRING8_SMALL) ? typeid->_u.string_sdefn.bound : typeid->_u.string_ldefn.bound;
+      ppc_print (ppc, "STRING8_%s bound=%"PRIu32"\n", (typeid->_d == DDS_XTypes_TI_STRING8_SMALL) ? "SMALL" : "LARGE", bound);
+      break;
+    }
+    case DDS_XTypes_TI_PLAIN_SEQUENCE_SMALL:
+    case DDS_XTypes_TI_PLAIN_SEQUENCE_LARGE: {
+      const DDS_XTypes_PlainCollectionHeader *header;
+      const DDS_XTypes_TypeIdentifier *et;
+      uint32_t bound;
+      if (typeid->_d == DDS_XTypes_TI_PLAIN_SEQUENCE_SMALL) {
+        header = &typeid->_u.seq_sdefn.header;
+        et = typeid->_u.seq_sdefn.element_identifier;
+        bound = typeid->_u.seq_sdefn.bound;
+      } else {
+        header = &typeid->_u.seq_ldefn.header;
+        et = typeid->_u.seq_ldefn.element_identifier;
+        bound = typeid->_u.seq_ldefn.bound;
+      }
+      ppc_print (ppc, "PLAIN_SEQUENCE_%s bound=%"PRIu32" equiv_kind=", (typeid->_d == DDS_XTypes_TI_PLAIN_SEQUENCE_SMALL) ? "SMALL" : "LARGE", bound);
+      switch (header->equiv_kind)
+      {
+        case DDS_XTypes_EK_MINIMAL: ppc_print (ppc, "MINIMAL"); break;
+        case DDS_XTypes_EK_COMPLETE: ppc_print (ppc, "COMPLETE"); break;
+        case DDS_XTypes_EK_BOTH: ppc_print (ppc, "BOTH"); break;
+        default: ppc_print (ppc, "%02"PRIx8, header->equiv_kind);
+      }
+      ppc_print (ppc, " ");
+      ppc_print_memberflags (ppc, header->element_flags);
+      ppc_print (ppc, "\n");
+      ppc_indent (ppc);
+      ppc_print_ti (ppc, et);
+      ppc_outdent (ppc);
+      break;
+    }
+    case DDS_XTypes_TI_PLAIN_ARRAY_SMALL:
+    case DDS_XTypes_TI_PLAIN_ARRAY_LARGE: {
+      const DDS_XTypes_PlainCollectionHeader *header;
+      const DDS_XTypes_TypeIdentifier *et;
+      ppc_print (ppc, "PLAIN_ARRAY_%s bound={", (typeid->_d == DDS_XTypes_TI_PLAIN_ARRAY_SMALL) ? "SMALL" : "LARGE");
+      if (typeid->_d == DDS_XTypes_TI_PLAIN_ARRAY_SMALL) {
+        header = &typeid->_u.array_sdefn.header;
+        et = typeid->_u.array_sdefn.element_identifier;
+        for (uint32_t i = 0; i < typeid->_u.array_sdefn.array_bound_seq._length; i++)
+          ppc_print (ppc, "%s%"PRIu8, (i == 0) ? "" : ",", typeid->_u.array_sdefn.array_bound_seq._buffer[i]);
+      } else {
+        header = &typeid->_u.array_ldefn.header;
+        et = typeid->_u.array_ldefn.element_identifier;
+        for (uint32_t i = 0; i < typeid->_u.array_ldefn.array_bound_seq._length; i++)
+          ppc_print (ppc, "%s%"PRIu32, (i == 0) ? "" : ",", typeid->_u.array_ldefn.array_bound_seq._buffer[i]);
+      }
+      ppc_print (ppc, "} equiv_kind=");
+      switch (header->equiv_kind)
+      {
+        case DDS_XTypes_EK_MINIMAL: ppc_print (ppc, "MINIMAL"); break;
+        case DDS_XTypes_EK_COMPLETE: ppc_print (ppc, "COMPLETE"); break;
+        case DDS_XTypes_EK_BOTH: ppc_print (ppc, "BOTH"); break;
+        default: ppc_print (ppc, "%02"PRIx8, header->equiv_kind);
+      }
+      ppc_print (ppc, " ");
+      ppc_print_memberflags (ppc, header->element_flags);
+      ppc_print (ppc, "\n");
+      ppc_indent (ppc);
+      ppc_print_ti (ppc, et);
+      ppc_outdent (ppc);
+      break;
+    }
+    case DDS_XTypes_EK_COMPLETE: {
+      ppc_print (ppc, "COMPLETE id=");
+      ppc_print_equivhash (ppc, typeid->_u.equivalence_hash);
+      ppc_indent (ppc);
+      struct type_hashid_map *info = lookup_hashid (typeid->_u.equivalence_hash);
+      if (info->lineno)
+        ppc_print (ppc, ": See line %d\n", info->lineno);
+      else
+      {
+        ppc_print (ppc, "\n");
+        info->lineno = ppc_lineno (ppc);
+        ppc_print_to (ppc, get_complete_typeobj_for_hashid (typeid->_u.equivalence_hash));
+      }
+      ppc_outdent (ppc);
+      break;
+    }
+    default: {
+      printf ("type id discriminant %u encountered, sorry\n", (unsigned) typeid->_d);
+      abort ();
+    }
+  }
+}
+
+static void ppc_print_to (struct ppc *ppc, const DDS_XTypes_CompleteTypeObject *typeobj)
+{
+  if (ppc_print_simple (ppc, typeobj->_d))
+    return;
+  switch (typeobj->_d)
+  {
+    case DDS_XTypes_TK_ALIAS: {
+      const DDS_XTypes_CompleteAliasType *x = &typeobj->_u.alias_type;
+      ppc_print (ppc, "ALIAS typename=%s ", x->header.detail.type_name);
+      ppc_print_typeflags (ppc, x->alias_flags);
+      ppc_print_typedetail_sans_name (ppc, &x->header.detail);
+      ppc_print (ppc, "\n");
+      ppc_indent (ppc);
+      ppc_print_builtin_member_annots (ppc, x->body.ann_builtin);
+      ppc_print_annots (ppc, x->body.ann_custom);
+      ppc_print_memberflags (ppc, x->body.common.related_flags);
+      ppc_print (ppc, "\n");
+      ppc_print_ti (ppc, &x->body.common.related_type);
+      ppc_outdent (ppc);
+      break;
+    }
+    case DDS_XTypes_TK_ENUM: {
+      const DDS_XTypes_CompleteEnumeratedType *x = &typeobj->_u.enumerated_type;
+      ppc_print (ppc, "ENUM typename=%s bit_bound=%"PRIu32" ", x->header.detail.type_name, x->header.common.bit_bound);
+      ppc_print_typeflags (ppc, x->enum_flags);
+      ppc_print_typedetail_sans_name (ppc, &x->header.detail);
+      ppc_print (ppc, "\n");
+      ppc_indent (ppc);
+      for (uint32_t i = 0; i < x->literal_seq._length; i++)
+      {
+        const DDS_XTypes_CompleteEnumeratedLiteral *l = &x->literal_seq._buffer[i];
+        ppc_print (ppc, "%s = %"PRId32" ", l->detail.name, l->common.value);
+        ppc_print_memberflags (ppc, l->common.flags);
+        ppc_print_memberdetail_sans_name (ppc, &l->detail);
+        ppc_print (ppc, "\n");
+      }
+      ppc_outdent (ppc);
+      break;
+    }
+    case DDS_XTypes_TK_SEQUENCE: {
+      const DDS_XTypes_CompleteSequenceType *x = &typeobj->_u.sequence_type;
+      ppc_print (ppc, "SEQUENCE bound=%"PRIu32" ", x->header.common.bound);
+      ppc_print_typeflags (ppc, x->collection_flag);
+      ppc_print_memberflags (ppc, x->element.common.element_flags);
+      ppc_print_typedetail (ppc, x->header.detail);
+      ppc_print (ppc, "\n");
+      ppc_indent (ppc);
+      ppc_print_elementdetail (ppc, &x->element.detail);
+      ppc_print_ti (ppc, &x->element.common.type);
+      ppc_outdent (ppc);
+      break;
+    }
+    case DDS_XTypes_TK_STRUCTURE: {
+      const DDS_XTypes_CompleteStructType *t = &typeobj->_u.struct_type;
+      ppc_print (ppc, "STRUCTURE typename=%s ", t->header.detail.type_name);
+      ppc_print_typeflags (ppc, t->struct_flags);
+      ppc_print (ppc, "\n");
+      ppc_indent (ppc);
+      ppc_print_typedetail_sans_name (ppc, &t->header.detail);
+      if (t->header.base_type._d != DDS_XTypes_TK_NONE)
+      {
+        ppc_print (ppc, "basetype=\n");
+        ppc_indent (ppc);
+        ppc_print_ti (ppc, &t->header.base_type);
+        ppc_outdent (ppc);
+      }
+      for (uint32_t i = 0; i < t->member_seq._length; i++)
+      {
+        const DDS_XTypes_CompleteStructMember *m = &t->member_seq._buffer[i];
+        ppc_print (ppc, "name=%s ", m->detail.name);
+        ppc_print (ppc, "memberid=0x%"PRIx32" ", m->common.member_id);
+        ppc_print_memberflags (ppc, m->common.member_flags);
+        ppc_print (ppc, "\n");
+        ppc_indent (ppc);
+        ppc_print_memberdetail_sans_name (ppc, &m->detail);
+        ppc_print_ti (ppc, &m->common.member_type_id);
+        ppc_outdent (ppc);
+      }
+      ppc_outdent (ppc);
+      break;
+    }
+    case DDS_XTypes_TK_UNION: {
+      const DDS_XTypes_CompleteUnionType *t = &typeobj->_u.union_type;
+      ppc_print (ppc, "UNION ");
+      ppc_print (ppc, "typename=%s ", t->header.detail.type_name);
+      ppc_print_typeflags (ppc, t->union_flags);
+      ppc_print (ppc, "\n");
+      ppc_indent (ppc);
+      ppc_print_typedetail_sans_name (ppc, &t->header.detail);
+      ppc_print (ppc, "discriminator=");
+      ppc_indent (ppc);
+      const DDS_XTypes_CompleteDiscriminatorMember *disc = &t->discriminator;
+      ppc_print_memberflags (ppc, disc->common.member_flags);
+      ppc_print (ppc, " ");
+      ppc_print_ti (ppc, &disc->common.type_id);
+      ppc_print_builtin_type_annots (ppc, disc->ann_builtin);
+      ppc_print_annots (ppc, disc->ann_custom);
+      ppc_outdent (ppc);
+      for (uint32_t i = 0; i < t->member_seq._length; i++)
+      {
+        const DDS_XTypes_CompleteUnionMember *m = &t->member_seq._buffer[i];
+        if (m->common.label_seq._length == 0)
+          ppc_print (ppc, "default:\n");
+        for (uint32_t j = 0; j < m->common.label_seq._length; j++)
+          ppc_print (ppc, "case %"PRIu32":\n", m->common.label_seq._buffer[j]);
+        ppc_indent (ppc);
+        ppc_print (ppc, "name=%s ", m->detail.name);
+        ppc_print (ppc, "memberid=0x%"PRIx32" ", m->common.member_id);
+        ppc_print_memberflags (ppc, m->common.member_flags);
+        ppc_print (ppc, "\n");
+        ppc_indent (ppc);
+        ppc_print_memberdetail_sans_name (ppc, &m->detail);
+        ppc_print_ti (ppc, &m->common.type_id);
+        ppc_outdent (ppc);
+        ppc_outdent (ppc);
+      }
+      ppc_outdent (ppc);
+      break;
+    }
+    default: {
+      printf ("type object discriminant %u encountered, sorry\n", (unsigned) typeobj->_d);
+      abort ();
+    }
+  }
+}
+
+static void build_typecache_to (const DDS_XTypes_CompleteTypeObject *typeobj, size_t *align, size_t *size);
+
+static bool build_typecache_simple (const uint8_t disc, size_t *align, size_t *size)
 {
   switch (disc)
   {
 #define CASE(disc, type) DDS_XTypes_TK_##disc: \
-  ppc_print (ppc, "%s\n", #disc); \
   *align = _Alignof(type); \
   *size = sizeof(type); \
   return true
     case DDS_XTypes_TK_NONE:
-      ppc_print (ppc, "NONE\n");
       *align = 1;
       *size = 0; // FIXME: Better check this!
       return true;
@@ -316,114 +745,61 @@ static bool build_typecache_simple (struct ppc *ppc, const uint8_t disc, size_t 
   return false;
 }
 
-static void build_typecache_ti (struct ppc *ppc, const DDS_XTypes_TypeIdentifier *typeid, size_t *align, size_t *size)
+static void build_typecache_ti (const DDS_XTypes_TypeIdentifier *typeid, size_t *align, size_t *size)
 {
-  if (build_typecache_simple (ppc, typeid->_d, align, size))
+  if (build_typecache_simple (typeid->_d, align, size))
     return;
   switch (typeid->_d)
   {
     case DDS_XTypes_TI_STRING8_SMALL:
     case DDS_XTypes_TI_STRING8_LARGE: {
-      const uint32_t bound = (typeid->_d == DDS_XTypes_TI_STRING8_SMALL) ? typeid->_u.string_sdefn.bound : typeid->_u.string_ldefn.bound;
-      ppc_print (ppc, "STRING8_%s bound=%"PRIu32"\n", (typeid->_d == DDS_XTypes_TI_STRING8_SMALL) ? "SMALL" : "LARGE", bound);
       *align = _Alignof (unsigned char *);
       *size = sizeof (unsigned char *);
       break;
     }
     case DDS_XTypes_TI_PLAIN_SEQUENCE_SMALL:
     case DDS_XTypes_TI_PLAIN_SEQUENCE_LARGE: {
-      const DDS_XTypes_PlainCollectionHeader *header;
       const DDS_XTypes_TypeIdentifier *et;
-      uint32_t bound;
       if (typeid->_d == DDS_XTypes_TI_PLAIN_SEQUENCE_SMALL) {
-        header = &typeid->_u.seq_sdefn.header;
         et = typeid->_u.seq_sdefn.element_identifier;
-        bound = typeid->_u.seq_sdefn.bound;
       } else {
-        header = &typeid->_u.seq_ldefn.header;
         et = typeid->_u.seq_ldefn.element_identifier;
-        bound = typeid->_u.seq_ldefn.bound;
       }
       size_t a, s;
-      ppc_print (ppc, "PLAIN_SEQUENCE_%s bound=%"PRIu32" equiv_kind=", (typeid->_d == DDS_XTypes_TI_PLAIN_SEQUENCE_SMALL) ? "SMALL" : "LARGE", bound);
-      switch (header->equiv_kind)
-      {
-        case DDS_XTypes_EK_MINIMAL: ppc_print (ppc, "MINIMAL"); break;
-        case DDS_XTypes_EK_COMPLETE: ppc_print (ppc, "COMPLETE"); break;
-        case DDS_XTypes_EK_BOTH: ppc_print (ppc, "BOTH"); break;
-        default: ppc_print (ppc, "%02"PRIx8, header->equiv_kind);
-      }
-      ppc_print (ppc, " ");
-      ppc_print_memberflags (ppc, header->element_flags);
-      ppc_print (ppc, "\n");
-      ppc_indent (ppc);
-      build_typecache_ti (ppc, et, &a, &s);
-      ppc_outdent (ppc);
+      build_typecache_ti (et, &a, &s);
       *align = _Alignof (dds_sequence_t);
       *size = sizeof (dds_sequence_t);
       break;
     }
     case DDS_XTypes_TI_PLAIN_ARRAY_SMALL:
     case DDS_XTypes_TI_PLAIN_ARRAY_LARGE: {
-      const DDS_XTypes_PlainCollectionHeader *header;
       const DDS_XTypes_TypeIdentifier *et;
       uint32_t bound = 1;
-      ppc_print (ppc, "PLAIN_ARRAY_%s bound={", (typeid->_d == DDS_XTypes_TI_PLAIN_ARRAY_SMALL) ? "SMALL" : "LARGE");
       if (typeid->_d == DDS_XTypes_TI_PLAIN_ARRAY_SMALL) {
-        header = &typeid->_u.array_sdefn.header;
         et = typeid->_u.array_sdefn.element_identifier;
         for (uint32_t i = 0; i < typeid->_u.array_sdefn.array_bound_seq._length; i++)
-        {
           bound *= typeid->_u.array_sdefn.array_bound_seq._buffer[i];
-          ppc_print (ppc, "%s%"PRIu8, (i == 0) ? "" : ",", typeid->_u.array_sdefn.array_bound_seq._buffer[i]);
-        }
       } else {
-        header = &typeid->_u.array_ldefn.header;
         et = typeid->_u.array_ldefn.element_identifier;
         for (uint32_t i = 0; i < typeid->_u.array_ldefn.array_bound_seq._length; i++)
-        {
           bound *= typeid->_u.array_ldefn.array_bound_seq._buffer[i];
-          ppc_print (ppc, "%s%"PRIu32, (i == 0) ? "" : ",", typeid->_u.array_ldefn.array_bound_seq._buffer[i]);
-        }
       }
-      ppc_print (ppc, "} equiv_kind=");
-      switch (header->equiv_kind)
-      {
-        case DDS_XTypes_EK_MINIMAL: ppc_print (ppc, "MINIMAL"); break;
-        case DDS_XTypes_EK_COMPLETE: ppc_print (ppc, "COMPLETE"); break;
-        case DDS_XTypes_EK_BOTH: ppc_print (ppc, "BOTH"); break;
-        default: ppc_print (ppc, "%02"PRIx8, header->equiv_kind);
-      }
-      ppc_print (ppc, " ");
-      ppc_print_memberflags (ppc, header->element_flags);
-      ppc_print (ppc, "\n");
-      ppc_indent (ppc);
       size_t a, s;
-      build_typecache_ti (ppc, et, &a, &s);
-      ppc_outdent (ppc);
+      build_typecache_ti (et, &a, &s);
       *align = a;
       *size = bound * s;
       break;
     }
     case DDS_XTypes_EK_COMPLETE: {
       struct typeinfo templ = { .key = { .key = (uintptr_t) typeid } }, *info;
-      ppc_print (ppc, "COMPLETE id=");
-      ppc_print_equivhash (ppc, typeid->_u.equivalence_hash);
       if ((info = ddsrt_hh_lookup (typecache, &templ)) != NULL) {
-        ppc_print (ppc, " cached\n");
         *align = info->align;
         *size = info->size;
       } else {
-        dds_typeobj_t *typeobj;
-        ppc_print (ppc, " lookup\n");
-        if (dds_get_typeobj (participant, (const dds_typeid_t *) typeid, 0, &typeobj) < 0)
-          abort ();
-        DDS_XTypes_TypeObject * const xtypeobj = (DDS_XTypes_TypeObject *) typeobj;
-        ppc_indent (ppc);
-        build_typecache_to (ppc, &xtypeobj->_u.complete, align, size);
-        ppc_outdent (ppc);
+        const DDS_XTypes_CompleteTypeObject *tobj = get_complete_typeobj_for_hashid (typeid->_u.equivalence_hash);
+        build_typecache_to (tobj, align, size);
         info = malloc (sizeof (*info));
-        *info = (struct typeinfo){ .key = { .key = (uintptr_t) typeid }, .typeobj = &xtypeobj->_u.complete, .release = xtypeobj, .align = *align, .size = *size };
+        *info = (struct typeinfo){ .key = { .key = (uintptr_t) typeid }, .typeobj = tobj, .release = NULL, .align = *align, .size = *size };
         ddsrt_hh_add (typecache, info);
       }
       break;
@@ -434,86 +810,47 @@ static void build_typecache_ti (struct ppc *ppc, const DDS_XTypes_TypeIdentifier
   }
 }
 
-static void build_typecache_to (struct ppc *ppc, const DDS_XTypes_CompleteTypeObject *typeobj, size_t *align, size_t *size)
+static void build_typecache_to (const DDS_XTypes_CompleteTypeObject *typeobj, size_t *align, size_t *size)
 {
-  if (build_typecache_simple (ppc, typeobj->_d, size, align))
+  if (build_typecache_simple (typeobj->_d, size, align))
     return;
   switch (typeobj->_d)
   {
     case DDS_XTypes_TK_ALIAS: {
       const DDS_XTypes_CompleteAliasType *x = &typeobj->_u.alias_type;
       size_t a, s;
-      ppc_print (ppc, "ALIAS typename=%s ", x->header.detail.type_name);
-      ppc_print_typeflags (ppc, x->alias_flags);
-      ppc_print_typedetail_sans_name (ppc, &x->header.detail);
-      ppc_print (ppc, "\n");
-      ppc_indent (ppc);
-      ppc_print_builtin_member_annots (ppc, x->body.ann_builtin);
-      ppc_print_annots (ppc, x->body.ann_custom);
-      ppc_print_memberflags (ppc, x->body.common.related_flags);
-      ppc_print (ppc, "\n");
-      build_typecache_ti (ppc, &x->body.common.related_type, &a, &s);
-      ppc_outdent (ppc);
-      *align = _Alignof (dds_sequence_t); *size = sizeof (dds_sequence_t);
+      build_typecache_ti (&x->body.common.related_type, &a, &s);
+      *align = _Alignof (dds_sequence_t);
+      *size = sizeof (dds_sequence_t);
       break;
     }
     case DDS_XTypes_TK_ENUM: {
-      const DDS_XTypes_CompleteEnumeratedType *x = &typeobj->_u.enumerated_type;
-      ppc_print (ppc, "ENUM typename=%s bit_bound=%"PRIu32" ", x->header.detail.type_name, x->header.common.bit_bound);
-      ppc_print_typeflags (ppc, x->enum_flags);
-      ppc_print_typedetail_sans_name (ppc, &x->header.detail);
-      ppc_print (ppc, "\n");
-      ppc_indent (ppc);
-      for (uint32_t i = 0; i < x->literal_seq._length; i++)
-      {
-        const DDS_XTypes_CompleteEnumeratedLiteral *l = &x->literal_seq._buffer[i];
-        ppc_print (ppc, "%s = %"PRId32" ", l->detail.name, l->common.value);
-        ppc_print_memberflags (ppc, l->common.flags);
-        ppc_print_memberdetail_sans_name (ppc, &l->detail);
-        ppc_print (ppc, "\n");
-      }
-      ppc_outdent (ppc);
       *align = sizeof (int);
       *size = sizeof (int);
       break;
     }
     case DDS_XTypes_TK_SEQUENCE: {
       const DDS_XTypes_CompleteSequenceType *x = &typeobj->_u.sequence_type;
-      ppc_print (ppc, "SEQUENCE bound=%"PRIu32" ", x->header.common.bound);
-      ppc_print_typeflags (ppc, x->collection_flag);
-      ppc_print_memberflags (ppc, x->element.common.element_flags);
-      ppc_print_typedetail (ppc, x->header.detail);
-      ppc_print (ppc, "\n");
-      ppc_indent (ppc);
-      ppc_print_elementdetail (ppc, &x->element.detail);
       struct typeinfo templ = { .key = { .key = (uintptr_t) typeobj } }, *info;
       if ((info = ddsrt_hh_lookup (typecache, &templ)) != NULL) {
-        ppc_print (ppc, "(cached)\n");
         *align = info->align;
         *size = info->size;
       } else {
         size_t a, s;
-        build_typecache_ti (ppc, &x->element.common.type, &a, &s);
+        build_typecache_ti (&x->element.common.type, &a, &s);
         *align = a;
         *size = s;
         info = malloc (sizeof (*info));
         *info = (struct typeinfo){ .key = { .key = (uintptr_t) typeobj }, .typeobj = typeobj, .release = NULL, .align = *align, .size = *size };
         ddsrt_hh_add (typecache, info);
       }
-      ppc_outdent (ppc);
       break;
     }
     case DDS_XTypes_TK_STRUCTURE: {
       const DDS_XTypes_CompleteStructType *t = &typeobj->_u.struct_type;
-      ppc_print (ppc, "STRUCTURE typename=%s ", t->header.detail.type_name);
-      ppc_print_typeflags (ppc, t->struct_flags);
-      ppc_print (ppc, "\n");
-      ppc_indent (ppc);
-      ppc_print_typedetail_sans_name (ppc, &t->header.detail);
-      // FIXME: base_type ignored here
+      // FIXME: base_type still ignored here
       struct typeinfo templ = { .key = { .key = (uintptr_t) typeobj } }, *info;
       if ((info = ddsrt_hh_lookup (typecache, &templ)) != NULL) {
-        ppc_print (ppc, "(cached)\n");
         *align = info->align;
         *size = info->size;
       } else {
@@ -522,14 +859,7 @@ static void build_typecache_to (struct ppc *ppc, const DDS_XTypes_CompleteTypeOb
         {
           const DDS_XTypes_CompleteStructMember *m = &t->member_seq._buffer[i];
           size_t a, s;
-          ppc_print (ppc, "name=%s ", m->detail.name);
-          ppc_print (ppc, "memberid=0x%"PRIx32" ", m->common.member_id);
-          ppc_print_memberflags (ppc, m->common.member_flags);
-          ppc_print (ppc, "\n");
-          ppc_indent (ppc);
-          ppc_print_memberdetail_sans_name (ppc, &m->detail);
-          build_typecache_ti (ppc, &m->common.member_type_id, &a, &s);
-          ppc_outdent (ppc);
+          build_typecache_ti (&m->common.member_type_id, &a, &s);
           if (a > *align)
             *align = a;
           if (*size % a)
@@ -542,52 +872,24 @@ static void build_typecache_to (struct ppc *ppc, const DDS_XTypes_CompleteTypeOb
         *info = (struct typeinfo){ .key = { .key = (uintptr_t) typeobj }, .typeobj = typeobj, .release = NULL, .align = *align, .size = *size };
         ddsrt_hh_add (typecache, info);
       }
-      ppc_outdent (ppc);
       break;
     }
     case DDS_XTypes_TK_UNION: {
       const DDS_XTypes_CompleteUnionType *t = &typeobj->_u.union_type;
-      ppc_print (ppc, "UNION ");
-      ppc_print (ppc, "typename=%s ", t->header.detail.type_name);
-      ppc_print_typeflags (ppc, t->union_flags);
-      ppc_print (ppc, "\n");
-      ppc_indent (ppc);
-      ppc_print_typedetail_sans_name (ppc, &t->header.detail);
       struct typeinfo templ = { .key = { .key = (uintptr_t) typeobj } }, *info;
       if ((info = ddsrt_hh_lookup (typecache, &templ)) != NULL) {
-        ppc_print (ppc, "(cached)\n");
         *align = info->align;
         *size = info->size;
       } else {
-        ppc_print (ppc, "discriminator=");
-        ppc_indent (ppc);
         const DDS_XTypes_CompleteDiscriminatorMember *disc = &t->discriminator;
         size_t disc_align, disc_size;
-        ppc_print_memberflags (ppc, disc->common.member_flags);
-        ppc_print (ppc, " ");
-        build_typecache_ti (ppc, &disc->common.type_id, &disc_align, &disc_size);
-        ppc_print_builtin_type_annots (ppc, disc->ann_builtin);
-        ppc_print_annots (ppc, disc->ann_custom);
-        ppc_outdent (ppc);
+        build_typecache_ti (&disc->common.type_id, &disc_align, &disc_size);
         *align = 1; *size = 0;
         for (uint32_t i = 0; i < t->member_seq._length; i++)
         {
           const DDS_XTypes_CompleteUnionMember *m = &t->member_seq._buffer[i];
           size_t a, s;
-          if (m->common.label_seq._length == 0)
-            ppc_print (ppc, "default:\n");
-          for (uint32_t j = 0; j < m->common.label_seq._length; j++)
-            ppc_print (ppc, "case %"PRIu32":\n", m->common.label_seq._buffer[j]);
-          ppc_indent (ppc);
-          ppc_print (ppc, "name=%s ", m->detail.name);
-          ppc_print (ppc, "memberid=0x%"PRIx32" ", m->common.member_id);
-          ppc_print_memberflags (ppc, m->common.member_flags);
-          ppc_print (ppc, "\n");
-          ppc_indent (ppc);
-          ppc_print_memberdetail_sans_name (ppc, &m->detail);
-          build_typecache_ti (ppc, &m->common.type_id, &a, &s);
-          ppc_outdent (ppc);
-          ppc_outdent (ppc);
+          build_typecache_ti (&m->common.type_id, &a, &s);
           if (a > *align)
             *align = a;
           if (s > *size)
@@ -607,7 +909,6 @@ static void build_typecache_to (struct ppc *ppc, const DDS_XTypes_CompleteTypeOb
         *info = (struct typeinfo){ .key = { .key = (uintptr_t) typeobj }, .typeobj = typeobj, .release = NULL, .align = *align, .size = *size };
         ddsrt_hh_add (typecache, info);
       }
-      ppc_outdent (ppc);
       break;
     }
     default: {
@@ -833,25 +1134,27 @@ static dds_return_t get_topic_and_typeobj (const char *topic_name, dds_duration_
         dds_delete_topic_descriptor (descriptor);
       }
       // The topic suffices for creating a reader, but we also need the TypeObject to make sense of the data
-      dds_typeobj_t *typeobj;
-      DDS_XTypes_TypeInformation const * const xtypeinfo = (DDS_XTypes_TypeInformation *) typeinfo;
-      if ((ret = dds_get_typeobj (participant, (const dds_typeid_t *) &xtypeinfo->complete.typeid_with_size.type_id, 0, &typeobj)) < 0)
+      if ((*xtypeobj = load_type_with_deps (typeinfo)) == NULL)
       {
-        fprintf (stderr, "dds_get_typeobj: %s\n", dds_strretcode (ret));
+        fprintf (stderr, "loading type with all dependencies failed\n");
         dds_return_loan (dcpspublication_reader, &epraw, 1);
         goto error;
       }
-      *xtypeobj = (DDS_XTypes_TypeObject *) typeobj;
     }
     dds_return_loan (dcpspublication_reader, &epraw, 1);
   }
   if (*xtypeobj)
   {
+    {
+      struct ppc ppc;
+      ppc_init (&ppc);
+      ppc_print_to (&ppc, &(*xtypeobj)->_u.complete);
+    }
+
     // If we got the type object, populate the type cache
     size_t align, size;
-    struct ppc ppc;
-    ppc_init (&ppc);
-    build_typecache_to (&ppc, &(*xtypeobj)->_u.complete, &align, &size);
+    build_typecache_to (&(*xtypeobj)->_u.complete, &align, &size);
+    fflush (stdout);
     struct typeinfo templ = { .key = { .key = (uintptr_t) *xtypeobj } } , *info;
     if ((info = ddsrt_hh_lookup (typecache, &templ)) != NULL)
     {
@@ -893,6 +1196,7 @@ int main (int argc, char **argv)
   // The one magic step: get a topic and type object ...
   DDS_XTypes_TypeObject *xtypeobj;
   typecache = ddsrt_hh_new (1, typecache_hash, typecache_equal);
+  type_hashid_map = ddsrt_hh_new (1, type_hashid_map_hash, type_hashid_map_equal);
   if ((ret = get_topic_and_typeobj (argv[1], DDS_SECS (10), &topic, &xtypeobj)) < 0)
   {
     fprintf (stderr, "get_topic_and_typeobj: %s\n", dds_strretcode (ret));
