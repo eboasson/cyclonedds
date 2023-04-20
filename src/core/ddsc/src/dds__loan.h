@@ -19,6 +19,18 @@ extern "C" {
 #endif
 
 /**
+ * @brief Implementation specific loan manager
+ */
+typedef struct dds_loan_manager {
+  //FIXME map better?
+  dds_loaned_sample_t **samples;
+  uint32_t n_samples_cap;
+  uint32_t n_samples_managed;
+  ddsrt_mutex_t mutex;
+} dds_loan_manager_t;
+
+
+/**
  * @brief Generic loaned sample cleanup function
  *
  * Will be called when the loaned sample runs out of refs or is
@@ -57,16 +69,6 @@ dds_return_t dds_loaned_sample_unref (dds_loaned_sample_t *loaned_sample);
  */
 dds_return_t dds_loaned_sample_reset_sample (dds_loaned_sample_t *loaned_sample);
 
-/**
- * @brief Implementation specific loan manager
- */
-typedef struct dds_loan_manager {
-  //FIXME map better?
-  dds_loaned_sample_t **samples;
-  uint32_t n_samples_cap;
-  uint32_t n_samples_managed;
-  //FIXME mutex?
-} dds_loan_manager_t;
 
 /**
  * @brief Create a loan manager
@@ -126,7 +128,7 @@ dds_return_t dds_loan_manager_move_loan (dds_loan_manager_t *manager, dds_loaned
  * @param[in] sample_ptr  Pointer of the sample to search for
  * @return A pointer to a loaned sample
  */
-dds_loaned_sample_t *dds_loan_manager_find_loan (const dds_loan_manager_t *manager, const void *sample_ptr);
+dds_loaned_sample_t *dds_loan_manager_find_loan (dds_loan_manager_t *manager, const void *sample_ptr);
 
 /**
  * @brief Gets the first managed loan from this manager

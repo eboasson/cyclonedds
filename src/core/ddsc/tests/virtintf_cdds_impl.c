@@ -28,11 +28,20 @@
   "<Tracing><OutputFile>cyclonedds_virtintf_impl.${CYCLONEDDS_DOMAIN_ID}.${CYCLONEDDS_PID}.log</OutputFile><Verbosity>finest</Verbosity></Tracing>" \
   "<Discovery><ExternalDomainId>51</ExternalDomainId></Discovery>"
 
+#define ON_DATA_INIT       0
+#define ON_DATA_RUNNING    1
+#define ON_DATA_TERMINATE  2
+#define ON_DATA_STOPPED    3
+
 static dds_entity_t g_domain = -1;
 
 struct cdds_virtual_interface {
   struct dds_virtual_interface c;
   dds_entity_t participant;
+  dds_entity_t on_data_waitset;
+  dds_entity_t stop_cond;
+  ddsrt_atomic_uint32_t on_data_thread_state;
+  ddsrt_atomic_uint32_t pipe_refs;
 };
 
 struct cdds_virtual_interface_topic {
@@ -44,11 +53,22 @@ struct cdds_virtual_interface_pipe {
   struct dds_virtual_interface_pipe c;
   dds_entity_t vi_endpoint;
   dds_entity_t cdds_endpoint;
-  ddsrt_atomic_uint32_t on_data_threads_stop;
-  ddsrt_atomic_uint32_t on_data_threads_count;
+  dds_entity_t deinit_cond;
+  bool deleting;
 };
 
+struct on_data_available_thread_arg {
+  struct cdds_virtual_interface *cvi;
+};
+
+struct on_data_available_data {
+  struct cdds_virtual_interface_pipe *cvp;
+};
+
+
 static const uint32_t sample_padding = sizeof (struct dds_virtual_interface_metadata) % 8 ? (sizeof (struct dds_virtual_interface_metadata) / 8 + 1) * 8 : sizeof (struct dds_virtual_interface_metadata);
+
+static uint32_t on_data_available_thread (void *a);
 
 static bool cdds_vi_data_type_supported (dds_virtual_interface_data_type_properties_t data_type_props);
 static bool cdds_vi_qos_supported (const struct dds_qos *qos);
@@ -129,6 +149,19 @@ static struct dds_virtual_interface_topic * cdds_vi_topic_create (struct dds_vir
   {
     cvi->participant = dds_create_participant (DDS_DOMAINID, NULL, NULL);
     assert (cvi->participant >= 0);
+    cvi->on_data_waitset = dds_create_waitset (cvi->participant);
+    assert (cvi->on_data_waitset >= 0);
+    cvi->stop_cond = dds_create_guardcondition (cvi->participant);
+    dds_return_t ret = dds_waitset_attach (cvi->on_data_waitset, cvi->stop_cond, 0);
+    assert (ret == DDS_RETCODE_OK);
+
+    struct on_data_available_thread_arg *data = dds_alloc (sizeof (*data));
+    data->cvi = cvi;
+
+    ddsrt_thread_t tid;
+    ddsrt_threadattr_t tattr;
+    ddsrt_threadattr_init (&tattr);
+    ddsrt_thread_create (&tid, "virtintf_cdds_ondata", &tattr, on_data_available_thread, data);
   }
 
   struct cdds_virtual_interface_topic *cvt = dds_alloc (sizeof (*cvt));
@@ -159,8 +192,10 @@ static dds_return_t cdds_vi_topic_destruct (struct dds_virtual_interface_topic *
 static uint32_t deinit_thread (void *arg)
 {
   struct cdds_virtual_interface *cvi = (struct cdds_virtual_interface *) arg;
-  dds_delete (cvi->participant);
-  dds_free (cvi);
+
+  while (ddsrt_atomic_ld32 (&cvi->on_data_thread_state) != ON_DATA_STOPPED)
+    dds_sleepfor (DDS_MSECS (10));
+  dds_delete (cvi->participant); // in separate thread because of thread state
   return 0;
 }
 
@@ -170,10 +205,17 @@ static dds_return_t cdds_vi_deinit (struct dds_virtual_interface *vi)
 
   dds_virtual_interface_cleanup_generic (&cvi->c);
 
+  ddsrt_atomic_st32 (&cvi->on_data_thread_state, ON_DATA_TERMINATE);
+  dds_set_guardcondition (cvi->stop_cond, true);
+
   ddsrt_thread_t tid;
   ddsrt_threadattr_t tattr;
   ddsrt_threadattr_init (&tattr);
   ddsrt_thread_create (&tid, "cdds_vi_deinit", &tattr, deinit_thread, cvi);
+
+  ddsrt_thread_join (tid, NULL);
+  dds_free (cvi);
+
   return DDS_RETCODE_OK;
 }
 
@@ -199,8 +241,12 @@ static struct dds_virtual_interface_pipe * cdds_vt_pipe_open (struct dds_virtual
   cvp->c.ops = vp_ops;
   cvp->c.topic = topic;
   cvp->c.pipe_type = pipe_type;
-  ddsrt_atomic_st32 (&cvp->on_data_threads_stop, 0);
-  ddsrt_atomic_st32 (&cvp->on_data_threads_count, 0);
+
+  cvp->deinit_cond = dds_create_guardcondition (cvi->participant);
+  dds_return_t ret = dds_waitset_attach (cvi->on_data_waitset, cvp->deinit_cond, (dds_attach_t) cvp);
+  assert (ret == DDS_RETCODE_OK);
+  cvp->deleting = false;
+  ddsrt_atomic_inc32 (&cvi->pipe_refs);
 
   switch (pipe_type)
   {
@@ -223,13 +269,8 @@ static struct dds_virtual_interface_pipe * cdds_vt_pipe_open (struct dds_virtual
 static dds_return_t cdds_vt_pipe_close (struct dds_virtual_interface_pipe *pipe)
 {
   struct cdds_virtual_interface_pipe *cvp = (struct cdds_virtual_interface_pipe *) pipe;
-
-  ddsrt_atomic_st32 (&cvp->on_data_threads_stop, 1);
-  while (ddsrt_atomic_ld32 (&cvp->on_data_threads_count) > 0)
-    dds_sleepfor (DDS_MSECS (100));
-
-  dds_delete (cvp->vi_endpoint);
-  dds_free (cvp);
+  cvp->deleting = true;
+  dds_set_guardcondition (cvp->deinit_cond, true);
   return DDS_RETCODE_OK;
 }
 
@@ -318,58 +359,67 @@ static dds_loaned_sample_t * incoming_sample_to_loan (struct cdds_virtual_interf
   return ls;
 }
 
-struct on_data_available_args {
-  struct cdds_virtual_interface_pipe *cvp;
-};
-
 static uint32_t on_data_available_thread (void *a)
 {
-  struct on_data_available_args *args = (struct on_data_available_args *) a;
-  struct cdds_virtual_interface *cvi = (struct cdds_virtual_interface *) args->cvp->c.topic->virtual_interface;
-  dds_return_t ret;
+  struct on_data_available_thread_arg *args = (struct on_data_available_thread_arg *) a;
+  struct cdds_virtual_interface *cvi = (struct cdds_virtual_interface *) args->cvi;
+  dds_free (args);
 
-  ddsrt_atomic_inc32 (&args->cvp->on_data_threads_count);
+  ddsrt_atomic_st32 (&cvi->on_data_thread_state, ON_DATA_RUNNING);
 
-  // attach waitset to virtual interface reader and wait for on_data_available
-  dds_entity_t waitset = dds_create_waitset (cvi->participant);
-  ret = dds_set_status_mask (args->cvp->vi_endpoint, DDS_DATA_AVAILABLE_STATUS);
-  assert (ret == DDS_RETCODE_OK);
-  ret = dds_waitset_attach (waitset, args->cvp->vi_endpoint, args->cvp->vi_endpoint);
-  assert (ret == DDS_RETCODE_OK);
-  while (ddsrt_atomic_ld32 (&args->cvp->on_data_threads_stop) == 0)
+  struct cdds_virtintf_data *sample = dds_alloc (sizeof (*sample));
+  while (ddsrt_atomic_ld32 (&cvi->on_data_thread_state) == ON_DATA_RUNNING || ddsrt_atomic_ld32 (&cvi->pipe_refs) > 0)
   {
-    ret = dds_waitset_wait (waitset, NULL, 0, DDS_MSECS (100));
-    if (ret >= 0)
+    dds_attach_t triggered[99];
+    dds_return_t n_triggers = dds_waitset_wait (cvi->on_data_waitset, triggered, 99, DDS_MSECS (10));
+    if (n_triggers > 0)
     {
-      dds_sample_info_t si;
-      struct cdds_virtintf_data *sample = dds_alloc (sizeof (*sample));
-      dds_return_t n = dds_take (args->cvp->vi_endpoint, (void **) &sample, &si, 1, 1);
-      if (n == 1 && si.valid_data)
+      for (int32_t t = 0; t < n_triggers; t++)
       {
-        dds_loaned_sample_t *data = incoming_sample_to_loan (args->cvp, sample);
-        (void) dds_reader_store_external (args->cvp->cdds_endpoint, data);
+        struct cdds_virtual_interface_pipe *cvp = (struct cdds_virtual_interface_pipe *) triggered[t];
+        if (cvp && cvp->deleting)
+        {
+          dds_waitset_detach (cvi->on_data_waitset, cvp->deinit_cond);
+          dds_delete (cvp->deinit_cond);
+          dds_waitset_detach (cvi->on_data_waitset, cvp->vi_endpoint);
+          dds_delete (cvp->vi_endpoint);
+          dds_free (cvp);
+          ddsrt_atomic_dec32 (&cvi->pipe_refs);
+        }
+        else if (ddsrt_atomic_ld32 (&cvi->on_data_thread_state) == ON_DATA_RUNNING)
+        {
+          assert (cvp);
+          dds_sample_info_t si;
+          dds_return_t n;
+          while ((n = dds_take (cvp->vi_endpoint, (void **) &sample, &si, 1, 1)) == 1)
+          {
+            if (si.valid_data)
+            {
+              dds_loaned_sample_t *loaned_sample = incoming_sample_to_loan (cvp, sample);
+              (void) dds_reader_store_loaned_sample (cvp->cdds_endpoint, loaned_sample);
+            }
+          }
+        }
       }
-      dds_free (sample);
     }
   }
 
-  ddsrt_atomic_dec32 (&args->cvp->on_data_threads_count);
-  dds_free (args);
+  ddsrt_atomic_st32 (&cvi->on_data_thread_state, ON_DATA_STOPPED);
+  dds_free (sample);
   return 0;
 }
 
 static dds_return_t cdds_vp_set_on_source (struct dds_virtual_interface_pipe *pipe, dds_entity_t reader)
 {
   struct cdds_virtual_interface_pipe *cvp = (struct cdds_virtual_interface_pipe *) pipe;
+  struct cdds_virtual_interface *cvi = (struct cdds_virtual_interface *) cvp->c.topic->virtual_interface;
   cvp->cdds_endpoint = reader;
 
-  struct on_data_available_args *data = dds_alloc (sizeof (*data));
-  data->cvp = cvp;
+  dds_return_t ret = dds_set_status_mask (cvp->vi_endpoint, DDS_DATA_AVAILABLE_STATUS);
+  assert (ret == DDS_RETCODE_OK);
+  ret = dds_waitset_attach (cvi->on_data_waitset, cvp->vi_endpoint, (dds_attach_t) cvp);
+  assert (ret == DDS_RETCODE_OK);
 
-  ddsrt_thread_t tid;
-  ddsrt_threadattr_t tattr;
-  ddsrt_threadattr_init (&tattr);
-  ddsrt_thread_create (&tid, "virtintf_cdds_ondata", &tattr, on_data_available_thread, data);
   return DDS_RETCODE_OK;
 }
 
@@ -419,12 +469,15 @@ dds_return_t cdds_create_virtual_interface (dds_virtual_interface_t **virtual_in
   vi->c.ops = vi_ops;
   dds_virtual_interface_init_generic (&vi->c);
   vi->participant = -1;
+  ddsrt_atomic_st32 (&vi->on_data_thread_state, ON_DATA_INIT);
+  ddsrt_atomic_st32 (&vi->pipe_refs, 0);
 
   if (config != NULL && strlen (config) > 0)
   {
     char *lstr = get_config_option_value (config, "LOCATOR");
     if (lstr != NULL && strlen (lstr) > 0 && strlen (lstr) < 32)
     {
+      dds_free (lstr);
       dds_free (vi);
       return DDS_RETCODE_BAD_PARAMETER;
     }
@@ -435,10 +488,12 @@ dds_return_t cdds_create_virtual_interface (dds_virtual_interface_t **virtual_in
       if ((num = ddsrt_todigit (lstr[n])) < 0 || num >= 16)
       {
         dds_free (vi);
+        dds_free (lstr);
         return DDS_RETCODE_BAD_PARAMETER;
       }
       ((char *) (vi->c.locator->address))[n / 2] += (char) ((n % 1) ? (num << 4) : num);
     }
+    dds_free (lstr);
   }
 
   *virtual_interface = (dds_virtual_interface_t *) vi;

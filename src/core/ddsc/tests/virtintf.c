@@ -32,7 +32,8 @@
 #include "DynamicData.h"
 #include "VIDataModels.h"
 
-const uint32_t start_test_index = 0;
+const uint32_t test_index_start = 0;
+const uint32_t test_index_end = 0; // UINT32_MAX;
 
 static const struct vi_locator {
   unsigned char a[16];
@@ -499,10 +500,16 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
       // path.
       bool override_fastpath_rdcount = wr_use_virtintf;
 
-      if (test_index++ >= start_test_index)
+      if (test_index >= test_index_start && test_index <= test_index_end)
+      {
+        test_index++;
         print (&tb, "%05u -- wr: %s; rds:", test_index, wr_use_virtintf ? "vi " : "dds");
+      }
       else
-        continue;
+      {
+        test_index++;
+        goto skip;
+      }
 
       for (int i = 0; rdmode[i] != 0; i++)
       {

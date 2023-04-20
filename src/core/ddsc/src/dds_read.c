@@ -102,6 +102,7 @@ static dds_return_t dds_read_impl (bool take, dds_entity_t reader_or_condition, 
 
 fail_pinned:
   dds_entity_unpin (entity);
+  ddsi_thread_state_asleep (thrst);
 fail:
   return ret;
 }

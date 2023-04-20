@@ -4063,7 +4063,7 @@ dds_read_next_wl(
  *             The reader entity has already been deleted.
  */
 DDS_EXPORT dds_return_t
-dds_reader_store_external (
+dds_reader_store_loaned_sample (
   dds_entity_t reader,
   dds_loaned_sample_t *data);
 

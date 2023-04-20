@@ -688,7 +688,7 @@ err:
   return ret;
 }
 
-dds_return_t dds_reader_store_external (dds_entity_t reader, dds_loaned_sample_t *data)
+dds_return_t dds_reader_store_loaned_sample (dds_entity_t reader, dds_loaned_sample_t *data)
 {
   dds_return_t ret;
   dds_entity * e;
