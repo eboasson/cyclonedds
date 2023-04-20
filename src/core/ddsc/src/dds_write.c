@@ -535,7 +535,9 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
     }
     else
     {
-      dds_loaned_sample_unref (loan); // d can have a ref
+      // d can have a ref
+      if ((ret = dds_loaned_sample_unref (loan)) != DDS_RETCODE_OK)
+        goto return_loan;
     }
   }
 

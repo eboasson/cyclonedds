@@ -21,12 +21,12 @@ static dds_return_t loan_manager_remove_loan_locked (dds_loaned_sample_t *loaned
 
 static dds_return_t loaned_sample_free_locked (dds_loaned_sample_t *loaned_sample)
 {
-  dds_return_t ret;
   assert (loaned_sample);
   assert (ddsrt_atomic_ld32 (&loaned_sample->refs) == 0);
 
-  if ((ret = loan_manager_remove_loan_locked (loaned_sample)) != DDS_RETCODE_OK)
-    return ret;
+  // FIXME: remove this?
+  // if ((ret = loan_manager_remove_loan_locked (loaned_sample)) != DDS_RETCODE_OK)
+  //   return ret;
   if (loaned_sample->ops.free)
     loaned_sample->ops.free (loaned_sample);
 
@@ -68,10 +68,11 @@ static dds_return_t loaned_sample_unref_locked (dds_loaned_sample_t *loaned_samp
   dds_return_t ret = DDS_RETCODE_OK;
   if (loaned_sample->ops.unref && (ret = loaned_sample->ops.unref (loaned_sample)) != DDS_RETCODE_OK)
     goto err;
-  if (ddsrt_atomic_dec32_ov (&loaned_sample->refs) == 0)
+  if (ddsrt_atomic_dec32_nv (&loaned_sample->refs) == 0)
   {
-    if ((ret = loan_manager_remove_loan_locked (loaned_sample)) == DDS_RETCODE_OK)
-      ret = loaned_sample_free_locked (loaned_sample);
+    if (loaned_sample->manager && (ret = loan_manager_remove_loan_locked (loaned_sample)) != DDS_RETCODE_OK)
+      goto err;
+    ret = loaned_sample_free_locked (loaned_sample);
   }
 
 err:

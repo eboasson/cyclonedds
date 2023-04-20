@@ -282,9 +282,6 @@ static dds_loaned_sample_t * cdds_vp_request_loan (struct dds_virtual_interface_
   {
     uint32_t sz = size_requested + sample_padding;
 
-    void *sample = dds_alloc (sz);
-    memset (sample, 0, sz);
-
     ls = dds_alloc (sizeof (*ls));
     ls->ops = ls_ops;
     ls->loan_origin = (struct dds_virtual_interface_pipe *) cvp;
@@ -294,9 +291,10 @@ static dds_loaned_sample_t * cdds_vp_request_loan (struct dds_virtual_interface_
     ls->metadata->block_size = sz;
     ls->metadata->data_origin = cvp->c.topic->virtual_interface->interface_id;
     ls->metadata->data_type = cvp->c.topic->data_type;
-    ls->sample_ptr = (char *) sample;
+    ls->sample_ptr = dds_alloc (sz);
+    memset (ls->sample_ptr, 0, sz);
     ls->loan_idx = 0;
-    ls->refs.v = 0;
+    ddsrt_atomic_st32 (&ls->refs, 0);
   }
   return ls;
 }
@@ -355,9 +353,12 @@ static dds_loaned_sample_t * incoming_sample_to_loan (struct cdds_virtual_interf
   ls->metadata = vmd;
   ls->sample_ptr = (char *) vi_sample->data._buffer,
   ls->loan_idx = 0;
-  ls->refs.v = 0;
+  ddsrt_atomic_st32 (&ls->refs, 0);
   return ls;
 }
+
+// FIXME: should be less?
+#define MAX_TRIGGERS 999
 
 static uint32_t on_data_available_thread (void *a)
 {
@@ -367,11 +368,11 @@ static uint32_t on_data_available_thread (void *a)
 
   ddsrt_atomic_st32 (&cvi->on_data_thread_state, ON_DATA_RUNNING);
 
-  struct cdds_virtintf_data *sample = dds_alloc (sizeof (*sample));
   while (ddsrt_atomic_ld32 (&cvi->on_data_thread_state) == ON_DATA_RUNNING || ddsrt_atomic_ld32 (&cvi->pipe_refs) > 0)
   {
-    dds_attach_t triggered[99];
-    dds_return_t n_triggers = dds_waitset_wait (cvi->on_data_waitset, triggered, 99, DDS_MSECS (10));
+    dds_attach_t triggered[MAX_TRIGGERS];
+    dds_return_t n_triggers = dds_waitset_wait (cvi->on_data_waitset, triggered, MAX_TRIGGERS, DDS_MSECS (10));
+    assert (n_triggers <= MAX_TRIGGERS);
     if (n_triggers > 0)
     {
       for (int32_t t = 0; t < n_triggers; t++)
@@ -391,13 +392,16 @@ static uint32_t on_data_available_thread (void *a)
           assert (cvp);
           dds_sample_info_t si;
           dds_return_t n;
-          while ((n = dds_take (cvp->vi_endpoint, (void **) &sample, &si, 1, 1)) == 1)
+          void *raw = NULL;
+          while ((n = dds_take (cvp->vi_endpoint, &raw, &si, 1, 1)) == 1)
           {
             if (si.valid_data)
             {
-              dds_loaned_sample_t *loaned_sample = incoming_sample_to_loan (cvp, sample);
+              dds_loaned_sample_t *loaned_sample = incoming_sample_to_loan (cvp, raw);
               (void) dds_reader_store_loaned_sample (cvp->cdds_endpoint, loaned_sample);
             }
+            dds_return_loan (cvp->cdds_endpoint, &raw, 1);
+            raw = NULL;
           }
         }
       }
@@ -405,7 +409,6 @@ static uint32_t on_data_available_thread (void *a)
   }
 
   ddsrt_atomic_st32 (&cvi->on_data_thread_state, ON_DATA_STOPPED);
-  dds_free (sample);
   return 0;
 }
 
@@ -432,6 +435,7 @@ static void cdds_loaned_sample_free (struct dds_loaned_sample *loaned_sample)
 
 static void cdds_loaned_sample_reset (struct dds_loaned_sample *loaned_sample)
 {
+  // FIXME
   (void) loaned_sample;
 }
 

@@ -33,7 +33,7 @@
 #include "VIDataModels.h"
 
 const uint32_t test_index_start = 0;
-const uint32_t test_index_end = 0; // UINT32_MAX;
+const uint32_t test_index_end = UINT32_MAX;
 
 static const struct vi_locator {
   unsigned char a[16];
@@ -652,8 +652,13 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
     CU_ASSERT_FATAL (rc == 0);
   }
 
-  rc = dds_delete (DDS_CYCLONEDDS_HANDLE);
+  rc = dds_delete (ws);
   CU_ASSERT_FATAL (rc == 0);
+  for (int i = 0; i < MAX_DOMAINS; i++)
+  {
+    rc = dds_delete (pp[i]);
+    CU_ASSERT_FATAL (rc == 0);
+  }
 }
 
 CU_Test(ddsc_virtintf, one_writer, .timeout = 30)

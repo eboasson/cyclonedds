@@ -874,10 +874,10 @@ static void serdata_default_get_keyhash (const struct ddsi_serdata *serdata_comm
   dds_ostreamBE_fini (&os, &dds_cdrstream_default_allocator);
 }
 
-static struct ddsi_serdata * serdata_default_from_virtual_exchange (const struct ddsi_sertype *type, dds_loaned_sample_t *data)
+static struct ddsi_serdata * serdata_default_from_virtual_exchange (const struct ddsi_sertype *type, dds_loaned_sample_t *loaned_sample)
 {
   const struct dds_sertype_default *tp = (const struct dds_sertype_default *) type;
-  struct dds_virtual_interface_metadata *md = data->metadata;
+  struct dds_virtual_interface_metadata *md = loaned_sample->metadata;
   enum ddsi_serdata_kind sdk = 0;
   switch (md->sample_state)
   {
@@ -906,18 +906,18 @@ static struct ddsi_serdata * serdata_default_from_virtual_exchange (const struct
 
   if (md->sample_state == DDS_LOANED_SAMPLE_STATE_SERIALIZED_KEY || md->sample_state == DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA)
   {
-    // the loaned sample is serialized
-    dds_loaned_sample_t *ls;
-    dds_heap_loan (type, &ls); // FIXME: check return code
+    dds_heap_loan (type, &d->c.loan); // FIXME: check return code
     dds_istream_t is;
-    dds_istream_init (&is, md->sample_size, data->sample_ptr, md->cdr_identifier);
-    dds_stream_read_sample (&is, ls->sample_ptr, &dds_cdrstream_default_allocator, &tp->type);
-    (void) dds_loaned_sample_free (data);
-    data = ls;
+    dds_istream_init (&is, md->sample_size, loaned_sample->sample_ptr, md->cdr_identifier);
+    dds_stream_read_sample (&is, d->c.loan->sample_ptr, &dds_cdrstream_default_allocator, &tp->type);
+    (void) dds_loaned_sample_free (loaned_sample);
+  }
+  else
+  {
+    d->c.loan = loaned_sample;
   }
 
-  d->c.loan = data;
-  dds_loaned_sample_ref (data);
+  dds_loaned_sample_ref (d->c.loan);
 
   return (struct ddsi_serdata *) d;
 }
