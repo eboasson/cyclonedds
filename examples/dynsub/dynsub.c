@@ -848,13 +848,12 @@ static void build_typecache_to (const DDS_XTypes_CompleteTypeObject *typeobj, si
     }
     case DDS_XTypes_TK_STRUCTURE: {
       const DDS_XTypes_CompleteStructType *t = &typeobj->_u.struct_type;
-      // FIXME: base_type still ignored here
       struct typeinfo templ = { .key = { .key = (uintptr_t) typeobj } }, *info;
       if ((info = ddsrt_hh_lookup (typecache, &templ)) != NULL) {
         *align = info->align;
         *size = info->size;
       } else {
-        *align = 1; *size = 0;
+        build_typecache_ti (&t->header.base_type, align, size);
         for (uint32_t i = 0; i < t->member_seq._length; i++)
         {
           const DDS_XTypes_CompleteStructMember *m = &t->member_seq._buffer[i];
@@ -954,7 +953,7 @@ static const void *align (const unsigned char *base, struct context *c, size_t a
   return base + o;
 }
 
-static void print_sample1_to (const unsigned char *sample, const DDS_XTypes_CompleteTypeObject *typeobj, struct context *c, const char *sep, const char *label);
+static void print_sample1_to (const unsigned char *sample, const DDS_XTypes_CompleteTypeObject *typeobj, struct context *c, const char *sep, const char *label, bool is_base_type);
 
 static bool print_sample1_simple (const unsigned char *sample, const uint8_t disc, struct context *c, const char *sep, const char *label)
 {
@@ -982,7 +981,7 @@ static bool print_sample1_simple (const unsigned char *sample, const uint8_t dis
   return false;
 }
 
-static void print_sample1_ti (const unsigned char *sample, const DDS_XTypes_TypeIdentifier *typeid, struct context *c, const char *sep, const char *label)
+static void print_sample1_ti (const unsigned char *sample, const DDS_XTypes_TypeIdentifier *typeid, struct context *c, const char *sep, const char *label, bool is_base_type)
 {
   if (print_sample1_simple (sample, typeid->_d, c, sep, label))
     return;
@@ -1012,7 +1011,7 @@ static void print_sample1_ti (const unsigned char *sample, const DDS_XTypes_Type
         sep = "";
         for (uint32_t i = 0; i < p->_length; i++)
         {
-          print_sample1_ti (p->_buffer, et, &c1, sep, NULL);
+          print_sample1_ti (p->_buffer, et, &c1, sep, NULL, false);
           sep = ",";
         }
         printf ("]");
@@ -1021,13 +1020,13 @@ static void print_sample1_ti (const unsigned char *sample, const DDS_XTypes_Type
     }
     case DDS_XTypes_EK_COMPLETE: {
       struct typeinfo templ = { .key = { .key = (uintptr_t) typeid } }, *info = ddsrt_hh_lookup (typecache, &templ);
-      print_sample1_to (sample, info->typeobj, c, sep, label);
+      print_sample1_to (sample, info->typeobj, c, sep, label, is_base_type);
       break;
     }
   }
 }
 
-static void print_sample1_to (const unsigned char *sample, const DDS_XTypes_CompleteTypeObject *typeobj, struct context *c, const char *sep, const char *label)
+static void print_sample1_to (const unsigned char *sample, const DDS_XTypes_CompleteTypeObject *typeobj, struct context *c, const char *sep, const char *label, bool is_base_type)
 {
   if (print_sample1_simple (sample, typeobj->_d, c, sep, label))
     return;
@@ -1043,7 +1042,7 @@ static void print_sample1_to (const unsigned char *sample, const DDS_XTypes_Comp
       sep = "";
       for (uint32_t i = 0; i < p->_length; i++)
       {
-        print_sample1_ti ((const unsigned char *) p->_buffer, et, &c1, sep, NULL);
+        print_sample1_ti ((const unsigned char *) p->_buffer, et, &c1, sep, NULL, false);
         sep = ",";
         if (c1.offset % c1.maxalign)
           c1.offset += c1.maxalign - (c1.offset % c1.maxalign);
@@ -1057,17 +1056,22 @@ static void print_sample1_to (const unsigned char *sample, const DDS_XTypes_Comp
       const unsigned char *p = align (sample, c, info->align, info->size);;
       printf ("%s", sep);
       if (label) printf ("\"%s\":", label);
-      printf ("{");
-      sep = "";
+      if (!is_base_type) printf ("{");
       struct context c1 = *c; c1.offset = 0; c1.maxalign = 1;
+      sep = "";
+      if (t->header.base_type._d != DDS_XTypes_TK_NONE)
+      {
+        print_sample1_ti (p, &t->header.base_type, &c1, sep, NULL, true);
+        sep = ",";
+      }
       for (uint32_t i = 0; i < t->member_seq._length; i++)
       {
         const DDS_XTypes_CompleteStructMember *m = &t->member_seq._buffer[i];
         c1.key = c->key && m->common.member_flags & DDS_XTypes_IS_KEY;
-        print_sample1_ti (p, &m->common.member_type_id, &c1, sep, *m->detail.name ? m->detail.name : NULL);
+        print_sample1_ti (p, &m->common.member_type_id, &c1, sep, *m->detail.name ? m->detail.name : NULL, false);
         sep = ",";
       }
-      printf ("}");
+      if (!is_base_type) printf ("}");
       break;
     }
   }
@@ -1076,7 +1080,7 @@ static void print_sample1_to (const unsigned char *sample, const DDS_XTypes_Comp
 static void print_sample (bool valid_data, const void *sample, const DDS_XTypes_CompleteTypeObject *typeobj)
 {
   struct context c1 = { .valid_data = valid_data, .key = true, .offset = 0, .maxalign = 1 };
-  print_sample1_to (sample, typeobj, &c1, "", NULL);
+  print_sample1_to (sample, typeobj, &c1, "", NULL, false);
   printf ("\n");
 }
 
