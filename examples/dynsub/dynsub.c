@@ -177,6 +177,7 @@ static bool load_deps_to (const DDS_XTypes_CompleteTypeObject *typeobj)
     case DDS_XTypes_TK_ALIAS:
       return load_deps_ti (&typeobj->_u.alias_type.body.common.related_type);
     case DDS_XTypes_TK_ENUM:
+    case DDS_XTypes_TK_BITMASK:
       return true;
     case DDS_XTypes_TK_SEQUENCE:
       return load_deps_ti (&typeobj->_u.sequence_type.element.common.type);
@@ -622,6 +623,24 @@ static void ppc_print_to (struct ppc *ppc, const DDS_XTypes_CompleteTypeObject *
       ppc_outdent (ppc);
       break;
     }
+    case DDS_XTypes_TK_BITMASK: {
+      const DDS_XTypes_CompleteBitmaskType *x = &typeobj->_u.bitmask_type;
+      ppc_print (ppc, "ENUM typename=%s bit_bound=%"PRIu32" ", x->header.detail.type_name, x->header.common.bit_bound);
+      ppc_print_typeflags (ppc, x->bitmask_flags);
+      ppc_print_typedetail_sans_name (ppc, &x->header.detail);
+      ppc_print (ppc, "\n");
+      ppc_indent (ppc);
+      for (uint32_t i = 0; i < x->flag_seq._length; i++)
+      {
+        const DDS_XTypes_CompleteBitflag *l = &x->flag_seq._buffer[i];
+        ppc_print (ppc, "%s = %"PRIu32" ", l->detail.name, l->common.position);
+        ppc_print_memberflags (ppc, l->common.flags);
+        ppc_print_memberdetail_sans_name (ppc, &l->detail);
+        ppc_print (ppc, "\n");
+      }
+      ppc_outdent (ppc);
+      break;
+    }
     case DDS_XTypes_TK_SEQUENCE: {
       const DDS_XTypes_CompleteSequenceType *x = &typeobj->_u.sequence_type;
       ppc_print (ppc, "SEQUENCE bound=%"PRIu32" ", x->header.common.bound);
@@ -827,6 +846,18 @@ static void build_typecache_to (const DDS_XTypes_CompleteTypeObject *typeobj, si
     case DDS_XTypes_TK_ENUM: {
       *align = sizeof (int);
       *size = sizeof (int);
+      break;
+    }
+    case DDS_XTypes_TK_BITMASK: {
+      const DDS_XTypes_CompleteBitmaskType *x = &typeobj->_u.bitmask_type;
+      if (x->header.common.bit_bound > 32)
+        *align = *size = 8;
+      else if (x->header.common.bit_bound > 16)
+        *align = *size = 4;
+      else if (x->header.common.bit_bound > 8)
+        *align = *size = 2;
+      else
+        *align = *size = 1;
       break;
     }
     case DDS_XTypes_TK_SEQUENCE: {

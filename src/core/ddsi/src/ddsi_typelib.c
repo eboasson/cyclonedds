@@ -853,6 +853,15 @@ static dds_return_t ddsi_typeinfo_deps_append (struct ddsi_domaingv *gv, struct 
     return ret;
   }
 
+  struct ddsi_type *min_dep_type = ddsi_type_lookup_locked_impl (gv, &ti_dep_m.x);
+  if (!min_dep_type)
+  {
+    struct ddsi_type *t;
+    ddsi_type_new (gv, &t, &ti_dep_m.x, &to_dep_m);
+    min_dep_type = ddsi_type_lookup_locked_impl (gv, &ti_dep_m.x);
+    assert (min_dep_type);
+  }
+
   DDS_XTypes_TypeObject to_dep_c;
   ddsi_xt_get_typeobject_kind_impl (&dep_type->xt, &to_dep_c, DDSI_TYPEID_KIND_COMPLETE);
 
@@ -911,9 +920,12 @@ dds_return_t ddsi_type_get_typeinfo (struct ddsi_domaingv *gv, const struct ddsi
 {
   dds_return_t ret;
 
-  assert (ddsi_typeid_is_complete (&type->xt.id));
-  if ((ret = ddsi_type_get_typeinfo_toplevel (gv, type, type_info)))
-    return ret;
+  // assert (ddsi_typeid_is_complete (&type->xt.id));
+  if (ddsi_typeid_is_complete (&type->xt.id))
+  {
+    if ((ret = ddsi_type_get_typeinfo_toplevel (gv, type, type_info)))
+      return ret;
+  }
 
   struct ddsi_type_dep tmpl;
   memset (&tmpl, 0, sizeof (tmpl));
@@ -938,7 +950,13 @@ dds_return_t ddsi_type_get_typeinfo (struct ddsi_domaingv *gv, const struct ddsi
      so we'll skip both fully descriptive and indirect hash identifiers (kind DDSI_TYPEID_KIND_PLAIN_COLLECTION_MINIMAL and
      DDSI_TYPEID_KIND_PLAIN_COLLECTION_COMPLETE) */
     if (!ddsi_typeid_is_hash (&dep->dep_type_id))
+    {
+      struct ddsi_type const * const dep_type = ddsi_type_lookup_locked (gv, &dep->dep_type_id);
+      struct ddsi_typeinfo dep_type_info;
+      ddsi_type_get_typeinfo (gv, dep_type, &dep_type_info);
+      ddsi_typeinfo_fini (&dep_type_info);
       continue;
+    }
     if ((ret = ddsi_typeinfo_deps_append (gv, type_info, dep)) != 0)
     {
       ddsi_typeinfo_deps_fini (type_info);
@@ -988,7 +1006,7 @@ static void typemap_add_type (struct ddsi_typemap *type_map, const struct ddsi_t
   ddsi_typeid_copy_impl (&type_map->x.identifier_complete_minimal._buffer[n].type_identifier1, &type_map->x.identifier_object_pair_complete._buffer[n].type_identifier);
 }
 
-static dds_return_t ddsi_type_get_typemap (struct ddsi_domaingv *gv, const struct ddsi_type *type, struct ddsi_typemap *type_map)
+dds_return_t ddsi_type_get_typemap (struct ddsi_domaingv *gv, const struct ddsi_type *type, struct ddsi_typemap *type_map)
 {
   dds_return_t ret = DDS_RETCODE_OK;
   memset (type_map, 0, sizeof (*type_map));
