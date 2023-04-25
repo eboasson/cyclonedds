@@ -703,7 +703,7 @@ CU_Test(ddsc_psmx, return_loan)
 
   // FIXME: check RSS
 
-  rc = dds_delete (DDS_CYCLONEDDS_HANDLE);
+  rc = dds_delete (pp);
   CU_ASSERT_FATAL (rc == DDS_RETCODE_OK);
 }
 
@@ -801,7 +801,7 @@ CU_Test(ddsc_psmx, partition_xtalk)
   }
 
   dds_delete_qos (qos);
-  rc = dds_delete (DDS_CYCLONEDDS_HANDLE);
+  rc = dds_delete (pp);
   CU_ASSERT_FATAL (rc == 0);
 }
 

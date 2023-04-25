@@ -229,7 +229,8 @@ static dds_psmx_node_identifier_t cdds_psmx_get_node_id (const struct dds_psmx *
 
 static bool cdds_psmx_topic_serialization_required (dds_psmx_data_type_properties_t data_type_props)
 {
-  (void) data_type_props;
+  if (!(data_type_props & DDS_DATA_TYPE_IS_FIXED_SIZE) || DDS_DATA_TYPE_CONTAINS_INDIRECTIONS (data_type_props))
+    return true;
   return false;
 }
 
