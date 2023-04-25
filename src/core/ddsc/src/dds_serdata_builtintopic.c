@@ -445,7 +445,7 @@ const struct ddsi_serdata_ops ddsi_serdata_ops_builtintopic = {
   .print = serdata_builtin_type_print,
   .get_keyhash = 0,
   .from_loaned_sample = 0,
-  .from_virtual_exchange = 0
+  .from_psmx = 0
 };
 
 #ifdef DDS_HAS_TOPIC_DISCOVERY
@@ -502,7 +502,7 @@ const struct ddsi_serdata_ops ddsi_serdata_ops_builtintopic_topic = {
   .print = serdata_builtin_type_print,
   .get_keyhash = 0,
   .from_loaned_sample = 0,
-  .from_virtual_exchange = 0
+  .from_psmx = 0
 };
 
 #endif /* DDS_HAS_TOPIC_DISCOVERY */

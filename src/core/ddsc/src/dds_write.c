@@ -363,14 +363,14 @@ dds_return_t dds_request_writer_loan(dds_writer *wr, void **samples_ptr, int32_t
     goto fail_alloc;
   }
 
-  // attempt to request loans from virtual interfaces
+  // attempt to request loans from an PSMX instance
   if (wr->m_topic->m_stype->fixed_size)
   {
-    for (uint32_t i = 0; i < wr->m_endpoint.virtual_pipes.length; i++)
+    for (uint32_t i = 0; i < wr->m_endpoint.psmx_endpoints.length; i++)
     {
       for (; index < n_samples; index++)
       {
-        dds_loaned_sample_t *loan = dds_virtual_interface_pipe_request_loan (wr->m_endpoint.virtual_pipes.pipes[i], wr->m_topic->m_stype->zerocopy_size);
+        dds_loaned_sample_t *loan = dds_psmx_endpoint_request_loan (wr->m_endpoint.psmx_endpoints.endpoints[i], wr->m_topic->m_stype->zerocopy_size);
         if (!loan)
         {
           ret = DDS_RETCODE_ERROR;
@@ -470,15 +470,15 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
   if (supplied_loan && supplied_loan->loan_origin)
     loan = supplied_loan;
 
-  // 4. If it is a heap loan, attempt to get a virtual interface loan
+  // 4. If it is a heap loan, attempt to get a PSMX loan
   uint32_t required_size = 0;
   if (!loan && get_required_buffer_size(wr->m_topic, data, &required_size))
   {
     if (required_size)
     {
-      // attempt to get a loan from a virtual interface
-      for (uint32_t i = 0; i < wr->m_endpoint.virtual_pipes.length && !loan; i++)
-        loan = dds_virtual_interface_pipe_request_loan (wr->m_endpoint.virtual_pipes.pipes[i], required_size);
+      // attempt to get a loan from a PSMX
+      for (uint32_t i = 0; i < wr->m_endpoint.psmx_endpoints.length && !loan; i++)
+        loan = dds_psmx_endpoint_request_loan (wr->m_endpoint.psmx_endpoints.endpoints[i], required_size);
     }
   }
 
@@ -519,17 +519,17 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
   if ((ret = dds_write_basic_impl (thrst, wr, d)) != DDS_RETCODE_OK)
     goto unref_serdata;
 
-  // 6.b Deliver through virtual interface
+  // 6.b Deliver through PSMX
   if (loan)
   {
-    struct dds_virtual_interface_pipe *pipe = loan->loan_origin;
+    struct dds_psmx_endpoint *endpoint = loan->loan_origin;
 
     // populate metadata fields
-    struct dds_virtual_interface_metadata *md = loan->metadata;
+    struct dds_psmx_metadata *md = loan->metadata;
     memcpy (&md->guid, &ddsi_wr->e.guid, sizeof (md->guid));
     md->timestamp = d->timestamp.v;
     md->statusinfo = d->statusinfo;
-    if ((ret = pipe->ops.sink_data (pipe, loan)) != DDS_RETCODE_OK)
+    if ((ret = endpoint->ops.write_data (endpoint, loan)) != DDS_RETCODE_OK)
     {
       goto unref_serdata;
     }

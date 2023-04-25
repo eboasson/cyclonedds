@@ -20,7 +20,7 @@
 #include "dds/ddsi/ddsi_sertype.h"
 #include "dds__qos.h"
 #include "dds__topic.h"
-#include "dds__virtual_interface.h"
+#include "dds__psmx.h"
 
 static void dds_qos_data_copy_in (ddsi_octetseq_t *data, const void * __restrict value, size_t sz, bool overwrite)
 {
@@ -479,9 +479,9 @@ void dds_qset_data_representation (dds_qos_t * __restrict qos, uint32_t n, const
   qos->present |= DDSI_QP_DATA_REPRESENTATION;
 }
 
-void dds_qset_virtual_interfaces (dds_qos_t * __restrict qos, uint32_t n, const char **values)
+void dds_qset_psmx_instances (dds_qos_t * __restrict qos, uint32_t n, const char **values)
 {
-  if (qos == NULL || (n > 0 && values == NULL) || n > DDS_MAX_VIRTUAL_INTERFACES)
+  if (qos == NULL || (n > 0 && values == NULL) || n > DDS_MAX_PSMX_INSTANCES)
     return;
 
   // check that names are set
@@ -492,27 +492,27 @@ void dds_qset_virtual_interfaces (dds_qos_t * __restrict qos, uint32_t n, const 
   }
 
   // cleanup old data
-  if ((qos->present & DDSI_QP_VIRTUAL_INTERFACES) && qos->virtual_interfaces.n > 0)
+  if ((qos->present & DDSI_QP_PSMX) && qos->psmx.n > 0)
   {
-    assert (qos->virtual_interfaces.strs != NULL);
-    for (uint32_t i = 0; i < qos->virtual_interfaces.n; i++)
-      dds_free (qos->virtual_interfaces.strs[i]);
-    dds_free (qos->virtual_interfaces.strs);
-    qos->virtual_interfaces.strs = NULL;
+    assert (qos->psmx.strs != NULL);
+    for (uint32_t i = 0; i < qos->psmx.n; i++)
+      dds_free (qos->psmx.strs[i]);
+    dds_free (qos->psmx.strs);
+    qos->psmx.strs = NULL;
   }
 
   // copy in new data
-  qos->virtual_interfaces.n = n;
+  qos->psmx.n = n;
   if (n > 0)
   {
-    qos->virtual_interfaces.strs = dds_alloc (n * sizeof (*qos->virtual_interfaces.strs));
+    qos->psmx.strs = dds_alloc (n * sizeof (*qos->psmx.strs));
     for (uint32_t i = 0; i < n; i++)
-      qos->virtual_interfaces.strs[i] = dds_string_dup (values[i]);
+      qos->psmx.strs[i] = dds_string_dup (values[i]);
   }
   else
-    qos->virtual_interfaces.strs = NULL;
+    qos->psmx.strs = NULL;
 
-  qos->present |= DDSI_QP_VIRTUAL_INTERFACES;
+  qos->present |= DDSI_QP_PSMX;
 }
 
 bool dds_qget_userdata (const dds_qos_t * __restrict qos, void **value, size_t *sz)
@@ -905,22 +905,22 @@ dds_return_t dds_ensure_valid_data_representation (dds_qos_t *qos, uint32_t allo
 }
 
 
-bool dds_qget_virtual_interfaces (const dds_qos_t * __restrict qos, uint32_t *n_out, char ***values)
+bool dds_qget_psmx_instances (const dds_qos_t * __restrict qos, uint32_t *n_out, char ***values)
 {
-  if (qos == NULL || !(qos->present & DDSI_QP_VIRTUAL_INTERFACES) || n_out == NULL)
+  if (qos == NULL || !(qos->present & DDSI_QP_PSMX) || n_out == NULL)
     return false;
 
-  if (qos->virtual_interfaces.n > 0)
-    assert (qos->virtual_interfaces.strs != NULL);
+  if (qos->psmx.n > 0)
+    assert (qos->psmx.strs != NULL);
 
-  *n_out = qos->virtual_interfaces.n;
+  *n_out = qos->psmx.n;
   if (values != NULL)
   {
     if (*n_out > 0)
     {
       *values = dds_alloc ((*n_out) * sizeof (**values));
       for (uint32_t i = 0; i < *n_out; i++)
-        (*values)[i] = dds_string_dup (qos->virtual_interfaces.strs[i]);
+        (*values)[i] = dds_string_dup (qos->psmx.strs[i]);
     }
     else
       *values = NULL;
@@ -929,53 +929,53 @@ bool dds_qget_virtual_interfaces (const dds_qos_t * __restrict qos, uint32_t *n_
   return true;
 }
 
-dds_return_t dds_ensure_valid_virtual_interfaces (dds_qos_t *qos, ddsi_data_type_properties_t data_type_props, const struct dds_virtual_interfaces_set *vi_set)
+dds_return_t dds_ensure_valid_psmx_instances (dds_qos_t *qos, ddsi_data_type_properties_t data_type_props, const struct dds_psmx_set *psmx_instances)
 {
   uint32_t n_supported = 0;
-  const char *supported_interfaces[DDS_MAX_VIRTUAL_INTERFACES];
+  const char *supported_psmx[DDS_MAX_PSMX_INSTANCES];
 
-  if (!(qos->present & DDSI_QP_VIRTUAL_INTERFACES))
+  if (!(qos->present & DDSI_QP_PSMX))
   {
-    assert (vi_set->length <= DDS_MAX_VIRTUAL_INTERFACES);
-    for (uint32_t i = 0; i < vi_set->length; i++)
+    assert (psmx_instances->length <= DDS_MAX_PSMX_INSTANCES);
+    for (uint32_t i = 0; i < psmx_instances->length; i++)
     {
-      struct dds_virtual_interface *vi = vi_set->interfaces[i];
-      if (vi->ops.data_type_supported (data_type_props) && vi->ops.qos_supported (qos))
-        supported_interfaces[n_supported++] = vi->interface_name;
+      struct dds_psmx *psmx = psmx_instances->instances[i];
+      if (psmx->ops.data_type_supported (data_type_props) && psmx->ops.qos_supported (qos))
+        supported_psmx[n_supported++] = psmx->instance_name;
     }
   }
   else
   {
     uint32_t n = 0;
     char **values;
-    dds_qget_virtual_interfaces (qos, &n, &values);
+    dds_qget_psmx_instances (qos, &n, &values);
     for (uint32_t i = 0; i < n; i++)
     {
-      struct dds_virtual_interface *vi = NULL;
-      for (uint32_t s = 0; vi == NULL && s < vi_set->length; s++)
+      struct dds_psmx *psmx = NULL;
+      for (uint32_t s = 0; psmx == NULL && s < psmx_instances->length; s++)
       {
-        if (strcmp (vi_set->interfaces[s]->interface_name, values[i]) == 0)
-          vi = vi_set->interfaces[i];
+        if (strcmp (psmx_instances->instances[s]->instance_name, values[i]) == 0)
+          psmx = psmx_instances->instances[i];
       }
-      if (vi != NULL && vi->ops.data_type_supported (data_type_props) && vi->ops.qos_supported (qos))
-        supported_interfaces[n_supported++] = vi->interface_name;
+      if (psmx != NULL && psmx->ops.data_type_supported (data_type_props) && psmx->ops.qos_supported (qos))
+        supported_psmx[n_supported++] = psmx->instance_name;
     }
   }
 
-  dds_qset_virtual_interfaces (qos, n_supported, supported_interfaces);
+  dds_qset_psmx_instances (qos, n_supported, supported_psmx);
 
   return DDS_RETCODE_OK;
 }
 
-bool dds_qos_has_virtual_interface (const dds_qos_t *qos, const char *virtual_interface_name)
+bool dds_qos_has_psmx_instances (const dds_qos_t *qos, const char *psmx_instance_name)
 {
   uint32_t n = 0;
   char **values;
   bool found = false;
-  dds_qget_virtual_interfaces (qos, &n, &values);
+  dds_qget_psmx_instances (qos, &n, &values);
   for (uint32_t i = 0; !found && i < n; i++)
   {
-    if (strcmp (virtual_interface_name, values[i]) == 0)
+    if (strcmp (psmx_instance_name, values[i]) == 0)
       found = true;
     dds_free (values[i]);
   }

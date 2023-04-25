@@ -9,8 +9,8 @@
  *
  * SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
  */
-#ifndef VIRTINTF_CDDS_IMPL_H
-#define VIRTINTF_CDDS_IMPL_H
+#ifndef PSMX_CDDS_IMPL_H
+#define PSMX_CDDS_IMPL_H
 
 #include "dds/export.h"
 #include "dds/dds.h"
@@ -19,10 +19,10 @@
 extern "C" {
 #endif
 
-dds_return_t cdds_create_virtual_interface (dds_virtual_interface_t **virtual_interface, dds_loan_origin_type_t identifier, const char *config);
+dds_return_t cdds_create_psmx (dds_psmx_t **psmx, dds_loan_origin_type_t identifier, const char *config);
 
 #if defined (__cplusplus)
 }
 #endif
 
-#endif /* VIRTINTF_CDDS_IMPL_H */
+#endif /* PSMX_CDDS_IMPL_H */

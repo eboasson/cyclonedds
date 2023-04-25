@@ -20,7 +20,7 @@
 #include "dds/ddsi/ddsi_domaingv.h"
 #include "dds/ddsi/ddsi_sertype.h"
 
-#include "dds/ddsc/dds_virtual_interface.h"
+#include "dds/ddsc/dds_psmx.h"
 #include "dds__loan.h"
 #include "dds__heap_loan.h"
 

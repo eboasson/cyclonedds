@@ -27,7 +27,7 @@
 #include "dds/ddsi/ddsi_threadmon.h"
 #include "dds/ddsi/ddsi_tkmap.h"
 #include "dds/ddsi/ddsi_iid.h"
-#include "dds/ddsi/ddsi_virtual_interface.h"
+#include "dds/ddsi/ddsi_psmx.h"
 #include "ddsi__protocol.h"
 #include "ddsi__misc.h"
 #include "ddsi__config_impl.h"
@@ -994,19 +994,19 @@ static void free_conns (struct ddsi_domaingv *gv)
   }
 }
 
-static int create_vnet_interface_for_virtual_interface (struct ddsi_domaingv *gv, const char *virtual_interface_name, const ddsi_locator_t locator)
+static int create_vnet_interface_for_psmx (struct ddsi_domaingv *gv, const char *psmx_instance_name, const ddsi_locator_t locator)
 {
   assert (gv);
-  assert (virtual_interface_name);
+  assert (psmx_instance_name);
 
   // FIXME: this can be done more elegantly when properly supporting multiple transports
-  if (ddsi_vnet_init (gv, virtual_interface_name, DDSI_LOCATOR_KIND_VIRTINTF) < 0)
+  if (ddsi_vnet_init (gv, psmx_instance_name, DDSI_LOCATOR_KIND_PSMX) < 0)
     return -1;
-  ddsi_factory_find (gv, virtual_interface_name)->m_enable = true;
+  ddsi_factory_find (gv, psmx_instance_name)->m_enable = true;
 
   if (gv->n_interfaces == MAX_XMIT_CONNS)
   {
-    GVERROR ("maximum number of interfaces reached, can't add virtual interface\n");
+    GVERROR ("maximum number of interfaces reached, can't add PSMX instance\n");
     return -1;
   }
   struct ddsi_network_interface *intf = &gv->interfaces[gv->n_interfaces];
@@ -1022,9 +1022,9 @@ static int create_vnet_interface_for_virtual_interface (struct ddsi_domaingv *gv
   intf->loopback = false;
   intf->mc_capable = true; // FIXME: matters most for discovery, this avoids auto-lack-of-multicast-mitigation
   intf->mc_flaky = false;
-  intf->name = ddsrt_strdup (virtual_interface_name);
+  intf->name = ddsrt_strdup (psmx_instance_name);
   intf->point_to_point = false;
-  intf->is_virtual = true;
+  intf->is_psmx = true;
   intf->netmask.kind = DDSI_LOCATOR_KIND_INVALID;
   intf->netmask.port = DDSI_LOCATOR_PORT_INVALID;
   memset (intf->netmask.address, 0, sizeof (intf->netmask.address) - 6);
@@ -1032,7 +1032,7 @@ static int create_vnet_interface_for_virtual_interface (struct ddsi_domaingv *gv
   return 0;
 }
 
-int ddsi_init (struct ddsi_domaingv *gv, struct ddsi_virtual_interface_locators *virtual_interface_locators)
+int ddsi_init (struct ddsi_domaingv *gv, struct ddsi_psmx_instance_locators *psmx_locators)
 {
   uint32_t port_disc_uc = 0;
   uint32_t port_data_uc = 0;
@@ -1123,12 +1123,12 @@ int ddsi_init (struct ddsi_domaingv *gv, struct ddsi_virtual_interface_locators 
     goto err_gather_nwif;
   }
 
-  if (virtual_interface_locators != NULL)
+  if (psmx_locators != NULL)
   {
-    for (uint32_t i = 0; i < virtual_interface_locators->length; i++)
+    for (uint32_t i = 0; i < psmx_locators->length; i++)
     {
-      if (create_vnet_interface_for_virtual_interface (gv, virtual_interface_locators->items[i].virtual_interface_name, virtual_interface_locators->items[i].locator) < 0)
-        goto err_virtual_interface;
+      if (create_vnet_interface_for_psmx (gv, psmx_locators->instances[i].psmx_instance_name, psmx_locators->instances[i].locator) < 0)
+        goto err_psmx;
     }
   }
 
@@ -1620,7 +1620,7 @@ err_set_ext_address:
     ddsrt_free (n);
   }
 err_set_recvips:
-err_virtual_interface:
+err_psmx:
 err_gather_nwif:
   for (int i = 0; i < gv->n_interfaces; i++)
     ddsrt_free (gv->interfaces[i].name);

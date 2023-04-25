@@ -22,7 +22,7 @@
 #endif
 #include "dds/ddsrt/avl.h"
 #include "dds/ddsi/ddsi_builtin_topic_if.h"
-#include "dds/ddsc/dds_virtual_interface.h"
+#include "dds/ddsc/dds_psmx.h"
 #include "dds__handles.h"
 #include "dds__loan.h"
 
@@ -258,9 +258,9 @@ typedef struct dds_cyclonedds_entity {
   struct ddsi_threadmon *threadmon;
 } dds_cyclonedds_entity;
 
-struct dds_virtual_interfaces_set {
+struct dds_psmx_set {
   uint32_t length;
-  struct dds_virtual_interface *interfaces[DDS_MAX_VIRTUAL_INTERFACES];
+  struct dds_psmx *instances[DDS_MAX_PSMX_INSTANCES];
 };
 
 typedef struct dds_domain {
@@ -291,7 +291,7 @@ typedef struct dds_domain {
   /* Transmit side: pool for the serializer & transmit messages */
   struct dds_serdatapool *serpool;
 
-  struct dds_virtual_interfaces_set virtual_interfaces;
+  struct dds_psmx_set psmx_instances;
 } dds_domain;
 
 typedef struct dds_subscriber {
@@ -333,9 +333,9 @@ struct ktopic_type_guid {
 };
 #endif
 
-struct dds_virtual_topics_set {
+struct dds_psmx_topics_set {
   uint32_t length;
-  struct dds_virtual_interface_topic *topics[DDS_MAX_VIRTUAL_INTERFACES];
+  struct dds_psmx_topic *topics[DDS_MAX_PSMX_INSTANCES];
 };
 
 typedef struct dds_ktopic {
@@ -354,7 +354,7 @@ typedef struct dds_ktopic {
 #ifdef DDS_HAS_TOPIC_DISCOVERY
   struct ddsrt_hh *topic_guid_map; /* mapping of this ktopic to ddsi topics */
 #endif
-  struct dds_virtual_topics_set virtual_topics;
+  struct dds_psmx_topics_set psmx_topics;
 } dds_ktopic;
 
 typedef struct dds_participant {
@@ -363,13 +363,13 @@ typedef struct dds_participant {
   ddsrt_avl_tree_t m_ktopics; /* [m_entity.m_mutex] */
 } dds_participant;
 
-struct dds_virtual_pipes_set {
+struct dds_psmx_endpoints_set {
   uint32_t length;
-  struct dds_virtual_interface_pipe *pipes[DDS_MAX_VIRTUAL_INTERFACES];
+  struct dds_psmx_endpoint *endpoints[DDS_MAX_PSMX_INSTANCES];
 };
 
 struct dds_endpoint {
-  struct dds_virtual_pipes_set virtual_pipes;
+  struct dds_psmx_endpoints_set psmx_endpoints;
 };
 
 typedef struct dds_reader {

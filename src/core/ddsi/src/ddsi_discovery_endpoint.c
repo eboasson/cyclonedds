@@ -78,7 +78,7 @@ static void add_xlocator_to_ps (const ddsi_xlocator_t *loc, void *varg)
   add_locator_to_ps (&loc->c, varg);
 }
 
-static void add_vi_locator_to_ps(const ddsi_locator_t* loc, struct add_locator_to_ps_arg *arg)
+static void add_psmx_locator_to_ps(const ddsi_locator_t* loc, struct add_locator_to_ps_arg *arg)
 {
   struct ddsi_locators_one* elem = ddsrt_malloc (sizeof(struct ddsi_locators_one));
   struct ddsi_locators* locs = &arg->ps->unicast_locators;
@@ -94,7 +94,7 @@ static void add_vi_locator_to_ps(const ddsi_locator_t* loc, struct add_locator_t
     arg->ps->present |= present_flag;
   }
 
-  //add virtual interface locator to the FRONT of the list of addresses, to indicate its higher priority
+  // add PSMX locator to the FRONT of the list of addresses, to indicate its higher priority
   if (locs->first)
     elem->next = locs->first;
   else
@@ -200,9 +200,9 @@ static int sedp_write_endpoint_impl
     if (as)
       ddsi_addrset_forall (as, add_xlocator_to_ps, &arg);
 
-    if (epcommon->virtual_locators.length > 0)
+    if (epcommon->psmx_locators.length > 0)
     {
-      //something goes wrong here when reader does not have virtual interfaces set but writer does
+      //something goes wrong here when reader does not have a PSMX instance set but writer does
       if (!(arg.ps->present & PP_UNICAST_LOCATOR) || 0 == arg.ps->unicast_locators.n)
       {
         if (epcommon->pp->e.gv->config.many_sockets_mode == DDSI_MSM_MANY_UNICAST)
@@ -234,8 +234,8 @@ static int sedp_write_endpoint_impl
           add_locator_to_ps (&epcommon->pp->e.gv->loc_default_mc, &arg);
       }
 
-      for (uint32_t i = 0; i < epcommon->virtual_locators.length; i++)
-        add_vi_locator_to_ps (&epcommon->virtual_locators.locators[i], &arg);
+      for (uint32_t i = 0; i < epcommon->psmx_locators.length; i++)
+        add_psmx_locator_to_ps (&epcommon->psmx_locators.locators[i], &arg);
     }
 
 #ifdef DDS_HAS_TYPE_DISCOVERY

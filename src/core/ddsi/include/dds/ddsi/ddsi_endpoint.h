@@ -43,7 +43,7 @@ enum ddsi_liveliness_changed_data_extra {
   DDSI_LIVELINESS_CHANGED_NOT_ALIVE_TO_ALIVE
 };
 
-struct ddsi_virtual_locators_set {
+struct ddsi_psmx_locators_set {
   uint32_t length;
   struct ddsi_locator *locators;
 };
@@ -51,7 +51,7 @@ struct ddsi_virtual_locators_set {
 struct ddsi_endpoint_common {
   struct ddsi_participant *pp;
   ddsi_guid_t group_guid;
-  struct ddsi_virtual_locators_set virtual_locators;
+  struct ddsi_psmx_locators_set psmx_locators;
 #ifdef DDS_HAS_TYPE_DISCOVERY
   struct ddsi_type_pair *type_pair;
 #endif
@@ -183,7 +183,7 @@ struct ddsi_local_orphan_writer *ddsi_new_local_orphan_writer (struct ddsi_domai
 void ddsi_delete_local_orphan_writer (struct ddsi_local_orphan_writer *wr);
 
 /** @component ddsi_endpoint */
-dds_return_t ddsi_new_writer (struct ddsi_writer **wr_out, struct ddsi_guid *wrguid, const struct ddsi_guid *group_guid, struct ddsi_participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, struct ddsi_whc * whc, ddsi_status_cb_t status_cb, void *status_cb_arg, struct ddsi_virtual_locators_set *virtual_locators);
+dds_return_t ddsi_new_writer (struct ddsi_writer **wr_out, struct ddsi_guid *wrguid, const struct ddsi_guid *group_guid, struct ddsi_participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, struct ddsi_whc * whc, ddsi_status_cb_t status_cb, void *status_cb_arg, struct ddsi_psmx_locators_set *psmx_locators);
 
 /** @component ddsi_endpoint */
 void ddsi_update_writer_qos (struct ddsi_writer *wr, const struct dds_qos *xqos);
@@ -207,7 +207,7 @@ struct ddsi_reader *ddsi_writer_first_in_sync_reader (struct ddsi_entity_index *
 struct ddsi_reader *ddsi_writer_next_in_sync_reader (struct ddsi_entity_index *entity_index, ddsrt_avl_iter_t *it);
 
 /** @component ddsi_endpoint */
-dds_return_t ddsi_new_reader (struct ddsi_reader **rd_out, struct ddsi_guid *rdguid, const struct ddsi_guid *group_guid, struct ddsi_participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, struct ddsi_rhc * rhc, ddsi_status_cb_t status_cb, void *status_cb_arg, struct ddsi_virtual_locators_set *virtual_locators);
+dds_return_t ddsi_new_reader (struct ddsi_reader **rd_out, struct ddsi_guid *rdguid, const struct ddsi_guid *group_guid, struct ddsi_participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, struct ddsi_rhc * rhc, ddsi_status_cb_t status_cb, void *status_cb_arg, struct ddsi_psmx_locators_set *psmx_locators);
 
 /** @component ddsi_endpoint */
 void ddsi_update_reader_qos (struct ddsi_reader *rd, const struct dds_qos *xqos);

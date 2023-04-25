@@ -75,33 +75,33 @@ static struct cfgelem network_interface_attributes[] = {
   END_MARKER
 };
 
-static struct cfgelem virtual_interface_attributes[] = {
+static struct cfgelem psmx_attributes[] = {
   STRING("name", NULL, 1, "",
-    MEMBEROF(ddsi_config_virtual_interface_listelem, cfg.name),
+    MEMBEROF(ddsi_config_psmx_listelem, cfg.name),
     FUNCTIONS(0, uf_string, ff_free, pf_string),
     DESCRIPTION(
       "<p>This attribute specifies the name of the interface. </p>"
     )),
   STRING("library", NULL, 1, "",
-    MEMBEROF(ddsi_config_virtual_interface_listelem, cfg.library),
+    MEMBEROF(ddsi_config_psmx_listelem, cfg.library),
     FUNCTIONS(0, uf_string, ff_free, pf_string),
     DESCRIPTION(
       "<p>This attribute specifies the filename of the interface library. </p>"
     )),
   STRING("priority", NULL, 1, "default",
-    MEMBEROF(ddsi_config_virtual_interface_listelem, cfg.priority),
+    MEMBEROF(ddsi_config_psmx_listelem, cfg.priority),
     FUNCTIONS(0, uf_maybe_int32, 0, pf_maybe_int32),
     DESCRIPTION(
       "<p>This attribute specifies the interface priority (decimal integer or "
-      "<i>default</i>). The default value for virtual interfaces is 0.</p>"
+      "<i>default</i>). The default value for a PSMX is 0.</p>"
     )),
   STRING("config", NULL, 1, "",
-    MEMBEROF(ddsi_config_virtual_interface_listelem, cfg.config),
+    MEMBEROF(ddsi_config_psmx_listelem, cfg.config),
     FUNCTIONS(0, uf_string, ff_free, pf_string),
     DESCRIPTION(
-      "<p>This attribute specifies any configuration data for the virtual interface."
+      "<p>This attribute specifies any configuration data for the PSMX instance."
       "This has no meaning in CycloneDDS itself, and its parsing is deferred to the"
-      "virtual interface implementation.</p>"
+      "PSMX implementation.</p>"
     )),
   END_MARKER
 };
@@ -115,11 +115,11 @@ static struct cfgelem interfaces_cfgelems[] = {
       "to autoselect the interface CycloneDDS considers the highest quality. If "
       "autodetermine=\"false\" (the default), you must specify the name and/or address "
       "attribute. If you specify both, they must match the same interface.</p>")),
-  GROUP("VirtualInterface", NULL, virtual_interface_attributes, INT_MAX,
-    MEMBER(virtual_interfaces),
-    FUNCTIONS(if_virtual_interfaces, 0, 0, 0),
+  GROUP("PubSubMessageExchange", NULL, psmx_attributes, INT_MAX,
+    MEMBER(psmx_instances),
+    FUNCTIONS(if_psmx, 0, 0, 0),
     DESCRIPTION(
-      "<p>This element defines a virtual interface.</p>")),
+      "<p>This element defines a PSMX.</p>")),
   END_MARKER
 };
 
@@ -1752,14 +1752,14 @@ static struct cfgelem shmem_cfgelems[] = {
     MEMBER(enable_shm),
     FUNCTIONS(0, uf_boolean, 0, pf_boolean),
     DESCRIPTION(
-      "<p>This configuration option is deprecated. Use Interfaces/VirtualInterface "
+      "<p>This configuration option is deprecated. Use Interfaces/PubSubMessageExchange "
       " instead. "
       " This element allows for enabling shared memory in Cyclone DDS.</p>")),
   STRING(DEPRECATED("Locator"), NULL, 1, "",
     MEMBER(shm_locator),
     FUNCTIONS(0, uf_string, ff_free, pf_string),
     DESCRIPTION(
-      "<p>This configuration option is deprecated. Use Interfaces/VirtualInterface "
+      "<p>This configuration option is deprecated. Use Interfaces/PubSubMessageExchange "
       " instead. "
       " Explicitly set the Iceoryx locator used by Cyclone to check whether "
       "a pair of processes is attached to the same Iceoryx shared memory.  The "
@@ -1770,7 +1770,7 @@ static struct cfgelem shmem_cfgelems[] = {
     MEMBER(iceoryx_service),
     FUNCTIONS(0, uf_string, ff_free, pf_string),
     DESCRIPTION(
-      "<p>This configuration option is deprecated. Use Interfaces/VirtualInterface "
+      "<p>This configuration option is deprecated. Use Interfaces/PubSubMessageExchange "
       " instead. "
       "Override the Iceoryx service name used by Cyclone.</p>"
     )),
@@ -1778,7 +1778,7 @@ static struct cfgelem shmem_cfgelems[] = {
     MEMBER(shm_log_lvl),
     FUNCTIONS(0, uf_shm_loglevel, 0, pf_shm_loglevel),
     DESCRIPTION(
-      "<p>This configuration option is deprecated. Use Interfaces/VirtualInterface "
+      "<p>This configuration option is deprecated. Use Interfaces/PubSubMessageExchange "
       " instead. "
       " This element decides the verbosity level of shared memory message:</p>\n"
       "<ul><li><i>off</i>: no log</li>\n"

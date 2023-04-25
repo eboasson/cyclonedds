@@ -203,7 +203,7 @@ DI(if_ignored_partition);
 DI(if_partition_mapping);
 #endif
 DI(if_network_interfaces);
-DI(if_virtual_interfaces);
+DI(if_psmx);
 DI(if_peer);
 DI(if_thread_properties);
 #ifdef DDS_HAS_SECURITY
@@ -658,9 +658,9 @@ static int if_network_interfaces(struct ddsi_cfgst *cfgst, void *parent, struct 
   return 0;
 }
 
-static int if_virtual_interfaces(struct ddsi_cfgst *cfgst, void *parent, struct cfgelem const * const cfgelem)
+static int if_psmx(struct ddsi_cfgst *cfgst, void *parent, struct cfgelem const * const cfgelem)
 {
-  struct ddsi_config_virtual_interface_listelem *new = if_common (cfgst, parent, cfgelem, sizeof(*new));
+  struct ddsi_config_psmx_listelem *new = if_common (cfgst, parent, cfgelem, sizeof(*new));
   if (new == NULL)
     return -1;
   new->cfg.name = NULL;
@@ -2206,26 +2206,26 @@ static struct ddsi_config_network_interface * network_interface_find_or_append(s
   return &iface->cfg;
 }
 
-static struct ddsi_config_virtual_interface * virtual_interface_append(struct ddsi_config *cfg, const char * name, const char * library)
+static struct ddsi_config_psmx * psmx_append(struct ddsi_config *cfg, const char * name, const char * library)
 {
-  struct ddsi_config_virtual_interface_listelem * iface = cfg->virtual_interfaces;
-  struct ddsi_config_virtual_interface_listelem ** prev_iface = &cfg->virtual_interfaces;
+  struct ddsi_config_psmx_listelem * psmx = cfg->psmx_instances;
+  struct ddsi_config_psmx_listelem ** prev_psmx = &cfg->psmx_instances;
 
   if (name == NULL || library == NULL)
     return NULL;
-  while (iface && iface->cfg.name && ddsrt_strcasecmp(iface->cfg.name, name) != 0)
+  while (psmx && psmx->cfg.name && ddsrt_strcasecmp(psmx->cfg.name, name) != 0)
     return NULL;
 
-  iface = (struct ddsi_config_virtual_interface_listelem *) malloc(sizeof(*iface));
-  if (!iface) return NULL;
+  psmx = (struct ddsi_config_psmx_listelem *) malloc(sizeof(*psmx));
+  if (!psmx) return NULL;
 
-  iface->next = NULL;
-  iface->cfg.name = ddsrt_strdup(name);
-  iface->cfg.library = ddsrt_strdup(library);
+  psmx->next = NULL;
+  psmx->cfg.name = ddsrt_strdup(name);
+  psmx->cfg.library = ddsrt_strdup(library);
 
-  *prev_iface = iface;
+  *prev_psmx = psmx;
 
-  return &iface->cfg;
+  return &psmx->cfg;
 }
 
 static int setup_network_partitions (struct ddsi_cfgst *cfgst)
@@ -2375,8 +2375,8 @@ static int convert_deprecated_sharedmemory (struct ddsi_cfgst *cfgst)
 
   if (cfg->enable_shm)
   {
-    struct ddsi_config_virtual_interface *vi_cfg = virtual_interface_append(cfg, "iox", "iox_interface");
-    if (!vi_cfg)
+    struct ddsi_config_psmx *psmx_cfg = psmx_append(cfg, "iox", "iox_interface");
+    if (!psmx_cfg)
       return 0;
 
     size_t config_str_len = 0;
@@ -2386,9 +2386,9 @@ static int convert_deprecated_sharedmemory (struct ddsi_cfgst *cfgst)
       config_str_len += strlen (IOX_CONFIG_LOG_LEVEL) + 9; // max length of log level string, plus 2 for = and ;
 
     size_t sz = config_str_len + 1;
-    vi_cfg->config = ddsrt_malloc (sz);
+    psmx_cfg->config = ddsrt_malloc (sz);
     if (cfg->iceoryx_service != NULL)
-      (void) snprintf (vi_cfg->config, sz, "%s=%s;", IOX_CONFIG_SERVICE_NAME, cfg->iceoryx_service);
+      (void) snprintf (psmx_cfg->config, sz, "%s=%s;", IOX_CONFIG_SERVICE_NAME, cfg->iceoryx_service);
     if (cfg->shm_log_lvl != DDSI_SHM_OFF)
     {
       char *level_str = "OFF";
@@ -2402,7 +2402,7 @@ static int convert_deprecated_sharedmemory (struct ddsi_cfgst *cfgst)
         case DDSI_SHM_VERBOSE: level_str = "VERBOSE"; break;
       };
       assert (strlen (level_str) <= IOX_CONFIG_LOG_LEVEL_MAX_VALUE_LEN);
-      (void) snprintf (vi_cfg->config + strlen (vi_cfg->config), sz - strlen (vi_cfg->config), "%s=%s;", IOX_CONFIG_LOG_LEVEL, level_str);
+      (void) snprintf (psmx_cfg->config + strlen (psmx_cfg->config), sz - strlen (psmx_cfg->config), "%s=%s;", IOX_CONFIG_LOG_LEVEL, level_str);
     }
   }
 

@@ -302,7 +302,7 @@ The default value is: `empty`
 #### //CycloneDDS/Domain/General/EntityAutoNaming[@seed]
 Text
 
-Provide an initial seed for the entity naming. Your string will be hashed to provide the random state. When provided, the same sequence of names is generated every run. Creating your entities in the same order will ensure they are the same between runs. If you run multiple nodes, set this via environment variable to ensure every node generates unique names. A random starting seed is chosen when left empty, (the default). 
+Provide an initial seed for the entity naming. Your string will be hashed to provide the random state. When provided, the same sequence of names is generated every run. Creating your entities in the same order will ensure they are the same between runs. If you run multiple nodes, set this via environment variable to ensure every node generates unique names. A random starting seed is chosen when left empty, (the default).
 
 The default value is: `<empty>`
 
@@ -334,7 +334,7 @@ The default value is: `1344 B`
 
 
 #### //CycloneDDS/Domain/General/Interfaces
-Children: [NetworkInterface](#cycloneddsdomaingeneralinterfacesnetworkinterface), [VirtualInterface](#cycloneddsdomaingeneralinterfacesvirtualinterface)
+Children: [NetworkInterface](#cycloneddsdomaingeneralinterfacesnetworkinterface), [PubSubMessageExchange](#cycloneddsdomaingeneralinterfacespubsubmessageexchange)
 
 This element specifies the network interfaces for use by Cyclone DDS. Multiple interfaces can be specified with an assigned priority. The list in use will be sorted by priority. If interfaces have an equal priority, the specification order will be preserved.
 
@@ -348,7 +348,7 @@ This element defines a network interface. You can set autodetermine="true" to au
 ##### //CycloneDDS/Domain/General/Interfaces/NetworkInterface[@address]
 Text
 
-This attribute specifies the address of the interface. With ipv4 allows  matching on the network part if the host part is set to zero. 
+This attribute specifies the address of the interface. With ipv4 allows  matching on the network part if the host part is set to zero.
 
 The default value is: `<empty>`
 
@@ -372,7 +372,7 @@ The default value is: `default`
 ##### //CycloneDDS/Domain/General/Interfaces/NetworkInterface[@name]
 Text
 
-This attribute specifies the name of the interface. 
+This attribute specifies the name of the interface.
 
 The default value is: `<empty>`
 
@@ -401,40 +401,40 @@ This attribute specifies the interface priority (decimal integer or default). Th
 The default value is: `default`
 
 
-##### //CycloneDDS/Domain/General/Interfaces/VirtualInterface
-Attributes: [config](#cycloneddsdomaingeneralinterfacesvirtualinterfaceconfig), [library](#cycloneddsdomaingeneralinterfacesvirtualinterfacelibrary), [name](#cycloneddsdomaingeneralinterfacesvirtualinterfacename), [priority](#cycloneddsdomaingeneralinterfacesvirtualinterfacepriority)
+##### //CycloneDDS/Domain/General/Interfaces/PubSubMessageExchange
+Attributes: [config](#cycloneddsdomaingeneralinterfacespubsubmessageexchangeconfig), [library](#cycloneddsdomaingeneralinterfacespubsubmessageexchangelibrary), [name](#cycloneddsdomaingeneralinterfacespubsubmessageexchangename), [priority](#cycloneddsdomaingeneralinterfacespubsubmessageexchangepriority)
 
-This element defines a virtual interface.
+This element defines a PSMX.
 
 
-##### //CycloneDDS/Domain/General/Interfaces/VirtualInterface[@config]
+##### //CycloneDDS/Domain/General/Interfaces/PubSubMessageExchange[@config]
 Text
 
-This attribute specifies any configuration data for the virtual interface.This has no meaning in CycloneDDS itself, and its parsing is deferred to thevirtual interface implementation.
+This attribute specifies any configuration data for the PSMX instance.This has no meaning in CycloneDDS itself, and its parsing is deferred to thePSMX implementation.
 
 The default value is: `<empty>`
 
 
-##### //CycloneDDS/Domain/General/Interfaces/VirtualInterface[@library]
+##### //CycloneDDS/Domain/General/Interfaces/PubSubMessageExchange[@library]
 Text
 
-This attribute specifies the filename of the interface library. 
+This attribute specifies the filename of the interface library.
 
 The default value is: `<empty>`
 
 
-##### //CycloneDDS/Domain/General/Interfaces/VirtualInterface[@name]
+##### //CycloneDDS/Domain/General/Interfaces/PubSubMessageExchange[@name]
 Text
 
-This attribute specifies the name of the interface. 
+This attribute specifies the name of the interface.
 
 The default value is: `<empty>`
 
 
-##### //CycloneDDS/Domain/General/Interfaces/VirtualInterface[@priority]
+##### //CycloneDDS/Domain/General/Interfaces/PubSubMessageExchange[@priority]
 Text
 
-This attribute specifies the interface priority (decimal integer or default). The default value for virtual interfaces is 0.
+This attribute specifies the interface priority (decimal integer or default). The default value for a PSMX is 0.
 
 The default value is: `default`
 
@@ -1278,7 +1278,7 @@ Examples file URIs:
 
 Content-Type: multipart/signed; protocol="application/x-pkcs7-signature"; micalg="sha-256"; boundary="----F9A8A198D6F08E1285A292ADF14DD04F"
 
-This is an S/MIME signed message 
+This is an S/MIME signed message
 
 ------F9A8A198D6F08E1285A292ADF14DD04F
 
@@ -1290,7 +1290,7 @@ xsi:noNamespaceSchemaLocation="omg\_shared\_ca\_governance.xsd">
 
 <domain\_access\_rules>
 
- . . . 
+ . . .
 
 </domain\_access\_rules>
 

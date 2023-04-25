@@ -35,9 +35,9 @@
 const uint32_t test_index_start = 0;
 const uint32_t test_index_end = UINT32_MAX;
 
-static const struct vi_locator {
+static const struct psmx_locator {
   unsigned char a[16];
-} vi_locators[] = {
+} psmx_locators[] = {
   {{1}}, {{1}}, {{2}}, {{2}}
 };
 #define MAX_DOMAINS 4
@@ -60,14 +60,14 @@ static void fail_no_data (void) { fail (); }
 static dds_entity_t create_participant (dds_domainid_t int_dom)
 {
   assert (int_dom < MAX_DOMAINS);
-  const unsigned char *l = vi_locators[int_dom].a;
+  const unsigned char *l = psmx_locators[int_dom].a;
   char *configstr;
   ddsrt_asprintf (&configstr, "\
 ${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}\
 <General>\
   <AllowMulticast>spdp</AllowMulticast>\
   <Interfaces>\
-    <VirtualInterface name=\"cdds\" library=\"${CDDS_VIRTINTF_LIB}\" priority=\"1000000\" config=\"LOCATOR=%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x;\" />\
+    <PubSubMessageExchange name=\"cdds\" library=\"${CDDS_PSMX_LIB}\" priority=\"1000000\" config=\"LOCATOR=%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x;\" />\
   </Interfaces>\
 </General>\
 <Discovery>\
@@ -91,23 +91,23 @@ ${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}\
   return pp;
 }
 
-static bool endpoint_has_virtintf_enabled (dds_entity_t rd_or_wr)
+static bool endpoint_has_psmx_enabled (dds_entity_t rd_or_wr)
 {
   dds_return_t rc;
   struct dds_entity *x;
-  bool virtintf_enabled = false;
+  bool psmx_enabled = false;
   rc = dds_entity_pin (rd_or_wr, &x);
   CU_ASSERT_FATAL (rc == DDS_RETCODE_OK);
   switch (dds_entity_kind (x))
   {
     case DDS_KIND_READER: {
       struct dds_reader const * const rd = (struct dds_reader *) x;
-      virtintf_enabled = (rd->m_endpoint.virtual_pipes.length > 0);
+      psmx_enabled  = (rd->m_endpoint.psmx_endpoints.length > 0);
       break;
     }
     case DDS_KIND_WRITER: {
       struct dds_writer const * const wr = (struct dds_writer *) x;
-      virtintf_enabled = (wr->m_endpoint.virtual_pipes.length > 0);
+      psmx_enabled = (wr->m_endpoint.psmx_endpoints.length > 0);
       break;
     }
     default: {
@@ -116,7 +116,7 @@ static bool endpoint_has_virtintf_enabled (dds_entity_t rd_or_wr)
     }
   }
   dds_entity_unpin (x);
-  return virtintf_enabled;
+  return psmx_enabled ;
 }
 
 static uint32_t reader_unicast_port (dds_entity_t rdhandle)
@@ -142,8 +142,8 @@ struct check_writer_addrset_helper_arg {
 static void check_writer_addrset_helper (const ddsi_xlocator_t *loc, void *varg)
 {
   struct check_writer_addrset_helper_arg * const arg = varg;
-  // Virtual interface locators are not allowed in writer's address set because that causes it to go through the transmit path
-  CU_ASSERT_FATAL (loc->c.kind != DDSI_LOCATOR_KIND_VIRTINTF);
+  // PSMX locators are not allowed in writer's address set because that causes it to go through the transmit path
+  CU_ASSERT_FATAL (loc->c.kind != DDSI_LOCATOR_KIND_PSMX);
   CU_ASSERT_FATAL (loc->c.port != 0);
   int i;
   for (i = 0; i < arg->nports; i++)
@@ -180,29 +180,29 @@ static bool check_writer_addrset (dds_entity_t wrhandle, int nports, const uint3
   return (arg.ports_seen == (1u << nports) - 1);
 }
 
-static dds_entity_t create_endpoint (dds_entity_t tp, bool use_virtintf, dds_entity_t (*f) (dds_entity_t pp, dds_entity_t tp, const dds_qos_t *qos, const dds_listener_t *listener))
+static dds_entity_t create_endpoint (dds_entity_t tp, bool use_psmx, dds_entity_t (*f) (dds_entity_t pp, dds_entity_t tp, const dds_qos_t *qos, const dds_listener_t *listener))
 {
   dds_qos_t *qos = dds_create_qos ();
   CU_ASSERT_FATAL (qos != NULL);
   dds_qset_reliability (qos, DDS_RELIABILITY_RELIABLE, 0);
   dds_qset_writer_data_lifecycle (qos, false);
-  if (!use_virtintf)
-    dds_qset_virtual_interfaces (qos, 0, NULL);
+  if (!use_psmx)
+    dds_qset_psmx_instances (qos, 0, NULL);
   dds_entity_t ep = f (dds_get_participant (tp), tp, qos, NULL);
   CU_ASSERT_FATAL (ep > 0);
   dds_delete_qos (qos);
-  CU_ASSERT_FATAL (endpoint_has_virtintf_enabled (ep) == use_virtintf);
+  CU_ASSERT_FATAL (endpoint_has_psmx_enabled (ep) == use_psmx);
   return ep;
 }
 
-static dds_entity_t create_reader (dds_entity_t tp, bool use_virtintf)
+static dds_entity_t create_reader (dds_entity_t tp, bool use_psmx)
 {
-  return create_endpoint (tp, use_virtintf, dds_create_reader);
+  return create_endpoint (tp, use_psmx, dds_create_reader);
 }
 
-static dds_entity_t create_writer (dds_entity_t tp, bool use_virtintf)
+static dds_entity_t create_writer (dds_entity_t tp, bool use_psmx)
 {
-  return create_endpoint (tp, use_virtintf, dds_create_writer);
+  return create_endpoint (tp, use_psmx, dds_create_writer);
 }
 
 struct tracebuf {
@@ -442,7 +442,7 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
   CU_ASSERT_FATAL (ws > 0);
 
   char topicname[100];
-  create_unique_topic_name ("test_virtintf", topicname, sizeof (topicname));
+  create_unique_topic_name ("test_psmx", topicname, sizeof (topicname));
   for (int i = 0; i < MAX_DOMAINS; i++)
   {
     pp[i] = create_participant ((dds_domainid_t) i); // FIXME: vary shm_enable for i > 0
@@ -452,9 +452,9 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
   }
 
   uint32_t test_index = 0;
-  for (int wr_use_virtintf = 1; wr_use_virtintf <= 1; wr_use_virtintf++)
+  for (int wr_use_psmx = 1; wr_use_psmx <= 1; wr_use_psmx++)
   {
-    const dds_entity_t wr = create_writer (tp[0], (wr_use_virtintf != 0));
+    const dds_entity_t wr = create_writer (tp[0], (wr_use_psmx != 0));
     rc = dds_set_status_mask (wr, DDS_PUBLICATION_MATCHED_STATUS);
     CU_ASSERT_FATAL (rc == 0);
     rc = dds_waitset_attach (ws, wr, 0);
@@ -462,8 +462,8 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
 
     // rdmode: trit 0: reader 0; trit 1: reader 1; ...
     //   0: no reader
-    //   1: non-virtual interface reader
-    //   2: virtual interface reader
+    //   1: non-PSMX reader
+    //   2: PSMX reader
     // reader i exists in domain floor(i/MAX_READERS_PER_DOMAIN)
     // exists i >= 0 . (trit i > 0)
     // forall 0 <= j < i . (trit i == 0 || trit j != 0)
@@ -479,12 +479,12 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
       bool fatal = false;
       bool fail_one = false;
 
-      //if (!wr_use_virtintf)
+      //if (!wr_use_psmx)
       //  goto next;
 
-      if (wr_use_virtintf)
+      if (wr_use_psmx)
       {
-        // Currently unsupported? virtual interface writer with DDS readers in same domain
+        // Currently unsupported? PSMX writer with DDS readers in same domain
         bool skip = false;
         for (int i = 0; !skip && i < MAX_READERS_PER_DOMAIN; i++)
           if (rdmode[i] == 1)
@@ -493,17 +493,17 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
           goto skip;
       }
 
-      // We want to be certain that local delivery happens via the virtual interface, which is tricky
+      // We want to be certain that local delivery happens via the PSMX, which is tricky
       // because we rather try not to make it visible at the API level. We test it here by
       // preventing the local short-circuit from working by temporarily forcing the "fast
       // path" reader count to 0, so that nothing will get delivered if it picks the wrong
       // path.
-      bool override_fastpath_rdcount = wr_use_virtintf;
+      bool override_fastpath_rdcount = wr_use_psmx;
 
       if (test_index >= test_index_start && test_index <= test_index_end)
       {
         test_index++;
-        print (&tb, "%05u -- wr: %s; rds:", test_index, wr_use_virtintf ? "vi " : "dds");
+        print (&tb, "%05u -- wr: %s; rds:", test_index, wr_use_psmx ? "psmx" : "dds ");
       }
       else
       {
@@ -517,7 +517,7 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
         const int dom = i / MAX_READERS_PER_DOMAIN;
         if (i > 0 && dom > (i - 1) / MAX_READERS_PER_DOMAIN)
           print (&tb, " |");
-        print (&tb, " %s", (rdmode[i] == 2) ? "vi " : "dds");
+        print (&tb, " %s", (rdmode[i] == 2) ? "psmx" : "dds ");
 
         rds[i] = create_reader (tp[dom], rdmode[i] == 2);
         const uint32_t port = reader_unicast_port (rds[i]);
@@ -525,18 +525,18 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
         {
           // intra-domain: no locators used, ever
         }
-        else if (wr_use_virtintf && dom <= 1 && rdmode[i] == 2)
+        else if (wr_use_psmx && dom <= 1 && rdmode[i] == 2)
         {
-          // dom 0, 1: same Iceoryx "domain" (service name, locator)
-          // virtual interface should be used -> no locator expected in addrset
+          // dom 0, 1: same PSMX "domain" (service name, locator)
+          // PSMX should be used -> no locator expected in addrset
         }
         else
         {
-          // non-Iceoryx writer, reader, or a different Iceoryx "domain"
+          // non-PSMX writer, reader, or a different PSMX "domain"
           ports[nports++] = port;
           if (dom == 0 && rdmode[i] != 2)
           {
-            // if non-Iceoryx reader present in same Iceoryx "domain", we need
+            // if non-PSMX reader present in same PSMX "domain", we need
             // the native short-circuiting
             override_fastpath_rdcount = false;
           }
@@ -661,14 +661,14 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
   }
 }
 
-CU_Test(ddsc_virtintf, one_writer, .timeout = 30)
+CU_Test(ddsc_psmx, one_writer, .timeout = 30)
 {
   failed = false;
   dotest (&Space_Type1_desc, &(const Space_Type1){ 0 });
   CU_ASSERT (!failed);
 }
 
-CU_Test(ddsc_virtintf, one_writer_dynsize, .timeout = 30)
+CU_Test(ddsc_psmx, one_writer_dynsize, .timeout = 30)
 {
   failed = false;
   dotest (&DynamicData_Msg_desc, &(const DynamicData_Msg){
@@ -682,12 +682,12 @@ CU_Test(ddsc_virtintf, one_writer_dynsize, .timeout = 30)
   CU_ASSERT (!failed);
 }
 
-CU_Test(ddsc_virtintf, return_loan)
+CU_Test(ddsc_psmx, return_loan)
 {
   dds_return_t rc;
   const dds_entity_t pp = create_participant (0);
   char topicname[100];
-  create_unique_topic_name ("test_virtintf", topicname, sizeof (topicname));
+  create_unique_topic_name ("test_psmx", topicname, sizeof (topicname));
   const dds_entity_t tp = dds_create_topic (pp, &Array100_desc, topicname, NULL, NULL);
   CU_ASSERT_FATAL (tp > 0);
   const dds_entity_t wr = create_writer (tp, true);
@@ -707,12 +707,12 @@ CU_Test(ddsc_virtintf, return_loan)
   CU_ASSERT_FATAL (rc == DDS_RETCODE_OK);
 }
 
-CU_Test(ddsc_virtintf, partition_xtalk)
+CU_Test(ddsc_psmx, partition_xtalk)
 {
   dds_return_t rc;
   const dds_entity_t pp = create_participant (0);
   char topicname[100];
-  create_unique_topic_name ("test_virtintf", topicname, sizeof (topicname));
+  create_unique_topic_name ("test_psmx", topicname, sizeof (topicname));
   const dds_entity_t tp = dds_create_topic (pp, &Space_Type1_desc, topicname, NULL, NULL);
   CU_ASSERT_FATAL (tp > 0);
 
@@ -728,19 +728,19 @@ CU_Test(ddsc_virtintf, partition_xtalk)
     } wr, rd;
     const char *checkwrp; // null: wr & rd match; non-null: partition to use for check writer
   } testcases[] = {
-    // QoS checking and iceoryx name construction code are the same for reader & writer, so
+    // QoS checking and PSMX name construction code are the same for reader & writer, so
     // no need to check all combinations
     { { 0, {0,0}    }, {0, {0,0}    }, 0 },
     { { 1, {"",0}   }, {0, {0,0}    }, 0 },
-    { { 2, {"","a"} }, {0, {0,0}    }, 0 },   // 2 pt -> no iceoryx for writer, still match
+    { { 2, {"","a"} }, {0, {0,0}    }, 0 },   // 2 pt -> no PSMX for writer, still match
     { { 1, {"a"}    }, {1, {"b",0}  }, "b" }, // diff partition, no match (so need checkwr)
-    { { 2, {"","a"} }, {1, {"b",0}  }, "b" }, // 2 pt -> no iceoryx for writer, no match
-    { { 2, {"","a"} }, {1, {"*",0}  }, 0 },   // 2 pt, wildcard: no iceoryx involved
+    { { 2, {"","a"} }, {1, {"b",0}  }, "b" }, // 2 pt -> no PSMX for writer, no match
+    { { 2, {"","a"} }, {1, {"*",0}  }, 0 },   // 2 pt, wildcard: no PSMX involved
     { { 1, {"*",0}  }, {1, {"*",0}  }, "x" }, // rd&wr both wildcard: no match, hence "x"
     { { 1, {"?",0}  }, {1, {"b",0}  }, 0 },   // ? is also a wildcard character
-    { { 2, {"",""}  }, {1, {"",0}   }, 0 },   // 2 pt -> no iceoryx, even if the two are the same
+    { { 2, {"",""}  }, {1, {"",0}   }, 0 },   // 2 pt -> no PSMX, even if the two are the same
     { { 1, {".",0}  }, {1, {".",0}  }, 0 },   // a dot and \ should be escaped (can't check the
-    { { 1, {"\\",0} }, {1, {"\\",0} }, 0 },   // ... name in iceoryx, but should at leas t try)
+    { { 1, {"\\",0} }, {1, {"\\",0} }, 0 },   // ... name in PSMX, but should at leas t try)
   };
 
   for (size_t i = 0; i < sizeof (testcases) / sizeof (testcases[0]); i++)
@@ -828,14 +828,14 @@ static void config__check_env (const char *env_variable, const char *expected_va
 }
 
 #define MAX_SAMPLES 8
-CU_Test (ddsc_virtintf, create)
+CU_Test (ddsc_psmx, basic)
 {
   dds_return_t rc;
   void *samples[MAX_SAMPLES];
   dds_sample_info_t infos[MAX_SAMPLES];
   dds_entity_t participant, topic, writer, reader;
 
-  config__check_env ("CYCLONEDDS_URI", CONFIG_ENV_VIRTUAL_INTERFACE);
+  config__check_env ("CYCLONEDDS_URI", CONFIG_ENV_PSMX);
 
   participant = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
   CU_ASSERT_FATAL (participant > 0);

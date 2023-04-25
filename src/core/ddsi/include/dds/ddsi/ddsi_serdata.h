@@ -154,11 +154,11 @@ typedef uint32_t(*ddsi_serdata_zerocopy_size_t) (const struct ddsi_serdata* d);
 // The first case is when "sub" is not NULL, in which case it is a pointer to the Iceoryx subscriber
 typedef struct ddsi_serdata* (*ddsi_serdata_from_iox_t) (const struct ddsi_sertype* type, enum ddsi_serdata_kind kind, void* sub, void* buffer);
 
-// Used for taking a loaned sample originating from a virtual interface and constructing a serdata around this
+// Used for taking a loaned sample originating from a PSMX and constructing a serdata around this
 typedef struct ddsi_serdata* (*ddsi_serdata_from_loan_t) (const struct ddsi_sertype *type, enum ddsi_serdata_kind kind, const char *sample, struct dds_loaned_sample *loan, bool force_serialization);
 
-// Used for constructing a serdata from data received on a virtual interface
-typedef struct ddsi_serdata* (*ddsi_serdata_from_virtual_exchange_t) (const struct ddsi_sertype *type, struct dds_loaned_sample *data);
+// Used for constructing a serdata from data received on a PSMX
+typedef struct ddsi_serdata* (*ddsi_serdata_from_psmx_t) (const struct ddsi_sertype *type, struct dds_loaned_sample *data);
 
 
 struct ddsi_serdata_ops {
@@ -178,7 +178,7 @@ struct ddsi_serdata_ops {
   ddsi_serdata_print_t print;
   ddsi_serdata_get_keyhash_t get_keyhash;
   ddsi_serdata_from_loan_t from_loaned_sample;
-  ddsi_serdata_from_virtual_exchange_t from_virtual_exchange;
+  ddsi_serdata_from_psmx_t from_psmx;
 };
 
 #define DDSI_SERDATA_HAS_PRINT 1
@@ -332,12 +332,12 @@ DDS_INLINE_EXPORT inline struct ddsi_serdata *ddsi_serdata_from_loaned_sample(co
   return type->serdata_ops->from_loaned_sample(type, kind, sample, loan, force_serialization);
 }
 
-DDS_INLINE_EXPORT inline struct ddsi_serdata *ddsi_serdata_from_virtual_exchange(const struct ddsi_sertype *type, struct dds_loaned_sample *data) ddsrt_nonnull_all;
+DDS_INLINE_EXPORT inline struct ddsi_serdata *ddsi_serdata_from_psmx(const struct ddsi_sertype *type, struct dds_loaned_sample *data) ddsrt_nonnull_all;
 
 /** @component typesupport_if */
-DDS_INLINE_EXPORT inline struct ddsi_serdata *ddsi_serdata_from_virtual_exchange(const struct ddsi_sertype *type, struct dds_loaned_sample *data)
+DDS_INLINE_EXPORT inline struct ddsi_serdata *ddsi_serdata_from_psmx(const struct ddsi_sertype *type, struct dds_loaned_sample *data)
 {
-  return type->serdata_ops->from_virtual_exchange(type, data);
+  return type->serdata_ops->from_psmx(type, data);
 }
 
 #if defined (__cplusplus)

@@ -36,30 +36,30 @@ const ddsrt_avl_treedef_t ddsi_pwr_readers_treedef =
 const ddsrt_avl_treedef_t ddsi_prd_writers_treedef =
   DDSRT_AVL_TREEDEF_INITIALIZER (offsetof (struct ddsi_prd_wr_match, avlnode), offsetof (struct ddsi_prd_wr_match, wr_guid), ddsi_compare_guid, 0);
 
-typedef struct proxy_is_local_virtual_helper {
+typedef struct proxy_is_local_psmx_helper {
   const ddsi_locator_t *loc;
   int matches_to_loc;
-} proxy_is_local_virtual_helper_t;
+} proxy_is_local_psmx_helper_t;
 
-static void count_local_virtuals (const ddsi_xlocator_t *loc, void * varg)
+static void count_local_psmx (const ddsi_xlocator_t *loc, void * varg)
 {
-  proxy_is_local_virtual_helper_t *hlp = (proxy_is_local_virtual_helper_t*)varg;
+  proxy_is_local_psmx_helper_t *hlp = (proxy_is_local_psmx_helper_t *) varg;
 
-  if (memcmp(&loc->c, hlp->loc, sizeof(*hlp->loc)) == 0)
+  if (memcmp (&loc->c, hlp->loc, sizeof(*hlp->loc)) == 0)
   {
     hlp->matches_to_loc++;
   }
 }
 
-static bool proxy_is_local_virtual (const struct ddsi_domaingv *gv, struct ddsi_addrset *as)
+static bool proxy_is_local_psmx (const struct ddsi_domaingv *gv, struct ddsi_addrset *as)
 {
-  proxy_is_local_virtual_helper_t hlp = {.loc = NULL, .matches_to_loc = 0};
+  proxy_is_local_psmx_helper_t hlp = {.loc = NULL, .matches_to_loc = 0};
   for (int i = 0; i < gv->n_interfaces; i++)
   {
-    if (gv->interfaces[i].is_virtual)
+    if (gv->interfaces[i].is_psmx)
     {
       hlp.loc = &gv->interfaces[i].loc;
-      ddsi_addrset_forall (as, count_local_virtuals, &hlp);
+      ddsi_addrset_forall (as, count_local_psmx, &hlp);
     }
   }
   return hlp.matches_to_loc > 0;
@@ -265,7 +265,7 @@ int ddsi_new_proxy_writer (struct ddsi_domaingv *gv, const struct ddsi_guid *ppg
 #ifdef DDS_HAS_SSM
   pwr->supports_ssm = (ddsi_addrset_contains_ssm (gv, as) && gv->config.allowMulticast & DDSI_AMC_SSM) ? 1 : 0;
 #endif
-  pwr->local_virtual = proxy_is_local_virtual(gv, as);
+  pwr->local_psmx = proxy_is_local_psmx(gv, as);
   if (plist->present & PP_CYCLONE_REDUNDANT_NETWORKING)
     pwr->redundant_networking = (plist->cyclone_redundant_networking != 0);
   else
@@ -583,7 +583,7 @@ int ddsi_new_proxy_reader (struct ddsi_domaingv *gv, const struct ddsi_guid *ppg
 #ifdef DDS_HAS_SSM
   prd->favours_ssm = (favours_ssm && gv->config.allowMulticast & DDSI_AMC_SSM) ? 1 : 0;
 #endif
-  prd->local_virtual = proxy_is_local_virtual(gv, as);
+  prd->local_psmx = proxy_is_local_psmx (gv, as);
   prd->is_fict_trans_reader = 0;
   prd->receive_buffer_size = proxypp->receive_buffer_size;
   prd->requests_keyhash = (plist->present & PP_CYCLONE_REQUESTS_KEYHASH) && plist->cyclone_requests_keyhash;

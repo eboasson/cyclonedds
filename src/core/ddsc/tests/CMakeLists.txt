@@ -93,8 +93,7 @@ set(ddsc_test_sources
     "test_oneliner.c"
     "test_oneliner.h"
     "cdrstream.c"
-    "virtual_interface.c"
-    "virtintf.c"
+    "psmx.c"
   )
 
 if(ENABLE_LIFESPAN)
@@ -162,26 +161,26 @@ if(ENABLE_DEADLINE_MISSED)
   endforeach()
 endif()
 
-# Virtual Interface implementation with Cyclone as transport, for testing
-idlc_generate(TARGET virtintf_cdds_data FILES virtintf_cdds_data.idl)
-set(virtintf_cdds_sources
-  "virtintf_cdds_impl.c"
-  "virtintf_cdds_impl.h")
-add_library(virtintf_cdds SHARED ${virtintf_cdds_sources})
+# PSMX implementation with Cyclone as transport, for testing
+idlc_generate(TARGET psmx_cdds_data FILES psmx_cdds_data.idl)
+set(psmx_cdds_sources
+  "psmx_cdds_impl.c"
+  "psmx_cdds_impl.h")
+add_library(psmx_cdds SHARED ${psmx_cdds_sources})
 target_include_directories(
-  virtintf_cdds PRIVATE
+  psmx_cdds PRIVATE
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../ddsi/include>")
-target_link_libraries(virtintf_cdds PRIVATE ddsc virtintf_cdds_data)
+target_link_libraries(psmx_cdds PRIVATE ddsc psmx_cdds_data)
 
-get_test_property(CUnit_ddsc_virtual_interface_create ENVIRONMENT CUnit_ddsc_virtual_interface_create_env)
-set(CUnit_ddsc_virtual_interface_create_file "${CMAKE_CURRENT_LIST_DIR}/config_virtual_interfaces.xml")
-set(CUnit_ddsc_virtual_interface_create_uri "file://${CUnit_ddsc_virtual_interface_create_file}")
-set(CUnit_ddsc_virtual_interface_create_env "CDDS_VIRTINTF_LIB=$<TARGET_FILE:virtintf_cdds>;CYCLONEDDS_URI=${CUnit_ddsc_virtual_interface_create_uri}")
+get_test_property(CUnit_ddsc_psmx_basic ENVIRONMENT CUnit_ddsc_psmx_basic_env)
+set(CUnit_ddsc_psmx_basic_file "${CMAKE_CURRENT_LIST_DIR}/config_psmx.xml")
+set(CUnit_ddsc_psmx_basic_uri "file://${CUnit_ddsc_psmx_basic_file}")
+set(CUnit_ddsc_psmx_basic_env "CDDS_PSMX_LIB=$<TARGET_FILE:psmx_cdds>;CYCLONEDDS_URI=${CUnit_ddsc_psmx_basic_uri}")
 set_tests_properties(
-	CUnit_ddsc_virtintf_create
+	CUnit_ddsc_psmx_basic
 	PROPERTIES
-		REQUIRED_FILES ${CUnit_ddsc_virtual_interface_create_file}
-		ENVIRONMENT "${CUnit_ddsc_virtual_interface_create_env}")
+		REQUIRED_FILES ${CUnit_ddsc_psmx_basic_file}
+		ENVIRONMENT "${CUnit_ddsc_psmx_basic_env}")
 
 configure_file("config_env.h.in" "config_env.h" @ONLY)
 

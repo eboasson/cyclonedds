@@ -473,7 +473,7 @@ static struct ddsi_serdata *serdata_default_from_loaned_sample(const struct ddsi
   */
   const struct dds_sertype_default *t = (const struct dds_sertype_default *)tpcmn;
 
-  bool serialize_data = force_serialization || dds_virtual_interface_pipe_serialization_required (loan->loan_origin);
+  bool serialize_data = force_serialization || dds_psmx_endpoint_serialization_required (loan->loan_origin);
 
   struct dds_serdata_default *d;
   if (serialize_data)
@@ -495,7 +495,7 @@ static struct ddsi_serdata *serdata_default_from_loaned_sample(const struct ddsi
     dds_loaned_sample_ref (loan);
     dds_loan_manager_remove_loan (loan);
 
-    struct dds_virtual_interface_metadata *md = loan->metadata;
+    struct dds_psmx_metadata *md = loan->metadata;
     md->cdr_options = d->hdr.options;
     switch (d->hdr.identifier)
     {
@@ -874,10 +874,10 @@ static void serdata_default_get_keyhash (const struct ddsi_serdata *serdata_comm
   dds_ostreamBE_fini (&os, &dds_cdrstream_default_allocator);
 }
 
-static struct ddsi_serdata * serdata_default_from_virtual_exchange (const struct ddsi_sertype *type, dds_loaned_sample_t *loaned_sample)
+static struct ddsi_serdata * serdata_default_from_psmx (const struct ddsi_sertype *type, dds_loaned_sample_t *loaned_sample)
 {
   const struct dds_sertype_default *tp = (const struct dds_sertype_default *) type;
-  struct dds_virtual_interface_metadata *md = loaned_sample->metadata;
+  struct dds_psmx_metadata *md = loaned_sample->metadata;
   enum ddsi_serdata_kind sdk = 0;
   switch (md->sample_state)
   {
@@ -939,7 +939,7 @@ const struct ddsi_serdata_ops dds_serdata_ops_cdr = {
   .print = serdata_default_print_cdr,
   .get_keyhash = serdata_default_get_keyhash,
   .from_loaned_sample = serdata_default_from_loaned_sample,
-  .from_virtual_exchange = serdata_default_from_virtual_exchange
+  .from_psmx = serdata_default_from_psmx
 };
 
 const struct ddsi_serdata_ops dds_serdata_ops_xcdr2 = {
@@ -959,7 +959,7 @@ const struct ddsi_serdata_ops dds_serdata_ops_xcdr2 = {
   .print = serdata_default_print_cdr,
   .get_keyhash = serdata_default_get_keyhash,
   .from_loaned_sample = serdata_default_from_loaned_sample,
-  .from_virtual_exchange = serdata_default_from_virtual_exchange
+  .from_psmx = serdata_default_from_psmx
 };
 
 const struct ddsi_serdata_ops dds_serdata_ops_cdr_nokey = {
@@ -979,7 +979,7 @@ const struct ddsi_serdata_ops dds_serdata_ops_cdr_nokey = {
   .print = serdata_default_print_cdr,
   .get_keyhash = serdata_default_get_keyhash,
   .from_loaned_sample = serdata_default_from_loaned_sample,
-  .from_virtual_exchange = serdata_default_from_virtual_exchange
+  .from_psmx = serdata_default_from_psmx
 };
 
 const struct ddsi_serdata_ops dds_serdata_ops_xcdr2_nokey = {
@@ -999,5 +999,5 @@ const struct ddsi_serdata_ops dds_serdata_ops_xcdr2_nokey = {
   .print = serdata_default_print_cdr,
   .get_keyhash = serdata_default_get_keyhash,
   .from_loaned_sample = serdata_default_from_loaned_sample,
-  .from_virtual_exchange = serdata_default_from_virtual_exchange
+  .from_psmx = serdata_default_from_psmx
 };

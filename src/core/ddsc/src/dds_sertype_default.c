@@ -26,7 +26,7 @@
 #include "dds/ddsi/ddsi_typelib.h"
 #include "dds/cdr/dds_cdrstream.h"
 #include "dds__serdata_default.h"
-#include "dds__virtual_interface.h"
+#include "dds__psmx.h"
 
 static bool sertype_default_equal (const struct ddsi_sertype *acmn, const struct ddsi_sertype *bcmn)
 {

@@ -9,8 +9,8 @@
  *
  * SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
  */
-#ifndef DDSI_VIRTUAL_INTERFACE_H
-#define DDSI_VIRTUAL_INTERFACE_H
+#ifndef DDSI_PSMX_H
+#define DDSI_PSMX_H
 
 #include "dds/ddsi/ddsi_locator.h"
 
@@ -18,16 +18,16 @@
 extern "C" {
 #endif
 
-struct ddsi_virtual_interface_locators {
+struct ddsi_psmx_instance_locators {
   uint32_t length;
   struct {
-      char *virtual_interface_name;
+      char *psmx_instance_name;
       ddsi_locator_t locator;
-  } *items;
+  } *instances;
 };
 
 #if defined (__cplusplus)
 }
 #endif
 
-#endif // DDSI_VIRTUAL_INTERFACE_H
+#endif // DDSI_PSMX_H

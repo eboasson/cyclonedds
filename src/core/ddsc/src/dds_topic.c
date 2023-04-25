@@ -39,7 +39,7 @@
 #include "dds/cdr/dds_cdrstream.h"
 #include "dds__serdata_builtintopic.h"
 #include "dds__serdata_default.h"
-#include "dds__virtual_interface.h"
+#include "dds__psmx.h"
 
 DECL_ENTITY_LOCK_UNLOCK (dds_topic)
 
@@ -577,19 +577,19 @@ dds_entity_t dds_create_topic_impl (
   *sertype = sertype_registered;
 
   dds_domain *dom = pp->m_entity.m_domain;
-  for (uint32_t i = 0; new_ktopic && i < dom->virtual_interfaces.length; i++)
+  for (uint32_t i = 0; new_ktopic && i < dom->psmx_instances.length; i++)
   {
-    struct dds_virtual_interface *vi = dom->virtual_interfaces.interfaces[i];
-    if (!vi->ops.qos_supported (new_qos) ||
-        !vi->ops.data_type_supported (sertype_registered->data_type_props))
+    struct dds_psmx *psmx = dom->psmx_instances.instances[i];
+    if (!psmx->ops.qos_supported (new_qos) ||
+        !psmx->ops.data_type_supported (sertype_registered->data_type_props))
       continue;
-    struct dds_virtual_interface_topic *vit = vi->ops.topic_create (vi, dds_calculate_topic_identifier (ktp), sertype_registered->data_type_props);
-    if (vit == NULL)
+    struct dds_psmx_topic *psmx_topic = psmx->ops.create_topic (psmx, dds_calculate_topic_identifier (ktp), sertype_registered->data_type_props);
+    if (psmx_topic == NULL)
     {
       rc = DDS_RETCODE_ERROR;
-      goto virtual_interface_fail;
+      goto psmx_fail;
     }
-    ktp->virtual_topics.topics[ktp->virtual_topics.length++] = vit;
+    ktp->psmx_topics.topics[ktp->psmx_topics.length++] = psmx_topic;
   }
 
   const bool new_topic_def = register_topic_type_for_discovery (gv, pp, ktp, is_builtin, sertype_registered);
@@ -607,12 +607,12 @@ dds_entity_t dds_create_topic_impl (
   GVTRACE ("dds_create_topic_impl: new topic %"PRId32"\n", hdl);
   return hdl;
 
-virtual_interface_fail:
-  for (uint32_t i = 0; i < ktp->virtual_topics.length; i++)
+psmx_fail:
+  for (uint32_t i = 0; i < ktp->psmx_topics.length; i++)
   {
-    dds_return_t rc_destruct = ktp->virtual_topics.topics[i]->virtual_interface->ops.topic_destruct (ktp->virtual_topics.topics[i]);
+    dds_return_t rc_destruct = ktp->psmx_topics.topics[i]->psmx_instance->ops.delete_topic (ktp->psmx_topics.topics[i]);
     assert (rc_destruct == DDS_RETCODE_OK);
-    ktp->virtual_topics.topics[i] = NULL;
+    ktp->psmx_topics.topics[i] = NULL;
   }
 error:
   dds_delete_qos (new_qos);

@@ -18,7 +18,7 @@ enum sample_state {
 };
 
 @topic @final
-struct cdds_virtintf_data {
+struct cdds_psmx_data {
   sample_state sample_state;
   uint32 data_type;
   uint32 data_origin;

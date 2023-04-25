@@ -4045,18 +4045,18 @@ dds_read_next_wl(
   dds_sample_info_t *si);
 
 /**
- * @brief insert entries into the reader history cache from a virtual interface
+ * @brief insert data from a loaned sample into the reader history cache
  * @ingroup reading
  *
  * @param[in] reader The reader entity.
- * @param[in] data Pointer to the loaned sample of the entity received from a virtual interface.
+ * @param[in] data Pointer to the loaned sample of the entity received
  *
  * @returns A dds_return_t indicating success or failure.
  *
  * @retval DDS_RETCODE_OK
  *             The operation was successful.
  * @retval DDS_RETCODE_BAD_PARAMETER
- *             The from_virtual parameter is not a valid parameter.
+ *             One or more parameters are invalid.
  * @retval DDS_RETCODE_ILLEGAL_OPERATION
  *             The operation is invoked on an inappropriate object.
  * @retval DDS_RETCODE_ALREADY_DELETED
@@ -4081,7 +4081,7 @@ dds_reader_store_loaned_sample (
  * @retval >= 0
  *             The operation was successful, returns the number of loans.
  * @retval DDS_RETCODE_BAD_PARAMETER
- *             The from_virtual parameter is not a valid parameter.
+ *             One or more parameters are invalid.
  * @retval DDS_RETCODE_ILLEGAL_OPERATION
  *             The operation is invoked on an inappropriate object.
  * @retval DDS_RETCODE_ALREADY_DELETED

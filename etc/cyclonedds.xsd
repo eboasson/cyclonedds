@@ -408,7 +408,7 @@ CycloneDDS configuration</xs:documentation>
     <xs:complexType>
       <xs:choice minOccurs="0" maxOccurs="unbounded">
         <xs:element ref="config:NetworkInterface"/>
-        <xs:element ref="config:VirtualInterface"/>
+        <xs:element ref="config:PubSubMessageExchange"/>
       </xs:choice>
     </xs:complexType>
   </xs:element>
@@ -469,16 +469,16 @@ CycloneDDS configuration</xs:documentation>
       </xs:attribute>
     </xs:complexType>
   </xs:element>
-  <xs:element name="VirtualInterface">
+  <xs:element name="PubSubMessageExchange">
     <xs:annotation>
       <xs:documentation>
-&lt;p&gt;This element defines a virtual interface.&lt;/p&gt;</xs:documentation>
+&lt;p&gt;This element defines a PSMX.&lt;/p&gt;</xs:documentation>
     </xs:annotation>
     <xs:complexType>
       <xs:attribute name="config">
         <xs:annotation>
           <xs:documentation>
-&lt;p&gt;This attribute specifies any configuration data for the virtual interface.This has no meaning in CycloneDDS itself, and its parsing is deferred to thevirtual interface implementation.&lt;/p&gt;
+&lt;p&gt;This attribute specifies any configuration data for the PSMX instance.This has no meaning in CycloneDDS itself, and its parsing is deferred to thePSMX implementation.&lt;/p&gt;
 &lt;p&gt;The default value is: &lt;code&gt;&amp;lt;empty&amp;gt;&lt;/code&gt;&lt;/p&gt;</xs:documentation>
         </xs:annotation>
       </xs:attribute>
@@ -499,7 +499,7 @@ CycloneDDS configuration</xs:documentation>
       <xs:attribute name="priority">
         <xs:annotation>
           <xs:documentation>
-&lt;p&gt;This attribute specifies the interface priority (decimal integer or &lt;i&gt;default&lt;/i&gt;). The default value for virtual interfaces is 0.&lt;/p&gt;
+&lt;p&gt;This attribute specifies the interface priority (decimal integer or &lt;i&gt;default&lt;/i&gt;). The default value for a PSMX is 0.&lt;/p&gt;
 &lt;p&gt;The default value is: &lt;code&gt;default&lt;/code&gt;&lt;/p&gt;</xs:documentation>
         </xs:annotation>
       </xs:attribute>

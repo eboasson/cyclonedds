@@ -35,7 +35,7 @@
 #include "dds__qos.h"
 #include "dds__whc.h"
 #include "dds__statistics.h"
-#include "dds__virtual_interface.h"
+#include "dds__psmx.h"
 
 DECL_ENTITY_LOCK_UNLOCK (dds_writer)
 
@@ -334,8 +334,8 @@ dds_entity_t dds_create_writer (dds_entity_t participant_or_publisher, dds_entit
 
   if ((rc = dds_ensure_valid_data_representation (wqos, tp->m_stype->allowed_data_representation, false)) != 0)
     goto err_data_repr;
-  if ((rc = dds_ensure_valid_virtual_interfaces (wqos, tp->m_stype->data_type_props, &pub->m_entity.m_domain->virtual_interfaces)) != 0)
-    goto err_virtintf;
+  if ((rc = dds_ensure_valid_psmx_instances (wqos, tp->m_stype->data_type_props, &pub->m_entity.m_domain->psmx_instances)) != 0)
+    goto err_psmx;
 
   if ((rc = ddsi_xqos_valid (&gv->logconfig, wqos)) < 0 || (rc = validate_writer_qos(wqos)) != DDS_RETCODE_OK)
     goto err_bad_qos;
@@ -389,7 +389,7 @@ dds_entity_t dds_create_writer (dds_entity_t participant_or_publisher, dds_entit
   // we can have another look.
   wr->whc_batch = wqos->writer_batching.batch_updates || gv->config.whc_batch;
 
-  if ((rc = dds_endpoint_open_virtual_pipes (&wr->m_endpoint, wqos, tp->m_ktopic ? &tp->m_ktopic->virtual_topics : NULL, DDS_VIRTUAL_INTERFACE_PIPE_TYPE_SINK)) != DDS_RETCODE_OK)
+  if ((rc = dds_endpoint_open_psmx_endpoint (&wr->m_endpoint, wqos, tp->m_ktopic ? &tp->m_ktopic->psmx_topics : NULL, DDS_PSMX_ENDPOINT_TYPE_WRITER)) != DDS_RETCODE_OK)
     goto err_pipe_open;
 
   struct ddsi_sertype *sertype = ddsi_sertype_derive_sertype (tp->m_stype, data_representation,
@@ -397,10 +397,10 @@ dds_entity_t dds_create_writer (dds_entity_t participant_or_publisher, dds_entit
   if (!sertype)
     sertype = tp->m_stype;
 
-  struct ddsi_virtual_locators_set *vl_set = dds_get_virtual_locators_set (wqos, &wr->m_entity.m_domain->virtual_interfaces);
+  struct ddsi_psmx_locators_set *vl_set = dds_get_psmx_locators_set (wqos, &wr->m_entity.m_domain->psmx_instances);
   rc = ddsi_new_writer (&wr->m_wr, &wr->m_entity.m_guid, NULL, pp, tp->m_name, sertype, wqos, wr->m_whc, dds_writer_status_cb, wr, vl_set);
   assert(rc == DDS_RETCODE_OK);
-  dds_virtual_locators_set_free (vl_set);
+  dds_psmx_locators_set_free (vl_set);
   ddsi_thread_state_asleep (ddsi_lookup_thread_state ());
 
   wr->m_entity.m_iid = ddsi_get_entity_instanceid (&wr->m_entity.m_domain->gv, &wr->m_entity.m_guid);
@@ -429,7 +429,7 @@ err_not_allowed:
 #endif
 err_bad_qos:
 err_data_repr:
-err_virtintf:
+err_psmx:
   if (own_wqos)
     dds_delete_qos(wqos);
   dds_topic_allow_set_qos (tp);

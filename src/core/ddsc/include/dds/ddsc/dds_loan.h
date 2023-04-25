@@ -30,7 +30,7 @@ extern "C" {
 
 struct dds_loan_manager;
 struct dds_loaned_sample;
-struct dds_virtual_interface_pipe;
+struct dds_psmx_endpoint;
 
 /**
  * @brief State of the data contained in a memory block
@@ -55,7 +55,7 @@ typedef uint32_t dds_loan_origin_type_t;
 /**
  * @brief describes the data which is transferred in addition to just the sample
  */
-typedef struct dds_virtual_interface_metadata {
+typedef struct dds_psmx_metadata {
   dds_loaned_sample_state_t sample_state;
   dds_loan_data_type_t data_type;
   dds_loan_origin_type_t data_origin;
@@ -69,7 +69,7 @@ typedef struct dds_virtual_interface_metadata {
   uint16_t cdr_options;
   unsigned char keyhash[16];
   uint32_t keysize : 30;  // to mirror fixed width of dds_serdata_default_key.keysize
-} dds_virtual_interface_metadata_t;
+} dds_psmx_metadata_t;
 
 /**
  * @brief Definition for function to cleanup loaned sample
@@ -110,13 +110,13 @@ typedef struct dds_loaned_sample_ops {
 } dds_loaned_sample_ops_t;
 
 /**
- * @brief The definition of a block of memory originating from a virtual interface
+ * @brief The definition of a block of memory originating from a PSMX
  */
 typedef struct dds_loaned_sample {
   dds_loaned_sample_ops_t ops; /*the implementation specific ops for this sample*/
-  struct dds_virtual_interface_pipe *loan_origin; /*the origin of the loan*/
+  struct dds_psmx_endpoint *loan_origin; /*the origin of the loan*/
   struct dds_loan_manager *manager; /*the associated manager*/
-  struct dds_virtual_interface_metadata * metadata; /*pointer to the associated metadata*/
+  struct dds_psmx_metadata * metadata; /*pointer to the associated metadata*/
   void * sample_ptr; /*pointer to the loaned sample*/
   uint32_t loan_idx; /*the storage index of the loan*/
   ddsrt_atomic_uint32_t refs; /*the number of references to this loan*/

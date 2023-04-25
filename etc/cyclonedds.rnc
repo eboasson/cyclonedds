@@ -287,10 +287,10 @@ CycloneDDS configuration""" ] ]
             }?
           }*
           & [ a:documentation [ xml:lang="en" """
-<p>This element defines a virtual interface.</p>""" ] ]
-          element VirtualInterface {
+<p>This element defines a PSMX.</p>""" ] ]
+          element PubSubMessageExchange {
             [ a:documentation [ xml:lang="en" """
-<p>This attribute specifies any configuration data for the virtual interface.This has no meaning in CycloneDDS itself, and its parsing is deferred to thevirtual interface implementation.</p>
+<p>This attribute specifies any configuration data for the PSMX instance.This has no meaning in CycloneDDS itself, and its parsing is deferred to thePSMX implementation.</p>
 <p>The default value is: <code>&lt;empty&gt;</code></p>""" ] ]
             attribute config {
               text
@@ -308,7 +308,7 @@ CycloneDDS configuration""" ] ]
               text
             }?
             & [ a:documentation [ xml:lang="en" """
-<p>This attribute specifies the interface priority (decimal integer or <i>default</i>). The default value for virtual interfaces is 0.</p>
+<p>This attribute specifies the interface priority (decimal integer or <i>default</i>). The default value for a PSMX is 0.</p>
 <p>The default value is: <code>default</code></p>""" ] ]
             attribute priority {
               text

@@ -230,16 +230,16 @@ enum ddsi_config_entity_naming_mode {
   DDSI_ENTITY_NAMING_DEFAULT_FANCY
 };
 
-struct ddsi_config_virtual_interface {
+struct ddsi_config_psmx {
   char *name;
   char *library;
   char *config;
   struct ddsi_config_maybe_int32 priority;
 };
 
-struct ddsi_config_virtual_interface_listelem {
-  struct ddsi_config_virtual_interface_listelem *next;
-  struct ddsi_config_virtual_interface cfg;
+struct ddsi_config_psmx_listelem {
+  struct ddsi_config_psmx_listelem *next;
+  struct ddsi_config_psmx cfg;
 };
 
 /* Expensive checks (compiled in when NDEBUG not defined, enabled only if flag set in xchecks) */
@@ -264,7 +264,7 @@ struct ddsi_config
 
   /* interfaces */
   struct ddsi_config_network_interface_listelem *network_interfaces;
-  struct ddsi_config_virtual_interface_listelem *virtual_interfaces;
+  struct ddsi_config_psmx_listelem *psmx_instances;
 
   /* deprecated interface support */
   char *depr_networkAddressString;

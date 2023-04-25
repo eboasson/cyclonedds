@@ -30,7 +30,7 @@
 #include "dds__whc_builtintopic.h"
 #include "dds__entity.h"
 #include "dds__serdata_default.h"
-#include "dds__virtual_interface.h"
+#include "dds__psmx.h"
 
 static dds_return_t dds_domain_free (dds_entity *vdomain);
 
@@ -124,22 +124,22 @@ static dds_entity_t dds_domain_init (dds_domain *domain, dds_domainid_t domain_i
     goto fail_ddsi_config;
   }
 
-  if ((ret = dds_virtual_interfaces_init (&domain->gv, domain)) != DDS_RETCODE_OK)
-    goto fail_virtual_interface_init;
+  if ((ret = dds_pubsub_message_exchange_init (&domain->gv, domain)) != DDS_RETCODE_OK)
+    goto fail_psmx_init;
 
-  struct ddsi_virtual_interface_locators virtual_interface_locators;
-  virtual_interface_locators.length = domain->virtual_interfaces.length;
-  virtual_interface_locators.items = dds_alloc (domain->virtual_interfaces.length * sizeof (*virtual_interface_locators.items));
-  for (uint32_t n = 0; n < domain->virtual_interfaces.length; n++)
+  struct ddsi_psmx_instance_locators psmx_locators;
+  psmx_locators.length = domain->psmx_instances.length;
+  psmx_locators.instances = dds_alloc (domain->psmx_instances.length * sizeof (*psmx_locators.instances));
+  for (uint32_t n = 0; n < domain->psmx_instances.length; n++)
   {
-    virtual_interface_locators.items[n].virtual_interface_name = dds_string_dup (domain->virtual_interfaces.interfaces[n]->interface_name);
-    virtual_interface_locators.items[n].locator = *domain->virtual_interfaces.interfaces[n]->locator;
+    psmx_locators.instances[n].psmx_instance_name = dds_string_dup (domain->psmx_instances.instances[n]->instance_name);
+    psmx_locators.instances[n].locator = *domain->psmx_instances.instances[n]->locator;
   }
 
-  ret = ddsi_init (&domain->gv, &virtual_interface_locators);
-  for (uint32_t n = 0; n < domain->virtual_interfaces.length; n++)
-    dds_free (virtual_interface_locators.items[n].virtual_interface_name);
-  dds_free (virtual_interface_locators.items);
+  ret = ddsi_init (&domain->gv, &psmx_locators);
+  for (uint32_t n = 0; n < domain->psmx_instances.length; n++)
+    dds_free (psmx_locators.instances[n].psmx_instance_name);
+  dds_free (psmx_locators.instances);
   if (ret < 0)
   {
     DDS_ILOG (DDS_LC_CONFIG, domain->m_id, "Failed to initialize RTPS\n");
@@ -201,12 +201,12 @@ fail_threadmon_new:
   ddsi_fini (&domain->gv);
   dds_serdatapool_free (domain->serpool);
 fail_ddsi_init:
-  for (uint32_t i = 0; i < domain->virtual_interfaces.length; i++)
+  for (uint32_t i = 0; i < domain->psmx_instances.length; i++)
   {
-    domain->virtual_interfaces.interfaces[i]->ops.deinit(domain->virtual_interfaces.interfaces[i]);
-    domain->virtual_interfaces.interfaces[i] = NULL;
+    domain->psmx_instances.instances[i]->ops.deinit(domain->psmx_instances.instances[i]);
+    domain->psmx_instances.instances[i] = NULL;
   }
-fail_virtual_interface_init:
+fail_psmx_init:
 fail_ddsi_config:
   if (domain->cfgst)
     ddsi_config_fini (domain->cfgst);
@@ -335,7 +335,7 @@ static dds_return_t dds_domain_free (dds_entity *vdomain)
 
   ddsi_fini (&domain->gv);
 
-  (void) dds_virtual_interfaces_fini (domain);
+  (void) dds_pubsub_message_exchange_fini (domain);
 
   dds_serdatapool_free (domain->serpool);
 

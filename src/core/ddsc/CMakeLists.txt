@@ -45,7 +45,7 @@ prepend(srcs_ddsc "${CMAKE_CURRENT_LIST_DIR}/src/"
   dds_sertype_default.c
   dds_loan.c
   dds_heap_loan.c
-  dds_virtual_interface.c
+  dds_psmx.c
 )
 
 if(ENABLE_TYPE_DISCOVERY)
@@ -79,7 +79,7 @@ prepend(hdrs_private_ddsc "${CMAKE_CURRENT_LIST_DIR}/src/"
   dds__get_status.h
   dds__loan.h
   dds__heap_loan.h
-  dds__virtual_interface.h
+  dds__psmx.h
 )
 
 prepend(hdrs_public_ddsc "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>/dds/"
@@ -96,7 +96,7 @@ prepend(hdrs_public_ddsc "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>$<
   ddsc/dds_opcodes.h
   ddsc/dds_loan_api.h
   ddsc/dds_loan.h
-  ddsc/dds_virtual_interface.h
+  ddsc/dds_psmx.h
 )
 
 if(ENABLE_TYPE_DISCOVERY)

@@ -38,7 +38,7 @@
 #include "dds__qos.h"
 #include "dds__builtin.h"
 #include "dds__statistics.h"
-#include "dds__virtual_interface.h"
+#include "dds__psmx.h"
 
 DECL_ENTITY_LOCK_UNLOCK (dds_reader)
 
@@ -529,8 +529,8 @@ static dds_entity_t dds_create_reader_int (dds_entity_t participant_or_subscribe
 
   if ((rc = dds_ensure_valid_data_representation (rqos, tp->m_stype->allowed_data_representation, false)) != 0)
     goto err_data_repr;
-  if ((rc = dds_ensure_valid_virtual_interfaces (rqos, tp->m_stype->data_type_props, &sub->m_entity.m_domain->virtual_interfaces)) != 0)
-    goto err_virtintf;
+  if ((rc = dds_ensure_valid_psmx_instances (rqos, tp->m_stype->data_type_props, &sub->m_entity.m_domain->psmx_instances)) != 0)
+    goto err_psmx;
 
   if ((rc = ddsi_xqos_valid (&gv->logconfig, rqos)) < 0 || (rc = validate_reader_qos(rqos)) != DDS_RETCODE_OK)
     goto err_bad_qos;
@@ -593,8 +593,8 @@ static dds_entity_t dds_create_reader_int (dds_entity_t participant_or_subscribe
   }
   dds_entity_add_ref_locked (&tp->m_entity);
 
-  if ((rc = dds_endpoint_open_virtual_pipes (&rd->m_endpoint, rqos, tp->m_ktopic ? &tp->m_ktopic->virtual_topics : NULL, DDS_VIRTUAL_INTERFACE_PIPE_TYPE_SOURCE)) != DDS_RETCODE_OK)
-    goto err_pipe_open;
+  if ((rc = dds_endpoint_open_psmx_endpoint (&rd->m_endpoint, rqos, tp->m_ktopic ? &tp->m_ktopic->psmx_topics : NULL, DDS_PSMX_ENDPOINT_TYPE_READER)) != DDS_RETCODE_OK)
+    goto err_create_endpoint;
 
   /* FIXME: listeners can come too soon ... should set mask based on listeners
      then atomically set the listeners, save the mask to a pending set and clear
@@ -604,20 +604,20 @@ static dds_entity_t dds_create_reader_int (dds_entity_t participant_or_subscribe
 
   /* Reader gets the sertype from the topic, as the serdata functions the reader uses are
      not specific for a data representation (the representation can be retrieved from the cdr header) */
-  struct ddsi_virtual_locators_set *vl_set = dds_get_virtual_locators_set (rqos, &rd->m_entity.m_domain->virtual_interfaces);
+  struct ddsi_psmx_locators_set *vl_set = dds_get_psmx_locators_set (rqos, &rd->m_entity.m_domain->psmx_instances);
   rc = ddsi_new_reader (&rd->m_rd, &rd->m_entity.m_guid, NULL, pp, tp->m_name, tp->m_stype, rqos, &rd->m_rhc->common.rhc, dds_reader_status_cb, rd, vl_set);
   assert (rc == DDS_RETCODE_OK); /* FIXME: can be out-of-resources at the very least */
-  dds_virtual_locators_set_free (vl_set);
+  dds_psmx_locators_set_free (vl_set);
   ddsi_thread_state_asleep (ddsi_lookup_thread_state ());
 
   rd->m_entity.m_iid = ddsi_get_entity_instanceid (&rd->m_entity.m_domain->gv, &rd->m_entity.m_guid);
   dds_entity_register_child (&sub->m_entity, &rd->m_entity);
 
-  for (uint32_t i = 0; i < rd->m_endpoint.virtual_pipes.length; i++)
+  for (uint32_t i = 0; i < rd->m_endpoint.psmx_endpoints.length; i++)
   {
-    struct dds_virtual_interface_pipe *pipe = rd->m_endpoint.virtual_pipes.pipes[i];
-    if (pipe->ops.set_on_source && (rc = pipe->ops.set_on_source (pipe, reader)) != DDS_RETCODE_OK)
-      goto err_pipe_setcb;
+    struct dds_psmx_endpoint *psmx_endpoint = rd->m_endpoint.psmx_endpoints.endpoints[i];
+    if (psmx_endpoint->ops.on_data_available && (rc = psmx_endpoint->ops.on_data_available (psmx_endpoint, reader)) != DDS_RETCODE_OK)
+      goto err_psmx_endpoint_setcb;
   }
 
   // After including the reader amongst the subscriber's children, the subscriber will start
@@ -637,19 +637,19 @@ static dds_entity_t dds_create_reader_int (dds_entity_t participant_or_subscribe
   return reader;
 
 
-err_pipe_setcb:
+err_psmx_endpoint_setcb:
   rc = DDS_RETCODE_ERROR;
-  for (uint32_t i = 0; i < rd->m_endpoint.virtual_pipes.length; i++) {
-    struct dds_virtual_interface_pipe *pipe = rd->m_endpoint.virtual_pipes.pipes[i];
-    if (!pipe)
+  for (uint32_t i = 0; i < rd->m_endpoint.psmx_endpoints.length; i++) {
+    struct dds_psmx_endpoint *psmx_endpoint = rd->m_endpoint.psmx_endpoints.endpoints[i];
+    if (!psmx_endpoint)
       continue;
-    dds_return_t rc_close = dds_virtual_interface_pipe_close (pipe);
+    dds_return_t rc_close = dds_psmx_delete_endpoint (psmx_endpoint);
     assert (rc_close == DDS_RETCODE_OK);
   }
-err_pipe_open:
+err_create_endpoint:
 err_bad_qos:
 err_data_repr:
-err_virtintf:
+err_psmx:
   if (own_rqos)
     dds_delete_qos (rqos);
   dds_topic_allow_set_qos (tp);
@@ -712,11 +712,11 @@ dds_return_t dds_reader_store_loaned_sample (dds_entity_t reader, dds_loaned_sam
   ddsrt_mutex_lock (&rd->e.lock);
 
   // FIXME: what if the sample is overwritten?
-  // if the sample is not matched to this reader, return ownership to the virtual interface?
+  // if the sample is not matched to this reader, return ownership to the PSMX?
 
   // After this call, loaned sample (data) may be freed
   dds_guid_t guid = data->metadata->guid;
-  struct ddsi_serdata * sd = ddsi_serdata_from_virtual_exchange (rd->type, data);
+  struct ddsi_serdata * sd = ddsi_serdata_from_psmx (rd->type, data);
   if (sd == NULL)
     goto kind_fail;
 

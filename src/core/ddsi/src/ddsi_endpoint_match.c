@@ -672,7 +672,7 @@ void ddsi_writer_add_connection (struct ddsi_writer *wr, struct ddsi_proxy_reade
   m->prd_guid = prd->e.guid;
   m->is_reliable = (prd->c.xqos->reliability.kind > DDS_RELIABILITY_BEST_EFFORT);
   m->assumed_in_sync = (wr->e.gv->config.retransmit_merging == DDSI_REXMIT_MERGE_ALWAYS);
-  m->has_replied_to_hb = !m->is_reliable || prd->local_virtual;
+  m->has_replied_to_hb = !m->is_reliable || prd->local_psmx;
   m->all_have_replied_to_hb = 0;
   m->non_responsive_count = 0;
   m->rexmit_requests = 0;
@@ -689,7 +689,7 @@ void ddsi_writer_add_connection (struct ddsi_writer *wr, struct ddsi_proxy_reade
               PGUID (wr->e.guid), PGUID (prd->e.guid));
     pretend_everything_acked = 1;
   }
-  else if (!m->is_reliable || prd->local_virtual)
+  else if (!m->is_reliable || prd->local_psmx)
   {
     /* Pretend a best-effort reader has ack'd everything, even waht is
        still to be published. */
@@ -708,7 +708,7 @@ void ddsi_writer_add_connection (struct ddsi_writer *wr, struct ddsi_proxy_reade
   m->t_nackfrag_accepted.v = 0;
 
   ddsrt_mutex_lock (&wr->e.lock);
-  if (pretend_everything_acked || prd->local_virtual)
+  if (pretend_everything_acked || prd->local_psmx)
     m->seq = DDSI_MAX_SEQ_NUMBER;
   else
     m->seq = wr->seq;
@@ -787,7 +787,7 @@ void ddsi_writer_add_local_connection (struct ddsi_writer *wr, struct ddsi_reade
             PGUID (wr->e.guid), PGUID (rd->e.guid));
   m->rd_guid = rd->e.guid;
   ddsrt_avl_insert_ipath (&ddsi_wr_local_readers_treedef, &wr->local_readers, m, &path);
-  if (wr->c.virtual_locators.length == 0 || rd->c.virtual_locators.length == 0)
+  if (wr->c.psmx_locators.length == 0 || rd->c.psmx_locators.length == 0)
     ddsi_local_reader_ary_insert(&wr->rdary, rd);
 
   /* Store available data into the late joining reader when it is reliable (we don't do
@@ -992,7 +992,7 @@ void ddsi_proxy_writer_add_connection (struct ddsi_proxy_writer *pwr, struct dds
     /* builtins really don't care about multiple copies or anything */
     m->in_sync = PRMSS_SYNC;
   }
-  else if (pwr->local_virtual)
+  else if (pwr->local_psmx)
   {
     m->in_sync = PRMSS_SYNC;
   }
@@ -1054,7 +1054,7 @@ void ddsi_proxy_writer_add_connection (struct ddsi_proxy_writer *pwr, struct dds
       m->filtered = 1;
     }
 
-    const ddsrt_mtime_t tsched = pwr->local_virtual ? DDSRT_MTIME_NEVER : ddsrt_mtime_add_duration (tnow, pwr->e.gv->config.preemptive_ack_delay);
+    const ddsrt_mtime_t tsched = pwr->local_psmx ? DDSRT_MTIME_NEVER : ddsrt_mtime_add_duration (tnow, pwr->e.gv->config.preemptive_ack_delay);
     {
       struct ddsi_acknack_xevent_cb_arg arg = { .pwr_guid = pwr->e.guid, .rd_guid = rd->e.guid };
       m->acknack_xevent = ddsi_qxev_callback (pwr->evq, tsched, ddsi_acknack_xevent_cb, &arg, sizeof (arg), false);

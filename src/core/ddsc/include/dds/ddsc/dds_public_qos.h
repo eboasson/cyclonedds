@@ -594,14 +594,14 @@ dds_qset_entity_name (
 /**
  * @ingroup qos_setters
  * @component qos_obj
- * @brief Set the supported virtual interface kinds of a qos structure
+ * @brief Set the supported PSMX instances of a qos structure
  *
  * @param[in,out] qos    - Pointer to a dds_qos_t structure that will store the policy
- * @param[in]     n      - Number of virtual interface kinds
- * @param[in]     values - Virtual interface kind values
+ * @param[in]     n      - Number of PSMX instances
+ * @param[in]     values - Names of the PSMX instances kind values
  */
 DDS_EXPORT void
-dds_qset_virtual_interfaces (
+dds_qset_psmx_instances (
   dds_qos_t * __restrict qos,
   uint32_t n,
   const char **values);
@@ -1114,15 +1114,15 @@ DDS_EXPORT bool dds_qget_entity_name (const dds_qos_t * __restrict qos, char **n
 /**
  * @ingroup qos_getters
  * @component qos_obj
- * @brief Gets the names of the virtual interfaces set in a qos structure
+ * @brief Gets the names of the PSMX instances set in a qos structure
  *
  * @param qos     Pointer to a dds_qos_t structure
- * @param n_out   Number of virtual interfaces returned
- * @param values  Names of the virtual interfaces
+ * @param n_out   Number of PSMX instance names returned
+ * @param values  Names of the PSMX instances
  * @return bool indicating success or failure
  */
 DDS_EXPORT bool
-dds_qget_virtual_interfaces (
+dds_qget_psmx_instances (
   const dds_qos_t * __restrict qos,
   uint32_t *n_out,
   char ***values);

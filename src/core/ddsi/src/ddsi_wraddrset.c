@@ -304,7 +304,7 @@ static struct locset *wras_calc_locators (const struct ddsrt_log_cfg *logcfg, st
 #define CI_INCLUDED        0x1 // reachable, already included in selected locators
 #define CI_NOMATCH         0x2 // not reached by this locator
 #define CI_LOOPBACK        0x4 // is a loopback locator (set for entire row)
-#define CI_VIRTUAL         0x8 // is a virtual interface locator
+#define CI_PSMX            0x8 // is a PSMX locator
 #define CI_MULTICAST_MASK 0xf0 // 0: no, 1: ASM, 2: SSM, (index+3) if MCGEN
 #define CI_MULTICAST_SHIFT   4
 #define CI_MULTICAST_ASM          1
@@ -319,10 +319,10 @@ DDSRT_STATIC_ASSERT (DDSI_LOCATOR_UDPv4MCGEN_INDEX_MASK_BITS + CI_MULTICAST_MCGE
 static const int32_t cost_discarded = 1;
 
 // Cost associated with delivering another time to a reader that has
-// already been covered by a (selected) Virtual Interface locator.
+// already been covered by a (selected) PSMX locator.
 // Currently, it is quite painful when this happens because it can
 // lead to user observable stuttering.
-static const int32_t cost_redundant_virtual = 1000000;
+static const int32_t cost_redundant_psmx = 1000000;
 
 // Cost associated with delivering data for the first time (slightly
 // negative cost makes it possible to give a slightly higher initial
@@ -360,9 +360,9 @@ static readercount_cost_t calc_locator_cost (const struct locset *locs, const st
   if (rdidx == c->nreaders)
     goto no_readers;
 
-  if ((ci & ~CI_STATUS_MASK) == CI_VIRTUAL)
+  if ((ci & ~CI_STATUS_MASK) == CI_PSMX)
   {
-    if ((ignore & DDSI_LOCATOR_KIND_VIRTINTF) == 0)
+    if ((ignore & DDSI_LOCATOR_KIND_PSMX) == 0)
       x.cost = INT32_MIN;
     else
       goto no_readers;
@@ -459,9 +459,9 @@ static bool wras_cover_locatorset (struct ddsi_domaingv const * const gv, struct
       return false;
     cover_info_t x;
     int lidx = (int) (l - locs->locs);
-    if (l->c.kind == DDSI_LOCATOR_KIND_VIRTINTF) // FIXME: a gross hack
+    if (l->c.kind == DDSI_LOCATOR_KIND_PSMX) // FIXME: a gross hack
     {
-      x = CI_VIRTUAL;
+      x = CI_PSMX;
     }
     else if (l->c.kind == DDSI_LOCATOR_KIND_UDPv4MCGEN)
     {
@@ -625,8 +625,8 @@ static void wras_trace_cover (const struct ddsi_domaingv *gv, const struct locse
           GVLOGDISC (" *");
         else
           GVLOGDISC (" +");
-        if ((ci & ~CI_STATUS_MASK) == CI_VIRTUAL)
-          GVLOGDISC ("V ");
+        if ((ci & ~CI_STATUS_MASK) == CI_PSMX)
+          GVLOGDISC ("P ");
         else
         {
           if ((ci & CI_MULTICAST_MASK) == 0)
@@ -699,7 +699,7 @@ static void wras_add_locator (const struct ddsi_domaingv *gv, struct ddsi_addrse
   }
 
   GVLOGDISC ("  %s %s\n", kindstr, ddsi_xlocator_to_string (str, sizeof(str), locp));
-  if (locp->c.kind != DDSI_LOCATOR_KIND_VIRTINTF)
+  if (locp->c.kind != DDSI_LOCATOR_KIND_PSMX)
   {
     // Virtual interface offload occurs above the RTPS stack, adding it to the address only means
     // samples get packed into RTPS messages and the transmit path is traversed without
@@ -726,19 +726,19 @@ static void wras_drop_covered_readers (int locidx, struct costmap *wm, struct co
       {
         cover_set (covered, i, j, (cover_info_t) ((ci & ~CI_STATUS_MASK) | CI_INCLUDED));
         // from reachable to included -> cost goes from "delivered" to "discarded"
-        const int32_t cost = ((ci_rd_loc & ~CI_STATUS_MASK) == CI_VIRTUAL) ? cost_redundant_virtual : cost_discarded;
+        const int32_t cost = ((ci_rd_loc & ~CI_STATUS_MASK) == CI_PSMX) ? cost_redundant_psmx : cost_discarded;
         costmap_adjust (wm, j, cost - cost_delivered);
       }
     }
   }
 }
 
-static bool is_virtual_locator (const struct ddsi_endpoint_common *local_endpoint, ddsi_xlocator_t remote_locator)
+static bool is_psmx_locator (const struct ddsi_endpoint_common *local_endpoint, ddsi_xlocator_t remote_locator)
 {
   assert (local_endpoint);
-  for (uint32_t i = 0; i < local_endpoint->virtual_locators.length; i++)
+  for (uint32_t i = 0; i < local_endpoint->psmx_locators.length; i++)
   {
-    if (memcmp (&local_endpoint->virtual_locators.locators[i], &remote_locator.c, sizeof (ddsi_locator_t)) == 0)
+    if (memcmp (&local_endpoint->psmx_locators.locators[i], &remote_locator.c, sizeof (ddsi_locator_t)) == 0)
       return true;
   }
 
@@ -780,11 +780,11 @@ struct ddsi_addrset *ddsi_compute_writer_addrset (const struct ddsi_writer *wr)
   }
   else
   {
-    /* FIXME: ignore reader's locators of kind virtual interface if the writer
-       doesn't have virtual pipes. This works in case of a single virtual interface,
-       but as soon as >1 virtual interfaces are supported, needs to be fixed
+    /* FIXME: ignore reader's locators of kind PSMX if the writer
+       doesn't have PSMX endpoints. This works in case of a single PSMX instance,
+       but as soon as >1 PSMX instances are supported, needs to be fixed
        in wras_collect_all_locs */
-    dds_locator_mask_t ignore = wr->c.virtual_locators.length == 0 ? DDSI_LOCATOR_KIND_VIRTINTF : 0;
+    dds_locator_mask_t ignore = wr->c.psmx_locators.length == 0 ? DDSI_LOCATOR_KIND_PSMX : 0;
     struct costmap *wm = wras_calc_costmap (locs, covered, ignore);
     int best;
     newas = ddsi_new_addrset ();
@@ -792,7 +792,7 @@ struct ddsi_addrset *ddsi_compute_writer_addrset (const struct ddsi_writer *wr)
     {
       wras_trace_cover (gv, locs, wm, covered);
       ELOGDISC (wr, "  best = %d\n", best);
-      if (!is_virtual_locator(&wr->c, locs->locs[best]))
+      if (!is_psmx_locator (&wr->c, locs->locs[best]))
         wras_add_locator (gv, newas, best, locs, covered);
 
       wras_drop_covered_readers (best, wm, covered);

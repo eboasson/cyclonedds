@@ -505,7 +505,7 @@ The default value is: ``1344 B``
 //CycloneDDS/Domain/General/Interfaces
 --------------------------------------
 
-Children: `//CycloneDDS/Domain/General/Interfaces/NetworkInterface`_, `//CycloneDDS/Domain/General/Interfaces/VirtualInterface`_
+Children: `//CycloneDDS/Domain/General/Interfaces/NetworkInterface`_, `//CycloneDDS/Domain/General/Interfaces/PubSubMessageExchange`_
 
 This element specifies the network interfaces for use by Cyclone DDS. Multiple interfaces can be specified with an assigned priority. The list in use will be sorted by priority. If interfaces have an equal priority, the specification order will be preserved.
 
@@ -604,32 +604,32 @@ This attribute specifies the interface priority (decimal integer or default). Th
 The default value is: ``default``
 
 
-.. _`//CycloneDDS/Domain/General/Interfaces/VirtualInterface`:
+.. _`//CycloneDDS/Domain/General/Interfaces/PubSubMessageExchange`:
 
-//CycloneDDS/Domain/General/Interfaces/VirtualInterface
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+//CycloneDDS/Domain/General/Interfaces/PubSubMessageExchange
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Attributes: [config](`//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@config]`_), [library](`//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@library]`_), [name](`//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@name]`_), [priority](`//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@priority]`_)
+Attributes: [config](`//CycloneDDS/Domain/General/Interfaces/PubSubMessageExchange[@config]`_), [library](`//CycloneDDS/Domain/General/Interfaces/PubSubMessageExchange[@library]`_), [name](`//CycloneDDS/Domain/General/Interfaces/PubSubMessageExchange[@name]`_), [priority](`//CycloneDDS/Domain/General/Interfaces/PubSubMessageExchange[@priority]`_)
 
-This element defines a virtual interface.
+This element defines a PSMX.
 
 
-.. _`//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@config]`:
+.. _`//CycloneDDS/Domain/General/Interfaces/PubSubMessageExchange[@config]`:
 
-//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@config]
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+//CycloneDDS/Domain/General/Interfaces/PubSubMessageExchange[@config]
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Text
 
-This attribute specifies any configuration data for the virtual interface.This has no meaning in CycloneDDS itself, and its parsing is deferred to thevirtual interface implementation.
+This attribute specifies any configuration data for the PSMX instance.This has no meaning in CycloneDDS itself, and its parsing is deferred to thePSMX implementation.
 
 The default value is: ``<empty>``
 
 
-.. _`//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@library]`:
+.. _`//CycloneDDS/Domain/General/Interfaces/PubSubMessageExchange[@library]`:
 
-//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@library]
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+//CycloneDDS/Domain/General/Interfaces/PubSubMessageExchange[@library]
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Text
 
@@ -638,10 +638,10 @@ This attribute specifies the filename of the interface library.
 The default value is: ``<empty>``
 
 
-.. _`//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@name]`:
+.. _`//CycloneDDS/Domain/General/Interfaces/PubSubMessageExchange[@name]`:
 
-//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@name]
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+//CycloneDDS/Domain/General/Interfaces/PubSubMessageExchange[@name]
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Text
 
@@ -650,14 +650,14 @@ This attribute specifies the name of the interface.
 The default value is: ``<empty>``
 
 
-.. _`//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@priority]`:
+.. _`//CycloneDDS/Domain/General/Interfaces/PubSubMessageExchange[@priority]`:
 
-//CycloneDDS/Domain/General/Interfaces/VirtualInterface[@priority]
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+//CycloneDDS/Domain/General/Interfaces/PubSubMessageExchange[@priority]
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Text
 
-This attribute specifies the interface priority (decimal integer or default). The default value for virtual interfaces is 0.
+This attribute specifies the interface priority (decimal integer or default). The default value for a PSMX is 0.
 
 The default value is: ``default``
 
