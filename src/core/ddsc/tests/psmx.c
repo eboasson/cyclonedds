@@ -452,7 +452,7 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
   }
 
   uint32_t test_index = 0;
-  for (int wr_use_psmx = 1; wr_use_psmx <= 1; wr_use_psmx++)
+  for (int wr_use_psmx = 0; wr_use_psmx <= 1; wr_use_psmx++)
   {
     const dds_entity_t wr = create_writer (tp[0], (wr_use_psmx != 0));
     rc = dds_set_status_mask (wr, DDS_PUBLICATION_MATCHED_STATUS);

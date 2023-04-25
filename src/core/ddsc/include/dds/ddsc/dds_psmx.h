@@ -66,8 +66,6 @@ typedef uint64_t dds_psmx_node_identifier_t;
  *
  * @param[in] data_type_props  The properties of the data type.
  * @returns true if the type is supported, false otherwise
- *
- * FIXME: changed this (and the others) to _fn because that's what nearly all the code uses, no other reason
  */
 typedef bool (*dds_psmx_data_type_supported_fn) (dds_psmx_data_type_properties_t data_type_props);
 

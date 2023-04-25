@@ -637,13 +637,12 @@ static dds_entity_t dds_create_reader_int (dds_entity_t participant_or_subscribe
   return reader;
 
 err_psmx_endpoint_setcb:
-  rc = DDS_RETCODE_ERROR; // FIXME: is this intentional? 'Cos that makes the "rc = psmx_endpoint->ops.on_data_available" a dead store that the clang analyzer complains about
-  for (uint32_t i = 0; i < rd->m_endpoint.psmx_endpoints.length; i++) {
+  for (uint32_t i = 0; i < rd->m_endpoint.psmx_endpoints.length; i++)
+  {
     struct dds_psmx_endpoint *psmx_endpoint = rd->m_endpoint.psmx_endpoints.endpoints[i];
-    if (!psmx_endpoint)
+    if (psmx_endpoint == NULL)
       continue;
-    dds_return_t rc_close = dds_psmx_delete_endpoint (psmx_endpoint);
-    assert (rc_close == DDS_RETCODE_OK);
+    (void) dds_psmx_delete_endpoint (psmx_endpoint);
   }
 err_create_endpoint:
 err_bad_qos:

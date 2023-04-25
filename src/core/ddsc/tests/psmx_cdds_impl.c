@@ -484,20 +484,18 @@ dds_return_t cdds_create_psmx (dds_psmx_t **psmx_out, dds_loan_origin_type_t ide
     char *lstr = get_config_option_value (config, "LOCATOR");
     if (lstr != NULL)
     {
-      if (strlen (lstr) > 0 && strlen (lstr) != 32) // FIXME: doesn't !=32 make more sense?
+      if (strlen (lstr) != 32)
       {
         dds_free (lstr);
-        dds_free (psmx);
-        return DDS_RETCODE_BAD_PARAMETER;
+        goto err_locator;
       }
       for (uint32_t n = 0; n < 32 && lstr[n]; n++)
       {
         int32_t num;
         if ((num = ddsrt_todigit (lstr[n])) < 0 || num >= 16)
         {
-          dds_free (psmx);
           dds_free (lstr);
-          return DDS_RETCODE_BAD_PARAMETER;
+          goto err_locator;
         }
         ((char *) (psmx->c.locator->address))[n / 2] += (char) ((n % 1) ? (num << 4) : num);
       }
@@ -507,5 +505,10 @@ dds_return_t cdds_create_psmx (dds_psmx_t **psmx_out, dds_loan_origin_type_t ide
 
   *psmx_out = (dds_psmx_t *) psmx;
   return DDS_RETCODE_OK;
+
+err_locator:
+  dds_psmx_cleanup_generic (&psmx->c);
+  dds_free (psmx);
+  return DDS_RETCODE_BAD_PARAMETER;
 }
 
