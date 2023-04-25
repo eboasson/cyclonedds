@@ -16,7 +16,9 @@
 #include "test_oneliner.h"
 
 #include "dds/dds.h"
+#include "dds/ddsrt/io.h"
 #include "dds/ddsrt/misc.h"
+#include "dds/ddsrt/heap.h"
 
 /* Tests in this file only concern themselves with very basic api tests of
    dds_write and dds_write_ts */
@@ -232,4 +234,63 @@ CU_Test(ddsc_write, relwr_unrelrd_network)
   
   // It really should have succeeded after several attempts
   CU_ASSERT_FATAL (result > 0);
+}
+
+CU_Test(ddsc_write, batch_flush)
+{
+  static const struct { const char *flush; const char *exp; } x[] = {
+    { "flush w", "(0,0,0)" },
+    { "flush x", "(1,0,0)" },
+    { "flush w flush x", "(0,0,0),(1,0,0)" },
+    { "flush W", "(0,0,0),(1,0,0)" },
+    { "flush P", "(0,0,0),(1,0,0)" }
+  };
+  // oneliner doesn't do multiple publishers for a single participant
+  // but the iteration logic is the same regardless of the type of
+  // entity, so if it handles multiple writers in a publisher, it should
+  // equally handle multiple publishers in a participant if it handles
+  // one
+  for (size_t i = 0; i < sizeof (x) / sizeof (x[0]); i++)
+  {
+    char *prog = NULL;
+    ddsrt_asprintf (&prog,
+      "pm w(r=r,wb=y) " // writer with batching
+      "sm da r(r=r) "   // local reader (not subject to batching)
+      "sm da r'(r=r) "  // remote reader (subject to batching)
+      "?pm w ?sm r' "   // mutual discovery complete
+      "pm x(r=r,wb=y) " // second writer with batching
+      "?pm x ?sm r' "   // discovery complete
+      // heartbeat/flushing logic decides to flush after first
+      // first write, so do one round (including explicit flush
+      // in the (idle?) hope that the test will be less fragile
+      // w.r.t. changes in the core).
+      "wr w 0 flush w " // write, flush data on w
+      "wr x 1 flush x " // same on x
+      "?ack w ?ack x take! r take!{(0,0,0),(1,0,0)} r' "
+      // writers are now quiescent: they got their ack, so they
+      // won't do anything funny on the 2nd write (if it happens
+      // without much delay).
+      //
+      // So: 2nd write should not get pushed out to the network
+      // except by an explicit flush.  The local reader gets it
+      // immediately but the remote reader doesn't.
+      //
+      // 200ms sleep to cover latency of getting the data to the
+      // remote reader.  That should be enough most of the time
+      // (it even allows for a heartbeat/nack/retransmit).  If it
+      // isn't the test will incorrectly pass.
+      "wr w 0 wr x 1 "
+      "  take{(0,0,0),(1,0,0)} r "
+      "  sleep 0.2 take{} r' "
+      // flush one or both writers: now the data should arrive in
+      // in the remote reader (but not in the local one a second
+      // time)
+      "%s "
+      "  take{}r "
+      "  take!{%s} r'",
+      x[i].flush, x[i].exp);
+    int result = test_oneliner_no_shm (prog);
+    ddsrt_free (prog);
+    CU_ASSERT_FATAL (result > 0);
+  }
 }
