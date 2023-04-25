@@ -529,7 +529,7 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
     memcpy (&md->guid, &ddsi_wr->e.guid, sizeof (md->guid));
     md->timestamp = d->timestamp.v;
     md->statusinfo = d->statusinfo;
-    if ((ret = endpoint->ops.write_data (endpoint, loan)) != DDS_RETCODE_OK)
+    if ((ret = endpoint->ops.write (endpoint, loan)) != DDS_RETCODE_OK)
     {
       goto unref_serdata;
     }

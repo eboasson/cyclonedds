@@ -84,13 +84,13 @@ typedef bool (*dds_psmx_qos_supported_f) (const struct dds_qos *qos);
  * Definition for a function that is called to create a new topic
  * for a PSMX instance.
  *
- * @param[in] psmx  The PSMX instance.
+ * @param[in] psmx_instance  The PSMX instance.
  * @param[in] topic_identifier  The identifier of the topic to create
  * @param[in] data_type_props  The data type properties for the topic's data type.
  * @returns a PSMX topic structure
  */
 typedef struct dds_psmx_topic * (* dds_psmx_create_topic_f) (
-    struct dds_psmx * psmx,
+    struct dds_psmx * psmx_instance,
     dds_psmx_topic_identifier_t topic_identifier,
     dds_psmx_data_type_properties_t data_type_props);
 
@@ -111,7 +111,7 @@ typedef dds_return_t (*dds_psmx_delete_topic_f) (struct dds_psmx_topic *psmx_top
  * @param[in] psmx  the psmx to de-initialize
  * @returns a DDS return code
  */
-typedef dds_return_t (* dds_psmx_deinit_f) (struct dds_psmx *psmx);
+typedef dds_return_t (* dds_psmx_deinit_f) (struct dds_psmx *psmx_instance);
 
 /**
  * @brief Definition for PSMX locator generation function
@@ -122,7 +122,7 @@ typedef dds_return_t (* dds_psmx_deinit_f) (struct dds_psmx *psmx);
  * @param[in] psmx  a PSMX instance
  * @returns a unique node identifier (locator)
  */
-typedef dds_psmx_node_identifier_t (* dds_psmx_get_node_identifier_f) (const struct dds_psmx *psmx);
+typedef dds_psmx_node_identifier_t (* dds_psmx_get_node_identifier_f) (const struct dds_psmx *psmx_instance);
 
 /**
  * @brief functions which are used on a PSMX instance
@@ -190,7 +190,7 @@ typedef dds_loaned_sample_t * (* dds_psmx_endpoint_request_loan_f) (struct dds_p
  * @param[in] data    The data to publish
  * @returns a DDS return code
  */
-typedef dds_return_t (* dds_psmx_endpoint_write_data_f) (struct dds_psmx_endpoint *psmx_endpoint, dds_loaned_sample_t *data);
+typedef dds_return_t (* dds_psmx_endpoint_write_f) (struct dds_psmx_endpoint *psmx_endpoint, dds_loaned_sample_t *data);
 
 /**
  * @brief Definition of function to take data from an PSMX endpoint
@@ -200,7 +200,7 @@ typedef dds_return_t (* dds_psmx_endpoint_write_data_f) (struct dds_psmx_endpoin
  * @param[in] psmx_endpoint The endpoint to take the data from
  * @returns the oldest unread received block of memory
  */
-typedef dds_loaned_sample_t * (* dds_psmx_endpoint_take_data_f) (struct dds_psmx_endpoint *psmx_endpoint);
+typedef dds_loaned_sample_t * (* dds_psmx_endpoint_take_f) (struct dds_psmx_endpoint *psmx_endpoint);
 
 /**
  * @brief Definition of function to set the a callback function on an PSMX endpoint
@@ -215,9 +215,9 @@ typedef dds_return_t (* dds_psmx_endpoint_on_data_available_f) (struct dds_psmx_
  * @brief Functions that are used on a PSMX endpoint
  */
 typedef struct dds_psmx_endpoint_ops {
-  dds_psmx_endpoint_request_loan_f       req_loan;
-  dds_psmx_endpoint_write_data_f         write_data;
-  dds_psmx_endpoint_take_data_f          take_data;
+  dds_psmx_endpoint_request_loan_f       request_loan;
+  dds_psmx_endpoint_write_f              write;
+  dds_psmx_endpoint_take_f               take;
   dds_psmx_endpoint_on_data_available_f  on_data_available;
 } dds_psmx_endpoint_ops_t;
 

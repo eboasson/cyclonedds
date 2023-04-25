@@ -70,8 +70,8 @@ static const uint32_t sample_padding = sizeof (struct dds_psmx_metadata) % 8 ? (
 
 static uint32_t on_data_available_thread (void *a);
 
-static bool cdds_vi_data_type_supported (dds_psmx_data_type_properties_t data_type_props);
-static bool cdds_vi_qos_supported (const struct dds_qos *qos);
+static bool cdds_psmx_data_type_supported (dds_psmx_data_type_properties_t data_type_props);
+static bool cdds_psmx_qos_supported (const struct dds_qos *qos);
 static struct dds_psmx_topic * cdds_psmx_create_topic (struct dds_psmx * psmx,
     dds_psmx_topic_identifier_t topic_identifier, dds_psmx_data_type_properties_t data_type_props);
 static dds_return_t cdds_psmx_delete_topic (struct dds_psmx_topic *psmx_topic);
@@ -79,8 +79,8 @@ static dds_return_t cdds_psmx_deinit (struct dds_psmx *psmx);
 static dds_psmx_node_identifier_t cdds_psmx_get_node_id (const struct dds_psmx *psmx);
 
 static const dds_psmx_ops_t psmx_instance_ops = {
-  .data_type_supported = cdds_vi_data_type_supported,
-  .qos_supported = cdds_vi_qos_supported,
+  .data_type_supported = cdds_psmx_data_type_supported,
+  .qos_supported = cdds_psmx_qos_supported,
   .create_topic = cdds_psmx_create_topic,
   .delete_topic = cdds_psmx_delete_topic,
   .deinit = cdds_psmx_deinit,
@@ -98,14 +98,14 @@ static const dds_psmx_topic_ops_t psmx_topic_ops = {
 };
 
 static dds_loaned_sample_t * cdds_psmx_ep_request_loan (struct dds_psmx_endpoint *psmx_endpoint, uint32_t size_requested);
-static dds_return_t cdds_psmx_ep_write_data (struct dds_psmx_endpoint *psmx_endpoint, dds_loaned_sample_t *data);
-static dds_loaned_sample_t * cdds_psmx_ep_take_data (struct dds_psmx_endpoint *psmx_endpoint);
+static dds_return_t cdds_psmx_ep_write (struct dds_psmx_endpoint *psmx_endpoint, dds_loaned_sample_t *data);
+static dds_loaned_sample_t * cdds_psmx_ep_take (struct dds_psmx_endpoint *psmx_endpoint);
 static dds_return_t cdds_psmx_ep_on_data_available (struct dds_psmx_endpoint *psmx_endpoint, dds_entity_t reader);
 
 static const dds_psmx_endpoint_ops_t psmx_ep_ops = {
-  .req_loan = cdds_psmx_ep_request_loan,
-  .write_data = cdds_psmx_ep_write_data,
-  .take_data = cdds_psmx_ep_take_data,
+  .request_loan = cdds_psmx_ep_request_loan,
+  .write = cdds_psmx_ep_write,
+  .take = cdds_psmx_ep_take,
   .on_data_available = cdds_psmx_ep_on_data_available
 };
 
@@ -121,13 +121,13 @@ static const dds_loaned_sample_ops_t ls_ops = {
 
 
 
-static bool cdds_vi_data_type_supported (dds_psmx_data_type_properties_t data_type_props)
+static bool cdds_psmx_data_type_supported (dds_psmx_data_type_properties_t data_type_props)
 {
   (void) data_type_props;
   return true;
 }
 
-static bool cdds_vi_qos_supported (const struct dds_qos *qos)
+static bool cdds_psmx_qos_supported (const struct dds_qos *qos)
 {
   (void) qos;
   return true;
@@ -299,7 +299,7 @@ static dds_loaned_sample_t * cdds_psmx_ep_request_loan (struct dds_psmx_endpoint
   return ls;
 }
 
-static dds_return_t cdds_psmx_ep_write_data (struct dds_psmx_endpoint *psmx_ep, dds_loaned_sample_t *data)
+static dds_return_t cdds_psmx_ep_write (struct dds_psmx_endpoint *psmx_ep, dds_loaned_sample_t *data)
 {
   struct cdds_psmx_endpoint *cep = (struct cdds_psmx_endpoint *) psmx_ep;
 
@@ -325,7 +325,7 @@ static dds_return_t cdds_psmx_ep_write_data (struct dds_psmx_endpoint *psmx_ep, 
   return DDS_RETCODE_OK;
 }
 
-static dds_loaned_sample_t * cdds_psmx_ep_take_data (struct dds_psmx_endpoint *psmx_ep)
+static dds_loaned_sample_t * cdds_psmx_ep_take (struct dds_psmx_endpoint *psmx_ep)
 {
   (void) psmx_ep;
   return NULL;
