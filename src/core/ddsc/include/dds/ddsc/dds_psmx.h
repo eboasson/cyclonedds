@@ -43,6 +43,8 @@ typedef enum dds_psmx_endpoint_type {
 
 /**
  * @brief identifier used to uniquely identify a topic across different processes
+ *
+ * FIXME: I'm not sure uint32_t is the best choice -- uint128_t? or a struct{unsigned char x[16]} or even a uint64_t seems better if a string is to be avoided
  */
 typedef uint32_t dds_psmx_topic_identifier_t;
 
@@ -64,8 +66,10 @@ typedef uint64_t dds_psmx_node_identifier_t;
  *
  * @param[in] data_type_props  The properties of the data type.
  * @returns true if the type is supported, false otherwise
+ *
+ * FIXME: changed this (and the others) to _fn because that's what nearly all the code uses, no other reason
  */
-typedef bool (*dds_psmx_data_type_supported_f) (dds_psmx_data_type_properties_t data_type_props);
+typedef bool (*dds_psmx_data_type_supported_fn) (dds_psmx_data_type_properties_t data_type_props);
 
 /**
  * @brief Definition for function that checks QoS support
@@ -76,7 +80,7 @@ typedef bool (*dds_psmx_data_type_supported_f) (dds_psmx_data_type_properties_t 
  * @param[in] qos  The QoS.
  * @returns true if the QoS is supported, false otherwise
  */
-typedef bool (*dds_psmx_qos_supported_f) (const struct dds_qos *qos);
+typedef bool (*dds_psmx_qos_supported_fn) (const struct dds_qos *qos);
 
 /**
  * @brief Definition for function to create a topic
@@ -89,7 +93,7 @@ typedef bool (*dds_psmx_qos_supported_f) (const struct dds_qos *qos);
  * @param[in] data_type_props  The data type properties for the topic's data type.
  * @returns a PSMX topic structure
  */
-typedef struct dds_psmx_topic * (* dds_psmx_create_topic_f) (
+typedef struct dds_psmx_topic * (* dds_psmx_create_topic_fn) (
     struct dds_psmx * psmx_instance,
     dds_psmx_topic_identifier_t topic_identifier,
     dds_psmx_data_type_properties_t data_type_props);
@@ -103,15 +107,15 @@ typedef struct dds_psmx_topic * (* dds_psmx_create_topic_f) (
  * @returns a DDS return code
  *
  */
-typedef dds_return_t (*dds_psmx_delete_topic_f) (struct dds_psmx_topic *psmx_topic);
+typedef dds_return_t (*dds_psmx_delete_topic_fn) (struct dds_psmx_topic *psmx_topic);
 
 /**
  * @brief Function definition for pubsub message exchange cleanup
  *
- * @param[in] psmx  the psmx to de-initialize
+ * @param[in] psmx_instance  the psmx instance to de-initialize
  * @returns a DDS return code
  */
-typedef dds_return_t (* dds_psmx_deinit_f) (struct dds_psmx *psmx_instance);
+typedef dds_return_t (* dds_psmx_deinit_fn) (struct dds_psmx *psmx_instance);
 
 /**
  * @brief Definition for PSMX locator generation function
@@ -119,21 +123,21 @@ typedef dds_return_t (* dds_psmx_deinit_f) (struct dds_psmx *psmx_instance);
  * Returns a locator which is unique between nodes, but identical for instances on
  * the same node
  *
- * @param[in] psmx  a PSMX instance
+ * @param[in] psmx_instance  a PSMX instance
  * @returns a unique node identifier (locator)
  */
-typedef dds_psmx_node_identifier_t (* dds_psmx_get_node_identifier_f) (const struct dds_psmx *psmx_instance);
+typedef dds_psmx_node_identifier_t (* dds_psmx_get_node_identifier_fn) (const struct dds_psmx *psmx_instance);
 
 /**
  * @brief functions which are used on a PSMX instance
  */
 typedef struct dds_psmx_ops {
-  dds_psmx_data_type_supported_f  data_type_supported;
-  dds_psmx_qos_supported_f        qos_supported;
-  dds_psmx_create_topic_f         create_topic;
-  dds_psmx_delete_topic_f         delete_topic;
-  dds_psmx_deinit_f               deinit;
-  dds_psmx_get_node_identifier_f  get_node_id;
+  dds_psmx_data_type_supported_fn  data_type_supported;
+  dds_psmx_qos_supported_fn        qos_supported;
+  dds_psmx_create_topic_fn         create_topic;
+  dds_psmx_delete_topic_fn         delete_topic;
+  dds_psmx_deinit_fn               deinit;
+  dds_psmx_get_node_identifier_fn  get_node_id;
 } dds_psmx_ops_t;
 
 /**
@@ -144,44 +148,46 @@ typedef struct dds_psmx_ops {
  *
  * @param[in] data_type_props  The properties of the data type
  * @returns true if serialization is required, else otherwise
+ *
+ * FIXME: I wonder if we shouldn't do this check in Cyclone's core? But it is true that, e.g., OpenSplice [cw]ould also say "no need", so it isn't simply complicating things
  */
-typedef bool (* dds_psmx_serialization_required_f) (dds_psmx_data_type_properties_t data_type_props);
+typedef bool (* dds_psmx_serialization_required_fn) (dds_psmx_data_type_properties_t data_type_props);
 
 /**
  * @brief Definition of function to create an endpoint for a topic
  *
- * @param[in] topic  The PSMX topic to create the endpoint for
+ * @param[in] psmx_topic  The PSMX topic to create the endpoint for
  * @param[in] endpoint_type  The type of endpoint to create (publisher or subscriber)
  * @returns A PSMX endpoint struct
  */
-typedef struct dds_psmx_endpoint * (* dds_psmx_create_endpoint_f) (struct dds_psmx_topic *psmx_topic, dds_psmx_endpoint_type_t endpoint_type);
+typedef struct dds_psmx_endpoint * (* dds_psmx_create_endpoint_fn) (struct dds_psmx_topic *psmx_topic, dds_psmx_endpoint_type_t endpoint_type);
 
 /**
  * @brief Definition of function to delete an PSMX endpoint
  *
- * @param[in] psmx_endpoint  The endpoiunt to be deleted
+ * @param[in] psmx_endpoint  The endpoint to be deleted
  * @returns a DDS return code
  */
-typedef dds_return_t (* dds_psmx_delete_endpoint_f) (struct dds_psmx_endpoint *psmx_endpoint);
+typedef dds_return_t (* dds_psmx_delete_endpoint_fn) (struct dds_psmx_endpoint *psmx_endpoint);
 
 /**
  * @brief functions which are used on a PSMX topic
  */
 typedef struct dds_psmx_topic_ops {
-  dds_psmx_serialization_required_f serialization_required;
-  dds_psmx_create_endpoint_f        create_endpoint;
-  dds_psmx_delete_endpoint_f        delete_endpoint;
+  dds_psmx_serialization_required_fn serialization_required;
+  dds_psmx_create_endpoint_fn        create_endpoint;
+  dds_psmx_delete_endpoint_fn        delete_endpoint;
 } dds_psmx_topic_ops_t;
 
 
 /**
  * @brief Definition for function to requests a loan from the PSMX
  *
- * @param[in] endpoint        the endpoint to loan from
+ * @param[in] psmx_endpoint        the endpoint to loan from
  * @param[in] size_requested  the size of the loan requested
  * @returns a pointer to the loaned block on success
  */
-typedef dds_loaned_sample_t * (* dds_psmx_endpoint_request_loan_f) (struct dds_psmx_endpoint *psmx_endpoint, uint32_t size_requested);
+typedef dds_loaned_sample_t * (* dds_psmx_endpoint_request_loan_fn) (struct dds_psmx_endpoint *psmx_endpoint, uint32_t size_requested);
 
 /**
  * @brief Definition of function to write data on a PSMX endpoint
@@ -190,7 +196,7 @@ typedef dds_loaned_sample_t * (* dds_psmx_endpoint_request_loan_f) (struct dds_p
  * @param[in] data    The data to publish
  * @returns a DDS return code
  */
-typedef dds_return_t (* dds_psmx_endpoint_write_f) (struct dds_psmx_endpoint *psmx_endpoint, dds_loaned_sample_t *data);
+typedef dds_return_t (* dds_psmx_endpoint_write_fn) (struct dds_psmx_endpoint *psmx_endpoint, dds_loaned_sample_t *data);
 
 /**
  * @brief Definition of function to take data from an PSMX endpoint
@@ -200,7 +206,7 @@ typedef dds_return_t (* dds_psmx_endpoint_write_f) (struct dds_psmx_endpoint *ps
  * @param[in] psmx_endpoint The endpoint to take the data from
  * @returns the oldest unread received block of memory
  */
-typedef dds_loaned_sample_t * (* dds_psmx_endpoint_take_f) (struct dds_psmx_endpoint *psmx_endpoint);
+typedef dds_loaned_sample_t * (* dds_psmx_endpoint_take_fn) (struct dds_psmx_endpoint *psmx_endpoint);
 
 /**
  * @brief Definition of function to set the a callback function on an PSMX endpoint
@@ -209,28 +215,28 @@ typedef dds_loaned_sample_t * (* dds_psmx_endpoint_take_f) (struct dds_psmx_endp
  * @param[in] reader        the DDS reader associated with the endpoint
  * @returns a DDS return code
  */
-typedef dds_return_t (* dds_psmx_endpoint_on_data_available_f) (struct dds_psmx_endpoint *psmx_endpoint, dds_entity_t reader);
+typedef dds_return_t (* dds_psmx_endpoint_on_data_available_fn) (struct dds_psmx_endpoint *psmx_endpoint, dds_entity_t reader);
 
 /**
  * @brief Functions that are used on a PSMX endpoint
  */
 typedef struct dds_psmx_endpoint_ops {
-  dds_psmx_endpoint_request_loan_f       request_loan;
-  dds_psmx_endpoint_write_f              write;
-  dds_psmx_endpoint_take_f               take;
-  dds_psmx_endpoint_on_data_available_f  on_data_available;
+  dds_psmx_endpoint_request_loan_fn       request_loan;
+  dds_psmx_endpoint_write_fn              write;
+  dds_psmx_endpoint_take_fn               take;
+  dds_psmx_endpoint_on_data_available_fn  on_data_available;
 } dds_psmx_endpoint_ops_t;
 
 /**
  * @brief the top-level entry point on the PSMX is bound to a specific implementation of a PSMX
  */
 typedef struct dds_psmx {
-  dds_psmx_ops_t ops; /*associated functions*/
-  const char *instance_name; /*name of this PSMX instace*/
-  int32_t priority; /*priority of choosing this interface*/
-  const struct ddsi_locator *locator; /*the locator for this PSMX instance*/
-  dds_loan_origin_type_t node_id; /*the unique node-id of this PSMX instance*/
-  struct dds_psmx_topic_list_elem *psmx_topics; /*associated topics*/
+  dds_psmx_ops_t ops; //!< associated functions
+  const char *instance_name; //!< name of this PSMX instance
+  int32_t priority; //!< priority of choosing this interface
+  const struct ddsi_locator *locator; //!< the locator for this PSMX instance
+  dds_loan_origin_type_t node_id; //!< the unique node-id of this PSMX instance
+  struct dds_psmx_topic_list_elem *psmx_topics; //!< associated topics
 } dds_psmx_t;
 
 /**
@@ -240,21 +246,21 @@ typedef struct dds_psmx {
  * will only exchange a single type of data
  */
 typedef struct dds_psmx_topic {
-  dds_psmx_topic_ops_t ops; /*associated functions*/
-  struct dds_psmx *psmx_instance; /*the PSMX instance which created this topic*/
-  dds_psmx_topic_identifier_t topic_id; /*unique identifier of topic representation*/
-  dds_loan_data_type_t data_type; /*the unique identifier associated with the data type of this topic*/
-  struct dds_psmx_endpoint_list_elem *psmx_endpoints; /*associated endpoints*/
-  dds_psmx_data_type_properties_t data_type_props; /*the properties of the datatype associated with this topic*/
+  dds_psmx_topic_ops_t ops; //!< associated functions
+  struct dds_psmx *psmx_instance; //!< the PSMX instance which created this topic
+  dds_psmx_topic_identifier_t topic_id; //!< unique identifier of topic representation
+  dds_loan_data_type_t data_type; //!< the unique identifier associated with the data type of this topic
+  struct dds_psmx_endpoint_list_elem *psmx_endpoints; //!< associated endpoints
+  dds_psmx_data_type_properties_t data_type_props; //!< the properties of the datatype associated with this topic
 } dds_psmx_topic_t;
 
 /**
  * @brief the definition of one instance of a dds reader/writer using a PSMX instance
  */
 typedef struct dds_psmx_endpoint {
-  dds_psmx_endpoint_ops_t ops; /*associated functions*/
-  struct dds_psmx_topic * psmx_topic; /*the topic this endpoint belongs to*/
-  dds_psmx_endpoint_type_t endpoint_type; /*type type of endpoint*/
+  dds_psmx_endpoint_ops_t ops; //!< associated functions
+  struct dds_psmx_topic * psmx_topic; //!< the topic this endpoint belongs to
+  dds_psmx_endpoint_type_t endpoint_type; //!< type type of endpoint
 } dds_psmx_endpoint_t;
 
 
@@ -263,7 +269,7 @@ typedef struct dds_psmx_endpoint {
  *
  * will create the first list entry if it does not yet exist
  *
- * @param[in] topic     the topic to add
+ * @param[in] psmx_topic     the topic to add
  * @param[in,out] list  list to add the topic to
  * @return DDS_RETCODE_OK on success
  */
@@ -274,7 +280,7 @@ DDS_EXPORT dds_return_t dds_add_psmx_topic_to_list (struct dds_psmx_topic *psmx_
  *
  * will set the pointer to the list to null if the last entry is removed
  *
- * @param[in] topic     the topic to remove
+ * @param[in] psmx_topic     the topic to remove
  * @param[in,out] list  list to remove the topic from
  * @return a DDS return code
  */
@@ -346,7 +352,7 @@ DDS_EXPORT dds_return_t dds_psmx_topic_cleanup_generic(struct dds_psmx_topic *ps
 /**
  * @brief Request a loan
  *
- * @param[in] endpoint  the endpoint to request a loan for
+ * @param[in] psmx_endpoint  the endpoint to request a loan for
  * @param[in] sz    size of the loan
  * @return a loaned sample
  */

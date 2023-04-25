@@ -2394,7 +2394,7 @@ static int convert_deprecated_sharedmemory (struct ddsi_cfgst *cfgst)
     {
       char *level_str = "OFF";
       switch (cfg->shm_log_lvl) {
-        case DDSI_SHM_OFF: level_str = "OFF"; break;
+        case DDSI_SHM_OFF: break;
         case DDSI_SHM_FATAL: level_str = "FATAL"; break;
         case DDSI_SHM_ERROR: level_str = "ERROR"; break;
         case DDSI_SHM_WARN: level_str = "WARN"; break;

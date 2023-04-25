@@ -954,6 +954,7 @@ dds_return_t dds_ensure_valid_psmx_instances (dds_qos_t *qos, ddsi_data_type_pro
       struct dds_psmx *psmx = NULL;
       for (uint32_t s = 0; psmx == NULL && s < psmx_instances->length; s++)
       {
+        assert (psmx_instances->instances[s]);
         if (strcmp (psmx_instances->instances[s]->instance_name, values[i]) == 0)
           psmx = psmx_instances->instances[i];
       }

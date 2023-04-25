@@ -636,9 +636,8 @@ static dds_entity_t dds_create_reader_int (dds_entity_t participant_or_subscribe
   dds_subscriber_unlock (sub);
   return reader;
 
-
 err_psmx_endpoint_setcb:
-  rc = DDS_RETCODE_ERROR;
+  rc = DDS_RETCODE_ERROR; // FIXME: is this intentional? 'Cos that makes the "rc = psmx_endpoint->ops.on_data_available" a dead store that the clang analyzer complains about
   for (uint32_t i = 0; i < rd->m_endpoint.psmx_endpoints.length; i++) {
     struct dds_psmx_endpoint *psmx_endpoint = rd->m_endpoint.psmx_endpoints.endpoints[i];
     if (!psmx_endpoint)
@@ -693,17 +692,13 @@ dds_return_t dds_reader_store_loaned_sample (dds_entity_t reader, dds_loaned_sam
   dds_return_t ret;
   dds_entity * e;
   if ((ret = dds_entity_pin (reader, &e)) < 0)
-    goto pin_fail;
-  if (e == NULL)
+    return ret;
+  else if (dds_entity_kind (e) != DDS_KIND_READER)
   {
-    ret = DDS_RETCODE_ALREADY_DELETED;
-    goto pin_fail;
+    dds_entity_unpin (e);
+    return DDS_RETCODE_ILLEGAL_OPERATION;
   }
-  if (dds_entity_kind (e) != DDS_KIND_READER)
-  {
-    ret = DDS_RETCODE_ILLEGAL_OPERATION;
-    goto kind_fail;
-  }
+
   dds_reader *dds_rd = (dds_reader *) e;
   struct ddsi_reader *rd = dds_rd->m_rd;
   struct ddsi_domaingv *gv = rd->e.gv;
@@ -718,23 +713,23 @@ dds_return_t dds_reader_store_loaned_sample (dds_entity_t reader, dds_loaned_sam
   dds_guid_t guid = data->metadata->guid;
   struct ddsi_serdata * sd = ddsi_serdata_from_psmx (rd->type, data);
   if (sd == NULL)
-    goto kind_fail;
+    goto fail_locked;
 
   struct ddsi_writer_info wi;
   if ((ret = get_writer_info (gv, &guid, sd->statusinfo, &wi)) != DDS_RETCODE_OK)
-    goto writer_fail;
+    goto fail_locked;
 
   struct ddsi_tkmap_instance * tk = ddsi_tkmap_lookup_instance_ref (gv->m_tkmap, sd);
   if (tk == NULL)
   {
     ret = DDS_RETCODE_BAD_PARAMETER;
-    goto instance_ref_fail;
+    goto fail_locked;
   }
 
   if (!dds_rhc_store (dds_rd->m_rhc, &wi, sd, tk))  // FIXME: the reader history cache is now the owner of sd?
   {
     ret = DDS_RETCODE_ERROR;
-    goto rhc_store_fail;
+    goto fail_rhc_store;
   }
 
   if (sd->loan)
@@ -742,15 +737,12 @@ dds_return_t dds_reader_store_loaned_sample (dds_entity_t reader, dds_loaned_sam
 
   ddsi_serdata_unref (sd);
 
-rhc_store_fail:
+fail_rhc_store:
   ddsi_tkmap_instance_unref (gv->m_tkmap, tk);
-instance_ref_fail:
-writer_fail:
-kind_fail:
+fail_locked:
   ddsrt_mutex_unlock (&rd->e.lock);
   ddsi_thread_state_asleep (ddsi_lookup_thread_state ());
   dds_entity_unpin (e);
-pin_fail:
   return ret;
 }
 

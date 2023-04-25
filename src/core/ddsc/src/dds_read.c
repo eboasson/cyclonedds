@@ -64,7 +64,7 @@ static dds_return_t dds_read_impl (bool take, dds_entity_t reader_or_condition, 
   if (buf[0] == NULL)
     memset (buf, 0, sizeof(*buf)*maxs);
   else if ((ret = dds_return_reader_loan(rd, buf, (int32_t)bufsz)) != DDS_RETCODE_OK)
-    goto fail_pinned;
+    goto fail_pinned_awake;
 
   /*populate the output samples with pointers to loaned samples*/
   if (loan || buf[0] == NULL)
@@ -81,7 +81,7 @@ static dds_return_t dds_read_impl (bool take, dds_entity_t reader_or_condition, 
 
     ddsrt_mutex_unlock (&rd->m_entity.m_mutex);
     if (ret != DDS_RETCODE_OK)
-      goto fail_pinned;
+      goto fail_pinned_awake;
   }
 
   /* read/take resets data available status -- must reset before reading because
@@ -96,13 +96,10 @@ static dds_return_t dds_read_impl (bool take, dds_entity_t reader_or_condition, 
   else
     ret = dds_rhc_read (rd->m_rhc, lock, buf, si, maxs, mask, hand, cond, rd->m_loans, rd->m_loan_pool);
 
-  dds_entity_unpin (entity);
+fail_pinned_awake:
   ddsi_thread_state_asleep (thrst);
-  return ret;
-
 fail_pinned:
   dds_entity_unpin (entity);
-  ddsi_thread_state_asleep (thrst);
 fail:
   return ret;
 }

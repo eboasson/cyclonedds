@@ -352,13 +352,14 @@ static dds_loaned_sample_t * incoming_sample_to_loan (struct cdds_psmx_endpoint 
   ls->ops = ls_ops;
   ls->loan_origin = (struct dds_psmx_endpoint *) cep;
   ls->metadata = psmx_md;
-  ls->sample_ptr = (char *) psmx_sample->data._buffer,
+  ls->sample_ptr = (char *) psmx_sample->data._buffer;
   ls->loan_idx = 0;
   ddsrt_atomic_st32 (&ls->refs, 0);
   return ls;
 }
 
 // FIXME: should be less?
+// FIXME: I think so, this eats a lot of stack, is extremely unlikely to ever occur in general, and more specifically so in our test cases
 #define MAX_TRIGGERS 999
 
 static uint32_t on_data_available_thread (void *a)
@@ -401,7 +402,7 @@ static uint32_t on_data_available_thread (void *a)
               dds_loaned_sample_t *loaned_sample = incoming_sample_to_loan (cep, raw);
               (void) dds_reader_store_loaned_sample (cep->cdds_endpoint, loaned_sample);
             }
-            dds_return_loan (cep->cdds_endpoint, &raw, 1);
+            dds_return_loan (cep->cdds_endpoint, &raw, n);
             raw = NULL;
           }
         }
@@ -476,29 +477,32 @@ dds_return_t cdds_create_psmx (dds_psmx_t **psmx_out, dds_loan_origin_type_t ide
   psmx->participant = -1;
   ddsrt_atomic_st32 (&psmx->on_data_thread_state, ON_DATA_INIT);
   ddsrt_atomic_st32 (&psmx->endpoint_refs, 0);
+  memset ((char *) psmx->c.locator->address, 0, sizeof (psmx->c.locator->address));
 
   if (config != NULL && strlen (config) > 0)
   {
     char *lstr = get_config_option_value (config, "LOCATOR");
-    if (lstr != NULL && strlen (lstr) > 0 && strlen (lstr) < 32)
+    if (lstr != NULL)
     {
-      dds_free (lstr);
-      dds_free (psmx);
-      return DDS_RETCODE_BAD_PARAMETER;
-    }
-    memset ((char *) psmx->c.locator->address, 0, sizeof (psmx->c.locator->address));
-    for (uint32_t n = 0; n < 32; n++)
-    {
-      int32_t num;
-      if ((num = ddsrt_todigit (lstr[n])) < 0 || num >= 16)
+      if (strlen (lstr) > 0 && strlen (lstr) != 32) // FIXME: doesn't !=32 make more sense?
       {
-        dds_free (psmx);
         dds_free (lstr);
+        dds_free (psmx);
         return DDS_RETCODE_BAD_PARAMETER;
       }
-      ((char *) (psmx->c.locator->address))[n / 2] += (char) ((n % 1) ? (num << 4) : num);
+      for (uint32_t n = 0; n < 32 && lstr[n]; n++)
+      {
+        int32_t num;
+        if ((num = ddsrt_todigit (lstr[n])) < 0 || num >= 16)
+        {
+          dds_free (psmx);
+          dds_free (lstr);
+          return DDS_RETCODE_BAD_PARAMETER;
+        }
+        ((char *) (psmx->c.locator->address))[n / 2] += (char) ((n % 1) ? (num << 4) : num);
+      }
+      dds_free (lstr);
     }
-    dds_free (lstr);
   }
 
   *psmx_out = (dds_psmx_t *) psmx;

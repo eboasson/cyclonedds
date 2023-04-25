@@ -546,6 +546,7 @@ CU_Test(ddsc_deadline, update)
     cb,
     NULL, 0, true);  //this should sleep the thread that updates the statuses from 0.5*DEADLINE to 1.5*DEADLINE
   CU_ASSERT_FATAL(xev != NULL);
+  assert(xev != NULL); // Clang static analyzer
 
   Space_Type1 msg1 = { 1, 0, 0 },
               msg2 = { 2, 0, 0 };

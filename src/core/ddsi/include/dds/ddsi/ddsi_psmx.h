@@ -21,8 +21,8 @@ extern "C" {
 struct ddsi_psmx_instance_locators {
   uint32_t length;
   struct {
-      char *psmx_instance_name;
-      ddsi_locator_t locator;
+    char *psmx_instance_name;
+    ddsi_locator_t locator;
   } *instances;
 };
 
