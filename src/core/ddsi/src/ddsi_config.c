@@ -634,6 +634,7 @@ static void *if_common (UNUSED_ARG (struct ddsi_cfgst *cfgst), void *parent, str
 {
   struct ddsi_config_listelem **current = (struct ddsi_config_listelem **) ((char *) parent + cfgelem->elem_offset);
   struct ddsi_config_listelem *new = ddsrt_malloc (size);
+  memset (new, 0, size);
   new->next = *current;
   *current = new;
   return new;
