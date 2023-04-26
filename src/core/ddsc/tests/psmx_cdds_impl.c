@@ -73,7 +73,7 @@ static uint32_t on_data_available_thread (void *a);
 static bool cdds_psmx_data_type_supported (dds_psmx_data_type_properties_t data_type_props);
 static bool cdds_psmx_qos_supported (const struct dds_qos *qos);
 static struct dds_psmx_topic * cdds_psmx_create_topic (struct dds_psmx * psmx,
-    dds_psmx_topic_identifier_t topic_identifier, dds_psmx_data_type_properties_t data_type_props);
+    const char * topic_name, dds_psmx_data_type_properties_t data_type_props);
 static dds_return_t cdds_psmx_delete_topic (struct dds_psmx_topic *psmx_topic);
 static dds_return_t cdds_psmx_deinit (struct dds_psmx *psmx);
 static dds_psmx_node_identifier_t cdds_psmx_get_node_id (const struct dds_psmx *psmx);
@@ -134,7 +134,7 @@ static bool cdds_psmx_qos_supported (const struct dds_qos *qos)
 }
 
 static struct dds_psmx_topic * cdds_psmx_create_topic (struct dds_psmx * psmx,
-    dds_psmx_topic_identifier_t topic_identifier, dds_psmx_data_type_properties_t data_type_props)
+    const char * topic_name, dds_psmx_data_type_properties_t data_type_props)
 {
   struct cdds_psmx *cpsmx = (struct cdds_psmx *) psmx;
   if (g_domain == -1)
@@ -165,14 +165,11 @@ static struct dds_psmx_topic * cdds_psmx_create_topic (struct dds_psmx * psmx,
   }
 
   struct cdds_psmx_topic *ctp = dds_alloc (sizeof (*ctp));
-  char topic_name[100];
-  snprintf (topic_name, sizeof (topic_name), "cdds_psmx_topic_%u", topic_identifier);
   ctp->topic = dds_create_topic (cpsmx->participant, &cdds_psmx_data_desc, topic_name, NULL, NULL);
   ctp->c.ops = psmx_topic_ops;
   ctp->c.psmx_instance = psmx;
   ctp->c.data_type_props = data_type_props;
-  ctp->c.topic_id = topic_identifier;
-  dds_psmx_topic_init_generic (&ctp->c, psmx);
+  dds_psmx_topic_init_generic (&ctp->c, psmx, topic_name);
 
   dds_add_psmx_topic_to_list (&ctp->c, &cpsmx->c.psmx_topics);
 

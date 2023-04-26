@@ -42,11 +42,6 @@ struct dds_psmx_endpoint * dds_psmx_create_endpoint (struct dds_psmx_topic *topi
 
 dds_return_t dds_psmx_delete_endpoint (struct dds_psmx_endpoint *psmx_endpoint);
 
-
-/*function used to calculate the topic identifier*/
-dds_psmx_topic_identifier_t dds_calculate_topic_identifier (const struct dds_ktopic *ktopic);
-
-
 /**
  * @brief Definition for the function to load a PSMX instance
  *

@@ -59,7 +59,7 @@ static bool is_valid_name (const char *name)
   // DDS Spec does not explicitly specify what constitutes a valid name.
   // Per https://github.com/eclipse-cyclonedds/cyclonedds/pull/1426
   //  Require isprint is true and not <space>*?[]"' for the time being, then work our way to supporting UTF-8
-   
+
   const char* invalid = "*?[]\"'#$";
 
   if (name[0] == '\0')
@@ -583,7 +583,7 @@ dds_entity_t dds_create_topic_impl (
     if (!psmx->ops.qos_supported (new_qos) ||
         !psmx->ops.data_type_supported (sertype_registered->data_type_props))
       continue;
-    struct dds_psmx_topic *psmx_topic = psmx->ops.create_topic (psmx, dds_calculate_topic_identifier (ktp), sertype_registered->data_type_props);
+    struct dds_psmx_topic *psmx_topic = psmx->ops.create_topic (psmx, ktp->name, sertype_registered->data_type_props);
     if (psmx_topic == NULL)
     {
       rc = DDS_RETCODE_ERROR;

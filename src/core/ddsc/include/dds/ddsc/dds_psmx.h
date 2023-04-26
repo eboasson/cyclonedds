@@ -42,13 +42,6 @@ typedef enum dds_psmx_endpoint_type {
 } dds_psmx_endpoint_type_t;
 
 /**
- * @brief identifier used to uniquely identify a topic across different processes
- *
- * FIXME: I'm not sure uint32_t is the best choice -- uint128_t? or a struct{unsigned char x[16]} or even a uint64_t seems better if a string is to be avoided
- */
-typedef uint32_t dds_psmx_topic_identifier_t;
-
-/**
  * @brief identifier used to communicate the properties of the data being communicated
  */
 typedef uint64_t dds_psmx_data_type_properties_t;
@@ -87,13 +80,13 @@ typedef bool (*dds_psmx_qos_supported_fn) (const struct dds_qos *qos);
  * for a PSMX instance.
  *
  * @param[in] psmx_instance  The PSMX instance.
- * @param[in] topic_identifier  The identifier of the topic to create
+ * @param[in] topic_name  The name of the topic to create
  * @param[in] data_type_props  The data type properties for the topic's data type.
  * @returns a PSMX topic structure
  */
 typedef struct dds_psmx_topic * (* dds_psmx_create_topic_fn) (
     struct dds_psmx * psmx_instance,
-    dds_psmx_topic_identifier_t topic_identifier,
+    const char * topic_name,
     dds_psmx_data_type_properties_t data_type_props);
 
 /**
@@ -246,7 +239,7 @@ typedef struct dds_psmx {
 typedef struct dds_psmx_topic {
   dds_psmx_topic_ops_t ops; //!< associated functions
   struct dds_psmx *psmx_instance; //!< the PSMX instance which created this topic
-  dds_psmx_topic_identifier_t topic_id; //!< unique identifier of topic representation
+  char * topic_name; //!< the topic name
   dds_loan_data_type_t data_type; //!< the unique identifier associated with the data type of this topic
   struct dds_psmx_endpoint_list_elem *psmx_endpoints; //!< associated endpoints
   dds_psmx_data_type_properties_t data_type_props; //!< the properties of the datatype associated with this topic
@@ -331,11 +324,12 @@ DDS_EXPORT dds_return_t dds_psmx_cleanup_generic (struct dds_psmx *psmx);
  *
  * Should be called from all constructors of classes which inherit from struct dds_psmx_topic
  *
- * @param[in] topic             the topic to initialize
- * @param[in] psmx the PSMX instance
+ * @param[in] topic  the topic to initialize
+ * @param[in] psmx  the PSMX instance
+ * @param[in] topic_name  the topic name
  * @return a DDS return code
  */
-DDS_EXPORT dds_return_t dds_psmx_topic_init_generic (struct dds_psmx_topic *topic, const struct dds_psmx *psmx);
+DDS_EXPORT dds_return_t dds_psmx_topic_init_generic (struct dds_psmx_topic *topic, const struct dds_psmx *psmx, const char *topic_name);
 
 /**
  * @brief cleanup function for a topic

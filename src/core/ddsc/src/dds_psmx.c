@@ -166,9 +166,11 @@ dds_return_t dds_psmx_cleanup_generic (struct dds_psmx *psmx)
   return ret;
 }
 
-dds_return_t dds_psmx_topic_init_generic (struct dds_psmx_topic *psmx_topic, const struct dds_psmx * psmx)
+dds_return_t dds_psmx_topic_init_generic (struct dds_psmx_topic *psmx_topic, const struct dds_psmx * psmx, const char *topic_name)
 {
-  psmx_topic->data_type = ddsrt_mh3 (&psmx->node_id, sizeof (psmx->node_id), psmx_topic->topic_id);
+  psmx_topic->topic_name = dds_string_dup (topic_name);
+  uint32_t topic_hash = ddsrt_mh3 (psmx_topic->topic_name, strlen (psmx_topic->topic_name), 0);
+  psmx_topic->data_type = ddsrt_mh3 (&psmx->node_id, sizeof (psmx->node_id), topic_hash);
   return DDS_RETCODE_OK;
 }
 
@@ -177,6 +179,7 @@ dds_return_t dds_psmx_topic_cleanup_generic (struct dds_psmx_topic *psmx_topic)
   dds_return_t ret = DDS_RETCODE_OK;
   while (ret == DDS_RETCODE_OK && psmx_topic->psmx_endpoints)
     ret = dds_remove_psmx_endpoint_from_list (psmx_topic->psmx_endpoints->endpoint, &psmx_topic->psmx_endpoints);
+  dds_free (psmx_topic->topic_name);
   return ret;
 }
 
@@ -190,11 +193,6 @@ bool dds_psmx_endpoint_serialization_required (struct dds_psmx_endpoint *psmx_en
 {
   assert (psmx_endpoint && psmx_endpoint->psmx_topic);
   return psmx_endpoint->psmx_topic->ops.serialization_required (psmx_endpoint->psmx_topic->data_type_props);
-}
-
-dds_psmx_topic_identifier_t dds_calculate_topic_identifier (const struct dds_ktopic * ktopic)
-{
-  return ddsrt_mh3 (ktopic->name, strlen (ktopic->name), 0x0);
 }
 
 static dds_loan_origin_type_t calculate_node_identifier (const struct ddsi_domaingv * gv, const char *config_name)
