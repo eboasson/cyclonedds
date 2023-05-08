@@ -16,6 +16,7 @@
 #include "dds/ddsrt/string.h"
 #include "dds/ddsrt/heap.h"
 #include "dds/ddsrt/mh3.h"
+#include "dds/ddsrt/strtol.h"
 #include "dds/ddsc/dds_loan.h"
 #include "dds/ddsc/dds_psmx.h"
 
@@ -92,40 +93,48 @@ static const dds_loaned_sample_ops_t ls_ops = {
 
 struct iox_psmx: public dds_psmx_t
 {
-  iox_psmx(dds_loan_origin_type_t identifier, const char *service_name);
+  iox_psmx(dds_loan_origin_type_t identifier, const char *service_name, const uint8_t *node_id_override);
   ~iox_psmx();
-  void discover_node_id(dds_psmx_node_identifier_t fallback);
+  void discover_node_id(dds_psmx_node_identifier_t node_id_fallback);
   char _service_name[64];
   std::unique_ptr<iox::popo::Listener> _listener;  //the listener needs to be created after iox runtime has been initialized
-  dds_psmx_node_identifier_t node_id = 0;
-  std::shared_ptr<iox::popo::UntypedPublisher> node_id_publisher;
+  dds_psmx_node_identifier_t _node_id = { 0 };
+  std::shared_ptr<iox::popo::UntypedPublisher> _node_id_publisher;
 };
 
-iox_psmx::iox_psmx(dds_loan_origin_type_t identifier, const char *service_name):
+iox_psmx::iox_psmx(dds_loan_origin_type_t psmx_type, const char *service_name, const uint8_t *node_id_override):
   dds_psmx_t {
     .ops = psmx_ops,
     .instance_name = DEFAULT_INSTANCE_NAME,
     .priority = 0,
     .locator = nullptr,
-    .node_id = identifier,
+    .instance_type = psmx_type,
     .psmx_topics = nullptr
   },
   _listener()
 {
   if (service_name == nullptr)
-    snprintf(_service_name, sizeof (_service_name), "CycloneDDS iox_psmx %08X", identifier);  //replace with hash of _instance_name and domain id
+    snprintf(_service_name, sizeof (_service_name), "CycloneDDS iox_psmx %08X", psmx_type);  // FIXME: replace with hash of _instance_name and domain id?
   else
     snprintf(_service_name, sizeof (_service_name), "%s", service_name);
 
-  char buffer[64];
   clock_t t = clock();
-  uint64_t id = static_cast<uint64_t>(t) ^ ((uint64_t)this) ^ identifier;
+  uint64_t psmx_instance_id = static_cast<uint64_t>(t) ^ ((uint64_t)this) ^ psmx_type;
 
-  sprintf(buffer, "CycloneDDS-iox_psmx-%016" PRIx64, id);
-  iox::runtime::PoshRuntime::initRuntime(buffer);
+  char iox_runtime_name[64];
+  sprintf(iox_runtime_name, "CycloneDDS-iox_psmx-%016" PRIx64, psmx_instance_id);
+  iox::runtime::PoshRuntime::initRuntime(iox_runtime_name);
   _listener = std::unique_ptr<iox::popo::Listener>(new iox::popo::Listener());
 
-  discover_node_id(id);
+  if (node_id_override == nullptr)
+  {
+    dds_psmx_node_identifier_t node_id_fallback = { 0 };
+    memcpy (node_id_fallback.x, &psmx_instance_id, sizeof (psmx_instance_id));
+    discover_node_id(node_id_fallback);
+  }
+  else
+    memcpy(_node_id.x, node_id_override, sizeof (_node_id));
+
   dds_psmx_init_generic(this);
 }
 
@@ -138,14 +147,12 @@ iox_psmx::~iox_psmx()
   }
 }
 
-void iox_psmx::discover_node_id(dds_psmx_node_identifier_t fallback)
+void iox_psmx::discover_node_id(dds_psmx_node_identifier_t node_id_fallback)
 {
-
-  // FIXME: fopen (/etc/machine-id), fread(fin, rb), convert to uint64_t
-
   iox::runtime::ServiceDiscovery serviceDiscovery;
   char tentative_node_id_str[64];
-  sprintf(tentative_node_id_str, "%016" PRIx64, fallback);
+  for (uint32_t n = 0; n < 16; n++)
+    sprintf(tentative_node_id_str + 2 * n, "%02" PRIx8, node_id_fallback.x[n]);
   unsigned int node_ids_present = 0;
   iox::capro::IdString_t outstr;
   serviceDiscovery.findService(iox::capro::IdString_t{_service_name},
@@ -165,12 +172,14 @@ void iox_psmx::discover_node_id(dds_psmx_node_identifier_t fallback)
   }
   else if (node_ids_present == 1)
   {
-    node_id = std::stoull(outstr, 0, 16);
+    const char *s = outstr.c_str();
+    for (uint32_t n = 0; n < 16; n++)
+      _node_id.x[n] = (uint8_t) strtoul(s + 2 * n, nullptr, 16);
   }
   else
   {
-    node_id = fallback;
-    node_id_publisher = std::shared_ptr<iox::popo::UntypedPublisher>(new iox::popo::UntypedPublisher({_service_name, DEFAULT_TOPIC_NAME, tentative_node_id_str}));
+    _node_id = node_id_fallback;
+    _node_id_publisher = std::shared_ptr<iox::popo::UntypedPublisher>(new iox::popo::UntypedPublisher({_service_name, DEFAULT_TOPIC_NAME, tentative_node_id_str}));
   }
 }
 
@@ -307,7 +316,7 @@ iox_loaned_sample::iox_loaned_sample(struct dds_psmx_endpoint *origin, uint32_t 
 {
   metadata->sample_state = st;
   metadata->data_type = origin->psmx_topic->data_type;
-  metadata->data_origin = origin->psmx_topic->psmx_instance->node_id;
+  metadata->data_origin = origin->psmx_topic->psmx_instance->instance_type;
   metadata->sample_size = sz;
   metadata->block_size = sz + iox_padding;
 }
@@ -378,7 +387,7 @@ static dds_return_t iox_psmx_deinit (struct dds_psmx * psmx)
 
 static dds_psmx_node_identifier_t iox_psmx_get_node_id (const struct dds_psmx * psmx)
 {
-  return reinterpret_cast<const iox_psmx*>(psmx)->node_id;
+  return reinterpret_cast<const iox_psmx*>(psmx)->_node_id;
 }
 
 
@@ -539,7 +548,7 @@ static iox::log::LogLevel toLogLevel(const char *level_str) {
   return iox::log::LogLevel::kOff;
 }
 
-dds_return_t iox_create_psmx (struct dds_psmx **psmx, dds_loan_origin_type_t identifier, const char *config)
+dds_return_t iox_create_psmx (struct dds_psmx **psmx, dds_loan_origin_type_t psmx_type, const char *config)
 {
   assert(psmx);
 
@@ -549,7 +558,39 @@ dds_return_t iox_create_psmx (struct dds_psmx **psmx, dds_loan_origin_type_t ide
     iox::log::LogManager::GetLogManager().SetDefaultLogLevel(toLogLevel(log_level), iox::log::LogLevelOutput::kHideLogLevel);
   }
 
-  auto ptr = new iox_psmx::iox_psmx(identifier, service_name);
+  char *lstr = get_config_option_value (config, "LOCATOR");
+  uint8_t locator_address[16] = { 0 };
+  uint8_t *node_id_override = nullptr;
+  if (lstr != nullptr)
+  {
+    if (strlen (lstr) != 32)
+    {
+      dds_free (lstr);
+      if (service_name)
+        dds_free(service_name);
+      if (log_level)
+        dds_free(log_level);
+      return DDS_RETCODE_BAD_PARAMETER;
+    }
+    for (uint32_t n = 0; n < 32 && lstr[n]; n++)
+    {
+      int32_t num;
+      if ((num = ddsrt_todigit (lstr[n])) < 0 || num >= 16)
+      {
+        dds_free (lstr);
+        if (service_name)
+          dds_free(service_name);
+        if (log_level)
+          dds_free(log_level);
+        return DDS_RETCODE_BAD_PARAMETER;
+      }
+      locator_address[n / 2] |= (uint8_t) ((n % 1) ? (num << 4) : num);
+    }
+    dds_free (lstr);
+    node_id_override = locator_address;
+  }
+
+  auto ptr = new iox_psmx::iox_psmx(psmx_type, service_name, node_id_override);
 
   if (service_name)
     dds_free(service_name);

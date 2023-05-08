@@ -35,6 +35,8 @@
 const uint32_t test_index_start = 0;
 const uint32_t test_index_end = UINT32_MAX;
 
+#define PSMX_IMPL "cdds"
+
 static const struct psmx_locator {
   unsigned char a[16];
 } psmx_locators[] = {
@@ -67,7 +69,7 @@ ${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}\
 <General>\
   <AllowMulticast>spdp</AllowMulticast>\
   <Interfaces>\
-    <PubSubMessageExchange name=\"cdds\" library=\"${CDDS_PSMX_LIB}\" priority=\"1000000\" config=\"LOCATOR=%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x;\" />\
+    <PubSubMessageExchange name=\"" PSMX_IMPL "\" library=\"${CDDS_PSMX_LIB}\" priority=\"1000000\" config=\"LOCATOR=%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x;\" />\
   </Interfaces>\
 </General>\
 <Discovery>\

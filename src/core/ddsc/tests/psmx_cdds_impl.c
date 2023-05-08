@@ -221,7 +221,9 @@ static dds_psmx_node_identifier_t cdds_psmx_get_node_id (const struct dds_psmx *
   struct cdds_psmx *cpsmx = (struct cdds_psmx *) psmx;
   dds_guid_t guid;
   (void) dds_get_guid (cpsmx->participant, &guid);
-  return (dds_psmx_node_identifier_t) *(((char *) &guid) + 4);
+  dds_psmx_node_identifier_t node_id;
+  memcpy (node_id.x, &guid, sizeof (node_id.x));
+  return node_id;
 }
 
 static bool cdds_psmx_topic_serialization_required (dds_psmx_data_type_properties_t data_type_props)
@@ -287,7 +289,7 @@ static dds_loaned_sample_t * cdds_psmx_ep_request_loan (struct dds_psmx_endpoint
     ls->metadata->sample_state = DDS_LOANED_SAMPLE_STATE_UNITIALIZED;
     ls->metadata->sample_size = size_requested;
     ls->metadata->block_size = sz;
-    ls->metadata->data_origin = cep->c.psmx_topic->psmx_instance->node_id;
+    ls->metadata->data_origin = cep->c.psmx_topic->psmx_instance->instance_type;
     ls->metadata->data_type = cep->c.psmx_topic->data_type;
     ls->sample_ptr = dds_alloc (sz);
     memset (ls->sample_ptr, 0, sz);
@@ -462,13 +464,13 @@ static char * get_config_option_value (const char *conf, const char *option_name
   return NULL;
 }
 
-dds_return_t cdds_create_psmx (dds_psmx_t **psmx_out, dds_loan_origin_type_t identifier, const char *config)
+dds_return_t cdds_create_psmx (dds_psmx_t **psmx_out, dds_loan_origin_type_t psmx_type, const char *config)
 {
   assert (psmx_out);
 
   struct cdds_psmx *psmx = dds_alloc (sizeof (*psmx));
   psmx->c.instance_name = dds_string_dup ("cdds-psmx");
-  psmx->c.node_id = identifier;
+  psmx->c.instance_type = psmx_type;
   psmx->c.ops = psmx_instance_ops;
   dds_psmx_init_generic (&psmx->c);
   psmx->participant = -1;

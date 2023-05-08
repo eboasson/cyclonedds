@@ -144,9 +144,8 @@ dds_return_t dds_psmx_init_generic (struct dds_psmx * psmx)
   memset (loc, 0, sizeof (*loc));
 
   dds_psmx_node_identifier_t node_id = psmx->ops.get_node_id (psmx);
-
   memcpy (loc->address, &node_id, sizeof (node_id));
-  loc->port = psmx->node_id;
+  loc->port = psmx->instance_type;
   loc->kind = DDSI_LOCATOR_KIND_PSMX;
 
   psmx->locator = loc;
@@ -170,7 +169,7 @@ dds_return_t dds_psmx_topic_init_generic (struct dds_psmx_topic *psmx_topic, con
 {
   psmx_topic->topic_name = dds_string_dup (topic_name);
   uint32_t topic_hash = ddsrt_mh3 (psmx_topic->topic_name, strlen (psmx_topic->topic_name), 0);
-  psmx_topic->data_type = ddsrt_mh3 (&psmx->node_id, sizeof (psmx->node_id), topic_hash);
+  psmx_topic->data_type = ddsrt_mh3 (&psmx->instance_type, sizeof (psmx->instance_type), topic_hash);
   return DDS_RETCODE_OK;
 }
 
@@ -195,7 +194,7 @@ bool dds_psmx_endpoint_serialization_required (struct dds_psmx_endpoint *psmx_en
   return psmx_endpoint->psmx_topic->ops.serialization_required (psmx_endpoint->psmx_topic->data_type_props);
 }
 
-static dds_loan_origin_type_t calculate_node_identifier (const struct ddsi_domaingv * gv, const char *config_name)
+static dds_loan_origin_type_t get_loan_origin_type (const struct ddsi_domaingv * gv, const char *config_name)
 {
   uint32_t ext_domainid = gv->config.extDomainId.value;
   uint32_t hashed_id = ddsrt_mh3 (&ext_domainid, sizeof (ext_domainid), 0x0);
@@ -232,7 +231,7 @@ static dds_return_t psmx_instance_load (const struct ddsi_domaingv *gv, struct d
     goto err_dlsym;
   }
 
-  if ((ret = creator (&psmx_instance, calculate_node_identifier (gv, config->name), config->config)) != DDS_RETCODE_OK)
+  if ((ret = creator (&psmx_instance, get_loan_origin_type (gv, config->name), config->config)) != DDS_RETCODE_OK)
   {
     GVERROR ("Failed to initialize PSMX instance '%s'.\n", config->name);
     goto err_init;

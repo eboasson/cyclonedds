@@ -49,7 +49,10 @@ typedef uint64_t dds_psmx_data_type_properties_t;
 /**
  * @brief identifier used to distinguish between PSMX instances on nodes
  */
-typedef uint64_t dds_psmx_node_identifier_t;
+typedef struct dds_psmx_node_identifier
+{
+  uint8_t x[16];
+} dds_psmx_node_identifier_t;
 
 /**
  * @brief Definition for function that checks data type support
@@ -226,7 +229,7 @@ typedef struct dds_psmx {
   const char *instance_name; //!< name of this PSMX instance
   int32_t priority; //!< priority of choosing this interface
   const struct ddsi_locator *locator; //!< the locator for this PSMX instance
-  dds_loan_origin_type_t node_id; //!< the unique node-id of this PSMX instance
+  dds_loan_origin_type_t instance_type; //!< the type identifier of this PSMX instance
   struct dds_psmx_topic_list_elem *psmx_topics; //!< associated topics
 } dds_psmx_t;
 
