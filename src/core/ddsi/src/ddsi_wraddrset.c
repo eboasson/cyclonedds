@@ -289,14 +289,14 @@ static struct locset *wras_calc_locators (const struct ddsrt_log_cfg *logcfg, st
 /* Flags that are used in the cover_info_t type. Some examples of the cover info values:
 
                                     ______________Multicast type, and MCGEN index (index+3)
-                                   |  ____________Virtual Interface
+                                   |  ____________PSMX locator
                                    | |  __________Loopback locator
                                    | | |   _______Status
                                    | | |  |
     Loopback, included          0000 0 1 01
     Unicast, reachable          0000 0 0 00
     Multicast, ASM, included    0001 0 0 01
-    Virtual, reachable          0000 1 0 00
+    PSMX, reachable             0000 1 0 00
     MCGEN, index 6, reachable   1001 0 0 00
 */
 #define CI_STATUS_MASK     0x3
@@ -701,7 +701,7 @@ static void wras_add_locator (const struct ddsi_domaingv *gv, struct ddsi_addrse
   GVLOGDISC ("  %s %s\n", kindstr, ddsi_xlocator_to_string (str, sizeof(str), locp));
   if (locp->c.kind != DDSI_LOCATOR_KIND_PSMX)
   {
-    // Virtual interface offload occurs above the RTPS stack, adding it to the address only means
+    // PSMX offload occurs above the RTPS stack, adding it to the address only means
     // samples get packed into RTPS messages and the transmit path is traversed without
     // actually sending any packet.  It should be generalized to handle various pub/sub
     // providers.

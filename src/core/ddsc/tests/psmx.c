@@ -1,14 +1,13 @@
-/*
- * Copyright(c) 2020 to 2022 ZettaScale Technology and others
- *
- * This program and the accompanying materials are made available under the
- * terms of the Eclipse Public License v. 2.0 which is available at
- * http://www.eclipse.org/legal/epl-2.0, or the Eclipse Distribution License
- * v. 1.0 which is available at
- * http://www.eclipse.org/org/documents/edl-v10.php.
- *
- * SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
- */
+// Copyright(c) 2020 to 2023 ZettaScale Technology and others
+//
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License v. 2.0 which is available at
+// http://www.eclipse.org/legal/epl-2.0, or the Eclipse Distribution License
+// v. 1.0 which is available at
+// http://www.eclipse.org/org/documents/edl-v10.php.
+//
+// SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
+
 #include <assert.h>
 #include <limits.h>
 
@@ -30,7 +29,7 @@
 #include "test_common.h"
 #include "Array100.h"
 #include "DynamicData.h"
-#include "VIDataModels.h"
+#include "PsmxDataModels.h"
 
 const uint32_t test_index_start = 0;
 const uint32_t test_index_end = UINT32_MAX;
