@@ -190,7 +190,16 @@ static dds_return_t dds_writer_delete (dds_entity *e) ddsrt_nonnull_all;
 
 static dds_return_t dds_writer_delete (dds_entity *e)
 {
+  dds_return_t ret = DDS_RETCODE_OK;
   dds_writer * const wr = (dds_writer *) e;
+
+  for (uint32_t i = 0; ret == DDS_RETCODE_OK && i < wr->m_endpoint.psmx_endpoints.length; i++)
+  {
+    struct dds_psmx_endpoint *psmx_endpoint = wr->m_endpoint.psmx_endpoints.endpoints[i];
+    if (psmx_endpoint == NULL)
+      continue;
+    ret = dds_remove_psmx_endpoint_from_list (psmx_endpoint, &psmx_endpoint->psmx_topic->psmx_endpoints);
+  }
 
   /* FIXME: not freeing WHC here because it is owned by the DDSI entity */
   ddsi_thread_state_awake (ddsi_lookup_thread_state (), &e->m_domain->gv);
@@ -198,7 +207,7 @@ static dds_return_t dds_writer_delete (dds_entity *e)
   ddsi_thread_state_asleep (ddsi_lookup_thread_state ());
   dds_entity_drop_ref (&wr->m_topic->m_entity);
   dds_loan_manager_free (wr->m_loans);
-  return DDS_RETCODE_OK;
+  return ret;
 }
 
 static dds_return_t validate_writer_qos (const dds_qos_t *wqos)

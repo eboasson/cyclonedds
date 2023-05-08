@@ -72,7 +72,16 @@ static dds_return_t dds_reader_delete (dds_entity *e) ddsrt_nonnull_all;
 
 static dds_return_t dds_reader_delete (dds_entity *e)
 {
+  dds_return_t ret = DDS_RETCODE_OK;
   dds_reader * const rd = (dds_reader *) e;
+
+  for (uint32_t i = 0; ret == DDS_RETCODE_OK && i < rd->m_endpoint.psmx_endpoints.length; i++)
+  {
+    struct dds_psmx_endpoint *psmx_endpoint = rd->m_endpoint.psmx_endpoints.endpoints[i];
+    if (psmx_endpoint == NULL)
+      continue;
+    ret = dds_remove_psmx_endpoint_from_list (psmx_endpoint, &psmx_endpoint->psmx_topic->psmx_endpoints);
+  }
 
   if (rd->m_loans)
     dds_loan_manager_free(rd->m_loans);
@@ -85,7 +94,7 @@ static dds_return_t dds_reader_delete (dds_entity *e)
   ddsi_thread_state_asleep (ddsi_lookup_thread_state ());
 
   dds_entity_drop_ref (&rd->m_topic->m_entity);
-  return DDS_RETCODE_OK;
+  return ret;
 }
 
 static dds_return_t validate_reader_qos (const dds_qos_t *rqos)
