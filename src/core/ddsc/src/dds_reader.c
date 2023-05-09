@@ -75,6 +75,13 @@ static dds_return_t dds_reader_delete (dds_entity *e)
   dds_return_t ret = DDS_RETCODE_OK;
   dds_reader * const rd = (dds_reader *) e;
 
+  ddsi_thread_state_awake (ddsi_lookup_thread_state (), &e->m_domain->gv);
+  dds_rhc_free (rd->m_rhc);
+  ddsi_thread_state_asleep (ddsi_lookup_thread_state ());
+
+  if (rd->m_loans)
+    dds_loan_manager_free(rd->m_loans);
+
   for (uint32_t i = 0; ret == DDS_RETCODE_OK && i < rd->m_endpoint.psmx_endpoints.length; i++)
   {
     struct dds_psmx_endpoint *psmx_endpoint = rd->m_endpoint.psmx_endpoints.endpoints[i];
@@ -83,15 +90,8 @@ static dds_return_t dds_reader_delete (dds_entity *e)
     ret = dds_remove_psmx_endpoint_from_list (psmx_endpoint, &psmx_endpoint->psmx_topic->psmx_endpoints);
   }
 
-  if (rd->m_loans)
-    dds_loan_manager_free(rd->m_loans);
-
   if (rd->m_loan_pool)
     dds_loan_manager_free(rd->m_loan_pool);
-
-  ddsi_thread_state_awake (ddsi_lookup_thread_state (), &e->m_domain->gv);
-  dds_rhc_free (rd->m_rhc);
-  ddsi_thread_state_asleep (ddsi_lookup_thread_state ());
 
   dds_entity_drop_ref (&rd->m_topic->m_entity);
   return ret;
