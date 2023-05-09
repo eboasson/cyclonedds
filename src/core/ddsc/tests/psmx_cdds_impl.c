@@ -329,7 +329,7 @@ static dds_loaned_sample_t * cdds_psmx_ep_take (struct dds_psmx_endpoint *psmx_e
   return NULL;
 }
 
-static dds_loaned_sample_t * incoming_sample_to_loan (struct cdds_psmx_endpoint *cep, struct cdds_psmx_data *psmx_sample)
+static dds_loaned_sample_t * incoming_sample_to_loan (struct cdds_psmx_endpoint *cep, const struct cdds_psmx_data *psmx_sample)
 {
   struct dds_psmx_metadata *psmx_md = dds_alloc (sizeof (*psmx_md));
   psmx_md->block_size = psmx_sample->block_size;
@@ -349,9 +349,10 @@ static dds_loaned_sample_t * incoming_sample_to_loan (struct cdds_psmx_endpoint 
   ls->ops = ls_ops;
   ls->loan_origin = (struct dds_psmx_endpoint *) cep;
   ls->metadata = psmx_md;
-  ls->sample_ptr = (char *) psmx_sample->data._buffer;
+  ls->sample_ptr = dds_alloc (psmx_sample->data._length);
+  memcpy (ls->sample_ptr, psmx_sample->data._buffer, psmx_sample->data._length);
   ls->loan_idx = 0;
-  ddsrt_atomic_st32 (&ls->refs, 0);
+  ddsrt_atomic_st32 (&ls->refs, 1);
   return ls;
 }
 
@@ -394,7 +395,7 @@ static uint32_t on_data_available_thread (void *a)
         {
           assert (cep);
           dds_sample_info_t si;
-          dds_return_t n;
+          dds_return_t n, rc;
           void *raw = NULL;
           while ((n = dds_take (cep->psmx_cdds_endpoint, &raw, &si, 1, 1)) == 1)
           {
@@ -402,10 +403,14 @@ static uint32_t on_data_available_thread (void *a)
             {
               dds_loaned_sample_t *loaned_sample = incoming_sample_to_loan (cep, raw);
               (void) dds_reader_store_loaned_sample (cep->cdds_endpoint, loaned_sample);
+              dds_loaned_sample_unref (loaned_sample);
             }
-            dds_return_loan (cep->cdds_endpoint, &raw, n);
-            raw = NULL;
+            rc = dds_return_loan (cep->psmx_cdds_endpoint, &raw, n);
+            assert (rc == 0);
+            assert (raw == NULL);
+            (void) rc;
           }
+          assert (n == 0);
         }
       }
     }

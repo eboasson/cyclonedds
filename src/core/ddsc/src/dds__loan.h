@@ -42,26 +42,6 @@ typedef struct dds_loan_manager {
 dds_return_t dds_loaned_sample_free (dds_loaned_sample_t *loaned_sample);
 
 /**
- * @brief Generic function to increase the refcount for a sample
- *
- * This function calls the implementation specific function
- *
- * @param[in] loaned_sample  A loaned sample
- * @return a DDS return code
- */
-dds_return_t dds_loaned_sample_ref (dds_loaned_sample_t *loaned_sample);
-
-/**
- * @brief Generic function to decrease the refcount for a sample
- *
- * This function calls the implementation specific function
- *
- * @param[in] loaned_sample  A loaned sample
- * @return a DDS return code
- */
-dds_return_t dds_loaned_sample_unref (dds_loaned_sample_t *loaned_sample);
-
-/**
  * @brief Reset the contents for a sample
  *
  * @param[in] loaned_sample  A loaned sample
@@ -105,18 +85,6 @@ dds_return_t dds_loan_manager_add_loan (dds_loan_manager_t *manager, dds_loaned_
  * @return a DDS return code
  */
 dds_return_t dds_loan_manager_remove_loan (dds_loaned_sample_t *loaned_sample);
-
-/**
- * @brief Movees a loan to another manager
- *
- * Removes a loan from its manager and stores it in the provided
- * loan manager.
- *
- * @param[in] manager  The new manager to store the loan in
- * @param loaned_sample  The loaned sample to move
- * @return a DDS return code
- */
-dds_return_t dds_loan_manager_move_loan (dds_loan_manager_t *manager, dds_loaned_sample_t *loaned_sample);
 
 /**
  * @brief Finds a loan in the loan manager storage

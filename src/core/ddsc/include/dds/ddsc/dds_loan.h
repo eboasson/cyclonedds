@@ -121,6 +121,26 @@ typedef struct dds_loaned_sample {
   ddsrt_atomic_uint32_t refs; /*the number of references to this loan*/
 } dds_loaned_sample_t;
 
+/**
+ * @brief Generic function to increase the refcount for a sample
+ *
+ * This function calls the implementation specific function
+ *
+ * @param[in] loaned_sample  A loaned sample
+ * @return a DDS return code
+ */
+DDS_EXPORT dds_return_t dds_loaned_sample_ref (dds_loaned_sample_t *loaned_sample);
+
+/**
+ * @brief Generic function to decrease the refcount for a sample
+ *
+ * This function calls the implementation specific function
+ *
+ * @param[in] loaned_sample  A loaned sample
+ * @return a DDS return code
+ */
+DDS_EXPORT dds_return_t dds_loaned_sample_unref (dds_loaned_sample_t *loaned_sample);
+
 #if defined(__cplusplus)
 }
 #endif
