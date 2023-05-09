@@ -105,7 +105,7 @@ struct iox_psmx: public dds_psmx_t
 iox_psmx::iox_psmx(dds_loan_origin_type_t psmx_type, const char *service_name, const uint8_t *node_id_override):
   dds_psmx_t {
     .ops = psmx_ops,
-    .instance_name = DEFAULT_INSTANCE_NAME,
+    .instance_name = dds_string_dup (DEFAULT_INSTANCE_NAME),
     .priority = 0,
     .locator = nullptr,
     .instance_type = psmx_type,
