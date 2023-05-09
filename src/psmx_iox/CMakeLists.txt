@@ -11,6 +11,7 @@
 #
 cmake_minimum_required(VERSION 3.10)
 project(CycloneDDS-PSMX-IOX VERSION 0.11.0 LANGUAGES C CXX)
+set(CMAKE_CXX_STANDARD 17)
 
 find_package(iceoryx_hoofs REQUIRED)
 find_package(iceoryx_posh REQUIRED)
