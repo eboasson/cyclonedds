@@ -346,7 +346,8 @@ iox_loaned_sample::~iox_loaned_sample()
 
 static bool iox_data_type_supported (dds_psmx_data_type_properties_t data_type)
 {
-  return !DDS_DATA_TYPE_CONTAINS_INDIRECTIONS (data_type);
+  (void) data_type;
+  return true;
 }
 
 static bool iox_qos_supported (const struct dds_qos * qos)
