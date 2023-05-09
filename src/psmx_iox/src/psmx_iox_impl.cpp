@@ -474,7 +474,7 @@ static dds_psmx_node_identifier_t iox_psmx_get_node_id (const struct dds_psmx * 
 
 static bool iox_serialization_required (dds_psmx_data_type_properties_t data_type)
 {
-  return (data_type & DDS_DATA_TYPE_IS_FIXED_SIZE) == 0 && DDS_DATA_TYPE_CONTAINS_INDIRECTIONS(data_type) == 0;
+  return (data_type & DDS_DATA_TYPE_IS_FIXED_SIZE) == 0 || DDS_DATA_TYPE_CONTAINS_INDIRECTIONS(data_type) != 0;
 }
 
 static struct dds_psmx_endpoint* iox_create_endpoint (struct dds_psmx_topic * psmx_topic, uint32_t n_partitions, const char **partitions, dds_psmx_endpoint_type_t endpoint_type)
