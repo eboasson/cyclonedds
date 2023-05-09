@@ -290,10 +290,10 @@ dds_return_t dds_pubsub_message_exchange_fini (dds_domain *domain)
   return ret;
 }
 
-struct dds_psmx_endpoint * dds_psmx_create_endpoint (struct dds_psmx_topic *psmx_topic, dds_psmx_endpoint_type_t endpoint_type)
+struct dds_psmx_endpoint * dds_psmx_create_endpoint (struct dds_psmx_topic *psmx_topic, uint32_t n_partitions, const char **partitions, dds_psmx_endpoint_type_t endpoint_type)
 {
   assert (psmx_topic && psmx_topic->ops.create_endpoint);
-  return psmx_topic->ops.create_endpoint (psmx_topic, endpoint_type);
+  return psmx_topic->ops.create_endpoint (psmx_topic, n_partitions, partitions, endpoint_type);
 }
 
 dds_return_t dds_psmx_delete_endpoint (struct dds_psmx_endpoint *psmx_endpoint)
@@ -313,9 +313,18 @@ dds_return_t dds_endpoint_open_psmx_endpoint (struct dds_endpoint *ep, const dds
       continue;
     if (!psmx_topic->psmx_instance->ops.qos_supported (qos))
       continue;
-    struct dds_psmx_endpoint *psmx_endpoint;
-    if ((psmx_endpoint = dds_psmx_create_endpoint (psmx_topic, endpoint_type)) == NULL)
+    uint32_t n_partitions = 0;
+    char **partitions = NULL;
+    dds_qget_partition (qos, &n_partitions, &partitions);
+    struct dds_psmx_endpoint *psmx_endpoint = dds_psmx_create_endpoint (psmx_topic, n_partitions, (const char **) partitions, endpoint_type);
+    if (n_partitions > 0)
+    {
+      dds_free (partitions[0]);
+      dds_free (partitions);
+    }
+    if (psmx_endpoint == NULL)
       goto err;
+
     ep->psmx_endpoints.endpoints[ep->psmx_endpoints.length++] = psmx_endpoint;
   }
   return DDS_RETCODE_OK;

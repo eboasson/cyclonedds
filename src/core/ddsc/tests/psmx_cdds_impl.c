@@ -86,7 +86,7 @@ static const dds_psmx_ops_t psmx_instance_ops = {
 };
 
 static bool cdds_psmx_topic_serialization_required (dds_psmx_data_type_properties_t data_type_props);
-static struct dds_psmx_endpoint * cdds_psmx_create_endpoint (struct dds_psmx_topic *psmx_topic, dds_psmx_endpoint_type_t endpoint_type);
+static struct dds_psmx_endpoint * cdds_psmx_create_endpoint (struct dds_psmx_topic *psmx_topic, uint32_t n_partitions, const char **partitions, dds_psmx_endpoint_type_t endpoint_type);
 static dds_return_t cdds_psmx_delete_endpoint (struct dds_psmx_endpoint *psmx_endpoint);
 
 static const dds_psmx_topic_ops_t psmx_topic_ops = {
@@ -231,13 +231,15 @@ static bool cdds_psmx_topic_serialization_required (dds_psmx_data_type_propertie
   return false;
 }
 
-static struct dds_psmx_endpoint * cdds_psmx_create_endpoint (struct dds_psmx_topic *psmx_topic, dds_psmx_endpoint_type_t endpoint_type)
+static struct dds_psmx_endpoint * cdds_psmx_create_endpoint (struct dds_psmx_topic *psmx_topic, uint32_t n_partitions, const char **partitions, dds_psmx_endpoint_type_t endpoint_type)
 {
   struct cdds_psmx_topic * ctp = (struct cdds_psmx_topic *) psmx_topic;
   struct cdds_psmx *cpsmx = (struct cdds_psmx *) ctp->c.psmx_instance;
   struct cdds_psmx_endpoint *cep = dds_alloc (sizeof (*cep));
   cep->c.ops = psmx_ep_ops;
   cep->c.psmx_topic = psmx_topic;
+  cep->c.n_partitions = n_partitions;
+  cep->c.partitions = partitions;
   cep->c.endpoint_type = endpoint_type;
 
   cep->deinit_cond = dds_create_guardcondition (cpsmx->participant);
@@ -246,13 +248,17 @@ static struct dds_psmx_endpoint * cdds_psmx_create_endpoint (struct dds_psmx_top
   cep->deleting = false;
   ddsrt_atomic_inc32 (&cpsmx->endpoint_refs);
 
+  dds_qos_t *psmx_ep_qos = dds_create_qos ();
+  if (cep->c.n_partitions > 0)
+    dds_qset_partition (psmx_ep_qos, n_partitions, cep->c.partitions);
+
   switch (endpoint_type)
   {
     case DDS_PSMX_ENDPOINT_TYPE_READER:
-      cep->psmx_cdds_endpoint = dds_create_reader (cpsmx->participant, ctp->topic, NULL, NULL);
+      cep->psmx_cdds_endpoint = dds_create_reader (cpsmx->participant, ctp->topic, psmx_ep_qos, NULL);
       break;
     case DDS_PSMX_ENDPOINT_TYPE_WRITER:
-      cep->psmx_cdds_endpoint = dds_create_writer (cpsmx->participant, ctp->topic, NULL, NULL);
+      cep->psmx_cdds_endpoint = dds_create_writer (cpsmx->participant, ctp->topic, psmx_ep_qos, NULL);
       break;
     case DDS_PSMX_ENDPOINT_TYPE_UNSET:
       return NULL;

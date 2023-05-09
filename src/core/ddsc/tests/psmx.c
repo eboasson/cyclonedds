@@ -34,7 +34,7 @@
 const uint32_t test_index_start = 0;
 const uint32_t test_index_end = UINT32_MAX;
 
-#define PSMX_IMPL "cdds"
+#define PSMX_IMPL "iox"
 
 static const struct psmx_locator {
   unsigned char a[16];

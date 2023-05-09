@@ -36,7 +36,7 @@ struct dds_psmx_endpoint_list_elem {
   struct dds_psmx_endpoint_list_elem * next; /*the next element in the list*/
 };
 
-struct dds_psmx_endpoint * dds_psmx_create_endpoint (struct dds_psmx_topic *topic, dds_psmx_endpoint_type_t endpoint_type);
+struct dds_psmx_endpoint * dds_psmx_create_endpoint (struct dds_psmx_topic *topic, uint32_t n_partitions, const char **partitions, dds_psmx_endpoint_type_t endpoint_type);
 
 dds_return_t dds_psmx_delete_endpoint (struct dds_psmx_endpoint *psmx_endpoint);
 

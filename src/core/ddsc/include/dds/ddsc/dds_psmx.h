@@ -152,7 +152,7 @@ typedef bool (* dds_psmx_serialization_required_fn) (dds_psmx_data_type_properti
  * @param[in] endpoint_type  The type of endpoint to create (publisher or subscriber)
  * @returns A PSMX endpoint struct
  */
-typedef struct dds_psmx_endpoint * (* dds_psmx_create_endpoint_fn) (struct dds_psmx_topic *psmx_topic, dds_psmx_endpoint_type_t endpoint_type);
+typedef struct dds_psmx_endpoint * (* dds_psmx_create_endpoint_fn) (struct dds_psmx_topic *psmx_topic, uint32_t n_partitions, const char **partitions, dds_psmx_endpoint_type_t endpoint_type);
 
 /**
  * @brief Definition of function to delete an PSMX endpoint
@@ -252,6 +252,8 @@ typedef struct dds_psmx_topic {
 typedef struct dds_psmx_endpoint {
   dds_psmx_endpoint_ops_t ops; //!< associated functions
   struct dds_psmx_topic * psmx_topic; //!< the topic this endpoint belongs to
+  uint32_t n_partitions; //!< number of DDS partitions
+  const char **partitions; //!< DDS partitions for this endpoint
   dds_psmx_endpoint_type_t endpoint_type; //!< type type of endpoint
 } dds_psmx_endpoint_t;
 
