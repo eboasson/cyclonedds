@@ -893,15 +893,6 @@ static struct ddsi_serdata * serdata_default_from_psmx (const struct ddsi_sertyp
   d->hdr.identifier = DDSI_RTPS_CDR_ENC_TO_NATIVE (md->cdr_identifier);
   d->hdr.options = md->cdr_options;
 
-  if (md->sample_state != DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA)
-    gen_serdata_key_from_sample (tp, &d->key, d->c.loan->sample_ptr);
-  else
-  {
-    dds_istream_t is;
-    dds_istream_init (&is, md->sample_size, d->c.loan->sample_ptr, tp->write_encoding_version);
-    gen_serdata_key_from_cdr (&is, &d->key, tp, kind == SDK_KEY);
-  }
-
   if (md->sample_state == DDS_LOANED_SAMPLE_STATE_SERIALIZED_KEY || md->sample_state == DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA)
   {
     dds_heap_loan (type, &d->c.loan); // FIXME: check return code
@@ -916,6 +907,15 @@ static struct ddsi_serdata * serdata_default_from_psmx (const struct ddsi_sertyp
   }
 
   dds_loaned_sample_ref (d->c.loan);
+
+  if (md->sample_state != DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA)
+    gen_serdata_key_from_sample (tp, &d->key, d->c.loan->sample_ptr);
+  else
+  {
+    dds_istream_t is;
+    dds_istream_init (&is, md->sample_size, d->c.loan->sample_ptr, tp->write_encoding_version);
+    gen_serdata_key_from_cdr (&is, &d->key, tp, kind == SDK_KEY);
+  }
 
   return (struct ddsi_serdata *) d;
 }
