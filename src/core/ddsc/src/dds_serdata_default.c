@@ -36,6 +36,8 @@
 #define DEFAULT_NEW_SIZE 128
 #define CHUNK_SIZE 128
 
+static void serdata_default_get_keyhash (const struct ddsi_serdata *serdata_common, struct ddsi_keyhash *buf, bool force_md5);
+
 #ifndef NDEBUG
 static int ispowerof2_size (size_t x)
 {
@@ -471,7 +473,7 @@ static struct ddsi_serdata *serdata_default_from_loaned_sample(const struct ddsi
     loan = the loaned buffer in use
     force_serialization = whether the contents of the loaned sample should be serialized
   */
-  const struct dds_sertype_default *t = (const struct dds_sertype_default *)tpcmn;
+  const struct dds_sertype_default *t = (const struct dds_sertype_default *) tpcmn;
 
   bool serialize_data = force_serialization || dds_psmx_endpoint_serialization_required (loan->loan_origin);
 
@@ -488,22 +490,21 @@ static struct ddsi_serdata *serdata_default_from_loaned_sample(const struct ddsi
       return NULL;
   }
 
-  if (d)
+  if (d != NULL)
   {
     d->c.loan = loan;
     // transfer ownership of the loan to the serdata
     dds_loaned_sample_ref (loan);
     dds_loan_manager_remove_loan (loan);
 
-    struct dds_psmx_metadata *md = loan->metadata;
-    md->cdr_options = d->hdr.options;
+    d->c.loan->metadata->cdr_options = d->hdr.options;
     switch (d->hdr.identifier)
     {
       case DDSI_RTPS_CDR_BE:
       case DDSI_RTPS_CDR_LE:
       case DDSI_RTPS_PL_CDR_BE:
       case DDSI_RTPS_PL_CDR_LE:
-        md->cdr_identifier = DDSI_RTPS_CDR_ENC_VERSION_1;
+        d->c.loan->metadata->cdr_identifier = DDSI_RTPS_CDR_ENC_VERSION_1;
         break;
       case DDSI_RTPS_CDR2_BE:
       case DDSI_RTPS_CDR2_LE:
@@ -511,46 +512,37 @@ static struct ddsi_serdata *serdata_default_from_loaned_sample(const struct ddsi
       case DDSI_RTPS_D_CDR2_LE:
       case DDSI_RTPS_PL_CDR2_BE:
       case DDSI_RTPS_PL_CDR2_LE:
-        md->cdr_identifier = DDSI_RTPS_CDR_ENC_VERSION_2;
+        d->c.loan->metadata->cdr_identifier = DDSI_RTPS_CDR_ENC_VERSION_2;
         break;
       default:
-        md->cdr_identifier = DDSI_RTPS_CDR_ENC_VERSION_UNDEF;
+        d->c.loan->metadata->cdr_identifier = DDSI_RTPS_CDR_ENC_VERSION_UNDEF;
     }
 
-    if (loan->sample_ptr != sample) //if the sample we are serializing is itself not loaned
+    if (d->c.loan->sample_ptr != sample) //if the sample we are serializing is itself not loaned
     {
-      assert (md->sample_state == DDS_LOANED_SAMPLE_STATE_UNITIALIZED);
+      assert (d->c.loan->metadata->sample_state == DDS_LOANED_SAMPLE_STATE_UNITIALIZED);
       if (serialize_data)
       {
-        md->sample_state = (kind == SDK_KEY ? DDS_LOANED_SAMPLE_STATE_SERIALIZED_KEY : DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA);
-        memcpy (loan->sample_ptr, d->data, md->sample_size);
+        d->c.loan->metadata->sample_state = (kind == SDK_KEY ? DDS_LOANED_SAMPLE_STATE_SERIALIZED_KEY : DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA);
+        memcpy (d->c.loan->sample_ptr, d->data, d->c.loan->metadata->sample_size);
       }
       else
       {
-        md->sample_state = DDS_LOANED_SAMPLE_STATE_RAW;
-        memcpy (loan->sample_ptr, sample, md->sample_size);
+        d->c.loan->metadata->sample_state = DDS_LOANED_SAMPLE_STATE_RAW;
+        memcpy (d->c.loan->sample_ptr, sample, d->c.loan->metadata->sample_size);
       }
     }
     else
     {
-      md->sample_state = DDS_LOANED_SAMPLE_STATE_RAW;
+      d->c.loan->metadata->sample_state = DDS_LOANED_SAMPLE_STATE_RAW;
     }
 
-    md->hash = d->c.hash;
-    switch (d->key.buftype)
-    {
-      case KEYBUFTYPE_STATIC:
-        memcpy (md->keyhash, d->key.u.stbuf, d->key.keysize);
-        break;
-      case KEYBUFTYPE_DYNALIAS:
-      case KEYBUFTYPE_DYNALLOC:
-        assert (d->key.keysize <= DDS_FIXED_KEY_MAX_SIZE);
-        memcpy (md->keyhash, d->key.u.dynbuf, d->key.keysize);
-        break;
-      default:
-        assert(0);
-    }
-    md->keysize = d->key.keysize;
+    d->c.loan->metadata->hash = d->c.hash;
+
+    struct ddsi_keyhash kh;
+    serdata_default_get_keyhash (&d->c, &kh, true);
+    memcpy (d->c.loan->metadata->keyhash, kh.value, sizeof (d->c.loan->metadata->keyhash));
+    d->c.loan->metadata->keysize = d->key.keysize;
   }
 
   return (struct ddsi_serdata *) d;
@@ -878,31 +870,37 @@ static struct ddsi_serdata * serdata_default_from_psmx (const struct ddsi_sertyp
 {
   const struct dds_sertype_default *tp = (const struct dds_sertype_default *) type;
   struct dds_psmx_metadata *md = loaned_sample->metadata;
-  enum ddsi_serdata_kind sdk = 0;
+  enum ddsi_serdata_kind kind = 0;
   switch (md->sample_state)
   {
     case DDS_LOANED_SAMPLE_STATE_SERIALIZED_KEY:
-      sdk = SDK_KEY;
+      kind = SDK_KEY;
       break;
     case DDS_LOANED_SAMPLE_STATE_RAW:
     case DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA:
-      sdk = SDK_DATA;
+      kind = SDK_DATA;
       break;
     default:
       assert(false); //???
-      sdk = SDK_EMPTY;
+      kind = SDK_EMPTY;
       break;
   }
 
-  struct dds_serdata_default *d = serdata_default_new (tp, sdk, md->cdr_identifier);
+  struct dds_serdata_default *d = serdata_default_new_size (tp, kind, md->sample_size, md->cdr_identifier);
   d->c.hash = md->hash;
   d->c.statusinfo = md->statusinfo;
   d->c.timestamp.v = md->timestamp;
-  memcpy (d->key.u.stbuf, md->keyhash, DDS_FIXED_KEY_MAX_SIZE);
-  d->key.keysize = (unsigned) md->keysize;
-  d->key.buftype = KEYBUFTYPE_STATIC;
   d->hdr.identifier = DDSI_RTPS_CDR_ENC_TO_NATIVE (md->cdr_identifier);
   d->hdr.options = md->cdr_options;
+
+  if (md->sample_state != DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA)
+    gen_serdata_key_from_sample (tp, &d->key, d->c.loan->sample_ptr);
+  else
+  {
+    dds_istream_t is;
+    dds_istream_init (&is, md->sample_size, d->c.loan->sample_ptr, tp->write_encoding_version);
+    gen_serdata_key_from_cdr (&is, &d->key, tp, kind == SDK_KEY);
+  }
 
   if (md->sample_state == DDS_LOANED_SAMPLE_STATE_SERIALIZED_KEY || md->sample_state == DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA)
   {
