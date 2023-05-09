@@ -473,13 +473,14 @@ dds_return_t dds_return_reader_loan (dds_reader *rd, void **buf, int32_t bufsz)
 
     if (loan)
     {
+      dds_loaned_sample_ref (loan);
+      dds_loan_manager_remove_loan (loan);
       if (!loan->loan_origin)
       {
-        if ((ret = dds_loan_manager_move_loan(rd->m_loan_pool, loan)) == DDS_RETCODE_OK)
-          ret = dds_loaned_sample_reset_sample(loan);
+        if ((ret = dds_loan_manager_add_loan (rd->m_loan_pool, loan)) == DDS_RETCODE_OK)
+          ret = dds_loaned_sample_reset_sample (loan);
       }
-      else
-        ret = dds_loan_manager_remove_loan(loan);
+      dds_loaned_sample_unref (loan);
 
       if (ret == DDS_RETCODE_OK)
         buf[s] = NULL;

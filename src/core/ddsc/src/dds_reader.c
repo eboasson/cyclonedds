@@ -721,33 +721,33 @@ dds_return_t dds_reader_store_loaned_sample (dds_entity_t reader, dds_loaned_sam
   dds_guid_t guid = data->metadata->guid;
   struct ddsi_serdata * sd = ddsi_serdata_from_psmx (rd->type, data);
   if (sd == NULL)
-    goto fail_locked;
+  {
+    ret = DDS_RETCODE_ERROR;
+    goto fail_serdata;
+  }
 
   struct ddsi_writer_info wi;
   if ((ret = get_writer_info (gv, &guid, sd->statusinfo, &wi)) != DDS_RETCODE_OK)
-    goto fail_locked;
+    goto fail_get_writer_info;
 
   struct ddsi_tkmap_instance * tk = ddsi_tkmap_lookup_instance_ref (gv->m_tkmap, sd);
   if (tk == NULL)
   {
     ret = DDS_RETCODE_BAD_PARAMETER;
-    goto fail_locked;
+    goto fail_get_writer_info;
   }
 
-  if (!dds_rhc_store (dds_rd->m_rhc, &wi, sd, tk))  // FIXME: the reader history cache is now the owner of sd?
+  if (!dds_rhc_store (dds_rd->m_rhc, &wi, sd, tk))
   {
     ret = DDS_RETCODE_ERROR;
     goto fail_rhc_store;
   }
 
-  if (sd->loan)
-    ret = dds_loan_manager_add_loan (dds_rd->m_loans, sd->loan);
-
-  ddsi_serdata_unref (sd);
-
 fail_rhc_store:
   ddsi_tkmap_instance_unref (gv->m_tkmap, tk);
-fail_locked:
+fail_get_writer_info:
+  ddsi_serdata_unref (sd);
+fail_serdata:
   ddsrt_mutex_unlock (&rd->e.lock);
   ddsi_thread_state_asleep (ddsi_lookup_thread_state ());
   dds_entity_unpin (e);

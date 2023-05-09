@@ -193,26 +193,6 @@ dds_return_t dds_loan_manager_add_loan (dds_loan_manager_t *manager, dds_loaned_
   return dds_loaned_sample_ref (loaned_sample);
 }
 
-dds_return_t dds_loan_manager_move_loan (dds_loan_manager_t *manager, dds_loaned_sample_t *loaned_sample)
-{
-  dds_return_t ret;
-  if (manager == NULL || loaned_sample == NULL)
-    return DDS_RETCODE_BAD_PARAMETER;
-
-  if ((ret = dds_loaned_sample_ref (loaned_sample)) != DDS_RETCODE_OK)
-    return ret;
-
-  if ((ret = dds_loan_manager_remove_loan (loaned_sample)) != DDS_RETCODE_OK
-      || (ret = dds_loan_manager_add_loan (manager, loaned_sample)) != DDS_RETCODE_OK)
-    goto err;
-
-  return dds_loaned_sample_unref (loaned_sample);
-
-err:
-  dds_loaned_sample_unref (loaned_sample);
-  return ret;
-}
-
 static dds_return_t loan_manager_remove_loan_locked (dds_loaned_sample_t *loaned_sample)
 {
   assert (loaned_sample);
