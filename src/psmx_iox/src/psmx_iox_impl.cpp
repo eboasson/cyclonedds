@@ -122,7 +122,7 @@ iox_psmx::iox_psmx(dds_loan_origin_type_t psmx_type, const char *service_name, c
   uint64_t psmx_instance_id = static_cast<uint64_t>(t) ^ ((uint64_t)this) ^ psmx_type;
 
   char iox_runtime_name[64];
-  sprintf(iox_runtime_name, "CycloneDDS-iox_psmx-%016" PRIx64, psmx_instance_id);
+  snprintf(iox_runtime_name, sizeof(iox_runtime_name), "CycloneDDS-iox_psmx-%016" PRIx64, psmx_instance_id);
   iox::runtime::PoshRuntime::initRuntime(iox_runtime_name);
   _listener = std::unique_ptr<iox::popo::Listener>(new iox::popo::Listener());
 
@@ -152,7 +152,7 @@ void iox_psmx::discover_node_id(dds_psmx_node_identifier_t node_id_fallback)
   iox::runtime::ServiceDiscovery serviceDiscovery;
   char tentative_node_id_str[64];
   for (uint32_t n = 0; n < 16; n++)
-    sprintf(tentative_node_id_str + 2 * n, "%02" PRIx8, node_id_fallback.x[n]);
+    snprintf(tentative_node_id_str + 2 * n, sizeof(tentative_node_id_str) - 2 * n, "%02" PRIx8, node_id_fallback.x[n]);
   unsigned int node_ids_present = 0;
   iox::capro::IdString_t outstr;
   serviceDiscovery.findService(iox::capro::IdString_t{_service_name},
@@ -197,7 +197,7 @@ iox_psmx_topic::iox_psmx_topic(iox_psmx &psmx, const char * topic_name, dds_psmx
   {
     .ops = psmx_topic_ops,
     .psmx_instance = reinterpret_cast<struct dds_psmx*>(&psmx),
-    .topic_name = { 0 },
+    .topic_name = 0,
     .data_type = 0,
     .psmx_endpoints = nullptr,
     .data_type_props = data_type_props
@@ -215,7 +215,7 @@ iox_psmx_topic::iox_psmx_topic(iox_psmx &psmx, const char * topic_name, dds_psmx
     snprintf(_iox_topic_name + sizeof(_iox_topic_name) - 9, 9, "%08X", topic_name_hash);
   }
 
-  sprintf(_data_type_str, "CycloneDDS iox_datatype %08X", data_type);
+  snprintf(_data_type_str, sizeof (_data_type_str), "CycloneDDS iox_datatype %08X", data_type);
   if (dds_add_psmx_topic_to_list(reinterpret_cast<struct dds_psmx_topic*>(this), &psmx.psmx_topics) != DDS_RETCODE_OK)
   {
     fprintf(stderr, ERROR_PREFIX "could not add PSMX topic to list\n");
