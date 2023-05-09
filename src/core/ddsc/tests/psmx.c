@@ -657,7 +657,7 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
   CU_ASSERT_FATAL (rc == 0);
   for (int i = 0; i < MAX_DOMAINS; i++)
   {
-    rc = dds_delete (pp[i]);
+    rc = dds_delete (dds_get_parent (pp[i]));
     CU_ASSERT_FATAL (rc == 0);
   }
 }
@@ -718,7 +718,7 @@ CU_Test(ddsc_psmx, return_loan)
 
   // FIXME: check RSS
 
-  rc = dds_delete (pp);
+  rc = dds_delete (dds_get_parent (pp));
   CU_ASSERT_FATAL (rc == DDS_RETCODE_OK);
 }
 
@@ -816,7 +816,7 @@ CU_Test(ddsc_psmx, partition_xtalk)
   }
 
   dds_delete_qos (qos);
-  rc = dds_delete (pp);
+  rc = dds_delete (dds_get_parent (pp));
   CU_ASSERT_FATAL (rc == 0);
 }
 
@@ -867,5 +867,5 @@ CU_Test (ddsc_psmx, basic)
   while (!sample_read);
 
   SC_Model_free (samples[0], DDS_FREE_ALL);
-  dds_delete (participant);
+  dds_delete (dds_get_parent (participant));
 }
