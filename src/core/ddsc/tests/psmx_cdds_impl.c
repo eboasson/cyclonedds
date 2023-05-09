@@ -385,8 +385,12 @@ static uint32_t on_data_available_thread (void *a)
           dds_delete (cep->psmx_cdds_endpoint);
           dds_free (cep);
           ddsrt_atomic_dec32 (&cpsmx->endpoint_refs);
+          // restart from dds_waitset_wait because this endpoint may additionally have data
+          // and we can't run the risk of encountering it in a following entry in "triggered"
+          break;
         }
-        else if (ddsrt_atomic_ld32 (&cpsmx->on_data_thread_state) == ON_DATA_RUNNING)
+
+        if (ddsrt_atomic_ld32 (&cpsmx->on_data_thread_state) == ON_DATA_RUNNING)
         {
           assert (cep);
           dds_sample_info_t si;
