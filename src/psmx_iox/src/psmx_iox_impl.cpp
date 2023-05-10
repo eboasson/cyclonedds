@@ -417,7 +417,28 @@ static bool iox_qos_supported (const struct dds_qos * qos)
       return false;
   }
 
-  // FIXME: add more QoS chekcs (durability_service.kind/depth, ignore_local, liveliness, deadline)
+  dds_history_kind_t ds_history_kind;
+  int32_t ds_history_depth;
+  if (dds_qget_durability_service (qos, NULL, &ds_history_kind, &ds_history_depth, NULL, NULL, NULL))
+  {
+    if (d_kind == DDS_DURABILITY_TRANSIENT_LOCAL &&
+        ds_history_kind == DDS_HISTORY_KEEP_LAST &&
+        ds_history_depth > (int32_t)iox::MAX_PUBLISHER_HISTORY)
+      return false;
+  }
+
+  dds_ignorelocal_kind_t ignore_local;
+  if (dds_qget_ignorelocal (qos, &ignore_local) && ignore_local != DDS_IGNORELOCAL_NONE)
+    return false;
+
+  dds_liveliness_kind_t liveliness_kind;
+  if (dds_qget_liveliness (qos, &liveliness_kind, NULL) && liveliness_kind != DDS_LIVELINESS_AUTOMATIC)
+    return false;
+
+
+  dds_duration_t deadline_duration;
+  if (dds_qget_deadline (qos, &deadline_duration) && deadline_duration != DDS_INFINITY)
+    return false;
 
   return true;
 }
