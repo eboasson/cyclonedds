@@ -41,6 +41,25 @@ if(ENABLE_SOURCE_SPECIFIC_MULTICAST)
   set(ENABLE_SSM ON)
 endif()
 
+# Prefer iceoryx integration but do not require it.
+set(ENABLE_SHM "AUTO" CACHE STRING "Enable shared memory support")
+
+set_property(CACHE ENABLE_SHM PROPERTY STRINGS ON OFF AUTO)
+if(ENABLE_SHM)
+  if(NOT ENABLE_SHM STREQUAL "AUTO")
+    set(iceoryx_required REQUIRED)
+  else()
+    set(iceoryx_required QUIET)
+  endif()
+  find_package(iceoryx_hoofs ${iceoryx_required})
+  set(ENABLE_SHM ${iceoryx_hoofs_FOUND} CACHE STRING "" FORCE)
+endif()
+if(ENABLE_SHM)
+  message(STATUS "Building with Shared Memory support")
+else()
+  message(STATUS "Building without Shared Memory support")
+endif()
+
 # OpenSSL is huge, raising the RSS by 1MB or so, and moreover find_package(OpenSSL) causes
 # trouble on some older CMake versions that otherwise work fine, so provide an option to avoid
 # all OpenSSL related things.
@@ -75,4 +94,7 @@ if(BUILD_IDLC)
 endif()
 add_subdirectory(security)
 add_subdirectory(core)
-add_subdirectory(psmx_iox)
+
+if(ENABLE_SHM)
+  add_subdirectory(psmx_iox)
+endif()

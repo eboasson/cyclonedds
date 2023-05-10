@@ -161,27 +161,6 @@ if(ENABLE_DEADLINE_MISSED)
   endforeach()
 endif()
 
-# PSMX implementation with Cyclone as transport, for testing
-idlc_generate(TARGET psmx_cdds_data FILES psmx_cdds_data.idl)
-set(psmx_cdds_sources
-  "psmx_cdds_impl.c"
-  "psmx_cdds_impl.h")
-add_library(psmx_cdds SHARED ${psmx_cdds_sources})
-target_include_directories(
-  psmx_cdds PRIVATE
-  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../ddsi/include>")
-target_link_libraries(psmx_cdds PRIVATE ddsc psmx_cdds_data)
-
-get_test_property(CUnit_ddsc_psmx_basic ENVIRONMENT CUnit_ddsc_psmx_basic_env)
-set(CUnit_ddsc_psmx_basic_file "${CMAKE_CURRENT_LIST_DIR}/config_psmx.xml")
-set(CUnit_ddsc_psmx_basic_uri "file://${CUnit_ddsc_psmx_basic_file}")
-set(CUnit_ddsc_psmx_basic_env "CDDS_PSMX_LIB=$<TARGET_FILE:psmx_cdds>;CYCLONEDDS_URI=${CUnit_ddsc_psmx_basic_uri}")
-set_tests_properties(
-	CUnit_ddsc_psmx_basic
-	PROPERTIES
-		REQUIRED_FILES ${CUnit_ddsc_psmx_basic_file}
-		ENVIRONMENT "${CUnit_ddsc_psmx_basic_env}")
-
 configure_file("config_env.h.in" "config_env.h" @ONLY)
 
 add_executable(oneliner
@@ -199,3 +178,87 @@ target_include_directories(
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../cdr/include>")
 
 target_link_libraries(oneliner PRIVATE RoundTrip Space ddsc)
+
+# Iceoryx itself isn't really supported yet on Windows, so it
+# better not be part of the tests.  That also saves us from
+# having to figure out now how to start/stop RouDi on Windows.
+if(ENABLE_SHM AND NOT DEFINED ENV{COLCON})
+
+  # We need to start RouDi, so we need to find it
+  find_program(ICEORYX_ROUDI iox-roudi REQUIRED)
+
+  # The run-time library paths aren't set in iox-roudi so we need to set
+  # (DY)LD_LIBRARY_PATH.  CTest can't start a daemon, so we have to use
+  # a wrapper to start a process, for which bash makes the most sense
+  # when targetting just Linux and macOS.  However, that means macOS
+  # will strip DYLD_LIBRARY_PATH from the environment and therefore we
+  # cannot rely on "set_test_library_paths".
+  find_library(ICEORYX_LIB iceoryx_binding_c)
+  get_filename_component(ICEORYX_LIB_PATH ${ICEORYX_LIB} DIRECTORY)
+  if(APPLE)
+    set(ICEORYX_ROUDI_LIBPATH "DYLD_LIBRARY_PATH=${ICEORYX_LIB_PATH}:$ENV{DYLD_LIBRARY_PATH}")
+  else()
+    set(ICEORYX_ROUDI_LIBPATH "LD_LIBRARY_PATH=${ICEORYX_LIB_PATH}:$ENV{LD_LIBRARY_PATH}")
+  endif()
+  # CTest waits until the child process terminates *AND* the stdin/stdout/stderr
+  # pipes are closed.  Redirecting the output to a file solves that problem.
+  #
+  # Write the process id of RouDi to ctest_fixture_iox_roudi.pid so we know what
+  # process to kill in the cleanup phase.
+  #
+  # Sleep + kill -0 to check that RouDi really did start, cat'ing the log file in case
+  # it failed to start.
+  add_test(NAME start_roudi COMMAND
+    bash -c
+    "\
+${ICEORYX_ROUDI_LIBPATH} ${ICEORYX_ROUDI} -c ${CMAKE_CURRENT_SOURCE_DIR}/iox_roudi_config.toml \
+  </dev/null >ctest_fixture_iox_roudi.output 2>&1 & echo $! > ctest_fixture_iox_roudi.pid ; \
+sleep 1 ; \
+cat ctest_fixture_iox_roudi.output ; \
+kill -0 `cat ctest_fixture_iox_roudi.pid`")
+  set_test_library_paths(start_roudi)
+
+  # SIGTERM should suffice for stopping RouDi
+  add_test(NAME stop_roudi COMMAND bash -c "kill `cat ctest_fixture_iox_roudi.pid` ; cat ctest_fixture_iox_roudi.output")
+
+  set_tests_properties(start_roudi PROPERTIES FIXTURES_SETUP iox)
+  set_tests_properties(stop_roudi PROPERTIES FIXTURES_CLEANUP iox)
+  set_tests_properties(start_roudi stop_roudi PROPERTIES RESOURCE_LOCK iox_lock)
+
+  set(CUnit_ddsc_psmx_env "CDDS_PSMX_NAME=iox;CDDS_PSMX_LIB=$<TARGET_FILE:psmx_iox>")
+  foreach(t
+      ddsc_psmx_one_writer
+      ddsc_psmx_one_writer_dynsize
+      ddsc_psmx_one_writer_dynsize_strkey
+      ddsc_psmx_return_loan
+      ddsc_psmx_partition_xtalk
+      ddsc_psmx_basic
+  )
+    set_tests_properties(CUnit_${t} PROPERTIES FIXTURES_REQUIRED iox)
+    set_tests_properties(CUnit_${t} PROPERTIES RESOURCE_LOCK iox_lock)
+    set_tests_properties(CUnit_${t} PROPERTIES ENVIRONMENT "${CUnit_ddsc_psmx_env}")
+  endforeach()
+else()
+  # PSMX implementation with Cyclone as transport, for testing
+  idlc_generate(TARGET psmx_cdds_data FILES psmx_cdds_data.idl)
+  set(psmx_cdds_sources
+    "psmx_cdds_impl.c"
+    "psmx_cdds_impl.h")
+  add_library(psmx_cdds SHARED ${psmx_cdds_sources})
+  target_include_directories(
+    psmx_cdds PRIVATE
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../ddsi/include>")
+  target_link_libraries(psmx_cdds PRIVATE ddsc psmx_cdds_data)
+
+  set(CUnit_ddsc_psmx_env "CDDS_PSMX_NAME=cdds;CDDS_PSMX_LIB=$<TARGET_FILE:psmx_cdds>")
+  foreach(t
+      ddsc_psmx_one_writer
+      ddsc_psmx_one_writer_dynsize
+      ddsc_psmx_one_writer_dynsize_strkey
+      ddsc_psmx_return_loan
+      ddsc_psmx_partition_xtalk
+      ddsc_psmx_basic
+  )
+    set_tests_properties(CUnit_${t} PROPERTIES ENVIRONMENT "${CUnit_ddsc_psmx_env}")
+  endforeach()
+endif()

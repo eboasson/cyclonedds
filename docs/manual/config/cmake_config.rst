@@ -26,6 +26,9 @@ addition to the standard options such as ``CMAKE_BUILD_TYPE``):
     * - ``-DENABLE_SSL=NO``
       - Do not look for OpenSSL, remove TLS/TCP support and avoid building the plugins that
         implement authentication and encryption (default is ``AUTO`` to enable them if OpenSSL is found)
+    * - ``-DENABLE_SHM=NO``
+      - Do not look for |url::iceoryx_link| and disable :ref:`shared_memory` (default
+        is ``AUTO`` to enable it if iceoryx is found).
     * - ``-DENABLE_SECURITY=NO``
       - Do not build the security interfaces and hooks in the core code, nor the plugins
         (you can enable security without OpenSSL present, you'll just have to find

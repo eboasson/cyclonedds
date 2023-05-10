@@ -34,8 +34,6 @@
 const uint32_t test_index_start = 0;
 const uint32_t test_index_end = UINT32_MAX;
 
-#define PSMX_IMPL "iox"
-
 static const struct psmx_locator {
   unsigned char a[16];
 } psmx_locators[] = {
@@ -68,7 +66,7 @@ ${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}\
 <General>\
   <AllowMulticast>spdp</AllowMulticast>\
   <Interfaces>\
-    <PubSubMessageExchange name=\"" PSMX_IMPL "\" library=\"${CDDS_PSMX_LIB}\" priority=\"1000000\" config=\"LOCATOR=%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x;\" />\
+    <PubSubMessageExchange name=\"${CDDS_PSMX_NAME:-cdds}\" library=\"${CDDS_PSMX_LIB}\" priority=\"1000000\" config=\"LOCATOR=%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x;\" />\
   </Interfaces>\
 </General>\
 <Discovery>\
@@ -828,6 +826,7 @@ CU_Test (ddsc_psmx, basic)
   void *samples[MAX_SAMPLES];
   dds_sample_info_t infos[MAX_SAMPLES];
   dds_entity_t participant, topic, writer, reader;
+  bool psmx_enabled;
 
   participant = create_participant (0);
   CU_ASSERT_FATAL (participant > 0);
@@ -837,9 +836,13 @@ CU_Test (ddsc_psmx, basic)
 
   writer = dds_create_writer (participant, topic, NULL, NULL);
   CU_ASSERT_FATAL (writer > 0);
+  psmx_enabled = endpoint_has_psmx_enabled (writer);
+  CU_ASSERT_FATAL (psmx_enabled);
 
   reader = dds_create_reader (participant, topic, NULL, NULL);
   CU_ASSERT_FATAL (reader > 0);
+  psmx_enabled = endpoint_has_psmx_enabled (reader);
+  CU_ASSERT_FATAL (psmx_enabled);
 
   sync_reader_writer (participant, reader, participant, writer);
 
