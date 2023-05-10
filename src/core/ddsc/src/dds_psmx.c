@@ -20,7 +20,7 @@
 #include "dds__psmx.h"
 #include "dds__qos.h"
 
-static struct dds_psmx_endpoint * psmx_create_endpoint (struct dds_psmx_topic *psmx_topic, uint32_t n_partitions, const char **partitions, dds_psmx_endpoint_type_t endpoint_type);
+static struct dds_psmx_endpoint * psmx_create_endpoint (struct dds_psmx_topic *psmx_topic, const struct dds_qos *qos, dds_psmx_endpoint_type_t endpoint_type);
 static dds_return_t psmx_delete_endpoint (struct dds_psmx_endpoint *psmx_endpoint);
 
 dds_return_t dds_add_psmx_topic_to_list (struct dds_psmx_topic *topic, struct dds_psmx_topic_list_elem **list)
@@ -293,10 +293,10 @@ dds_return_t dds_pubsub_message_exchange_fini (dds_domain *domain)
   return ret;
 }
 
-static struct dds_psmx_endpoint * psmx_create_endpoint (struct dds_psmx_topic *psmx_topic, uint32_t n_partitions, const char **partitions, dds_psmx_endpoint_type_t endpoint_type)
+static struct dds_psmx_endpoint * psmx_create_endpoint (struct dds_psmx_topic *psmx_topic, const struct dds_qos *qos, dds_psmx_endpoint_type_t endpoint_type)
 {
   assert (psmx_topic && psmx_topic->ops.create_endpoint);
-  return psmx_topic->ops.create_endpoint (psmx_topic, n_partitions, partitions, endpoint_type);
+  return psmx_topic->ops.create_endpoint (psmx_topic, qos, endpoint_type);
 }
 
 static dds_return_t psmx_delete_endpoint (struct dds_psmx_endpoint *psmx_endpoint)
@@ -316,15 +316,7 @@ dds_return_t dds_endpoint_add_psmx_endpoint (struct dds_endpoint *ep, const dds_
       continue;
     if (!psmx_topic->psmx_instance->ops.qos_supported (qos))
       continue;
-    uint32_t n_partitions = 0;
-    char **partitions = NULL;
-    dds_qget_partition (qos, &n_partitions, &partitions);
-    struct dds_psmx_endpoint *psmx_endpoint = psmx_create_endpoint (psmx_topic, n_partitions, (const char **) partitions, endpoint_type);
-    if (n_partitions > 0)
-    {
-      dds_free (partitions[0]);
-      dds_free (partitions);
-    }
+    struct dds_psmx_endpoint *psmx_endpoint = psmx_create_endpoint (psmx_topic, qos, endpoint_type);
     if (psmx_endpoint == NULL)
       goto err;
 

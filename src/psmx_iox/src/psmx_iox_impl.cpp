@@ -58,7 +58,7 @@ static const dds_psmx_ops_t psmx_ops = {
 
 
 static bool iox_serialization_required (dds_psmx_data_type_properties_t data_type);
-static struct dds_psmx_endpoint * iox_create_endpoint (struct dds_psmx_topic * psmx_topic, uint32_t n_partitions, const char **partitions, dds_psmx_endpoint_type_t endpoint_type);
+static struct dds_psmx_endpoint * iox_create_endpoint (struct dds_psmx_topic * psmx_topic, const struct dds_qos *qos, dds_psmx_endpoint_type_t endpoint_type);
 static dds_return_t iox_delete_endpoint (struct dds_psmx_endpoint * psmx_endpoint);
 
 static const dds_psmx_topic_ops_t psmx_topic_ops = {
@@ -227,7 +227,7 @@ iox_psmx_topic::~iox_psmx_topic()
 
 struct iox_psmx_endpoint: public dds_psmx_endpoint_t
 {
-  iox_psmx_endpoint(iox_psmx_topic &topic, uint32_t n_partitions, const char **partitions, dds_psmx_endpoint_type_t endpoint_type);
+  iox_psmx_endpoint(iox_psmx_topic &topic, const struct dds_qos *qos, dds_psmx_endpoint_type_t endpoint_type);
   ~iox_psmx_endpoint();
   iox_psmx_topic &_parent;
   void *_iox_endpoint = nullptr;
@@ -264,21 +264,23 @@ char *iox_psmx_endpoint::get_partition_topic(const char *partition, const char *
   return combined;
 }
 
-iox_psmx_endpoint::iox_psmx_endpoint(iox_psmx_topic &psmx_topic, uint32_t n_partitions, const char **partitions, dds_psmx_endpoint_type_t endpoint_type):
+iox_psmx_endpoint::iox_psmx_endpoint(iox_psmx_topic &psmx_topic, const struct dds_qos *qos, dds_psmx_endpoint_type_t endpoint_type):
   dds_psmx_endpoint_t
   {
     .ops = psmx_ep_ops,
     .psmx_topic = reinterpret_cast<struct dds_psmx_topic*>(&psmx_topic),
-    .n_partitions = n_partitions,
-    .partitions = partitions,
     .endpoint_type = endpoint_type
   }, _parent(psmx_topic)
 {
   char *partition_topic;
-  if (n_partitions > 0 && strlen(partitions[0]) > 0)
+  uint32_t n_partitions;
+  char **partitions;
+  if (dds_qget_partition (qos, &n_partitions, &partitions) && n_partitions > 0)
   {
     assert(n_partitions == 1);
     partition_topic = get_partition_topic(partitions[0], psmx_topic.topic_name);
+    dds_free(partitions[0]);
+    dds_free(partitions);
   }
   else
     partition_topic = dds_string_dup(psmx_topic.topic_name);
@@ -411,9 +413,12 @@ static bool iox_qos_supported (const struct dds_qos * qos)
   char **partitions;
   if (dds_qget_partition (qos, &n_partitions, &partitions))
   {
-    if (n_partitions > 1)
-      return false;
-    if (n_partitions == 1 && is_wildcard_partition(partitions[0]))
+    bool supported = n_partitions == 0 || (n_partitions == 1 && strlen (partitions[0]) > 0 && !is_wildcard_partition(partitions[0]));
+    for (uint32_t n = 0; n < n_partitions; n++)
+      dds_free (partitions[n]);
+    if (n_partitions > 0)
+      dds_free (partitions);
+    if (!supported)
       return false;
   }
 
@@ -477,11 +482,11 @@ static bool iox_serialization_required (dds_psmx_data_type_properties_t data_typ
   return (data_type & DDS_DATA_TYPE_IS_FIXED_SIZE) == 0 || DDS_DATA_TYPE_CONTAINS_INDIRECTIONS(data_type) != 0;
 }
 
-static struct dds_psmx_endpoint* iox_create_endpoint (struct dds_psmx_topic * psmx_topic, uint32_t n_partitions, const char **partitions, dds_psmx_endpoint_type_t endpoint_type)
+static struct dds_psmx_endpoint* iox_create_endpoint (struct dds_psmx_topic * psmx_topic, const struct dds_qos *qos, dds_psmx_endpoint_type_t endpoint_type)
 {
   assert(psmx_topic);
   auto cpp_topic_ptr = reinterpret_cast<iox_psmx_topic*>(psmx_topic);
-  return reinterpret_cast<struct dds_psmx_endpoint*>(new iox_psmx_endpoint(*cpp_topic_ptr, n_partitions, partitions, endpoint_type));
+  return reinterpret_cast<struct dds_psmx_endpoint*>(new iox_psmx_endpoint(*cpp_topic_ptr, qos, endpoint_type));
 }
 
 static dds_return_t iox_delete_endpoint (struct dds_psmx_endpoint * psmx_endpoint)
