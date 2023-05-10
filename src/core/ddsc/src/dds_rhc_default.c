@@ -2232,7 +2232,7 @@ static int32_t take_w_qminv_inst (struct dds_rhc_default * const __restrict rhc,
 #endif
     take_sample_update_conditions (rhc, &pre, &post, &trig_qc, inst, inst->conds, inst->inv_isread);
     set_sample_info_invsample (info_seq + n, inst);
-    if (*(values + n) == NULL)
+    if (*(values + n) == NULL && use_loans)
     {
       dds_loaned_sample_t *ls = dds_loan_manager_get_loan(loan_pool);
       dds_loaned_sample_ref (ls);
