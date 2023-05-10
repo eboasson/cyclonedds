@@ -270,6 +270,7 @@ static struct dds_psmx_endpoint * cdds_psmx_create_endpoint (struct dds_psmx_top
       return NULL;
   }
   assert (cep->psmx_cdds_endpoint >= 0);
+  dds_delete_qos (psmx_ep_qos);
 
   dds_add_psmx_endpoint_to_list (&cep->c, &ctp->c.psmx_endpoints);
 

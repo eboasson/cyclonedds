@@ -612,6 +612,7 @@ psmx_fail:
   {
     dds_return_t rc_destruct = ktp->psmx_topics.topics[i]->psmx_instance->ops.delete_topic (ktp->psmx_topics.topics[i]);
     assert (rc_destruct == DDS_RETCODE_OK);
+    (void) rc_destruct;
     ktp->psmx_topics.topics[i] = NULL;
   }
 error:
