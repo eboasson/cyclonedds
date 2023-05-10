@@ -602,7 +602,7 @@ static dds_entity_t dds_create_reader_int (dds_entity_t participant_or_subscribe
   }
   dds_entity_add_ref_locked (&tp->m_entity);
 
-  if ((rc = dds_endpoint_open_psmx_endpoint (&rd->m_endpoint, rqos, tp->m_ktopic ? &tp->m_ktopic->psmx_topics : NULL, DDS_PSMX_ENDPOINT_TYPE_READER)) != DDS_RETCODE_OK)
+  if ((rc = dds_endpoint_add_psmx_endpoint (&rd->m_endpoint, rqos, tp->m_ktopic ? &tp->m_ktopic->psmx_topics : NULL, DDS_PSMX_ENDPOINT_TYPE_READER)) != DDS_RETCODE_OK)
     goto err_create_endpoint;
 
   /* FIXME: listeners can come too soon ... should set mask based on listeners
@@ -646,13 +646,7 @@ static dds_entity_t dds_create_reader_int (dds_entity_t participant_or_subscribe
   return reader;
 
 err_psmx_endpoint_setcb:
-  for (uint32_t i = 0; i < rd->m_endpoint.psmx_endpoints.length; i++)
-  {
-    struct dds_psmx_endpoint *psmx_endpoint = rd->m_endpoint.psmx_endpoints.endpoints[i];
-    if (psmx_endpoint == NULL)
-      continue;
-    (void) dds_psmx_delete_endpoint (psmx_endpoint);
-  }
+  dds_endpoint_remove_psmx_endpoints (&rd->m_endpoint);
 err_create_endpoint:
 err_bad_qos:
 err_data_repr:

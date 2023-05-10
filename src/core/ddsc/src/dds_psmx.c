@@ -20,6 +20,9 @@
 #include "dds__psmx.h"
 #include "dds__qos.h"
 
+static struct dds_psmx_endpoint * psmx_create_endpoint (struct dds_psmx_topic *psmx_topic, uint32_t n_partitions, const char **partitions, dds_psmx_endpoint_type_t endpoint_type);
+static dds_return_t psmx_delete_endpoint (struct dds_psmx_endpoint *psmx_endpoint);
+
 dds_return_t dds_add_psmx_topic_to_list (struct dds_psmx_topic *topic, struct dds_psmx_topic_list_elem **list)
 {
   if (!topic)
@@ -117,7 +120,7 @@ dds_return_t dds_remove_psmx_endpoint_from_list (struct dds_psmx_endpoint *psmx_
   while (list_entry && list_entry->endpoint != psmx_endpoint)
     list_entry = list_entry->next;
 
-  if (list_entry != NULL && (ret = dds_psmx_delete_endpoint (list_entry->endpoint)) == DDS_RETCODE_OK)
+  if (list_entry != NULL && (ret = psmx_delete_endpoint (list_entry->endpoint)) == DDS_RETCODE_OK)
   {
     if (list_entry->prev)
       list_entry->prev->next = list_entry->next;
@@ -290,19 +293,19 @@ dds_return_t dds_pubsub_message_exchange_fini (dds_domain *domain)
   return ret;
 }
 
-struct dds_psmx_endpoint * dds_psmx_create_endpoint (struct dds_psmx_topic *psmx_topic, uint32_t n_partitions, const char **partitions, dds_psmx_endpoint_type_t endpoint_type)
+static struct dds_psmx_endpoint * psmx_create_endpoint (struct dds_psmx_topic *psmx_topic, uint32_t n_partitions, const char **partitions, dds_psmx_endpoint_type_t endpoint_type)
 {
   assert (psmx_topic && psmx_topic->ops.create_endpoint);
   return psmx_topic->ops.create_endpoint (psmx_topic, n_partitions, partitions, endpoint_type);
 }
 
-dds_return_t dds_psmx_delete_endpoint (struct dds_psmx_endpoint *psmx_endpoint)
+static dds_return_t psmx_delete_endpoint (struct dds_psmx_endpoint *psmx_endpoint)
 {
   assert (psmx_endpoint && psmx_endpoint->psmx_topic && psmx_endpoint->psmx_topic->ops.delete_endpoint);
   return psmx_endpoint->psmx_topic->ops.delete_endpoint (psmx_endpoint);
 }
 
-dds_return_t dds_endpoint_open_psmx_endpoint (struct dds_endpoint *ep, const dds_qos_t *qos, struct dds_psmx_topics_set *psmx_topics, dds_psmx_endpoint_type_t endpoint_type)
+dds_return_t dds_endpoint_add_psmx_endpoint (struct dds_endpoint *ep, const dds_qos_t *qos, struct dds_psmx_topics_set *psmx_topics, dds_psmx_endpoint_type_t endpoint_type)
 {
   ep->psmx_endpoints.length = 0;
   memset (ep->psmx_endpoints.endpoints, 0, sizeof (ep->psmx_endpoints.endpoints));
@@ -316,7 +319,7 @@ dds_return_t dds_endpoint_open_psmx_endpoint (struct dds_endpoint *ep, const dds
     uint32_t n_partitions = 0;
     char **partitions = NULL;
     dds_qget_partition (qos, &n_partitions, &partitions);
-    struct dds_psmx_endpoint *psmx_endpoint = dds_psmx_create_endpoint (psmx_topic, n_partitions, (const char **) partitions, endpoint_type);
+    struct dds_psmx_endpoint *psmx_endpoint = psmx_create_endpoint (psmx_topic, n_partitions, (const char **) partitions, endpoint_type);
     if (n_partitions > 0)
     {
       dds_free (partitions[0]);
@@ -330,9 +333,19 @@ dds_return_t dds_endpoint_open_psmx_endpoint (struct dds_endpoint *ep, const dds
   return DDS_RETCODE_OK;
 
 err:
-  for (uint32_t i = 0; i < ep->psmx_endpoints.length; i++)
-    (void) dds_psmx_delete_endpoint (ep->psmx_endpoints.endpoints[i]);
+  dds_endpoint_remove_psmx_endpoints (ep);
   return DDS_RETCODE_ERROR;
+}
+
+void dds_endpoint_remove_psmx_endpoints (struct dds_endpoint *ep)
+{
+  for (uint32_t i = 0; i < ep->psmx_endpoints.length; i++)
+  {
+    struct dds_psmx_endpoint *psmx_endpoint = ep->psmx_endpoints.endpoints[i];
+    if (psmx_endpoint == NULL)
+      continue;
+    (void) psmx_delete_endpoint (psmx_endpoint);
+  }
 }
 
 struct ddsi_psmx_locators_set *dds_get_psmx_locators_set (const dds_qos_t *qos, const struct dds_psmx_set *psmx_instances)

@@ -36,10 +36,6 @@ struct dds_psmx_endpoint_list_elem {
   struct dds_psmx_endpoint_list_elem * next; /*the next element in the list*/
 };
 
-struct dds_psmx_endpoint * dds_psmx_create_endpoint (struct dds_psmx_topic *topic, uint32_t n_partitions, const char **partitions, dds_psmx_endpoint_type_t endpoint_type);
-
-dds_return_t dds_psmx_delete_endpoint (struct dds_psmx_endpoint *psmx_endpoint);
-
 /**
  * @brief Definition for the function to load a PSMX instance
  *
@@ -57,7 +53,9 @@ dds_return_t dds_pubsub_message_exchange_init (const struct ddsi_domaingv *gv, s
 
 dds_return_t dds_pubsub_message_exchange_fini (struct dds_domain *domain);
 
-dds_return_t dds_endpoint_open_psmx_endpoint (struct dds_endpoint *ep, const dds_qos_t *qos, struct dds_psmx_topics_set *psmx_topics, dds_psmx_endpoint_type_t endpoint_type);
+dds_return_t dds_endpoint_add_psmx_endpoint (struct dds_endpoint *ep, const dds_qos_t *qos, struct dds_psmx_topics_set *psmx_topics, dds_psmx_endpoint_type_t endpoint_type);
+void dds_endpoint_remove_psmx_endpoints (struct dds_endpoint *ep);
+
 struct ddsi_psmx_locators_set *dds_get_psmx_locators_set (const dds_qos_t *qos, const struct dds_psmx_set *psmx_instances);
 void dds_psmx_locators_set_free (struct ddsi_psmx_locators_set *psmx_locators);
 
