@@ -398,6 +398,7 @@ dds_return_t dds_request_writer_loan(dds_writer *wr, void **samples_ptr, int32_t
       dds_loaned_sample_t *loan;
       if ((ret = dds_heap_loan (wr->m_topic->m_stype, &loan)) != DDS_RETCODE_OK)
         goto fail;
+      dds_loaned_sample_ref (loan);
       loans_ptr[index] = loan;
     }
   }
@@ -438,9 +439,8 @@ dds_return_t dds_return_writer_loan(dds_writer *wr, void **samples_ptr, int32_t 
     dds_loaned_sample_t * loan = dds_loan_manager_find_loan(wr->m_loans, sample);
     if (loan)
     {
-      /* refs(0):  user has discarded the sample already*/
-      //FIXME: not required? if ((ret = dds_loaned_sample_unref(loan)) == DDS_RETCODE_OK)
-      ret = dds_loan_manager_remove_loan(loan);
+      if ((ret = dds_loaned_sample_unref(loan)) == DDS_RETCODE_OK)
+        ret = dds_loan_manager_remove_loan(loan);
     }
     else
     {

@@ -314,7 +314,7 @@ static dds_loaned_sample_t * cdds_psmx_ep_request_loan (struct dds_psmx_endpoint
     ls->sample_ptr = dds_alloc (sz);
     memset (ls->sample_ptr, 0, sz);
     ls->loan_idx = 0;
-    ddsrt_atomic_st32 (&ls->refs, 0);
+    ddsrt_atomic_st32 (&ls->refs, 1);
   }
   return ls;
 }
