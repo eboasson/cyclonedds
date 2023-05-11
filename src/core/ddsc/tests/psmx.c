@@ -250,7 +250,7 @@ static int get_current_match_count (dds_entity_t rd_or_wr)
   }
 }
 
-static bool allmatched (dds_entity_t ws, dds_entity_t wr, int nrds, const dds_entity_t rds[nrds])
+static bool allmatched (dds_entity_t ws, dds_entity_t wr, int nrds, const dds_entity_t *rds)
 {
   // Checking whether the writer is done matching can't rely on
   // publication_matched.current_count because it takes some time
@@ -317,13 +317,13 @@ static const char *istatestr (dds_instance_state_t s)
   return "nowriters";
 }
 
-static bool alldataseen (struct tracebuf *tb, int nrds, const dds_entity_t rds[nrds], dds_instance_state_t instance_state)
+static bool alldataseen (struct tracebuf *tb, int nrds, const dds_entity_t *rds, dds_instance_state_t instance_state)
 {
   assert (nrds > 0);
   dds_return_t rc;
   const dds_entity_t ws = dds_create_waitset (dds_get_participant (rds[0]));
   CU_ASSERT_FATAL (ws > 0);
-  dds_entity_t rdconds[nrds];
+  dds_entity_t *rdconds = dds_alloc ((size_t) nrds * sizeof (*rdconds));
   for (int i = 0; i < nrds; i++)
   {
     // create read condition to make this function independent of other code that may or may not use DATA_AVAILABLE
@@ -340,7 +340,7 @@ static bool alldataseen (struct tracebuf *tb, int nrds, const dds_entity_t rds[n
 
   const dds_time_t abstimeout = dds_time () + DDS_MSECS (500);
   bool alldataseen = false;
-  int dataseen[nrds];
+  int *dataseen = dds_alloc ((size_t) nrds * sizeof (*dataseen));
   for (int i = 0; i < nrds; i++)
     dataseen[i] = (rdconds[i] == 0);
   do {
@@ -388,6 +388,8 @@ out:
   }
   rc = dds_delete (ws);
   CU_ASSERT_FATAL (rc == 0);
+  dds_free (rdconds);
+  dds_free (dataseen);
   return alldataseen;
 }
 
