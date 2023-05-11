@@ -195,9 +195,8 @@ install(TARGETS psmx_cdds
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-# Iceoryx itself isn't really supported yet on Windows, so it
-# better not be part of the tests.  That also saves us from
-# having to figure out now how to start/stop RouDi on Windows.
+# If Iceoryx is available, then also run all PSMX tests using Iceoryx.  Colcon complicates
+# things too much and it doesn't affect Cyclone's CI run anyway.
 if(ENABLE_SHM AND NOT DEFINED ENV{COLCON})
 
   # We need to start RouDi, so we need to find it
@@ -241,29 +240,14 @@ kill -0 `cat ctest_fixture_iox_roudi.pid`")
   set_tests_properties(stop_roudi PROPERTIES FIXTURES_CLEANUP iox)
   set_tests_properties(start_roudi stop_roudi PROPERTIES RESOURCE_LOCK iox_lock)
 
-  set(CUnit_ddsc_psmx_env "CDDS_PSMX_NAME=iox;LD_LIBRARY_PATH=$<TARGET_FILE_DIR:psmx_iox>:$ENV{LD_LIBRARY_PATH}")
-  foreach(t
-      ddsc_psmx_one_writer
-      ddsc_psmx_one_writer_dynsize
-      ddsc_psmx_one_writer_dynsize_strkey
-      ddsc_psmx_return_loan
-      ddsc_psmx_partition_xtalk
-      ddsc_psmx_basic
-  )
-    set_tests_properties(CUnit_${t} PROPERTIES FIXTURES_REQUIRED iox)
-    set_tests_properties(CUnit_${t} PROPERTIES RESOURCE_LOCK iox_lock)
-    set_tests_properties(CUnit_${t} PROPERTIES ENVIRONMENT "${CUnit_ddsc_psmx_env}")
-  endforeach()
-else()
-  set(CUnit_ddsc_psmx_env "CDDS_PSMX_NAME=cdds;LD_LIBRARY_PATH=$<TARGET_FILE_DIR:psmx_cdds>:$ENV{LD_LIBRARY_PATH}")
-  foreach(t
-      ddsc_psmx_one_writer
-      ddsc_psmx_one_writer_dynsize
-      ddsc_psmx_one_writer_dynsize_strkey
-      ddsc_psmx_return_loan
-      ddsc_psmx_partition_xtalk
-      ddsc_psmx_basic
-  )
-    set_tests_properties(CUnit_${t} PROPERTIES ENVIRONMENT "${CUnit_ddsc_psmx_env}")
+  # Construct Iceoryx-variants of all PSMX tests
+  get_property(test_names DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY TESTS)
+  list(FILTER test_names INCLUDE REGEX "^CUnit_ddsc_psmx_[A-Za-z_0-9]+$")
+  foreach(fullname ${test_names})
+    string(REGEX REPLACE "^CUnit_ddsc_psmx_(.*)" "\\1" shortname "${fullname}")
+    add_test(NAME ${fullname}_iox COMMAND cunit_ddsc -s ddsc_psmx -t ${shortname})
+    set_tests_properties(${fullname}_iox PROPERTIES FIXTURES_REQUIRED iox)
+    set_tests_properties(${fullname}_iox PROPERTIES RESOURCE_LOCK iox_lock)
+    set_tests_properties(${fullname}_iox PROPERTIES ENVIRONMENT "CDDS_PSMX_NAME=iox")
   endforeach()
 endif()
