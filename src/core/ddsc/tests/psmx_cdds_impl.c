@@ -526,7 +526,7 @@ dds_return_t cdds_create_psmx (dds_psmx_t **psmx_out, dds_loan_origin_type_t psm
           dds_free (lstr);
           goto err_locator;
         }
-        ((char *) (psmx->c.locator->address))[n / 2] += (char) ((n % 1) ? (num << 4) : num);
+        ((char *) (psmx->c.locator->address))[n / 2] |= (char) ((n % 1) ? (num << 4) : num);
       }
       dds_free (lstr);
     }
