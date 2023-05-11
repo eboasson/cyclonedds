@@ -191,6 +191,9 @@ target_include_directories(
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../ddsi/include>")
 target_link_libraries(psmx_cdds PRIVATE ddsc psmx_cdds_data)
 
+install(TARGETS psmx_cdds
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # Iceoryx itself isn't really supported yet on Windows, so it
 # better not be part of the tests.  That also saves us from
