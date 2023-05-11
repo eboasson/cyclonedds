@@ -524,6 +524,10 @@ static dds_return_t iox_write (struct dds_psmx_endpoint * psmx_endpoint, dds_loa
   auto publisher = reinterpret_cast<iox::popo::UntypedPublisher*>(cpp_ep_ptr->_iox_endpoint);
 
   publisher->publish(data->metadata);
+
+  // Clear metadata/sample_ptr so that any attempt to use it will cause a crash.  This gives no
+  // guarantee whatsoever, but in practice it does help in discovering use of a iox writer loan
+  // after publishing it.
   data->metadata = NULL;
   data->sample_ptr = NULL;
 

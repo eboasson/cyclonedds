@@ -34,7 +34,9 @@ void ddsi_serdata_init (struct ddsi_serdata *d, const struct ddsi_sertype *tp, e
 
 struct ddsi_serdata *ddsi_serdata_ref_as_type (const struct ddsi_sertype *type, struct ddsi_serdata *serdata)
 {
-  if (serdata->type == type)
+  // We can only safely store serdatas that have no loan or have a heap loan, because
+  // the PSMX loans get consumed by publishing the data
+  if (serdata->type == type && (serdata->loan == NULL || serdata->loan->loan_origin == NULL))
     return ddsi_serdata_ref (serdata);
   else
   {

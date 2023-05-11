@@ -123,6 +123,16 @@ static struct ddsi_serdata *local_make_sample (struct ddsi_tkmap_instance **tk, 
     DDS_CWARNING (&gv->logconfig, "local: deserialization %s failed in type conversion\n", type->type_name);
     return NULL;
   }
+  // Mustn't store *PSMX writer* loans in RHCs because the PSMX write operation is
+  // assumed to consume the reference (the write path zeros some pointers in the
+  // loan structure to give us a fighting chance of catching a mistake).
+  //
+  // Loans from *PSMX reader* are ok, those are meant to hang around until the
+  // application uses that data and releases it. But those don't go through here.
+  //
+  // And for completeness: data arriving over the network never goes through here
+  // either.
+  assert (d->loan == NULL || d->loan->loan_origin == NULL);
   if (type != si->src_type)
     *tk = ddsi_tkmap_lookup_instance_ref (gv->m_tkmap, d);
   else
@@ -165,7 +175,7 @@ static dds_return_t deliver_locally (struct ddsi_writer *wr, struct ddsi_serdata
     .src_type = wr->type,
     .src_payload = payload,
     .src_tk = tk,
-    .timeout = { 0 },
+    .timeout = { 0 }
   };
   dds_return_t rc;
   struct ddsi_writer_info wrinfo;
@@ -246,7 +256,6 @@ static dds_return_t dds_writecdr_impl_common (struct ddsi_writer *ddsi_wr, struc
 
   ddsi_thread_state_awake (thrst, ddsi_wr->e.gv);
   ddsi_serdata_ref (&d->a); // d = din: refc(d) = r + 1, otherwise refc(d) = 2
-
 
   ret = deliver_data_any (thrst, ddsi_wr, d, xp, flush);
 
@@ -443,6 +452,18 @@ dds_return_t dds_return_writer_loan(dds_writer *wr, void **samples_ptr, int32_t 
   return ret;
 }
 
+// Synchronizes the current number of fast path readers and returns it.
+// Locking the mutex is needed to synchronize the value.
+// This number may change concurrently any time we do not hold the lock,
+// i.e. become outdated when we return from the function.
+static uint32_t get_num_fast_path_readers (struct ddsi_writer *ddsi_wr)
+{
+  ddsrt_mutex_lock (&ddsi_wr->rdary.rdary_lock);
+  uint32_t n = ddsi_wr->rdary.n_readers;
+  ddsrt_mutex_unlock (&ddsi_wr->rdary.rdary_lock);
+  return n;
+}
+
 // has to support two cases:
 // 1) data is in an external buffer allocated on the stack or dynamically
 // 2) data is in an zerocopy buffer obtained by dds_loan_sample
@@ -486,13 +507,33 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
   // it is rather unfortunate that this then means we have to lock here to check, then lock again to
   // actually distribute the data, so some further refactoring is needed.
   ddsrt_mutex_lock (&ddsi_wr->e.lock);
-  struct ddsi_addrset *as = ddsi_wr->as;
-  bool remote_readers = (ddsi_addrset_empty (as) == 0);  //this does not yet show the correct number of remote readers
+  const bool no_network_readers = ddsi_addrset_empty (ddsi_wr->as);
   ddsrt_mutex_unlock (&ddsi_wr->e.lock);
+
+  // NB: local readers are not in L := ddsi_wr->rdary if they use PSMX.
+  // Furthermore, all readers that ignore local publishers will not use PSMX.
+  // We will never use only(!) PSMX if there is any local reader in L.
+  // We will serialize the data in this case and deliver it mixed, i.e.
+  // partially with PSMX as required by the QoS and type. The readers in L
+  // will get the data via the local delivery mechanism (fast path or slow
+  // path).
+  const uint32_t num_fast_path_readers = get_num_fast_path_readers (ddsi_wr);
+
+  // If use_only_psmx is true, there were no fast path readers at the moment
+  // we checked.
+  // If fast path readers arive later, they may not get data but this
+  // is fine as we can consider their connections not fully established
+  // and hence they are not considered for data transfer.
+  // The alternative is to block new fast path connections entirely (by holding
+  // the mutex) until data delivery is complete.
+  const bool use_only_psmx =
+      no_network_readers &&
+      ddsi_wr->xqos->durability.kind == DDS_DURABILITY_VOLATILE &&
+      num_fast_path_readers == 0;
 
   // 5. Create a correct serdata
   d = loan ?
-    ddsi_serdata_from_loaned_sample (ddsi_wr->type, writekey ? SDK_KEY : SDK_DATA, data, loan, remote_readers) :
+    ddsi_serdata_from_loaned_sample (ddsi_wr->type, writekey ? SDK_KEY : SDK_DATA, data, loan, !use_only_psmx) :
     ddsi_serdata_from_sample (ddsi_wr->type, writekey ? SDK_KEY : SDK_DATA, data);
 
   //the supplied loan may no longer be necessary here

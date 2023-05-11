@@ -201,9 +201,9 @@ const ddsi_keyhash_t *ddsi_serdata_keyhash_from_fragchain (const struct ddsi_rda
  * @brief Return a reference to a serdata with possible type conversion
  * @component typesupport_if
  *
- * If `serdata` is of type `type`, this increments the reference count and returns
- * `serdata`.  Otherwise, it constructs a new one from the serialised representation of
- * `serdata`.  This can fail, in which case it returns NULL.
+ * If `serdata` is of type `type` and has no PSMX loan, this increments the reference count and returns
+ * `serdata`.  Otherwise, it constructs a new one from the serialised representation of `serdata`.
+ * This can fail, in which case it returns NULL.
  *
  * @param[in] type    sertype the returned serdata must have
  * @param[in] serdata  source sample (untouched except for the reference count and/or
