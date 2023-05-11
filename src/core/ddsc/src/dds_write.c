@@ -227,13 +227,12 @@ static dds_return_t deliver_data_any (struct ddsi_thread_state * const thrst, st
   return ret;
 }
 
-static dds_return_t dds_writecdr_impl_common (struct ddsi_writer *ddsi_wr, struct ddsi_xpack *xp, struct ddsi_serdata_any *din, bool flush, dds_writer *wr)
+static dds_return_t dds_writecdr_impl_common (struct ddsi_writer *ddsi_wr, struct ddsi_xpack *xp, struct ddsi_serdata_any *din, bool flush)
 {
   // consumes 1 refc from din in all paths (weird, but ... history ...)
   // let refc(din) be r, so upon returning it must be r-1
   struct ddsi_thread_state * const thrst = ddsi_lookup_thread_state ();
   int ret = DDS_RETCODE_OK;
-  assert (wr != NULL);
 
   struct ddsi_serdata_any * const d = convert_serdata(ddsi_wr, din);
   if (d == NULL)
@@ -556,7 +555,7 @@ return_loan:
 
 dds_return_t dds_writecdr_impl (dds_writer *wr, struct ddsi_xpack *xp, struct ddsi_serdata *dinp, bool flush)
 {
-  return dds_writecdr_impl_common (wr->m_wr, xp, (struct ddsi_serdata_any *)dinp, flush, wr);
+  return dds_writecdr_impl_common (wr->m_wr, xp, (struct ddsi_serdata_any *)dinp, flush);
 }
 
 void dds_write_flush (dds_entity_t writer)

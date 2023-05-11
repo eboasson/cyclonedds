@@ -82,9 +82,9 @@ ${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}\
   );
   char *xconfigstr = ddsrt_expand_envvars (configstr, int_dom);
   const dds_entity_t dom = dds_create_domain (int_dom, xconfigstr);
-  CU_ASSERT_FATAL (dom > 0);
   ddsrt_free (xconfigstr);
   ddsrt_free (configstr);
+  CU_ASSERT_FATAL (dom > 0);
   const dds_entity_t pp = dds_create_participant (int_dom, NULL, NULL);
   CU_ASSERT_FATAL (pp > 0);
   return pp;
