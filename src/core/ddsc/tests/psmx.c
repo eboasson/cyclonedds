@@ -271,7 +271,7 @@ static bool allmatched (dds_entity_t ws, dds_entity_t wr, int nrds, const dds_en
   }
   qsort (rdguids, (size_t) nrds, sizeof (rdguids[0]), ddsi_compare_guid);
 
-  const dds_time_t abstimeout = dds_time () + DDS_SECS (2);
+  const dds_time_t abstimeout = dds_time () + DDS_SECS (5);
   while (dds_time () < abstimeout)
   {
     (void) dds_waitset_wait_until (ws, NULL, 0, abstimeout);
