@@ -238,7 +238,7 @@ kill -0 `cat ctest_fixture_iox_roudi.pid`")
   set_tests_properties(stop_roudi PROPERTIES FIXTURES_CLEANUP iox)
   set_tests_properties(start_roudi stop_roudi PROPERTIES RESOURCE_LOCK iox_lock)
 
-  set(CUnit_ddsc_psmx_env "CDDS_PSMX_NAME=iox;CDDS_PSMX_LIB=$<TARGET_FILE:psmx_iox>")
+  set(CUnit_ddsc_psmx_env "CDDS_PSMX_NAME=iox")
   foreach(t
       ddsc_psmx_one_writer
       ddsc_psmx_one_writer_dynsize
@@ -252,7 +252,7 @@ kill -0 `cat ctest_fixture_iox_roudi.pid`")
     set_tests_properties(CUnit_${t} PROPERTIES ENVIRONMENT "${CUnit_ddsc_psmx_env}")
   endforeach()
 else()
-  set(CUnit_ddsc_psmx_env "CDDS_PSMX_NAME=cdds;CDDS_PSMX_LIB=$<TARGET_FILE:psmx_cdds>")
+  set(CUnit_ddsc_psmx_env "CDDS_PSMX_NAME=cdds")
   foreach(t
       ddsc_psmx_one_writer
       ddsc_psmx_one_writer_dynsize

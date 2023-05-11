@@ -51,7 +51,7 @@ static void fail_instance_state (void) { fail (); }
 static void fail_no_data (void) { fail (); }
 
 #if 0
-#define TRACE_CATEGORY "trace,rhc,shm"
+#define TRACE_CATEGORY "trace,rhc"
 #else
 #define TRACE_CATEGORY "discovery"
 #endif
@@ -66,7 +66,7 @@ ${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}\
 <General>\
   <AllowMulticast>spdp</AllowMulticast>\
   <Interfaces>\
-    <PubSubMessageExchange name=\"${CDDS_PSMX_NAME:-cdds}\" library=\"${CDDS_PSMX_LIB}\" priority=\"1000000\" config=\"LOCATOR=%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x;\" />\
+    <PubSubMessageExchange name=\"${CDDS_PSMX_NAME:-cdds}\" library=\"psmx_${CDDS_PSMX_NAME:-cdds}\" priority=\"1000000\" config=\"LOCATOR=%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x;\" />\
   </Interfaces>\
 </General>\
 <Discovery>\
