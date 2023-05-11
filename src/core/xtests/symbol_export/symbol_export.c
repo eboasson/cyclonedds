@@ -63,6 +63,7 @@
 #include "dds/ddsc/dds_loan_api.h"
 #include "dds/ddsc/dds_rhc.h"
 #include "dds/ddsc/dds_statistics.h"
+#include "dds/ddsc/dds_psmx.h"
 
 #include "dds/cdr/dds_cdrstream.h"
 
@@ -228,6 +229,8 @@ int main (int argc, char **argv)
   dds_get_typeinfo (1, ptr);
   dds_free_typeinfo (ptr);
   dds_get_entity_sertype (1, ptr);
+  dds_request_loan (1, ptr, 0);
+  dds_reader_store_loaned_sample (1, ptr);
 
   // dds_internal_api.h
   dds_reader_lock_samples (1);
@@ -342,6 +345,7 @@ int main (int argc, char **argv)
   dds_qset_type_consistency (ptr, 0, 0, 0, 0, 0, 0);
   dds_qset_data_representation (ptr, 0, ptr2);
   dds_qset_entity_name (ptr, ptr2);
+  dds_qset_psmx_instances (ptr, 0, ptr2);
   dds_qget_userdata (ptr, ptr2, ptr);
   dds_qget_topicdata (ptr, ptr2, ptr);
   dds_qget_groupdata (ptr, ptr2, ptr);
@@ -372,6 +376,7 @@ int main (int argc, char **argv)
   dds_qget_type_consistency (ptr, 0, ptr, ptr, ptr, ptr, ptr);
   dds_qget_data_representation (ptr, ptr, ptr);
   dds_qget_entity_name (ptr, ptr);
+  dds_qget_psmx_instances (ptr, ptr2, ptr3);
 
   // dds_public_status.h
   dds_get_inconsistent_topic_status (1, ptr);
@@ -429,7 +434,7 @@ int main (int argc, char **argv)
   dds_delete_statistics (ptr);
   dds_lookup_statistic (ptr, ptr);
 
-  // ddsi_cdrstream.h
+  // dds_cdrstream.h
   bool ret_cdrs;
   dds_istream_init (ptr, 0, ptr2, 0);
   dds_istream_fini (ptr);
@@ -468,6 +473,21 @@ int main (int argc, char **argv)
   dds_stream_extract_keyBE_from_key (ptr, ptr2, ptr3, ptr4);
   dds_cdrstream_desc_from_topic_desc (ptr, ptr2);
   dds_cdrstream_desc_fini (ptr, ptr2);
+
+  // dds_psmx.h
+  dds_add_psmx_endpoint_to_list (ptr, ptr2);
+  dds_add_psmx_topic_to_list (ptr, ptr2);
+  dds_remove_psmx_endpoint_from_list (ptr, ptr2);
+  dds_remove_psmx_topic_from_list (ptr, ptr2);
+  dds_psmx_init_generic (ptr);
+  dds_psmx_cleanup_generic (ptr);
+  dds_psmx_topic_init_generic (ptr, ptr2, ptr3);
+  dds_psmx_topic_cleanup_generic (ptr);
+
+  // dds_loan.h
+  dds_loaned_sample_ref (ptr);
+  dds_loaned_sample_unref (ptr);
+
 
 #ifdef DDS_HAS_SECURITY
   // dds_security_timed_cb.h
@@ -615,6 +635,8 @@ int main (int argc, char **argv)
   ddsi_serdata_print (ptr, buf, 0);
   ddsi_serdata_print_untyped (ptr, ptr, buf, 0);
   ddsi_serdata_get_keyhash (ptr, ptr, 0);
+  ddsi_serdata_from_loaned_sample (ptr, 0, ptr2, ptr3, 0);
+  ddsi_serdata_from_psmx (ptr, ptr2);
 
 #ifdef DDS_HAS_TYPE_DISCOVERY
   // ddsi_typewrap.h

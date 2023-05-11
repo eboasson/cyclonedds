@@ -26,6 +26,7 @@
 #include "dds__serdata_default.h"
 #include "dds__loan.h"
 #include "dds__heap_loan.h"
+#include "dds__psmx.h"
 
 /* 8k entries in the freelist seems to be roughly the amount needed to send
    minimum-size (well, 4 bytes) samples as fast as possible over loopback

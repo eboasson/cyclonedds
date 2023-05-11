@@ -10,9 +10,6 @@
 
 #include <assert.h>
 #include <string.h>
-#include "dds__writer.h"
-#include "dds__write.h"
-#include "dds__loan.h"
 #include "dds/ddsi/ddsi_tkmap.h"
 #include "dds/ddsi/ddsi_thread.h"
 #include "dds/ddsi/ddsi_xmsg.h"
@@ -30,6 +27,10 @@
 #include "dds/ddsi/ddsi_addrset.h"
 #include "dds/ddsc/dds_loan.h"
 #include "dds__heap_loan.h"
+#include "dds__writer.h"
+#include "dds__write.h"
+#include "dds__loan.h"
+#include "dds__psmx.h"
 
 struct ddsi_serdata_plain { struct ddsi_serdata p; };
 struct ddsi_serdata_any   { struct ddsi_serdata a; };

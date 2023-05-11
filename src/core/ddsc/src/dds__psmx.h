@@ -59,4 +59,21 @@ void dds_endpoint_remove_psmx_endpoints (struct dds_endpoint *ep);
 struct ddsi_psmx_locators_set *dds_get_psmx_locators_set (const dds_qos_t *qos, const struct dds_psmx_set *psmx_instances);
 void dds_psmx_locators_set_free (struct ddsi_psmx_locators_set *psmx_locators);
 
+/**
+ * @brief Request a loan
+ *
+ * @param[in] psmx_endpoint  the endpoint to request a loan for
+ * @param[in] sz    size of the loan
+ * @return a loaned sample
+ */
+dds_loaned_sample_t * dds_psmx_endpoint_request_loan (struct dds_psmx_endpoint *psmx_endpoint, uint32_t sz);
+
+/**
+ * @brief Check if serialization is required
+ *
+ * @param[in] psmx_endpoint  the endpoint
+ * @returns true if serialization is required
+ */
+bool dds_psmx_endpoint_serialization_required (struct dds_psmx_endpoint *psmx_endpoint);
+
 #endif // DDS__PSMX_H
