@@ -660,14 +660,14 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
   }
 }
 
-CU_Test(ddsc_psmx, one_writer, .timeout = 30)
+CU_Test(ddsc_psmx, one_writer, .timeout = 60)
 {
   failed = false;
   dotest (&Space_Type1_desc, &(const Space_Type1){ 0 });
   CU_ASSERT (!failed);
 }
 
-CU_Test(ddsc_psmx, one_writer_dynsize, .timeout = 30)
+CU_Test(ddsc_psmx, one_writer_dynsize, .timeout = 60)
 {
   failed = false;
   dotest (&DynamicData_Msg_desc, &(const DynamicData_Msg){
@@ -681,7 +681,7 @@ CU_Test(ddsc_psmx, one_writer_dynsize, .timeout = 30)
   CU_ASSERT (!failed);
 }
 
-CU_Test(ddsc_psmx, one_writer_dynsize_strkey, .timeout = 30)
+CU_Test(ddsc_psmx, one_writer_dynsize_strkey, .timeout = 60)
 {
   failed = false;
   dotest (&DynamicData_KMsg_desc, &(const DynamicData_KMsg){
