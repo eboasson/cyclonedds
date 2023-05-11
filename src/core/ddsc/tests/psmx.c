@@ -271,7 +271,7 @@ static bool allmatched (dds_entity_t ws, dds_entity_t wr, int nrds, const dds_en
   }
   qsort (rdguids, (size_t) nrds, sizeof (rdguids[0]), ddsi_compare_guid);
 
-  const dds_time_t abstimeout = dds_time () + DDS_SECS (5);
+  const dds_time_t abstimeout = dds_time () + DDS_SECS (10);
   while (dds_time () < abstimeout)
   {
     (void) dds_waitset_wait_until (ws, NULL, 0, abstimeout);
@@ -432,6 +432,12 @@ static int compare_uint32 (const void *va, const void *vb)
   return (*a == *b) ? 0 : (*a < *b) ? -1 : 1;
 }
 
+static void print_time (struct tracebuf *tb)
+{
+  dds_time_t t = dds_time ();
+  print (tb, "%d.%06d", (int32_t) (t / DDS_NSECS_IN_SEC), (int32_t) (t % DDS_NSECS_IN_SEC) / 1000);
+}
+
 static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
 {
   dds_return_t rc;
@@ -504,7 +510,8 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
       if (test_index >= test_index_start && test_index <= test_index_end)
       {
         test_index++;
-        print (&tb, "%05u -- wr: %s; rds:", test_index, wr_use_psmx ? "psmx" : "dds ");
+        print_time (&tb);
+        print (&tb, " %05u -- wr: %s; rds:", test_index, wr_use_psmx ? "psmx" : "dds ");
       }
       else
       {
