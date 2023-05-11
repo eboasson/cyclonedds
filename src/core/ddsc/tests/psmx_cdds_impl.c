@@ -22,9 +22,7 @@
 #include "psmx_cdds_data.h"
 
 #define DDS_DOMAINID 50
-#define DDS_CONFIG \
-  "<Tracing><OutputFile>cyclonedds_psmx_impl.${CYCLONEDDS_DOMAIN_ID}.${CYCLONEDDS_PID}.log</OutputFile><Verbosity>finest</Verbosity></Tracing>" \
-  "<Discovery><ExternalDomainId>51</ExternalDomainId></Discovery>"
+#define DDS_CONFIG "<Tracing><OutputFile>cyclonedds_psmx_impl.${CYCLONEDDS_DOMAIN_ID}.${CYCLONEDDS_PID}.log</OutputFile><Verbosity>finest</Verbosity></Tracing>"
 
 #define ON_DATA_INIT       0
 #define ON_DATA_RUNNING    1
@@ -152,6 +150,7 @@ static struct dds_psmx_topic * cdds_psmx_create_topic (struct dds_psmx * psmx,
     cpsmx->stop_cond = dds_create_guardcondition (cpsmx->participant);
     dds_return_t ret = dds_waitset_attach (cpsmx->on_data_waitset, cpsmx->stop_cond, 0);
     assert (ret == DDS_RETCODE_OK);
+    (void) ret;
 
     struct on_data_available_thread_arg *data = dds_alloc (sizeof (*data));
     data->cpsmx = cpsmx;
@@ -243,6 +242,7 @@ static struct dds_psmx_endpoint * cdds_psmx_create_endpoint (struct dds_psmx_top
   cep->deinit_cond = dds_create_guardcondition (cpsmx->participant);
   dds_return_t ret = dds_waitset_attach (cpsmx->on_data_waitset, cep->deinit_cond, (dds_attach_t) cep);
   assert (ret == DDS_RETCODE_OK);
+  (void) ret;
   cep->deleting = false;
   ddsrt_atomic_inc32 (&cpsmx->endpoint_refs);
 
@@ -443,6 +443,7 @@ static dds_return_t cdds_psmx_ep_on_data_available (struct dds_psmx_endpoint *ps
   assert (ret == DDS_RETCODE_OK);
   ret = dds_waitset_attach (cpsmx->on_data_waitset, cep->psmx_cdds_endpoint, (dds_attach_t) cep);
   assert (ret == DDS_RETCODE_OK);
+  (void) ret;
 
   return DDS_RETCODE_OK;
 }

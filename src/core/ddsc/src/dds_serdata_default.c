@@ -920,6 +920,7 @@ static struct ddsi_serdata * serdata_default_from_psmx (const struct ddsi_sertyp
     dds_return_t rc = dds_heap_loan (type, &d->c.loan); // FIXME: check return code
     assert (rc == 0); // FIXME: this ain't guaranteed
     assert (ddsrt_atomic_ld32 (&d->c.loan->refs) == 0); // FIXME: I don't like refc = 0 in new() but it does play well with calling ref() unconditionally below ...
+    (void) rc;
     dds_istream_t is;
     dds_istream_init (&is, md->sample_size, loaned_sample->sample_ptr, md->cdr_identifier);
     if (md->sample_state == DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA)

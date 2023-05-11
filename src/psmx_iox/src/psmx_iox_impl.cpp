@@ -286,7 +286,7 @@ iox_psmx_endpoint::iox_psmx_endpoint(iox_psmx_topic &psmx_topic, const struct dd
     partition_topic = dds_string_dup(psmx_topic.topic_name);
 
   char iox_event_name[64];
-  if (strlen(partition_topic) > 63)
+  if (strlen(partition_topic) < 63)
   {
     strcpy(iox_event_name, partition_topic);
   }
