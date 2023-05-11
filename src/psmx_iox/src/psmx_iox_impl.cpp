@@ -360,7 +360,7 @@ iox_loaned_sample::iox_loaned_sample(struct dds_psmx_endpoint *origin, uint32_t 
     .metadata = ((struct dds_psmx_metadata *) ptr),
     .sample_ptr = ((char*) ptr) + iox_padding,  //alignment?
     .loan_idx = 0,
-    .refs = { .v = 1 }
+    .refc = { .v = 1 }
   }
 {
   metadata->sample_state = st;

@@ -118,7 +118,7 @@ typedef struct dds_loaned_sample {
   struct dds_psmx_metadata * metadata; /*pointer to the associated metadata*/
   void * sample_ptr; /*pointer to the loaned sample*/
   uint32_t loan_idx; /*the storage index of the loan*/
-  ddsrt_atomic_uint32_t refs; /*the number of references to this loan*/
+  ddsrt_atomic_uint32_t refc; /*the number of references to this loan*/
 } dds_loaned_sample_t;
 
 /**
