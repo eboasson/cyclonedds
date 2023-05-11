@@ -22,7 +22,16 @@
 #include "psmx_cdds_data.h"
 
 #define DDS_DOMAINID 50
-#define DDS_CONFIG "<Tracing><OutputFile>cyclonedds_psmx_impl.${CYCLONEDDS_DOMAIN_ID}.${CYCLONEDDS_PID}.log</OutputFile><Verbosity>finest</Verbosity></Tracing>"
+#if 1
+#define DDS_CONFIG "${CYCLONEDDS_URI}"
+#else
+#define DDS_CONFIG \
+  "${CYCLONEDDS_URI}," \
+  "<Tracing>" \
+    "<OutputFile>cyclonedds_psmx_impl.${CYCLONEDDS_DOMAIN_ID}.${CYCLONEDDS_PID}.log</OutputFile>" \
+    "<Verbosity>finest</Verbosity>" \
+  "</Tracing>"
+#endif
 
 #define ON_DATA_INIT       0
 #define ON_DATA_RUNNING    1
