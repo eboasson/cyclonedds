@@ -360,7 +360,7 @@ iox_loaned_sample::iox_loaned_sample(struct dds_psmx_endpoint *origin, uint32_t 
     .metadata = ((struct dds_psmx_metadata *) ptr),
     .sample_ptr = ((char*) ptr) + iox_padding,  //alignment?
     .loan_idx = 0,
-    .refs = { .v = 0 }
+    .refs = { .v = 1 }
   }
 {
   metadata->sample_state = st;
@@ -563,6 +563,7 @@ static void on_incoming_data_callback(iox::popo::UntypedSubscriber * subscriber,
     {
       auto data = incoming_sample_to_loan(psmx_endpoint, sample);
       (void) dds_reader_store_loaned_sample (psmx_endpoint->cdds_endpoint, data);
+      dds_loaned_sample_unref (data);
     });
   }
 }
