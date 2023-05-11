@@ -72,6 +72,8 @@ dds_return_t dds_loan_manager_free (dds_loan_manager_t *manager);
 /**
  * @brief Add a loan to be stored by the manager
  *
+ * Takes over the reference of the `loaned_sample` passed in
+ *
  * @param[in] manager  The loan manager to store the loan with
  * @param[in] loaned_sample   The loaned sample to store
  * @return a DDS return code
@@ -91,6 +93,8 @@ dds_return_t dds_loan_manager_remove_loan (dds_loaned_sample_t *loaned_sample);
  *
  * Finds a loan in the storage of the provided loan manager, based on
  * a sample pointer.
+ *
+ * Does not modify loaned sample's reference count.
  *
  * @param[in] manager  Loan manager to find the loan in
  * @param[in] sample_ptr  Pointer of the sample to search for

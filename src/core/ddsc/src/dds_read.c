@@ -63,7 +63,7 @@ static dds_return_t dds_read_impl (bool take, dds_entity_t reader_or_condition, 
   /*return outstanding loans*/
   if (buf[0] == NULL)
     memset (buf, 0, sizeof(*buf)*maxs);
-  else if ((ret = dds_return_reader_loan(rd, buf, (int32_t)bufsz)) != DDS_RETCODE_OK)
+  else if ((ret = dds_return_reader_loan(rd, buf, (int32_t)bufsz)) != DDS_RETCODE_OK) // FIXME: ??
     goto fail_pinned_awake;
 
   /*populate the output samples with pointers to loaned samples*/
@@ -469,18 +469,21 @@ dds_return_t dds_return_reader_loan (dds_reader *rd, void **buf, int32_t bufsz)
     if (!sample)
       continue;
 
-    dds_loaned_sample_t *loan = dds_loan_manager_find_loan(rd->m_loans, sample);
+    dds_loaned_sample_t *loan = dds_loan_manager_find_loan (rd->m_loans, sample);
 
     if (loan)
     {
-      dds_loaned_sample_ref (loan);
-      dds_loan_manager_remove_loan (loan);
-      if (!loan->loan_origin)
+      // heap loans get cached for re-use
+      // FIXME: that's not this simple, we have to be sure that no-one else references it before we add it to the pool. One would think that refc = 1 would guarantee that
+      if (loan->loan_origin || ddsrt_atomic_ld32 (&loan->refc) != 1)
+        dds_loan_manager_remove_loan (loan);
+      else
       {
-        if ((ret = dds_loan_manager_add_loan (rd->m_loan_pool, loan)) == DDS_RETCODE_OK)
+        dds_loaned_sample_ref (loan);
+        dds_loan_manager_remove_loan (loan); // drops ref
+        if ((ret = dds_loan_manager_add_loan (rd->m_loan_pool, loan)) == DDS_RETCODE_OK) // takes over ref
           ret = dds_loaned_sample_reset_sample (loan);
       }
-      dds_loaned_sample_unref (loan);
 
       if (ret == DDS_RETCODE_OK)
         buf[s] = NULL;

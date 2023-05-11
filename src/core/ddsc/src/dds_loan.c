@@ -22,9 +22,6 @@ static dds_return_t loaned_sample_free_locked (dds_loaned_sample_t *loaned_sampl
   assert (loaned_sample);
   assert (ddsrt_atomic_ld32 (&loaned_sample->refc) == 0);
 
-  // FIXME: remove this?
-  // if ((ret = loan_manager_remove_loan_locked (loaned_sample)) != DDS_RETCODE_OK)
-  //   return ret;
   if (loaned_sample->ops.free)
     loaned_sample->ops.free (loaned_sample);
 
@@ -190,7 +187,7 @@ dds_return_t dds_loan_manager_add_loan (dds_loan_manager_t *manager, dds_loaned_
   manager->n_samples_managed++;
   ddsrt_mutex_unlock (&manager->mutex);
 
-  return dds_loaned_sample_ref (loaned_sample);
+  return DDS_RETCODE_OK;
 }
 
 static dds_return_t loan_manager_remove_loan_locked (dds_loaned_sample_t *loaned_sample)

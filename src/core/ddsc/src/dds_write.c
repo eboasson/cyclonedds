@@ -398,7 +398,6 @@ dds_return_t dds_request_writer_loan(dds_writer *wr, void **samples_ptr, int32_t
       dds_loaned_sample_t *loan;
       if ((ret = dds_heap_loan (wr->m_topic->m_stype, &loan)) != DDS_RETCODE_OK)
         goto fail;
-      dds_loaned_sample_ref (loan);
       loans_ptr[index] = loan;
     }
   }
@@ -406,7 +405,7 @@ dds_return_t dds_request_writer_loan(dds_writer *wr, void **samples_ptr, int32_t
   assert (index == n_samples);
   for (int32_t i = 0; i < n_samples; i++)
   {
-    dds_loan_manager_add_loan (wr->m_loans, loans_ptr[i]);
+    dds_loan_manager_add_loan (wr->m_loans, loans_ptr[i]); // takes over ref
     samples_ptr[i] = loans_ptr[i]->sample_ptr;
   }
 
@@ -439,8 +438,7 @@ dds_return_t dds_return_writer_loan(dds_writer *wr, void **samples_ptr, int32_t 
     dds_loaned_sample_t * loan = dds_loan_manager_find_loan(wr->m_loans, sample);
     if (loan)
     {
-      if ((ret = dds_loaned_sample_unref(loan)) == DDS_RETCODE_OK)
-        ret = dds_loan_manager_remove_loan(loan);
+      ret = dds_loan_manager_remove_loan(loan);
     }
     else
     {
@@ -538,10 +536,17 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
 
   //the supplied loan may no longer be necessary here
   if (supplied_loan && supplied_loan != loan)
-    dds_loaned_sample_unref (supplied_loan);
+  {
+    // was: loaned_sample_unref, but: it was found via dds_loan_manager_find_loan, therefore
+    // managed, therefore must be removed from pool, which also unrefs
+    dds_loan_manager_remove_loan (supplied_loan);
+  }
 
   if (loan && loan != supplied_loan)
+  {
+    dds_loaned_sample_ref (supplied_loan); // added because add no longer incrs refc
     dds_loan_manager_add_loan (wr->m_loans, loan);
+  }
 
   if (d == NULL)
   {

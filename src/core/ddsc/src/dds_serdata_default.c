@@ -904,6 +904,7 @@ static struct ddsi_serdata * serdata_default_from_psmx (const struct ddsi_sertyp
   if (md->sample_state == DDS_LOANED_SAMPLE_STATE_RAW)
   {
     d->c.loan = loaned_sample;
+    dds_loaned_sample_ref (d->c.loan);
   }
   else
   {
@@ -928,7 +929,6 @@ static struct ddsi_serdata * serdata_default_from_psmx (const struct ddsi_sertyp
       dds_stream_read_key (&is, d->c.loan->sample_ptr, &dds_cdrstream_default_allocator, &tp->type);
   }
 
-  dds_loaned_sample_ref (d->c.loan);
   gen_serdata_key_from_sample (tp, &d->key, d->c.loan->sample_ptr);
   return (struct ddsi_serdata *) d;
 }
