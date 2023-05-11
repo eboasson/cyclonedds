@@ -179,6 +179,19 @@ target_include_directories(
 
 target_link_libraries(oneliner PRIVATE RoundTrip Space ddsc)
 
+
+# PSMX implementation with Cyclone as transport, for testing
+idlc_generate(TARGET psmx_cdds_data FILES psmx_cdds_data.idl)
+set(psmx_cdds_sources
+  "psmx_cdds_impl.c"
+  "psmx_cdds_impl.h")
+add_library(psmx_cdds SHARED ${psmx_cdds_sources})
+target_include_directories(
+  psmx_cdds PRIVATE
+  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../ddsi/include>")
+target_link_libraries(psmx_cdds PRIVATE ddsc psmx_cdds_data)
+
+
 # Iceoryx itself isn't really supported yet on Windows, so it
 # better not be part of the tests.  That also saves us from
 # having to figure out now how to start/stop RouDi on Windows.
@@ -239,17 +252,6 @@ kill -0 `cat ctest_fixture_iox_roudi.pid`")
     set_tests_properties(CUnit_${t} PROPERTIES ENVIRONMENT "${CUnit_ddsc_psmx_env}")
   endforeach()
 else()
-  # PSMX implementation with Cyclone as transport, for testing
-  idlc_generate(TARGET psmx_cdds_data FILES psmx_cdds_data.idl)
-  set(psmx_cdds_sources
-    "psmx_cdds_impl.c"
-    "psmx_cdds_impl.h")
-  add_library(psmx_cdds SHARED ${psmx_cdds_sources})
-  target_include_directories(
-    psmx_cdds PRIVATE
-    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../ddsi/include>")
-  target_link_libraries(psmx_cdds PRIVATE ddsc psmx_cdds_data)
-
   set(CUnit_ddsc_psmx_env "CDDS_PSMX_NAME=cdds;CDDS_PSMX_LIB=$<TARGET_FILE:psmx_cdds>")
   foreach(t
       ddsc_psmx_one_writer
