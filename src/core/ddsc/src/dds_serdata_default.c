@@ -493,11 +493,8 @@ static struct ddsi_serdata *serdata_default_from_loaned_sample(const struct ddsi
 
   if (d != NULL)
   {
+    // now owner of loan
     d->c.loan = loan;
-    // transfer ownership of the loan to the serdata
-    dds_loaned_sample_ref (loan);
-    dds_loan_manager_remove_loan (loan);
-
     d->c.loan->metadata->cdr_options = d->hdr.options;
     switch (d->hdr.identifier)
     {

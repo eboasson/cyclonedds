@@ -65,8 +65,7 @@ static dds_return_t loaned_sample_unref_locked (dds_loaned_sample_t *loaned_samp
     goto err;
   if (ddsrt_atomic_dec32_nv (&loaned_sample->refc) == 0)
   {
-    if (loaned_sample->manager && (ret = loan_manager_remove_loan_locked (loaned_sample)) != DDS_RETCODE_OK)
-      goto err;
+    assert (loaned_sample->manager == NULL);
     ret = loaned_sample_free_locked (loaned_sample);
   }
 
@@ -211,9 +210,7 @@ static dds_return_t loan_manager_remove_loan_locked (dds_loaned_sample_t *loaned
 
     // FIXME: set to NULL causes unref not to call remove_loan, find a better solution
     loaned_sample->manager = NULL;
-
-    if (ddsrt_atomic_ld32 (&loaned_sample->refc) > 0)
-      ret = loaned_sample_unref_locked (loaned_sample);
+    ret = loaned_sample_unref_locked (loaned_sample);
   }
   return ret;
 }

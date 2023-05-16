@@ -147,14 +147,8 @@ typedef void (*ddsi_serdata_get_keyhash_t) (const struct ddsi_serdata *d, struct
 
 typedef uint32_t(*ddsi_serdata_zerocopy_size_t) (const struct ddsi_serdata* d);
 
-// Used for receiving a sample from a Iceoryx and for constructing a serdata for writing a "loaned sample",
-// that is, for constructing a sample where the data is already in shared memory.  The latter allows one
-// to avoid serializing the data for zero-copy data transfer if all subscribers are reachable via Iceoryx.
-//
-// The first case is when "sub" is not NULL, in which case it is a pointer to the Iceoryx subscriber
-typedef struct ddsi_serdata* (*ddsi_serdata_from_iox_t) (const struct ddsi_sertype* type, enum ddsi_serdata_kind kind, void* sub, void* buffer);
-
-// Used for taking a loaned sample originating from a PSMX and constructing a serdata around this
+// Used for taking a loaned sample and constructing a serdata around this
+// takes over ownership of loan on success (leaves it unchanged on failure)
 typedef struct ddsi_serdata* (*ddsi_serdata_from_loan_t) (const struct ddsi_sertype *type, enum ddsi_serdata_kind kind, const char *sample, struct dds_loaned_sample *loan, bool force_serialization);
 
 // Used for constructing a serdata from data received on a PSMX

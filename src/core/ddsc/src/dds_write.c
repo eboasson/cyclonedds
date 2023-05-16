@@ -462,17 +462,82 @@ static uint32_t get_num_fast_path_readers (struct ddsi_writer *ddsi_wr)
   return n;
 }
 
+static dds_loaned_sample_t *get_loan_to_use (dds_writer *wr, const void *data, dds_loaned_sample_t **loan_to_free)
+{
+  // 3. Check whether data is loaned
+  dds_loaned_sample_t *supplied_loan = dds_loan_manager_find_loan (wr->m_loans, data);
+  assert (supplied_loan == NULL || ddsrt_atomic_ld32 (&supplied_loan->refc) == 1);
+  if (supplied_loan)
+  {
+    dds_loaned_sample_ref (supplied_loan); // incr refc because we want to keep using it despite removing it from manager
+    dds_loan_manager_remove_loan (supplied_loan);
+  }
+  assert ((supplied_loan == NULL) ||
+          (supplied_loan != NULL && ddsrt_atomic_ld32 (&supplied_loan->refc) == 1 && supplied_loan->loan_origin == NULL && supplied_loan->manager == NULL) ||
+          (supplied_loan != NULL && ddsrt_atomic_ld32 (&supplied_loan->refc) == 1 && supplied_loan->loan_origin != NULL && supplied_loan->manager == NULL));
+  if (supplied_loan && supplied_loan->loan_origin)
+  {
+    // a PSMX loan, use it
+    *loan_to_free = NULL;
+    return supplied_loan;
+  }
+
+  dds_loaned_sample_t *loan = NULL;
+
+  // 4. If it is a heap loan, attempt to get a PSMX loan
+  // FIXME: the condition is actually: if not a PSMX loan, try to get one
+  // FIXME: should this not be required to succeed? We're assuming the PSMX bit will work later on
+  // FIXME: what about: supplied_loan is a heap loan and no PSMX involved? why not use it?
+  uint32_t required_size = 0;
+  if (get_required_buffer_size (wr->m_topic, data, &required_size) && required_size)
+  {
+    // attempt to get a loan from a PSMX
+    for (uint32_t i = 0; i < wr->m_endpoint.psmx_endpoints.length && !loan; i++)
+      loan = dds_psmx_endpoint_request_loan (wr->m_endpoint.psmx_endpoints.endpoints[i], required_size);
+  }
+
+  // too many cases ...
+  assert ((supplied_loan == NULL && loan == NULL) ||
+          (supplied_loan == NULL && loan != NULL && ddsrt_atomic_ld32 (&loan->refc) == 1 && loan->loan_origin != NULL && loan->manager == NULL) ||
+          (supplied_loan != NULL && loan == NULL && ddsrt_atomic_ld32 (&supplied_loan->refc) == 1 && supplied_loan->loan_origin == NULL && supplied_loan->manager == NULL) ||
+          (supplied_loan != NULL && loan == supplied_loan && ddsrt_atomic_ld32 (&loan->refc) == 1 && ddsrt_atomic_ld32 (&loan->refc) == 1 && loan->loan_origin != NULL && loan->manager == NULL) ||
+          (supplied_loan != NULL && loan != supplied_loan && ddsrt_atomic_ld32 (&supplied_loan->refc) == 1 && supplied_loan->loan_origin != NULL && supplied_loan->manager == NULL && ddsrt_atomic_ld32 (&loan->refc) == 1 && ddsrt_atomic_ld32 (&loan->refc) == 1 && loan->loan_origin != NULL && loan->manager == NULL));
+
+  // by definition different from loan
+  // not to be freed yet: freeing it invalidates data
+  *loan_to_free = supplied_loan;
+  return loan;
+}
+
+static struct ddsi_serdata *make_serdata (struct ddsi_writer * const ddsi_wr, const void *data, dds_loaned_sample_t *loan, bool writekey, bool use_only_psmx)
+{
+  struct ddsi_serdata *d;
+  if (loan == NULL)
+    d = ddsi_serdata_from_sample (ddsi_wr->type, writekey ? SDK_KEY : SDK_DATA, data);
+  else
+  {
+    assert (ddsrt_atomic_ld32 (&loan->refc) == 1);
+    assert (loan->manager == NULL);
+    d = ddsi_serdata_from_loaned_sample (ddsi_wr->type, writekey ? SDK_KEY : SDK_DATA, data, loan, !use_only_psmx);
+  }
+  if (d == NULL)
+  {
+    if (loan != NULL)
+      dds_loaned_sample_unref (loan);
+  }
+  return d;
+}
+
 // has to support two cases:
 // 1) data is in an external buffer allocated on the stack or dynamically
 // 2) data is in an zerocopy buffer obtained by dds_loan_sample
-dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstamp, dds_write_action action)
+dds_return_t dds_write_impl (dds_writer *wr, const void *data, dds_time_t tstamp, dds_write_action action)
 {
   // 1. Input validation
   struct ddsi_thread_state * const thrst = ddsi_lookup_thread_state ();
   const bool writekey = action & DDS_WR_KEY_BIT;
   struct ddsi_writer *ddsi_wr = wr->m_wr;
   int ret = DDS_RETCODE_OK;
-  struct ddsi_serdata *d;
 
   if (data == NULL)
     return DDS_RETCODE_BAD_PARAMETER;
@@ -484,22 +549,9 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
   ddsi_thread_state_awake (thrst, &wr->m_entity.m_domain->gv);
 
   // 3. Check whether data is loaned
-  dds_loaned_sample_t *supplied_loan = dds_loan_manager_find_loan(wr->m_loans, data);
-  dds_loaned_sample_t *loan = NULL;
-  if (supplied_loan && supplied_loan->loan_origin)
-    loan = supplied_loan;
-
-  // 4. If it is a heap loan, attempt to get a PSMX loan
-  uint32_t required_size = 0;
-  if (!loan && get_required_buffer_size(wr->m_topic, data, &required_size))
-  {
-    if (required_size)
-    {
-      // attempt to get a loan from a PSMX
-      for (uint32_t i = 0; i < wr->m_endpoint.psmx_endpoints.length && !loan; i++)
-        loan = dds_psmx_endpoint_request_loan (wr->m_endpoint.psmx_endpoints.endpoints[i], required_size);
-    }
-  }
+  dds_loaned_sample_t *loan_to_free;
+  dds_loaned_sample_t * const loan = get_loan_to_use (wr, data, &loan_to_free);
+  assert (loan == NULL || loan != loan_to_free);
 
   // ddsi_wr->as can be changed by the matching/unmatching of proxy readers if we don't hold the lock
   // it is rather unfortunate that this then means we have to lock here to check, then lock again to
@@ -529,29 +581,18 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
       ddsi_wr->xqos->durability.kind == DDS_DURABILITY_VOLATILE &&
       num_fast_path_readers == 0;
 
-  // 5. Create a correct serdata
-  d = loan ?
-    ddsi_serdata_from_loaned_sample (ddsi_wr->type, writekey ? SDK_KEY : SDK_DATA, data, loan, !use_only_psmx) :
-    ddsi_serdata_from_sample (ddsi_wr->type, writekey ? SDK_KEY : SDK_DATA, data);
+  // create a correct serdata
+  struct ddsi_serdata * const d = make_serdata (ddsi_wr, data, loan, writekey, use_only_psmx);
 
-  //the supplied loan may no longer be necessary here
-  if (supplied_loan && supplied_loan != loan)
-  {
-    // was: loaned_sample_unref, but: it was found via dds_loan_manager_find_loan, therefore
-    // managed, therefore must be removed from pool, which also unrefs
-    dds_loan_manager_remove_loan (supplied_loan);
-  }
+  // data, loan_to_free no longer needed (all paths)
+  if (loan_to_free)
+    dds_loaned_sample_unref (loan_to_free);
 
-  if (loan && loan != supplied_loan)
-  {
-    dds_loaned_sample_ref (supplied_loan); // added because add no longer incrs refc
-    dds_loan_manager_add_loan (wr->m_loans, loan);
-  }
-
+  // bail out if serdata creation failed
   if (d == NULL)
   {
     ret = DDS_RETCODE_BAD_PARAMETER;
-    goto return_loan;
+    goto fail_serdata;
   }
 
   // refc(d) = 1 after successful construction
@@ -560,12 +601,11 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
   d->timestamp.v = tstamp;
 
   // 6. Deliver the data
-
-  // 6.a Deliver via network
+  // 6.a ... via network
   if ((ret = dds_write_basic_impl (thrst, wr, d)) != DDS_RETCODE_OK)
     goto unref_serdata;
 
-  // 6.b Deliver through PSMX
+  // 6.b ... through PSMX
   if (loan)
   {
     struct dds_psmx_endpoint *endpoint = loan->loan_origin;
@@ -575,27 +615,12 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
     memcpy (&md->guid, &ddsi_wr->e.guid, sizeof (md->guid));
     md->timestamp = d->timestamp.v;
     md->statusinfo = d->statusinfo;
-    if ((ret = endpoint->ops.write (endpoint, loan)) != DDS_RETCODE_OK)
-    {
-      goto unref_serdata;
-    }
-    else
-    {
-      // d can have a ref
-      if ((ret = dds_loaned_sample_unref (loan)) != DDS_RETCODE_OK)
-        goto return_loan;
-    }
+    ret = endpoint->ops.write (endpoint, loan);
   }
-
-  ddsi_serdata_unref (d); // refc(d) = 0
-  ddsi_thread_state_asleep (thrst);
-  return ret;
 
 unref_serdata:
   ddsi_serdata_unref (d); // refc(d) = 0
-return_loan:
-  if(loan)
-    (void) dds_loaned_sample_free (loan);
+fail_serdata:
   ddsi_thread_state_asleep (thrst);
   return ret;
 }
