@@ -117,7 +117,22 @@ struct local_sourceinfo {
 static struct ddsi_serdata *local_make_sample (struct ddsi_tkmap_instance **tk, struct ddsi_domaingv *gv, struct ddsi_sertype const * const type, void *vsourceinfo)
 {
   struct local_sourceinfo *si = vsourceinfo;
-  struct ddsi_serdata *d = ddsi_serdata_ref_as_type (type, si->src_payload);
+  struct ddsi_serdata * const din = si->src_payload;
+
+  struct ddsi_serdata *d;
+  // Mustn't store *PSMX writer* loans in RHCs because the PSMX write operation is
+  // assumed to consume the reference (the write path zeros some pointers in the
+  // loan structure to give us a fighting chance of catching a mistake).
+  //
+  // Loans from *PSMX reader* are ok, those are meant to hang around until the
+  // application uses that data and releases it. But those don't go through here.
+  //
+  // And for completeness: data arriving over the network never goes through here
+  // either.
+  if (din->loan != NULL && din->loan->loan_origin != NULL)
+    d = ddsi_serdata_copy_as_type (type, din);
+  else
+    d = ddsi_serdata_ref_as_type (type, si->src_payload);
   if (d == NULL)
   {
     DDS_CWARNING (&gv->logconfig, "local: deserialization %s failed in type conversion\n", type->type_name);

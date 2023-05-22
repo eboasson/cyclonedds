@@ -32,27 +32,27 @@ void ddsi_serdata_init (struct ddsi_serdata *d, const struct ddsi_sertype *tp, e
   ddsrt_atomic_st32 (&d->refc, 1);
 }
 
+struct ddsi_serdata *ddsi_serdata_copy_as_type (const struct ddsi_sertype *type, const struct ddsi_serdata *serdata)
+{
+  struct ddsi_serdata *converted;
+  ddsrt_iovec_t iov;
+  uint32_t size = ddsi_serdata_size (serdata);
+  struct ddsi_serdata *tmpref = ddsi_serdata_to_ser_ref (serdata, 0, size, &iov);
+  if ((converted = ddsi_serdata_from_ser_iov (type, serdata->kind, 1, &iov, size)) != NULL)
+  {
+    converted->statusinfo = serdata->statusinfo;
+    converted->timestamp = serdata->timestamp;
+  }
+  ddsi_serdata_to_ser_unref (tmpref, &iov);
+  return converted;
+}
+
 struct ddsi_serdata *ddsi_serdata_ref_as_type (const struct ddsi_sertype *type, struct ddsi_serdata *serdata)
 {
-  // We can only safely store serdatas that have no loan or have a heap loan, because
-  // the PSMX loans get consumed by publishing the data
-  if (serdata->type == type && (serdata->loan == NULL || serdata->loan->loan_origin == NULL))
+  if (serdata->type == type)
     return ddsi_serdata_ref (serdata);
   else
-  {
-    /* ouch ... convert a serdata from one sertype to another ... */
-    struct ddsi_serdata *converted;
-    ddsrt_iovec_t iov;
-    uint32_t size = ddsi_serdata_size (serdata);
-    (void) ddsi_serdata_to_ser_ref (serdata, 0, size, &iov);
-    if ((converted = ddsi_serdata_from_ser_iov (type, serdata->kind, 1, &iov, size)) != NULL)
-    {
-      converted->statusinfo = serdata->statusinfo;
-      converted->timestamp = serdata->timestamp;
-    }
-    ddsi_serdata_to_ser_unref (serdata, &iov);
-    return converted;
-  }
+    return ddsi_serdata_copy_as_type (type, serdata);
 }
 
 const ddsi_keyhash_t *ddsi_serdata_keyhash_from_fragchain (const struct ddsi_rdata *fragchain)

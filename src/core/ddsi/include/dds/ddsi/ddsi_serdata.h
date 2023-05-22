@@ -189,14 +189,31 @@ DDS_EXPORT void ddsi_serdata_init (struct ddsi_serdata *d, const struct ddsi_ser
  * @param[in] fragchain the fragchain argument passed to @ref ddsi_serdata_from_ser (the first one, not any subsequent ones)
  * @returns A pointer to the keyhash in the message if it was present, NULL if not. The lifetime is at least that of the fragchain itself.
  */
-const ddsi_keyhash_t *ddsi_serdata_keyhash_from_fragchain (const struct ddsi_rdata *fragchain);
+const ddsi_keyhash_t *ddsi_serdata_keyhash_from_fragchain (const struct ddsi_rdata *fragchain)
+  ddsrt_nonnull_all;
+
+/**
+ * @brief Return a copy of a serdata with possible type conversion
+ * @component typesupport_if
+ *
+ * This constructs a new one from the serialised representation of `serdata`.
+ * This can fail, in which case it returns NULL.
+ *
+ * @param[in] type    sertype the returned serdata must have
+ * @param[in] serdata  source sample
+ * @returns A reference to a serdata that is equivalent to the input with the correct
+ *   type, or a null pointer on failure.  The reference must be released with @ref
+ *   ddsi_serdata_unref.
+ */
+struct ddsi_serdata *ddsi_serdata_copy_as_type (const struct ddsi_sertype *type, const struct ddsi_serdata *serdata)
+  ddsrt_nonnull_all ddsrt_attribute_warn_unused_result;
 
 /**
  * @brief Return a reference to a serdata with possible type conversion
  * @component typesupport_if
  *
- * If `serdata` is of type `type` and has no PSMX loan, this increments the reference count and returns
- * `serdata`.  Otherwise, it constructs a new one from the serialised representation of `serdata`.
+ * If `serdata` is of type `type`, this increments the reference count and returns
+ * `serdata`.  Otherwise, it constructs a new one as if by @ref ddsi_serdata_copy_as_type.
  * This can fail, in which case it returns NULL.
  *
  * @param[in] type    sertype the returned serdata must have
@@ -206,7 +223,8 @@ const ddsi_keyhash_t *ddsi_serdata_keyhash_from_fragchain (const struct ddsi_rda
  *   topic, or a null pointer on failure.  The reference must be released with @ref
  *   ddsi_serdata_unref.
  */
-struct ddsi_serdata *ddsi_serdata_ref_as_type (const struct ddsi_sertype *type, struct ddsi_serdata *serdata);
+struct ddsi_serdata *ddsi_serdata_ref_as_type (const struct ddsi_sertype *type, struct ddsi_serdata *serdata)
+  ddsrt_nonnull_all ddsrt_attribute_warn_unused_result;
 
 /** @component typesupport_if */
 DDS_INLINE_EXPORT inline struct ddsi_serdata *ddsi_serdata_ref (const struct ddsi_serdata *serdata_const) {
