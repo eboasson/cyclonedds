@@ -141,6 +141,29 @@ DDS_EXPORT dds_return_t dds_loaned_sample_ref (dds_loaned_sample_t *loaned_sampl
  */
 DDS_EXPORT dds_return_t dds_loaned_sample_unref (dds_loaned_sample_t *loaned_sample);
 
+/**
+ * @brief insert data from a loaned sample into the reader history cache
+ * @ingroup reading
+ *
+ * @param[in] reader The reader entity.
+ * @param[in] data Pointer to the loaned sample of the entity received
+ *
+ * @returns A dds_return_t indicating success or failure.
+ *
+ * @retval DDS_RETCODE_OK
+ *             The operation was successful.
+ * @retval DDS_RETCODE_BAD_PARAMETER
+ *             One or more parameters are invalid.
+ * @retval DDS_RETCODE_ILLEGAL_OPERATION
+ *             The operation is invoked on an inappropriate object.
+ * @retval DDS_RETCODE_ALREADY_DELETED
+ *             The reader entity has already been deleted.
+ */
+DDS_EXPORT dds_return_t
+dds_reader_store_loaned_sample (
+  dds_entity_t reader,
+  dds_loaned_sample_t *data);
+
 #if defined(__cplusplus)
 }
 #endif
