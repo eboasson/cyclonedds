@@ -103,7 +103,7 @@ dds_return_t dds_loan_manager_remove_loan (dds_loaned_sample_t *loaned_sample);
 dds_loaned_sample_t *dds_loan_manager_find_loan (dds_loan_manager_t *manager, const void *sample_ptr);
 
 /**
- * @brief Gets the first managed loan from this manager
+ * @brief Gets the first managed loan from this manager and removes it from the manager
  *
  * @param[in] manager  The loan manager to get the loan from
  * @return Pointer to a loaned sample

@@ -437,9 +437,9 @@ fail_alloc:
   return ret < 0 ? ret : index;
 }
 
-dds_return_t dds_return_writer_loan(dds_writer *wr, void **samples_ptr, int32_t n_samples)
+dds_return_t dds_return_writer_loan (dds_writer *wr, void **samples_ptr, int32_t n_samples)
 {
-  if (n_samples < 0/* || !samples_ptr*/)  //samples_ptr can be NULL???
+  if (n_samples < 0)
     return DDS_RETCODE_BAD_PARAMETER;
 
   dds_return_t ret = DDS_RETCODE_OK;
@@ -453,14 +453,14 @@ dds_return_t dds_return_writer_loan(dds_writer *wr, void **samples_ptr, int32_t 
     dds_loaned_sample_t * loan = dds_loan_manager_find_loan(wr->m_loans, sample);
     if (loan)
     {
-      ret = dds_loan_manager_remove_loan(loan);
+      (void) dds_loan_manager_remove_loan (loan);
+      (void) dds_loaned_sample_unref (loan);
     }
     else
     {
       ret = DDS_RETCODE_BAD_PARAMETER;
     }
   }
-
   ddsrt_mutex_unlock (&wr->m_entity.m_mutex);
   return ret;
 }
@@ -483,10 +483,8 @@ static dds_loaned_sample_t *get_loan_to_use (dds_writer *wr, const void *data, d
   dds_loaned_sample_t *supplied_loan = dds_loan_manager_find_loan (wr->m_loans, data);
   assert (supplied_loan == NULL || ddsrt_atomic_ld32 (&supplied_loan->refc) == 1);
   if (supplied_loan)
-  {
-    dds_loaned_sample_ref (supplied_loan); // incr refc because we want to keep using it despite removing it from manager
     dds_loan_manager_remove_loan (supplied_loan);
-  }
+
   assert ((supplied_loan == NULL) ||
           (supplied_loan != NULL && ddsrt_atomic_ld32 (&supplied_loan->refc) == 1 && supplied_loan->loan_origin == NULL && supplied_loan->manager == NULL) ||
           (supplied_loan != NULL && ddsrt_atomic_ld32 (&supplied_loan->refc) == 1 && supplied_loan->loan_origin != NULL && supplied_loan->manager == NULL));

@@ -473,16 +473,18 @@ dds_return_t dds_return_reader_loan (dds_reader *rd, void **buf, int32_t bufsz)
 
     if (loan)
     {
-      // heap loans get cached for re-use
-      // FIXME: that's not this simple, we have to be sure that no-one else references it before we add it to the pool. One would think that refc = 1 would guarantee that
+      dds_loan_manager_remove_loan (loan);
+
+      // Heap loans with no other references get cached for re-use
+      // FIXME: is this a good idea? or should we just make sure we allocate memory efficiently?
       if (loan->loan_origin || ddsrt_atomic_ld32 (&loan->refc) != 1)
-        dds_loan_manager_remove_loan (loan);
+        dds_loaned_sample_unref (loan);
       else
       {
-        dds_loaned_sample_ref (loan);
-        dds_loan_manager_remove_loan (loan); // drops ref
-        if ((ret = dds_loan_manager_add_loan (rd->m_loan_pool, loan)) == DDS_RETCODE_OK) // takes over ref
-          ret = dds_loaned_sample_reset_sample (loan);
+        if ((ret = dds_loan_manager_add_loan (rd->m_loan_pool, loan)) == DDS_RETCODE_OK)
+          dds_loaned_sample_reset_sample (loan);
+        else
+          dds_loaned_sample_unref (loan);
       }
 
       if (ret == DDS_RETCODE_OK)

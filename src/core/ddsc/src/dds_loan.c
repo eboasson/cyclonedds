@@ -53,40 +53,24 @@ dds_return_t dds_loaned_sample_ref (dds_loaned_sample_t *loaned_sample)
   return DDS_RETCODE_OK;
 }
 
-static dds_return_t loaned_sample_unref_locked (dds_loaned_sample_t *loaned_sample)
+dds_return_t dds_loaned_sample_unref (dds_loaned_sample_t *loaned_sample)
 {
+  if (loaned_sample == NULL || ddsrt_atomic_ld32 (&loaned_sample->refc) == 0)
+    return DDS_RETCODE_BAD_PARAMETER;
+
   assert (loaned_sample);
   assert (ddsrt_atomic_ld32 (&loaned_sample->refc) > 0);
 
-  // loaned_sample->manager can be NULL
-
   dds_return_t ret = DDS_RETCODE_OK;
   if (loaned_sample->ops.unref && (ret = loaned_sample->ops.unref (loaned_sample)) != DDS_RETCODE_OK)
-    goto err;
+    return ret;
+
   if (ddsrt_atomic_dec32_nv (&loaned_sample->refc) == 0)
   {
     assert (loaned_sample->manager == NULL);
     ret = loaned_sample_free_locked (loaned_sample);
   }
 
-err:
-  return ret;
-}
-
-dds_return_t dds_loaned_sample_unref (dds_loaned_sample_t *loaned_sample)
-{
-  if (loaned_sample == NULL || ddsrt_atomic_ld32 (&loaned_sample->refc) == 0)
-    return DDS_RETCODE_BAD_PARAMETER;
-
-  dds_return_t ret;
-  dds_loan_manager_t *manager = loaned_sample->manager;
-
-  // FIXME: needs better solution, why can manager be NULL?
-  if (manager != NULL)
-    ddsrt_mutex_lock (&manager->mutex);
-  ret = loaned_sample_unref_locked (loaned_sample);
-  if (manager != NULL)
-    ddsrt_mutex_unlock (&manager->mutex);
   return ret;
 }
 
@@ -140,13 +124,13 @@ dds_return_t dds_loan_manager_free (dds_loan_manager_t *manager)
   if (manager == NULL)
     return DDS_RETCODE_BAD_PARAMETER;
 
-  dds_return_t ret;
   for (uint32_t i = 0; i < manager->n_samples_cap; i++)
   {
     dds_loaned_sample_t *s = manager->samples[i];
-    if (s && (ret = dds_loan_manager_remove_loan (s)) != DDS_RETCODE_OK)
-      return ret;
-    manager->samples[i] = NULL;
+    if (s == NULL)
+      continue;
+    (void) dds_loan_manager_remove_loan (s);
+    (void) dds_loaned_sample_unref (s);
   }
 
   ddsrt_mutex_destroy (&manager->mutex);
@@ -193,26 +177,21 @@ static dds_return_t loan_manager_remove_loan_locked (dds_loaned_sample_t *loaned
 {
   assert (loaned_sample);
   assert (loaned_sample->manager);
-
   dds_loan_manager_t *mgr = loaned_sample->manager;
-  dds_return_t ret = DDS_RETCODE_OK;
   if (mgr->n_samples_managed == 0 ||
       loaned_sample->loan_idx >= mgr->n_samples_cap ||
       loaned_sample != mgr->samples[loaned_sample->loan_idx])
   {
-    ret = DDS_RETCODE_BAD_PARAMETER;
+    return DDS_RETCODE_BAD_PARAMETER;
   }
   else
   {
     mgr->samples[loaned_sample->loan_idx] = NULL;
     mgr->n_samples_managed--;
     loaned_sample->loan_idx = UINT32_MAX;
-
-    // FIXME: set to NULL causes unref not to call remove_loan, find a better solution
     loaned_sample->manager = NULL;
-    ret = loaned_sample_unref_locked (loaned_sample);
+    return DDS_RETCODE_OK;
   }
-  return ret;
 }
 
 dds_return_t dds_loan_manager_remove_loan (dds_loaned_sample_t *loaned_sample)
@@ -254,11 +233,13 @@ dds_loaned_sample_t *dds_loan_manager_get_loan (dds_loan_manager_t *manager)
 
   dds_loaned_sample_t *ls = NULL;
   ddsrt_mutex_lock (&manager->mutex);
-  for (uint32_t i = 0; i < manager->n_samples_cap; i++)
+  for (uint32_t i = 0; i < manager->n_samples_cap && ls == NULL; i++)
   {
     if (manager->samples[i])
       ls = manager->samples[i];
   }
+  if (ls != NULL)
+    loan_manager_remove_loan_locked (ls);
   ddsrt_mutex_unlock (&manager->mutex);
   return ls;
 }

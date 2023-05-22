@@ -2071,10 +2071,8 @@ static int32_t read_w_qminv_inst (struct dds_rhc_default * const __restrict rhc,
           {
             ls = dds_loan_manager_get_loan(loan_pool);
             to_sample (sample->sample, &(ls->sample_ptr), 0, 0);
-            dds_loaned_sample_ref (ls);
-            dds_loan_manager_remove_loan (ls); // drops ref
           }
-          dds_loan_manager_add_loan (loan_out, ls); // takes over ref
+          dds_loan_manager_add_loan (loan_out, ls);
           *(values + n) = ls->sample_ptr;
         }
         else
@@ -2103,9 +2101,8 @@ static int32_t read_w_qminv_inst (struct dds_rhc_default * const __restrict rhc,
     if (*(values + n) == NULL)
     {
       dds_loaned_sample_t *ls = dds_loan_manager_get_loan(loan_pool);
-      dds_loaned_sample_ref (ls);
-      dds_loan_manager_remove_loan (ls); // drops ref
-      dds_loan_manager_add_loan (loan_out, ls); // takes over ref
+      dds_loan_manager_remove_loan (ls);
+      dds_loan_manager_add_loan (loan_out, ls);
       *(values + n) = ls->sample_ptr;
     }
     to_invsample (rhc->type, inst->tk->m_sample, values + n, 0, 0);
@@ -2186,11 +2183,9 @@ static int32_t take_w_qminv_inst (struct dds_rhc_default * const __restrict rhc,
           else
           {
             ls = dds_loan_manager_get_loan (loan_pool);
-            dds_loaned_sample_ref (ls);
             to_sample (sample->sample, &(ls->sample_ptr), 0, 0);
-            dds_loan_manager_remove_loan (ls); // drops ref
           }
-          dds_loan_manager_add_loan (loan_out, ls); // takes over ref
+          dds_loan_manager_add_loan (loan_out, ls);
           *(values + n) = ls->sample_ptr;
         }
         else
@@ -2232,9 +2227,8 @@ static int32_t take_w_qminv_inst (struct dds_rhc_default * const __restrict rhc,
     if (*(values + n) == NULL && use_loans)
     {
       dds_loaned_sample_t *ls = dds_loan_manager_get_loan(loan_pool);
-      dds_loaned_sample_ref (ls);
-      dds_loan_manager_remove_loan (ls); // drops ref
-      dds_loan_manager_add_loan (loan_out, ls); // takes over ref
+      dds_loan_manager_remove_loan (ls);
+      dds_loan_manager_add_loan (loan_out, ls);
       *(values + n) = ls->sample_ptr;
     }
     to_invsample (rhc->type, inst->tk->m_sample, values + n, 0, 0);
