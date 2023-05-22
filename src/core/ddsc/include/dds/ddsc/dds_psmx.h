@@ -17,6 +17,7 @@
 
 #include "dds/export.h"
 #include "dds/dds.h"
+#include "dds/ddsc/dds_loan.h"
 
 #if defined (__cplusplus)
 extern "C" {
