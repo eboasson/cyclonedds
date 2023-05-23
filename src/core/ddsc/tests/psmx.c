@@ -321,8 +321,19 @@ static const char *istatestr (dds_instance_state_t s)
   return "nowriters";
 }
 
-static bool alldataseen (struct tracebuf *tb, int nrds, const dds_entity_t *rds, dds_instance_state_t instance_state)
+static dds_return_t take (dds_entity_t rd_or_cnd, void **buf, dds_sample_info_t *si, uint32_t maxs)
 {
+  return dds_take (rd_or_cnd, buf, si, maxs, maxs);
+}
+
+static dds_return_t take_wl (dds_entity_t rd_or_cnd, void **buf, dds_sample_info_t *si, uint32_t maxs)
+{
+  return dds_take_wl (rd_or_cnd, buf, si, maxs);
+}
+
+static bool alldataseen (struct tracebuf *tb, int nrds, const dds_entity_t *rds, dds_instance_state_t instance_state, bool use_rd_loan)
+{
+  dds_return_t (* const takeop) (dds_entity_t, void **, dds_sample_info_t *, uint32_t) = use_rd_loan ? take_wl : take;
   assert (nrds > 0);
   dds_return_t rc;
   const dds_entity_t ws = dds_create_waitset (dds_get_participant (rds[0]));
@@ -356,7 +367,7 @@ static bool alldataseen (struct tracebuf *tb, int nrds, const dds_entity_t *rds,
         void *sampleptr = NULL;
         dds_sample_info_t si;
         int32_t n;
-        while ((n = dds_take (rdconds[i], &sampleptr, &si, 1, 1)) > 0)
+        while ((n = takeop (rdconds[i], &sampleptr, &si, 1)) > 0)
         {
           (void) dds_return_loan (rdconds[i], &sampleptr, n);
           if (si.instance_state != instance_state)
@@ -495,7 +506,7 @@ enum local_delivery_mode {
   LDM_SLOWPATH
 };
 
-static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample, enum local_delivery_mode ldm)
+static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample, enum local_delivery_mode ldm, bool use_wr_loan, bool use_rd_loan)
 {
   dds_return_t rc;
   dds_entity_t pp[MAX_DOMAINS];
@@ -684,9 +695,24 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample, en
       for (size_t opidx = 0; opidx < sizeof (ops) / sizeof (ops[0]); opidx++)
       {
         print (&tb, "%s ", ops[opidx].info); fflush (stdout);
-        rc = ops[opidx].op (wr, sample);
+
+        // If using a loan, copy the template in. We can only allow loans for writes,
+        // because we guarantee that invalid samples have non-key fields zeroed out,
+        // and we can't trust the application to get that right.
+        // FIXME: dds_dispose does a use-after-free when handed a loan, that's bad
+        const void *sample_to_write = sample;
+        if (use_wr_loan && ops[opidx].op == dds_write)
+        {
+          void *loan;
+          rc = dds_request_loan (wr, &loan, 1);
+          CU_ASSERT_FATAL (rc == 1); // FIXME: doesn't it make more sense to let dds_request_loan return "OK"?
+          memcpy (loan, sample, tpdesc->m_size);
+          sample_to_write = loan;
+        }
+
+        rc = ops[opidx].op (wr, sample_to_write);
         CU_ASSERT_FATAL (rc == 0);
-        if (!alldataseen (&tb, MAX_READERS_PER_DOMAIN, rds, ops[opidx].istate))
+        if (!alldataseen (&tb, MAX_READERS_PER_DOMAIN, rds, ops[opidx].istate, use_rd_loan))
         {
           fail_one = true;
           goto next;
@@ -749,7 +775,7 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample, en
 CU_Test(ddsc_psmx, one_writer, .timeout = 120)
 {
   failed = false;
-  dotest (&Space_Type1_desc, &(const Space_Type1){ 0 }, LDM_NONE);
+  dotest (&Space_Type1_desc, &(const Space_Type1){ 0 }, LDM_NONE, false, false);
   CU_ASSERT (!failed);
 }
 
@@ -763,7 +789,7 @@ CU_Test(ddsc_psmx, one_writer_dynsize, .timeout = 120)
       ._length = 4, ._maximum = 4, ._release = false,
       ._buffer = (int32_t[]) { 193, 272, 54, 277 }
     }
-  }, LDM_NONE);
+  }, LDM_NONE, false, false);
   CU_ASSERT (!failed);
 }
 
@@ -777,21 +803,42 @@ CU_Test(ddsc_psmx, one_writer_dynsize_strkey, .timeout = 120)
       ._length = 4, ._maximum = 4, ._release = false,
       ._buffer = (int32_t[]) { 193, 272, 54, 277 }
     }
-  }, LDM_NONE);
+  }, LDM_NONE, false, false);
   CU_ASSERT (!failed);
 }
 
 CU_Test(ddsc_psmx, one_writer_fastpath, .timeout = 120)
 {
   failed = false;
-  dotest (&Space_Type1_desc, &(const Space_Type1){ 0 }, LDM_FASTPATH);
+  dotest (&Space_Type1_desc, &(const Space_Type1){ 0 }, LDM_FASTPATH, false, false);
   CU_ASSERT (!failed);
 }
 
 CU_Test(ddsc_psmx, one_writer_slowpath, .timeout = 120)
 {
   failed = false;
-  dotest (&Space_Type1_desc, &(const Space_Type1){ 0 }, LDM_SLOWPATH);
+  dotest (&Space_Type1_desc, &(const Space_Type1){ 0 }, LDM_SLOWPATH, false, false);
+  CU_ASSERT (!failed);
+}
+
+CU_Test(ddsc_psmx, one_writer_wloan, .timeout = 120)
+{
+  failed = false;
+  dotest (&Space_Type1_desc, &(const Space_Type1){ 0 }, LDM_NONE, true, false);
+  CU_ASSERT (!failed);
+}
+
+CU_Test(ddsc_psmx, one_writer_rloan, .timeout = 120)
+{
+  failed = false;
+  dotest (&Space_Type1_desc, &(const Space_Type1){ 0 }, LDM_NONE, false, true);
+  CU_ASSERT (!failed);
+}
+
+CU_Test(ddsc_psmx, one_writer_wrloan, .timeout = 120)
+{
+  failed = false;
+  dotest (&Space_Type1_desc, &(const Space_Type1){ 0 }, LDM_NONE, true, true);
   CU_ASSERT (!failed);
 }
 
