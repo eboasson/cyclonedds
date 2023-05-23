@@ -81,3 +81,5 @@ endif ()
 if (ENABLE_TYPE_DISCOVERY)
   add_subdirectory(dyntype)
 endif ()
+
+add_subdirectory(instances)

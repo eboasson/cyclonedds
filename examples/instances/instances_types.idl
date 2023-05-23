@@ -1,0 +1,5 @@
+@final
+struct T {
+  @key uint32 k;
+  uint32 v;
+};
