@@ -132,7 +132,7 @@ static struct ddsi_serdata *local_make_sample (struct ddsi_tkmap_instance **tk, 
   if (din->loan != NULL && din->loan->loan_origin != NULL)
     d = ddsi_serdata_copy_as_type (type, din);
   else
-    d = ddsi_serdata_ref_as_type (type, si->src_payload);
+    d = ddsi_serdata_ref_as_type (type, din);
   if (d == NULL)
   {
     DDS_CWARNING (&gv->logconfig, "local: deserialization %s failed in type conversion\n", type->type_name);

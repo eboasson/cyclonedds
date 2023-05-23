@@ -49,6 +49,7 @@ static void fail_match (void) { fail (); }
 static void fail_addrset (void) { fail (); }
 static void fail_instance_state (void) { fail (); }
 static void fail_no_data (void) { fail (); }
+static void fail_too_much_data (void) { fail (); }
 
 #if 0
 #define TRACE_CATEGORY "trace,rhc"
@@ -184,6 +185,9 @@ static dds_entity_t create_endpoint (dds_entity_t tp, bool use_psmx, dds_entity_
   dds_qos_t *qos = dds_create_qos ();
   CU_ASSERT_FATAL (qos != NULL);
   dds_qset_reliability (qos, DDS_RELIABILITY_RELIABLE, 0);
+  // Use depth = 2 so that we can observe stuttering if the fastpath/slowpath
+  // fails to correctly skip PSMX readers
+  dds_qset_history (qos, DDS_HISTORY_KEEP_LAST, 2);
   dds_qset_writer_data_lifecycle (qos, false);
   if (!use_psmx)
     dds_qset_psmx_instances (qos, 0, NULL);
@@ -339,8 +343,8 @@ static bool alldataseen (struct tracebuf *tb, int nrds, const dds_entity_t *rds,
   }
 
   const dds_time_t abstimeout = dds_time () + DDS_MSECS (500);
-  bool alldataseen = false;
-  int *dataseen = dds_alloc ((size_t) nrds * sizeof (*dataseen));
+  bool alldataseen = false, toomuchdataseen = false;
+  int32_t *dataseen = dds_alloc ((size_t) nrds * sizeof (*dataseen));
   for (int i = 0; i < nrds; i++)
     dataseen[i] = (rdconds[i] == 0);
   do {
@@ -361,7 +365,9 @@ static bool alldataseen (struct tracebuf *tb, int nrds, const dds_entity_t *rds,
             fail_instance_state ();
             goto out;
           }
-          dataseen[i]++;
+          dataseen[i] += n;
+          if (dataseen[i] > 1)
+            toomuchdataseen = true;
         }
         CU_ASSERT_FATAL (n == 0);
       }
@@ -372,12 +378,19 @@ static bool alldataseen (struct tracebuf *tb, int nrds, const dds_entity_t *rds,
         alldataseen = false;
   } while (!alldataseen && dds_time () < abstimeout);
 
-  if (!alldataseen)
+  if (!alldataseen || toomuchdataseen)
   {
     for (int i = 0; i < nrds; i++)
+    {
       if (dataseen[i] == 0)
         print (tb, "[rd %d nodata] ", i);
-    fail_no_data ();
+      else if (dataseen[i] > 1)
+        print (tb, "[rd %d toomuchdata] ", i);
+    }
+    if (!alldataseen)
+      fail_no_data ();
+    else
+      fail_too_much_data ();
   }
 
 out:
@@ -398,11 +411,10 @@ struct fastpath_info {
   struct ddsi_reader *rdary0;
 };
 
-static struct fastpath_info getset_fastpath_reader_count (dds_entity_t wrhandle, struct fastpath_info new)
+static void wait_for_fastpath_ready (dds_entity_t wrhandle)
 {
   dds_return_t rc;
   struct dds_entity *x;
-
   rc = dds_entity_pin (wrhandle, &x);
   CU_ASSERT_FATAL (rc == DDS_RETCODE_OK);
   CU_ASSERT_FATAL (dds_entity_kind (x) == DDS_KIND_WRITER);
@@ -414,6 +426,20 @@ static struct fastpath_info getset_fastpath_reader_count (dds_entity_t wrhandle,
     dds_sleepfor (DDS_MSECS (10));
     ddsrt_mutex_lock (&wr->rdary.rdary_lock);
   }
+  ddsrt_mutex_unlock (&wr->rdary.rdary_lock);
+  dds_entity_unpin (x);
+}
+
+static struct fastpath_info getset_fastpath_reader_count (dds_entity_t wrhandle, struct fastpath_info new)
+{
+  dds_return_t rc;
+  struct dds_entity *x;
+  rc = dds_entity_pin (wrhandle, &x);
+  CU_ASSERT_FATAL (rc == DDS_RETCODE_OK);
+  CU_ASSERT_FATAL (dds_entity_kind (x) == DDS_KIND_WRITER);
+  struct ddsi_writer * const wr = ((struct dds_writer *) x)->m_wr;
+  ddsrt_mutex_lock (&wr->rdary.rdary_lock);
+  assert (wr->rdary.fastpath_ok);
   const struct fastpath_info old = {
     .nrd = wr->rdary.n_readers,
     .rdary0 = wr->rdary.rdary[0]
@@ -423,6 +449,23 @@ static struct fastpath_info getset_fastpath_reader_count (dds_entity_t wrhandle,
   ddsrt_mutex_unlock (&wr->rdary.rdary_lock);
   dds_entity_unpin (x);
   return old;
+}
+
+static void getset_fastpath_enabled (dds_entity_t wrhandle, bool enable)
+{
+  dds_return_t rc;
+  struct dds_entity *x;
+
+  rc = dds_entity_pin (wrhandle, &x);
+  CU_ASSERT_FATAL (rc == DDS_RETCODE_OK);
+  CU_ASSERT_FATAL (dds_entity_kind (x) == DDS_KIND_WRITER);
+  struct ddsi_writer * const wr = ((struct dds_writer *) x)->m_wr;
+  ddsrt_mutex_lock (&wr->rdary.rdary_lock);
+  assert ((wr->rdary.fastpath_ok && !enable) ||
+          (!wr->rdary.fastpath_ok && enable));
+  wr->rdary.fastpath_ok = enable;
+  ddsrt_mutex_unlock (&wr->rdary.rdary_lock);
+  dds_entity_unpin (x);
 }
 
 static int compare_uint32 (const void *va, const void *vb)
@@ -438,7 +481,21 @@ static void print_time (struct tracebuf *tb)
   print (tb, "%d.%06d", (int32_t) (t / DDS_NSECS_IN_SEC), (int32_t) (t % DDS_NSECS_IN_SEC) / 1000);
 }
 
-static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
+enum local_delivery_mode {
+  // Avoid Cyclone's internal local delivery path, to guarantee that PSMX is actually used
+  // (done by overwriting the fast path table)
+  LDM_NONE,
+  // Also perform delivery via Cyclone's internal path, we must be sure it doesn't also
+  // arrive via this one (trivial to do: it is the default, though we block until it is
+  // enabled just in case it takes a little while)
+  LDM_FASTPATH,
+  // Also perform delivery via Cyclone's internal *slow* path, which is very rarely used
+  // because it only covers some transient states during matching and deletion of a writer
+  // (done by overwriting the fast path validity flag)
+  LDM_SLOWPATH
+};
+
+static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample, enum local_delivery_mode ldm)
 {
   dds_return_t rc;
   dds_entity_t pp[MAX_DOMAINS];
@@ -521,7 +578,6 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
 
       for (int i = 0; rdmode[i] != 0; i++)
       {
-
         const int dom = i / MAX_READERS_PER_DOMAIN;
         if (i > 0 && dom > (i - 1) / MAX_READERS_PER_DOMAIN)
           print (&tb, " |");
@@ -594,13 +650,25 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
       }
 
       // Once matched, fast path should go to "ok" and we can override it (if needed)
-      if (override_fastpath_rdcount)
-      {
-        print (&tb, "; hack-fastpath");
-        old_fastpath = getset_fastpath_reader_count (wr, (struct fastpath_info){ .nrd = 0, .rdary0 = 0 });
-        print (&tb, "(%"PRIu32")", old_fastpath.nrd);
-      }
       print (&tb, "; ");
+      wait_for_fastpath_ready (wr);
+      switch (ldm)
+      {
+        case LDM_NONE:
+          if (override_fastpath_rdcount)
+          {
+            print (&tb, "hack-fastpath");
+            old_fastpath = getset_fastpath_reader_count (wr, (struct fastpath_info){ .nrd = 0, .rdary0 = 0 });
+            print (&tb, "(%"PRIu32"); ", old_fastpath.nrd);
+          }
+          break;
+        case LDM_FASTPATH:
+          break;
+        case LDM_SLOWPATH:
+          print (&tb, "force-slowpath; ");
+          getset_fastpath_enabled (wr, false);
+          break;
+      }
       // easier on the eyes in the log:
       //dds_sleepfor (DDS_MSECS (100));
       static struct {
@@ -617,7 +685,6 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
       {
         print (&tb, "%s ", ops[opidx].info); fflush (stdout);
         rc = ops[opidx].op (wr, sample);
-
         CU_ASSERT_FATAL (rc == 0);
         if (!alldataseen (&tb, MAX_READERS_PER_DOMAIN, rds, ops[opidx].istate))
         {
@@ -627,8 +694,18 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
       }
 
     next:
-      if (old_fastpath.nrd != UINT32_MAX)
-        (void) getset_fastpath_reader_count (wr, old_fastpath);
+      switch (ldm)
+      {
+        case LDM_NONE:
+          if (old_fastpath.nrd != UINT32_MAX)
+            (void) getset_fastpath_reader_count (wr, old_fastpath);
+          break;
+        case LDM_FASTPATH:
+          break;
+        case LDM_SLOWPATH:
+          getset_fastpath_enabled (wr, true);
+          break;
+      }
       print (&tb, ": %s", fail_one ? "FAIL" : "ok");
       for (int i = 0; i < MAX_DOMAINS; i++)
       {
@@ -672,7 +749,7 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample)
 CU_Test(ddsc_psmx, one_writer, .timeout = 120)
 {
   failed = false;
-  dotest (&Space_Type1_desc, &(const Space_Type1){ 0 });
+  dotest (&Space_Type1_desc, &(const Space_Type1){ 0 }, LDM_NONE);
   CU_ASSERT (!failed);
 }
 
@@ -686,7 +763,7 @@ CU_Test(ddsc_psmx, one_writer_dynsize, .timeout = 120)
       ._length = 4, ._maximum = 4, ._release = false,
       ._buffer = (int32_t[]) { 193, 272, 54, 277 }
     }
-  });
+  }, LDM_NONE);
   CU_ASSERT (!failed);
 }
 
@@ -700,7 +777,21 @@ CU_Test(ddsc_psmx, one_writer_dynsize_strkey, .timeout = 120)
       ._length = 4, ._maximum = 4, ._release = false,
       ._buffer = (int32_t[]) { 193, 272, 54, 277 }
     }
-  });
+  }, LDM_NONE);
+  CU_ASSERT (!failed);
+}
+
+CU_Test(ddsc_psmx, one_writer_fastpath, .timeout = 120)
+{
+  failed = false;
+  dotest (&Space_Type1_desc, &(const Space_Type1){ 0 }, LDM_FASTPATH);
+  CU_ASSERT (!failed);
+}
+
+CU_Test(ddsc_psmx, one_writer_slowpath, .timeout = 120)
+{
+  failed = false;
+  dotest (&Space_Type1_desc, &(const Space_Type1){ 0 }, LDM_SLOWPATH);
   CU_ASSERT (!failed);
 }
 
