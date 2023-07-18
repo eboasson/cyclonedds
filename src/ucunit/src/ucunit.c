@@ -39,6 +39,8 @@ void CU_assertImplementation (bool value, int line, const char *expr, const char
   failure_count++;
   cur_test->nfailures++;
   struct CU_FailureRecord *fr = malloc (sizeof (*fr));
+  if (fr == NULL)
+    abort ();
   fr->file = file;
   fr->line = line;
   fr->expr = expr;
@@ -78,6 +80,8 @@ static char *ucunit_strdup (const char *s)
 {
   size_t l = strlen (s) + 1;
   char *n = malloc (l);
+  if (n == NULL)
+    abort ();
   memcpy (n, s, l);
   return n;
 }
@@ -90,6 +94,8 @@ CU_pSuite CU_add_suite (const char *strName, CU_InitializeFunc pInit, CU_Cleanup
   if (cur != NULL)
     return cur;
   cur = malloc (sizeof (*cur));
+  if (cur == NULL)
+    abort ();
   cur->name = ucunit_strdup (strName);
   cur->init = pInit;
   cur->cleanup = pClean;
@@ -130,6 +136,8 @@ CU_pTest CU_add_test (CU_pSuite pSuite, const char *strName, CU_TestFunc pTestFu
   if (cur != NULL)
     return cur;
   cur = malloc (sizeof (*cur));
+  if (cur == NULL)
+    abort ();
   cur->name = ucunit_strdup (strName);
   cur->testfunc = pTestFunc;
   cur->next = NULL;
