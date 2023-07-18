@@ -291,6 +291,9 @@ static bool gen_serdata_key_from_cdr (dds_istream_t * __restrict is, struct dds_
 
 /* Construct a serdata from a fragchain received over the network */
 static struct dds_serdata_default *serdata_default_from_ser_common (const struct ddsi_sertype *tpcmn, enum ddsi_serdata_kind kind, const struct ddsi_rdata *fragchain, size_t size)
+  ddsrt_nonnull_all;
+
+static struct dds_serdata_default *serdata_default_from_ser_common (const struct ddsi_sertype *tpcmn, enum ddsi_serdata_kind kind, const struct ddsi_rdata *fragchain, size_t size)
 {
   const struct dds_sertype_default *tp = (const struct dds_sertype_default *)tpcmn;
 

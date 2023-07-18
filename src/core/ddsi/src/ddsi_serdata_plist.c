@@ -100,6 +100,9 @@ static struct ddsi_serdata *serdata_plist_fix (const struct ddsi_sertype_plist *
 }
 
 static struct ddsi_serdata *serdata_plist_from_ser (const struct ddsi_sertype *tpcmn, enum ddsi_serdata_kind kind, const struct ddsi_rdata *fragchain, size_t size)
+  ddsrt_nonnull_all;
+
+static struct ddsi_serdata *serdata_plist_from_ser (const struct ddsi_sertype *tpcmn, enum ddsi_serdata_kind kind, const struct ddsi_rdata *fragchain, size_t size)
 {
   const struct ddsi_sertype_plist *tp = (const struct ddsi_sertype_plist *) tpcmn;
   struct ddsi_serdata_plist *d = serdata_plist_new (tp, kind, size, DDSI_RMSG_PAYLOADOFF (fragchain->rmsg, DDSI_RDATA_PAYLOAD_OFF (fragchain)));

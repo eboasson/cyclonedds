@@ -107,6 +107,9 @@ static struct ddsi_serdata *serdata_pserop_fix (const struct ddsi_sertype_pserop
 }
 
 static struct ddsi_serdata *serdata_pserop_from_ser (const struct ddsi_sertype *tpcmn, enum ddsi_serdata_kind kind, const struct ddsi_rdata *fragchain, size_t size)
+  ddsrt_nonnull_all;
+
+static struct ddsi_serdata *serdata_pserop_from_ser (const struct ddsi_sertype *tpcmn, enum ddsi_serdata_kind kind, const struct ddsi_rdata *fragchain, size_t size)
 {
   const struct ddsi_sertype_pserop *tp = (const struct ddsi_sertype_pserop *)tpcmn;
   struct ddsi_serdata_pserop *d = serdata_pserop_new (tp, kind, size, DDSI_RMSG_PAYLOADOFF (fragchain->rmsg, DDSI_RDATA_PAYLOAD_OFF (fragchain)));

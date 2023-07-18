@@ -45,13 +45,13 @@ struct ddsi_serdata *ddsi_serdata_ref_as_type (const struct ddsi_sertype *type, 
     struct ddsi_serdata *converted;
     ddsrt_iovec_t iov;
     uint32_t size = ddsi_serdata_size (serdata);
-    (void) ddsi_serdata_to_ser_ref (serdata, 0, size, &iov);
+    struct ddsi_serdata *sdref = ddsi_serdata_to_ser_ref (serdata, 0, size, &iov);
     if ((converted = ddsi_serdata_from_ser_iov (type, serdata->kind, 1, &iov, size)) != NULL)
     {
       converted->statusinfo = serdata->statusinfo;
       converted->timestamp = serdata->timestamp;
     }
-    ddsi_serdata_to_ser_unref (serdata, &iov);
+    ddsi_serdata_to_ser_unref (sdref, &iov);
     return converted;
   }
 }
