@@ -844,68 +844,51 @@ static bool loaned_sample_state_to_serdata_kind (dds_loaned_sample_state_t lss, 
   return false;
 }
 
-static struct ddsi_serdata *serdata_default_from_loaned_sample (const struct ddsi_sertype *type, enum ddsi_serdata_kind kind, const char *sample, dds_loaned_sample_t *loaned_sample, bool force_serialization)
+static struct ddsi_serdata *serdata_default_from_loaned_sample (const struct ddsi_sertype *type, enum ddsi_serdata_kind kind, const char *sample, dds_loaned_sample_t *loaned_sample, bool will_require_cdr)
 {
   /*
     type = the type of data being serialized
     kind = the kind of data contained (key or normal)
     sample = the raw sample made into the serdata
     loaned_sample = the loaned buffer in use
-    force_serialization = whether the contents of the loaned sample should be serialized
+    will_require_cdr = whether we will need the CDR (or a highly likely to need it)
   */
   const struct dds_sertype_default *tp = (const struct dds_sertype_default *) type;
 
-  assert (loaned_sample->loan_origin.origin_kind == DDS_LOAN_ORIGIN_KIND_PSMX);
-  bool serialize_data = force_serialization || !type->is_memcpy_safe;
+  assert (type->is_memcpy_safe);
+  assert (sample == loaned_sample->sample_ptr);
+  assert (loaned_sample->metadata->sample_state == (kind == SDK_KEY ? DDS_LOANED_SAMPLE_STATE_RAW_KEY : DDS_LOANED_SAMPLE_STATE_RAW_DATA));
+  assert (loaned_sample->metadata->cdr_identifier == DDSI_RTPS_SAMPLE_NATIVE);
+  assert (loaned_sample->metadata->cdr_options == 0);
 
   struct dds_serdata_default *d;
-  if (serialize_data)
+  if (will_require_cdr || !type->is_memcpy_safe)
   {
-    // maybe if there is a loan and that loan is not the sample, use the loan block as the serialization buffer?
+    // If serialization is/will be required, construct the serdata the normal way
     d = (struct dds_serdata_default *) type->serdata_ops->from_sample (type, kind, sample);
+    if (d == NULL)
+      return NULL;
   }
   else
   {
+    // If we know there is no neeed for the serialized representation (so only PSMX and "memcpy safe"),
+    // construct an empty serdata and stay away from the serializers
     d = serdata_default_new (tp, kind, tp->write_encoding_version);
-    if (d == NULL || !gen_serdata_key_from_sample (tp, &d->key, sample))
+    if (d == NULL)
       return NULL;
+    if (!gen_serdata_key_from_sample (tp, &d->key, sample))
+    {
+      ddsi_serdata_unref (&d->c);
+      return NULL;
+    }
   }
 
-  if (d != NULL)
-  {
-    // now owner of loan
-    d->c.loan = loaned_sample;
-    if (d->c.loan->sample_ptr != sample) //if the sample we are serializing is itself not loaned
-    {
-      assert (d->c.loan->metadata->sample_state == DDS_LOANED_SAMPLE_STATE_UNITIALIZED);
-      if (serialize_data)
-      {
-        d->c.loan->metadata->sample_state = (kind == SDK_KEY ? DDS_LOANED_SAMPLE_STATE_SERIALIZED_KEY : DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA);
-        d->c.loan->metadata->cdr_identifier = d->hdr.identifier;
-        d->c.loan->metadata->cdr_options = d->hdr.options;
-        memcpy (d->c.loan->sample_ptr, d->data, d->c.loan->metadata->sample_size);
-      }
-      else
-      {
-        d->c.loan->metadata->sample_state = (kind == SDK_KEY ? DDS_LOANED_SAMPLE_STATE_RAW_KEY : DDS_LOANED_SAMPLE_STATE_RAW_DATA);
-        d->c.loan->metadata->cdr_identifier = DDSI_RTPS_SAMPLE_NATIVE;
-        d->c.loan->metadata->cdr_options = 0;
-        memcpy (d->c.loan->sample_ptr, sample, d->c.loan->metadata->sample_size);
-      }
-    }
-    else
-    {
-      d->c.loan->metadata->sample_state = (kind == SDK_KEY ? DDS_LOANED_SAMPLE_STATE_RAW_KEY : DDS_LOANED_SAMPLE_STATE_RAW_DATA);
-      d->c.loan->metadata->cdr_identifier = DDSI_RTPS_SAMPLE_NATIVE;
-      d->c.loan->metadata->cdr_options = 0;
-    }
-
-    if (tp->c.has_key)
-      (void) fix_serdata_default (d, tp->c.serdata_basehash);
-    else
-      (void) fix_serdata_default_nokey (d, tp->c.serdata_basehash);
-  }
-
+  // now owner of loan
+  d->c.loan = loaned_sample;
+  if (tp->c.has_key)
+    (void) fix_serdata_default (d, tp->c.serdata_basehash);
+  else
+    (void) fix_serdata_default_nokey (d, tp->c.serdata_basehash);
   return (struct ddsi_serdata *) d;
 }
 
