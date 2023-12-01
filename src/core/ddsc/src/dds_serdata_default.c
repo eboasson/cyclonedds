@@ -513,9 +513,10 @@ static struct ddsi_serdata *serdata_default_from_keyhash_cdr_nokey (const struct
 
 static void istream_from_serdata_default (dds_istream_t * __restrict s, const struct dds_serdata_default * __restrict d)
 {
-  if (d->c.loan != NULL)
+  if (d->c.loan != NULL &&
+      (d->c.loan->metadata->sample_state == DDS_LOANED_SAMPLE_STATE_SERIALIZED_KEY ||
+       d->c.loan->metadata->sample_state == DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA))
   {
-    assert (d->c.loan->metadata->sample_state == DDS_LOANED_SAMPLE_STATE_SERIALIZED_KEY || d->c.loan->metadata->sample_state == DDS_LOANED_SAMPLE_STATE_SERIALIZED_DATA);
     s->m_buffer = d->c.loan->sample_ptr;
     s->m_index = 0;
     s->m_size = d->c.loan->metadata->sample_size;
@@ -715,6 +716,7 @@ static bool serdata_default_to_sample_cdr (const struct ddsi_serdata *serdata_co
   dds_istream_t is;
   if (bufptr) abort(); else { (void)buflim; } /* FIXME: haven't implemented that bit yet! */
   if (d->c.loan != NULL &&
+      tp->c.is_memcpy_safe &&
       (d->c.loan->metadata->sample_state == DDS_LOANED_SAMPLE_STATE_RAW_DATA ||
        d->c.loan->metadata->sample_state == DDS_LOANED_SAMPLE_STATE_RAW_KEY))
   {
@@ -855,14 +857,13 @@ static struct ddsi_serdata *serdata_default_from_loaned_sample (const struct dds
   */
   const struct dds_sertype_default *tp = (const struct dds_sertype_default *) type;
 
-  assert (type->is_memcpy_safe);
   assert (sample == loaned_sample->sample_ptr);
   assert (loaned_sample->metadata->sample_state == (kind == SDK_KEY ? DDS_LOANED_SAMPLE_STATE_RAW_KEY : DDS_LOANED_SAMPLE_STATE_RAW_DATA));
   assert (loaned_sample->metadata->cdr_identifier == DDSI_RTPS_SAMPLE_NATIVE);
   assert (loaned_sample->metadata->cdr_options == 0);
 
   struct dds_serdata_default *d;
-  if (will_require_cdr || !type->is_memcpy_safe)
+  if (will_require_cdr)
   {
     // If serialization is/will be required, construct the serdata the normal way
     d = (struct dds_serdata_default *) type->serdata_ops->from_sample (type, kind, sample);

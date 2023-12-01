@@ -428,10 +428,8 @@ static bool evaluate_topic_filter (const dds_writer *wr, const void *data, enum 
   return true;
 }
 
-static dds_return_t dds_write_basic_impl (struct ddsi_thread_state * const ts, dds_writer *wr, struct ddsi_serdata *d)
-  ddsrt_nonnull_all;
-
-static dds_return_t dds_write_basic_impl (struct ddsi_thread_state * const ts, dds_writer *wr, struct ddsi_serdata *d)
+ddsrt_nonnull_all
+static dds_return_t dds_write_impl_deliver_via_ddsi (struct ddsi_thread_state * const ts, dds_writer *wr, struct ddsi_serdata *d)
 {
   struct ddsi_writer *ddsi_wr = wr->m_wr;
   dds_return_t ret = DDS_RETCODE_OK;
@@ -593,7 +591,7 @@ static void dds_write_impl_set_loan_writeinfo (const struct dds_writer *wr, stru
 ddsrt_attribute_warn_unused_result  ddsrt_nonnull_all
 static struct dds_loaned_sample *dds_write_impl_make_raw_loan (const struct dds_writer *wr, const void *data, enum ddsi_serdata_kind sdkind, dds_time_t timestamp, uint32_t statusinfo)
 {
-  struct ddsi_sertype * const sertype = wr->m_topic->m_stype;
+  struct ddsi_sertype const * const sertype = wr->m_wr->type;
   assert (sertype->is_memcpy_safe);
   assert (wr->m_endpoint.psmx_endpoints.length == 1); // FIXME: support multiple PSMX instances
   struct dds_loaned_sample * const loan = dds_psmx_endpoint_request_loan (wr->m_endpoint.psmx_endpoints.endpoints[0], sertype->sizeof_type);
@@ -612,10 +610,9 @@ static struct dds_loaned_sample *dds_write_impl_make_raw_loan (const struct dds_
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
 static struct dds_loaned_sample *dds_write_impl_make_serialized_loan (const struct dds_writer *wr, const struct ddsi_serdata *sd)
 {
-  struct ddsi_sertype * const sertype = wr->m_topic->m_stype;
   assert (wr->m_endpoint.psmx_endpoints.length == 1); // FIXME: support multiple PSMX instances
-  assert (sertype->is_memcpy_safe || ddsi_serdata_size (sd) >= 4);
-  const uint32_t loan_size = (sertype->is_memcpy_safe ? sertype->sizeof_type : ddsi_serdata_size (sd) - 4);
+  assert (ddsi_serdata_size (sd) >= 4);
+  const uint32_t loan_size = ddsi_serdata_size (sd) - 4;
   struct dds_loaned_sample * const loan = dds_psmx_endpoint_request_loan (wr->m_endpoint.psmx_endpoints.endpoints[0], loan_size);
   if (loan == NULL)
     return NULL;
@@ -632,7 +629,7 @@ static struct dds_loaned_sample *dds_write_impl_make_serialized_loan (const stru
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull ((1, 3))
-static struct ddsi_serdata *dds_write_impl_make_serdata (struct ddsi_sertype *sertype, enum ddsi_serdata_kind sdkind, const void *data, struct dds_loaned_sample *heap_loan, dds_time_t timestamp, uint32_t statusinfo)
+static struct ddsi_serdata *dds_write_impl_make_serdata (const struct ddsi_sertype *sertype, enum ddsi_serdata_kind sdkind, const void *data, struct dds_loaned_sample *heap_loan, dds_time_t timestamp, uint32_t statusinfo)
 {
   assert (heap_loan == NULL || heap_loan->loan_origin.origin_kind == DDS_LOAN_ORIGIN_KIND_HEAP);
   struct ddsi_serdata *serdata;
@@ -651,16 +648,14 @@ ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
 static dds_return_t dds_write_impl_psmxloan_serdata (struct dds_writer *wr, const void *data, enum ddsi_serdata_kind sdkind, dds_time_t timestamp, uint32_t statusinfo, struct dds_loaned_sample **psmx_loan, struct ddsi_serdata **serdata)
 {
   const bool use_only_psmx = dds_write_impl_use_only_psmx (wr);
-  struct ddsi_sertype * const sertype = wr->m_topic->m_stype;
+  struct ddsi_sertype const * const sertype = wr->m_wr->type;
   struct dds_loaned_sample *loan = dds_loan_pool_find_and_remove_loan (wr->m_loans, data);
   if (loan)
   {
     // If we have a loan:
-    // - the type is memcpy-safe (otherwise we wouldn't have handed out a loan)
     // - if there is only PSMX involved, we can short-circuit delivery and get out quickly
     // - if anything is around, construct a regular serdata and derive a PSMX copy of it afterward if needed
     assert (ddsrt_atomic_ld32 (&loan->refc) == 1);
-    assert (sertype->is_memcpy_safe);
     struct dds_psmx_metadata * const md = loan->metadata;
     assert (md->sample_state == DDS_LOANED_SAMPLE_STATE_UNITIALIZED);
     md->sample_state = (sdkind == SDK_KEY) ? DDS_LOANED_SAMPLE_STATE_RAW_KEY : DDS_LOANED_SAMPLE_STATE_RAW_DATA;
@@ -670,6 +665,8 @@ static dds_return_t dds_write_impl_psmxloan_serdata (struct dds_writer *wr, cons
     switch (loan->loan_origin.origin_kind)
     {
       case DDS_LOAN_ORIGIN_KIND_PSMX:
+        // we never do PSMX loans for complex types
+        assert (sertype->is_memcpy_safe);
         *psmx_loan = loan;
         if (use_only_psmx)
         {
@@ -685,21 +682,41 @@ static dds_return_t dds_write_impl_psmxloan_serdata (struct dds_writer *wr, cons
         }
         break;
       case DDS_LOAN_ORIGIN_KIND_HEAP:
-        // if PSMX writer, it'd have been a PSMX loan (could use !use_only_psmx, but this
-        // condition is more strict)
-        //
-        // we could associate the heap loan with the sample, that'd be more elegant because
-        // then we do zero-copy inside the process if no PSMX is involved
-        assert (wr->m_endpoint.psmx_endpoints.length == 0);
-        *psmx_loan = NULL;
-        // claim "cdr required" - it may not be strictly required for volatile data if there are only
-        // local readers, but let's not complicate it too much now
-        if ((*serdata = dds_write_impl_make_serdata (sertype, sdkind, data, loan, timestamp, statusinfo)) == NULL)
+        if (wr->m_endpoint.psmx_endpoints.length == 0)
         {
-          // It is either no memory or invalid data, we've historically gambled on it being invalid
-          // data because being out of memory is exceedingly unlikely on decent platforms
+          // no PSMX, so local readers and/or network; keeping the loan makes sense for local readers
+          *psmx_loan = NULL;
+          // claim "cdr required" - it may not be strictly required for volatile data if there are only
+          // local readers, but let's not complicate it too much now
+          if ((*serdata = dds_write_impl_make_serdata (sertype, sdkind, data, loan, timestamp, statusinfo)) == NULL)
+          {
+            // It is either no memory or invalid data, we've historically gambled on it being invalid
+            // data because being out of memory is exceedingly unlikely on decent platforms
+            dds_loaned_sample_unref (loan);
+            return DDS_RETCODE_BAD_PARAMETER;
+          }
+        }
+        else
+        {
+          // PSMX, so CDR in memory. The loan is (probably) useless to us, because of PSMX loopback to
+          // local readers.  It seems not so likely that there will be enough local readers not using
+          // PSMX to make it worth the retaining the loan
+          assert (!sertype->is_memcpy_safe);
+          // Make a "standard" serdata and then use that to make a PSMX loan
+          *serdata = dds_write_impl_make_serdata (sertype, sdkind, data, NULL, timestamp, statusinfo);
           dds_loaned_sample_unref (loan);
-          return DDS_RETCODE_BAD_PARAMETER;
+          if (*serdata == NULL)
+          {
+            // It is either no memory or invalid data, we've historically gambled on it being invalid
+            // data because being out of memory is exceedingly unlikely on decent platforms
+            return DDS_RETCODE_BAD_PARAMETER;
+          }
+          *psmx_loan = dds_write_impl_make_serialized_loan (wr, *serdata);
+          if (*psmx_loan == NULL)
+          {
+            ddsi_serdata_unref (*serdata);
+            return DDS_RETCODE_OUT_OF_RESOURCES;
+          }
         }
         break;
     }
@@ -763,16 +780,11 @@ dds_return_t dds_write_impl (dds_writer *wr, const void *data, dds_time_t timest
   //     - deliver loan via PSMX (has to wait for from_sample because publishing via PSMX invalidates the data)
   //     - deliver serdata
   //
-  // II. heap loan => assert (is_memcpy_safe)
-  //   a. psmx only
-  //     - allocate PSMX loan, memcpy, free heap loan, deliver loan via PSMX
-  //   b. psmx && others
-  //     - allocate PSMX loan, memcpy, deliver loan via PSMX
-  //     - ddsi_serdata_from_sample because we need a "normal one" anyway
-  //     - free heap loan
-  //     - deliver serdata
+  // II. heap loan => (note: not necessarily is_memcpy_safe)
+  //   a. psmx only - assert (!is_memcpy_safe); as-if no loan
+  //   b. psmx && others - assert (!is_memcpy_safe); as-if no loan: we typically have PSMX loopback and that makes the loan useless
   //   c. no psmx
-  //     - ddsi_serdata_from_sample, free heap loan, deliver serdata
+  //     - ddsi_serdata_from_loaned_sample, deliver serdata
   //
   // III. not loan
   //   a. psmx only
@@ -804,7 +816,7 @@ dds_return_t dds_write_impl (dds_writer *wr, const void *data, dds_time_t timest
     if (serdata != NULL)
     {
       if (ret == DDS_RETCODE_OK)
-        ret = dds_write_basic_impl (thrst, wr, serdata);
+        ret = dds_write_impl_deliver_via_ddsi (thrst, wr, serdata);
       ddsi_serdata_unref (serdata);
     }
   }
