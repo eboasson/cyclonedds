@@ -49,7 +49,7 @@ struct ddsi_serdata *ddsi_serdata_copy_as_type (const struct ddsi_sertype *type,
 
 struct ddsi_serdata *ddsi_serdata_ref_as_type (const struct ddsi_sertype *type, struct ddsi_serdata *serdata)
 {
-  if (serdata->type == type)
+  if (serdata->type == type || serdata->type->base_sertype == type)
     return ddsi_serdata_ref (serdata);
   else
     return ddsi_serdata_copy_as_type (type, serdata);
