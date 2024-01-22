@@ -281,6 +281,13 @@ fail:
 
 static void dds_report_tls_version (const struct ddsi_domaingv *gv, const SSL *ssl, const char *oper)
 {
+  // FIXME: Windows CI with Chocolatey OpenSSL 3.2.0 fails to link because both
+  // SSL_get_peer_certificate and SSL_get0_peer_certificate are undefined.  This is the
+  // only place where we use it.  The TCP support in Cyclone DDS is far from great and
+  // should be reworked, and the TLS support basically never gets used because DDS
+  // Security is a better choice anyway, and therefore disabling this code is the most
+  // pragmatic way to deal with the problem.
+#if 0
   if (ssl)
   {
     // API compatibility settings should make SSL_get_peer_certificate work, but some Windows
@@ -301,6 +308,9 @@ static void dds_report_tls_version (const struct ddsi_domaingv *gv, const SSL *s
       GVTRACE ("tcp/ssl %s %s issued by %s [%s]\n", oper, subject, issuer, SSL_get_version (ssl));
     }
   }
+#else
+  (void)gv; (void)ssl; (void)oper;
+#endif
 }
 
 static SSL *ddsi_ssl_connect (const struct ddsi_domaingv *gv, ddsrt_socket_t sock)
