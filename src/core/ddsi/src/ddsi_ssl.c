@@ -283,10 +283,23 @@ static void dds_report_tls_version (const struct ddsi_domaingv *gv, const SSL *s
 {
   if (ssl)
   {
-    char issuer[256], subject[256];
-    X509_NAME_oneline (X509_get_issuer_name (SSL_get_peer_certificate (ssl)), issuer, sizeof (issuer));
-    X509_NAME_oneline (X509_get_subject_name (SSL_get_peer_certificate (ssl)), subject, sizeof (subject));
-    GVTRACE ("tcp/ssl %s %s issued by %s [%s]\n", oper, subject, issuer, SSL_get_version (ssl));
+    // API compatibility settings should make SSL_get_peer_certificate work, but some Windows
+    // build on the CI started failing because of it
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
+    X509 * const peer_cert = SSL_get_peer_certificate (ssl);
+#else
+    X509 const * const peer_cert = SSL_get0_peer_certificate (ssl);
+#endif
+    if (peer_cert)
+    {
+      char issuer[256], subject[256];
+      X509_NAME_oneline (X509_get_issuer_name (peer_cert), issuer, sizeof (issuer));
+      X509_NAME_oneline (X509_get_subject_name (peer_cert), subject, sizeof (subject));
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
+      X509_free (peer_cert);
+#endif
+      GVTRACE ("tcp/ssl %s %s issued by %s [%s]\n", oper, subject, issuer, SSL_get_version (ssl));
+    }
   }
 }
 
