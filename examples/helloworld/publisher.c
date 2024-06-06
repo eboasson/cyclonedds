@@ -3,6 +3,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+//
+#include <string.h>
+#include <arpa/inet.h>
+#include "dds/ddsc/dds_internal_api.h"
+#include "dds/ddsi/ddsi_domaingv.h"
+#include "dds/ddsi/ddsi_addrset.h"
+#include "dds/ddsi/ddsi_tran.h"
+
+static void add_spdp_address (const dds_entity_t pp, const struct sockaddr_in *ipv4)
+{
+  struct ddsi_domaingv * const gv = dds_get_domaingv (pp);
+  ddsi_locator_t loc;
+  memset (&loc, 0, sizeof (loc));
+  loc.kind = DDSI_LOCATOR_KIND_UDPv4;
+  loc.port = ntohs (ipv4->sin_port);
+  memcpy (loc.address + 12, &ipv4->sin_addr, 4);
+  ddsi_add_locator_to_addrset (gv, gv->as_disc, &loc);
+}
+//
+
 int main (int argc, char ** argv)
 {
   dds_entity_t participant;
@@ -37,6 +57,7 @@ int main (int argc, char ** argv)
   if (rc != DDS_RETCODE_OK)
     DDS_FATAL("dds_set_status_mask: %s\n", dds_strretcode(-rc));
 
+  int count = 0;
   while(!(status & DDS_PUBLICATION_MATCHED_STATUS))
   {
     rc = dds_get_status_changes (writer, &status);
@@ -45,6 +66,17 @@ int main (int argc, char ** argv)
 
     /* Polling sleep. */
     dds_sleepfor (DDS_MSECS (20));
+
+    if (++count == 500) // about 10s
+    {
+      printf ("adding 127.0.0.1:7410\n");
+      struct sockaddr_in a;
+      memset (&a, 0, sizeof (a));
+      a.sin_family = AF_INET;
+      a.sin_port = htons (7410);
+      inet_aton ("127.0.0.1", &a.sin_addr);
+      add_spdp_address (participant, &a);
+    }
   }
 
   /* Create a message to write. */

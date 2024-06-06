@@ -32,6 +32,15 @@ bool ddsi_addrset_empty (const struct ddsi_addrset *as)
 void ddsi_addrset_forall (struct ddsi_addrset *as, ddsi_addrset_forall_fun_t f, void *arg)
   ddsrt_nonnull ((1,2));
 
+/** @component locators */
+struct ddsi_domaingv;
+DDS_EXPORT void ddsi_add_locator_to_addrset (const struct ddsi_domaingv *gv, struct ddsi_addrset *as, const ddsi_locator_t *loc)
+  ddsrt_nonnull_all;
+
+/** @component locators */
+DDS_EXPORT void ddsi_remove_from_addrset (const struct ddsi_domaingv *gv, struct ddsi_addrset *as, const ddsi_xlocator_t *loc)
+  ddsrt_nonnull_all;
+
 #if defined (__cplusplus)
 }
 #endif

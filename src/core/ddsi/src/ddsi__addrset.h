@@ -45,15 +45,7 @@ struct ddsi_addrset *ddsi_ref_addrset (struct ddsi_addrset *as);
 void ddsi_unref_addrset (struct ddsi_addrset *as);
 
 /** @component locators */
-void ddsi_add_locator_to_addrset (const struct ddsi_domaingv *gv, struct ddsi_addrset *as, const ddsi_locator_t *loc)
-  ddsrt_nonnull_all;
-
-/** @component locators */
 void ddsi_add_xlocator_to_addrset (const struct ddsi_domaingv *gv, struct ddsi_addrset *as, const ddsi_xlocator_t *loc)
-  ddsrt_nonnull_all;
-
-/** @component locators */
-void ddsi_remove_from_addrset (const struct ddsi_domaingv *gv, struct ddsi_addrset *as, const ddsi_xlocator_t *loc)
   ddsrt_nonnull_all;
 
 /** @component locators */

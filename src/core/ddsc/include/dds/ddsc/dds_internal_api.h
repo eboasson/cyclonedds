@@ -34,6 +34,9 @@ extern "C" {
 DDS_EXPORT void
 dds_cdrstream_desc_from_topic_desc (struct dds_cdrstream_desc *desc, const dds_topic_descriptor_t *topic_desc);
 
+struct ddsi_domaingv;
+DDS_EXPORT struct ddsi_domaingv *dds_get_domaingv (dds_entity_t entity);
+
 #if defined (__cplusplus)
 }
 #endif

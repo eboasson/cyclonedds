@@ -1837,3 +1837,14 @@ dds_return_t dds_write_flush (dds_entity_t entity)
   dds_entity_unpin (e);
   return rc;
 }
+
+#include "dds/ddsc/dds_internal_api.h"
+struct ddsi_domaingv *dds_get_domaingv (dds_entity_t entity)
+{
+  dds_entity *e;
+  if (dds_entity_pin (entity, &e) != DDS_RETCODE_OK)
+    return NULL;
+  struct ddsi_domaingv * const gv = &e->m_domain->gv;
+  dds_entity_unpin (e);
+  return gv;
+}
