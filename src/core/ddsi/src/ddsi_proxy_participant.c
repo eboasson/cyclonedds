@@ -118,7 +118,7 @@ static void create_proxy_builtin_endpoint_impl (struct ddsi_domaingv *gv, ddsrt_
     ddsi_new_proxy_writer (gv, ppguid, ep_guid, proxypp->as_meta, plist, gv->builtins_dqueue, gv->xevents, timestamp, 0);
   else
   {
-#ifdef DDS_HAS_SSM
+#ifdef DDSRT_HAVE_SSM
     const int ssm = ddsi_addrset_contains_ssm (gv, proxypp->as_meta);
     ddsi_new_proxy_reader (gv, ppguid, ep_guid, proxypp->as_meta, plist, timestamp, 0, ssm);
 #else

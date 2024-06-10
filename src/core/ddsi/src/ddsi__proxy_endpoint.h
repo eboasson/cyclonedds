@@ -87,7 +87,7 @@ int ddsi_new_proxy_writer (struct ddsi_domaingv *gv, const struct ddsi_guid *ppg
  * @return int
  */
 int ddsi_new_proxy_reader (struct ddsi_domaingv *gv, const struct ddsi_guid *ppguid, const struct ddsi_guid *guid, struct ddsi_addrset *as, const struct ddsi_plist *plist, ddsrt_wctime_t timestamp, ddsi_seqno_t seq
-#ifdef DDS_HAS_SSM
+#ifdef DDSRT_HAVE_SSM
 , int favours_ssm
 #endif
 );

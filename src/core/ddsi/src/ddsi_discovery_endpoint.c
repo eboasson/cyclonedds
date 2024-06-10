@@ -184,7 +184,7 @@ static int sedp_write_endpoint_impl
       }
     }
 
-#ifdef DDS_HAS_SSM
+#ifdef DDSRT_HAVE_SSM
     /* A bit of a hack -- the easy alternative would be to make it yet
     another parameter.  We only set "reader favours SSM" if we
     really do: no point in telling the world that everything is at
@@ -268,7 +268,7 @@ int ddsi_sedp_write_writer (struct ddsi_writer *wr)
     unsigned entityid = ddsi_determine_publication_writer(wr);
     struct ddsi_writer *sedp_wr = ddsi_get_sedp_writer (wr->c.pp, entityid);
     ddsi_security_info_t *security = NULL;
-#ifdef DDS_HAS_SSM
+#ifdef DDSRT_HAVE_SSM
     struct ddsi_addrset *as = wr->ssm_as;
 #else
     struct ddsi_addrset *as = NULL;
@@ -442,7 +442,7 @@ void ddsi_handle_sedp_alive_endpoint (const struct ddsi_receiver_state *rst, dds
   dds_qos_t *xqos;
   int reliable;
   struct ddsi_addrset *as;
-#ifdef DDS_HAS_SSM
+#ifdef DDSRT_HAVE_SSM
   int ssm;
 #endif
 
@@ -529,7 +529,7 @@ void ddsi_handle_sedp_alive_endpoint (const struct ddsi_receiver_state *rst, dds
     E (": no (unicast) address)", err);
   }
 
-#ifdef DDS_HAS_SSM
+#ifdef DDSRT_HAVE_SSM
   ssm = 0;
   if (sedp_kind == SEDP_KIND_WRITER)
     ssm = ddsi_addrset_contains_ssm (gv, as);
@@ -564,7 +564,7 @@ void ddsi_handle_sedp_alive_endpoint (const struct ddsi_receiver_state *rst, dds
         ddsi_update_proxy_reader (prd, seq, as, xqos, timestamp);
       else
       {
-#ifdef DDS_HAS_SSM
+#ifdef DDSRT_HAVE_SSM
         ddsi_new_proxy_reader (gv, &ppguid, &datap->endpoint_guid, as, datap, timestamp, seq, ssm);
 #else
         ddsi_new_proxy_reader (gv, &ppguid, &datap->endpoint_guid, as, datap, timestamp, seq);
