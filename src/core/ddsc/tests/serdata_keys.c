@@ -337,6 +337,11 @@ static void check_key_keyhash (struct dds_serdata_default *sd,
 }
 
 // FIXME: the CDR used in this test assumes running on a little-endian machine
+#if DDSRT_ENDIAN == DDSRT_LITTLE_ENDIAN
+#define MAKE_ENCHDR(what) DDSI_RTPS_##what##_LE
+#else
+#define MAKE_ENCHDR(what) DDSI_RTPS_##what##_BE
+#endif
 CU_Test(ddsc_serdata, key_serialization)
 {
   struct expected_key {
@@ -356,7 +361,7 @@ CU_Test(ddsc_serdata, key_serialization)
   } tests[] = {
     { &SerdataKeyOrder_desc, init_SerdataKeyOrder,
       { {
-        DDSI_RTPS_CDR_LE,
+        MAKE_ENCHDR(CDR),
         (raw){
           1,2,0,0,0,0,0,0,SER64(3)
         }, 16,
@@ -367,7 +372,7 @@ CU_Test(ddsc_serdata, key_serialization)
           1,0,0,0,0,0,0,0,SER64BE(3)
         }, 16
       }, {
-        DDSI_RTPS_CDR2_LE,
+        MAKE_ENCHDR(CDR2),
         (raw){
           1,2,0,0,SER64(3)
         }, 12,
@@ -381,7 +386,7 @@ CU_Test(ddsc_serdata, key_serialization)
     },
     { &SerdataKeyOrderId_desc, init_SerdataKeyOrderId,
       { {
-        DDSI_RTPS_CDR_LE,
+        MAKE_ENCHDR(CDR),
         (raw){
           1,2,0,0,0,0,0,0,SER64(3)
         }, 16,
@@ -392,7 +397,7 @@ CU_Test(ddsc_serdata, key_serialization)
           1,0,0,0,0,0,0,0,SER64BE(3)
         }, 16
       }, {
-        DDSI_RTPS_CDR2_LE,
+        MAKE_ENCHDR(CDR2),
         (raw){
           1,2,0,0,SER64(3)
         }, 12,
@@ -407,7 +412,7 @@ CU_Test(ddsc_serdata, key_serialization)
     },
     { &SerdataKeyOrderHashId_desc, init_SerdataKeyOrderHashId,
       { {
-        DDSI_RTPS_CDR_LE,
+        MAKE_ENCHDR(CDR),
         (raw){
           1,2,0,0,0,0,0,0,SER64(3)
         }, 16,
@@ -418,7 +423,7 @@ CU_Test(ddsc_serdata, key_serialization)
           1,0,0,0,0,0,0,0,SER64BE(3)
         }, 16
       }, {
-        DDSI_RTPS_CDR2_LE,
+        MAKE_ENCHDR(CDR2),
         (raw){
           1,2,0,0,SER64(3)
         }, 12,
@@ -435,7 +440,7 @@ CU_Test(ddsc_serdata, key_serialization)
       { {
         0 // not supported
       }, {
-        DDSI_RTPS_D_CDR2_LE,
+        MAKE_ENCHDR(D_CDR2),
         (raw){
           SER_DHEADER(12),1,2,0,0,
           SER64(3)
@@ -454,7 +459,7 @@ CU_Test(ddsc_serdata, key_serialization)
       { {
         0 // not supported
       }, {
-        DDSI_RTPS_PL_CDR2_LE,
+        MAKE_ENCHDR(PL_CDR2),
         (raw){
           SER_DHEADER(28),
           SER_EMHEADER(1,0,3),1,0,0,0,
@@ -476,7 +481,7 @@ CU_Test(ddsc_serdata, key_serialization)
       { {
         0 // not supported
       }, {
-        DDSI_RTPS_CDR2_LE,
+        MAKE_ENCHDR(CDR2),
         (raw){
           10,20,0,0,
             SER_DHEADER(28),
@@ -501,7 +506,7 @@ CU_Test(ddsc_serdata, key_serialization)
       { {
         0 // not supported
       }, {
-        DDSI_RTPS_D_CDR2_LE,
+        MAKE_ENCHDR(D_CDR2),
         (raw){
           SER_DHEADER(36),10,20,0,0,
             SER_DHEADER(28),
@@ -526,7 +531,7 @@ CU_Test(ddsc_serdata, key_serialization)
       { {
         0 // not supported
       }, {
-        DDSI_RTPS_PL_CDR2_LE,
+        MAKE_ENCHDR(PL_CDR2),
         (raw){
           SER_DHEADER(56),
           SER_EMHEADER(1,0,3),10,0,0,0,
@@ -556,7 +561,7 @@ CU_Test(ddsc_serdata, key_serialization)
       { {
         0 // not supported
       }, {
-        DDSI_RTPS_PL_CDR2_LE,
+        MAKE_ENCHDR(PL_CDR2),
         (raw){
           SER_DHEADER(40),
           SER_EMHEADER(1,0,3),10,0,0,0,
@@ -583,7 +588,7 @@ CU_Test(ddsc_serdata, key_serialization)
       { {
         0 // not supported
       }, {
-        DDSI_RTPS_PL_CDR2_LE,
+        MAKE_ENCHDR(PL_CDR2),
         (raw){
           SER_DHEADER(36),
           SER_EMHEADER(1,0,3),10,0,0,0,
@@ -608,7 +613,7 @@ CU_Test(ddsc_serdata, key_serialization)
     },
     { &SerdataKeyString_desc, init_SerdataKeyString,
       { {
-        DDSI_RTPS_CDR_LE,
+        MAKE_ENCHDR(CDR),
         (raw){
           1,0,0,0,
           SER32(5),'t','e','s','t','\0',
@@ -625,7 +630,7 @@ CU_Test(ddsc_serdata, key_serialization)
           0,0,0 // padding
         }, 13
       }, {
-        DDSI_RTPS_CDR2_LE,
+        MAKE_ENCHDR(CDR2),
         (raw){
           1,0,0,0,
           SER32(5),'t','e','s','t','\0',
@@ -645,7 +650,7 @@ CU_Test(ddsc_serdata, key_serialization)
     },
     { &SerdataKeyStringBounded_desc, init_SerdataKeyStringBounded,
       { {
-        DDSI_RTPS_CDR_LE,
+        MAKE_ENCHDR(CDR),
         (raw){
           1,0,0,0,
           SER32(3),'t','s','\0',
@@ -662,7 +667,7 @@ CU_Test(ddsc_serdata, key_serialization)
           0 // padding
         }, 11
       }, {
-        DDSI_RTPS_CDR2_LE,
+        MAKE_ENCHDR(CDR2),
         (raw){
           1,0,0,0,
           SER32(3),'t','s','\0',
@@ -684,7 +689,7 @@ CU_Test(ddsc_serdata, key_serialization)
       { {
         0 // not supported
       }, {
-        DDSI_RTPS_D_CDR2_LE,
+        MAKE_ENCHDR(D_CDR2),
         (raw){
           SER_DHEADER(13),
           1,0,0,0,
@@ -707,7 +712,7 @@ CU_Test(ddsc_serdata, key_serialization)
       { {
         0 // not supported
       }, {
-        DDSI_RTPS_D_CDR2_LE,
+        MAKE_ENCHDR(D_CDR2),
         (raw){
           SER_DHEADER(12),
           1,0,0,0,
@@ -726,7 +731,7 @@ CU_Test(ddsc_serdata, key_serialization)
     },
     { &SerdataKeyArr_desc, init_SerdataKeyArr,
       { {
-        DDSI_RTPS_CDR_LE,
+        MAKE_ENCHDR(CDR),
         (raw){
           0,1,2,3,4,5,6,7,8,9,10,11
         }, 12,
@@ -737,7 +742,7 @@ CU_Test(ddsc_serdata, key_serialization)
           0,1,2,3,4,5,6,7,8,9,10,11
         }, 12
       }, {
-        DDSI_RTPS_CDR2_LE,
+        MAKE_ENCHDR(CDR2),
         (raw){
           0,1,2,3,4,5,6,7,8,9,10,11
         }, 12,
@@ -752,7 +757,7 @@ CU_Test(ddsc_serdata, key_serialization)
     // TODO: not supported
     // { &SerdataKeyArrStrBounded_desc, init_SerdataKeyArrStrBounded,
     //   { {
-    //     DDSI_RTPS_CDR_LE,
+    //     MAKE_ENCHDR(CDR),
     //     (raw){
     //       SER32(3),'t','s','\0',
     //       SER32(3),'t','s','\0'
@@ -766,7 +771,7 @@ CU_Test(ddsc_serdata, key_serialization)
     //       SER32BE(3),'t','s','\0'
     //     }, 14
     //   }, {
-    //     DDSI_RTPS_CDR2_LE,
+    //     MAKE_ENCHDR(CDR2),
     //     (raw){
     //       SER32(3),'t','s','\0',
     //       SER32(3),'t','s','\0'
@@ -783,7 +788,7 @@ CU_Test(ddsc_serdata, key_serialization)
     // }
     { &SerdataKeyNestedFinalImplicit_desc, init_SerdataKeyNestedFinalImplicit,
       { {
-        DDSI_RTPS_CDR_LE,
+        MAKE_ENCHDR(CDR),
         (raw){
           // d
           1,2,
@@ -809,7 +814,7 @@ CU_Test(ddsc_serdata, key_serialization)
           SER32BE(20)
         }, 20
       }, {
-        DDSI_RTPS_CDR2_LE,
+        MAKE_ENCHDR(CDR2),
         (raw){
           // d
           1,2,
@@ -839,7 +844,7 @@ CU_Test(ddsc_serdata, key_serialization)
     },
     { &SerdataKeyNestedFinalImplicit2_desc, init_SerdataKeyNestedFinalImplicit2,
       { {
-        DDSI_RTPS_CDR_LE,
+        MAKE_ENCHDR(CDR),
         (raw){
           // a
           1,2,3,4,
@@ -859,7 +864,7 @@ CU_Test(ddsc_serdata, key_serialization)
           5,6
         }, 4
       }, {
-        DDSI_RTPS_CDR2_LE,
+        MAKE_ENCHDR(CDR2),
         (raw){
           // a
           1,2,3,4,
@@ -884,7 +889,7 @@ CU_Test(ddsc_serdata, key_serialization)
       { {
         0 // not supported
       }, {
-        DDSI_RTPS_D_CDR2_LE,
+        MAKE_ENCHDR(D_CDR2),
         (raw){
           SER_DHEADER(84),
           // d
@@ -932,7 +937,7 @@ CU_Test(ddsc_serdata, key_serialization)
       { {
         0 // not supported
       }, {
-        DDSI_RTPS_PL_CDR2_LE,
+        MAKE_ENCHDR(PL_CDR2),
         (raw){
           SER_DHEADER(70),
           // bx, by, bz
