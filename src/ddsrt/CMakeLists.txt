@@ -117,6 +117,7 @@ if(WITH_LWIP)
   set(hostname_header "unistd.h")
   set(inet_header "lwip/sockets.h")
   set(netdb_header "lwip/netdb.h")
+  set(sockopt_header "lwip/sockets.h")
   list(APPEND headers
     "${source_dir}/include/dds/ddsrt/sockets/posix.h")
   list(APPEND sources
@@ -135,6 +136,7 @@ else()
     set(hostname_header "winsock2.h")
     set(inet_header "ws2tcpip.h")
     set(netdb_header "ws2tcpip.h")
+    set(sockopt_header "ws2tcpip.h")
     list(APPEND headers
       "${source_dir}/include/dds/ddsrt/sockets/windows.h")
     list(APPEND sources
@@ -146,6 +148,7 @@ else()
     set(hostname_header "unistd.h")
     set(inet_header "arpa/inet.h")
     set(netdb_header "netdb.h")
+    set(sockopt_header "netinet/in.h")
     list(APPEND headers
       "${source_dir}/include/dds/ddsrt/sockets/posix.h")
     list(APPEND sources
@@ -192,9 +195,9 @@ else()
 endif()
 set(DDSRT_HAVE_SSM FALSE)
 if(ENABLE_SOURCE_SPECIFIC_MULTICAST)
-  check_symbol_exists("IP_ADD_SOURCE_MEMBERSHIP" "netinet/in.h" DDSRT_HAVE_IP_ADD_SOURCE_MEMBERSHIP)
+  check_symbol_exists("IP_ADD_SOURCE_MEMBERSHIP" ${sockopt_header} DDSRT_HAVE_IP_ADD_SOURCE_MEMBERSHIP)
   if(DDSRT_HAVE_IPV6)
-    check_symbol_exists("MCAST_JOIN_SOURCE_GROUP" "netinet/in.h" DDSRT_HAVE_MCAST_JOIN_SOURCE_GROUP)
+    check_symbol_exists("MCAST_JOIN_SOURCE_GROUP" ${sockopt_header} DDSRT_HAVE_MCAST_JOIN_SOURCE_GROUP)
   else()
     # Set MCAST_JOIN_SOURCE_GROUP if IPv6 is disabled to simplify the logic here
     set(DDSRT_HAVE_MCAST_JOIN_SOURCE_GROUP TRUE)
