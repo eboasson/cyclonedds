@@ -133,12 +133,12 @@ static dds_entity_t make_domain_and_participant (uint32_t domainid, int base_por
 
 struct logger_pat {
   const char *pat;
-  bool present;
+  uint32_t nmatch;
 };
-#define MAX_PATS 4
+#define MAX_PATS 5
 struct logger_arg {
   struct logger_pat expected[2][MAX_PATS]; // one for each domain, max 4 patterns per domain
-  uint32_t found[2];
+  uint32_t matches[2][MAX_PATS];
 };
 
 static void logger (void *varg, const dds_log_data_t *data)
@@ -149,7 +149,7 @@ static void logger (void *varg, const dds_log_data_t *data)
   {
     for (uint32_t i = 0; i < MAX_PATS && arg->expected[data->domid][i].pat != NULL; i++)
       if (ddsi_patmatch (arg->expected[data->domid][i].pat, data->message))
-        arg->found[data->domid] |= (uint32_t)(1 << i);
+        arg->matches[data->domid][i]++;
   }
 }
 
@@ -159,6 +159,7 @@ struct one {
   const char *participant_index;
   bool add_localhost;
   const locstr_t *peer;
+  bool extra_participant;
 };
 struct cfg {
   struct one one[2];
@@ -170,6 +171,8 @@ enum oper {
   SLEEP_1,
   SLEEP_3,
   SLEEP_5,
+  DELETE_PP2_0,
+  DELETE_PP2_1,
   SHUTDOWN_0,
   SHUTDOWN_1,
   KILL_0,
@@ -178,16 +181,25 @@ enum oper {
 
 static void run_one (int base_port, const struct cfg *cfg, const struct logger_arg *larg_in, size_t nopers, const enum oper opers[])
 {
-  assert (larg_in->found[0] == 0 && larg_in->found[1] == 0);
+#ifndef NDEBUG
+  for (int d = 0; d < 2; d++)
+    for (int i = 0; i < MAX_PATS; i++)
+      assert (larg_in->matches[d][i] == 0);
+#endif
   struct logger_arg larg = *larg_in;
   dds_set_log_mask (DDS_LC_ALL);
   dds_set_log_sink (&logger, &larg);
   dds_set_trace_sink (&logger, &larg);
     
-  dds_entity_t dom[2];
+  dds_entity_t dom[2], pp2[2] = { 0, 0 };
   for (uint32_t d = 0; d < 2; d++)
   {
     dom[d] = make_domain_and_participant (d, base_port, cfg->one[d].allowmc, cfg->one[d].spdp_address, cfg->one[d].participant_index, cfg->one[d].add_localhost, cfg->one[d].peer);
+    if (cfg->one[d].extra_participant)
+    {
+      pp2[d] = dds_create_participant (d, NULL, NULL);
+      CU_ASSERT_FATAL (pp2[d] > 0);
+    }
   }
   for (size_t i = 0; i < nopers;i ++)
   {
@@ -201,6 +213,12 @@ static void run_one (int base_port, const struct cfg *cfg, const struct logger_a
         break;
       case SLEEP_5:
         dds_sleepfor (DDS_SECS (5));
+        break;
+      case DELETE_PP2_0:
+        dds_delete (pp2[0]);
+        break;
+      case DELETE_PP2_1:
+        dds_delete (pp2[1]);
         break;
       case SHUTDOWN_0:
         dds_delete (dom[0]);
@@ -236,11 +254,11 @@ static void run_one (int base_port, const struct cfg *cfg, const struct logger_a
   {
     for (uint32_t i = 0; i < MAX_PATS && larg.expected[d][i].pat != NULL; i++)
     {
-      if (((larg.found[d] & (1u << i)) != 0) != larg.expected[d][i].present)
+      if (larg.matches[d][i] != larg.expected[d][i].nmatch)
       {
-        printf ("dom %"PRIu32" pattern %s: %s\n",
-                d, larg.expected[d][i].pat,
-                larg.expected[d][i].present ? "missing" : "present unexpectedly");
+        printf ("dom %"PRIu32" pattern %s: matched %"PRIu32" times, expected %"PRIu32"\n",
+                d, larg.expected[d][i].pat, larg.matches[d][i],
+                larg.expected[d][i].nmatch);
         all_ok = false;
       }
     }
@@ -411,7 +429,7 @@ CU_Test(ddsc_spdp, II1_mc_nonexist_peer_in_one)
   struct logger_arg larg = { .expected = {
     [0] = {
       { "*SPDP*NEW*", 1 },
-      { prunemsg, 1 }
+      { prunemsg, 3 }
     },
     [1] = {
       { "*SPDP*NEW*", 1 }
@@ -605,4 +623,32 @@ CU_Test(ddsc_spdp, II7_pruning_lease_exp)
     { DDSI_BOOLDEF_FALSE, "239.255.0.1", "1", false, NULL } }
   };
   run_one (baseport, &cfg, &larg, 3, (enum oper[]){ SLEEP_3, KILL_0, SLEEP_5 });
+}
+
+CU_Test(ddsc_spdp, III1_uc_other_disc_address_of_one_with_twopp)
+{
+  const int baseport = 7200;
+  // first stops early, second discovered the address
+  // 2s until pruning
+  // but only a 1s wait -> can't have pruned based on time yet
+  // clean termination: should've been dropped (not pruned)
+  locstr_t localhost;
+  get_localhost_address (&localhost);
+  struct logger_arg larg = { .expected = {
+    [0] = {
+      { "*SPDP*NEW*", 1 }
+    },
+    [1] = {
+      { "*SPDP*NEW*", 2 },
+      { "*SPDP*ST3*", 2 }, // shutdown termination detected
+      { "*spdp: ref live loc*", 1},
+      { "*spdp: unref live loc*", 1},
+      { "*spdp: drop live loc*", 1 }
+    }
+  } };
+  struct cfg cfg = { {
+    { DDSI_BOOLDEF_FALSE, "239.255.0.1", "0", false, &localhost, true },
+    { DDSI_BOOLDEF_FALSE, "239.255.0.1", "1", false, NULL, false } }
+  };
+  run_one (baseport, &cfg, &larg, 3, (enum oper[]){ SLEEP_3, SHUTDOWN_0, SLEEP_1 });
 }
