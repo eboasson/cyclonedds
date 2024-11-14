@@ -93,9 +93,9 @@ static void *samples_M1_O[] = {
 };
 
 static void *samples_d[] = {
-  &(D){ L"😀 Een Kruyck gaat soo langh te water tot datse barst.", 0 },
-  &(D){ L"🙃 Men treckt een Boogh soo lang tot datse stucken knarst.", 0 },
-  &(D){ L"😊 De Steel-kunst doet zyn Meester de dood vaak verwerven.", 0 },
+  &(D){ L"😀 Een Kruyck gaat soo langh te water tot datse barst.", L'∆', 0 },
+  &(D){ L"🙃 Men treckt een Boogh soo lang tot datse stucken knarst.", L'∇', 0 },
+  &(D){ L"😊 De Steel-kunst doet zyn Meester de dood vaak verwerven.", L'⊥', 0 },
   NULL
 };
 
