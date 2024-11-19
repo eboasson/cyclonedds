@@ -1,0 +1,4 @@
+@final
+struct WOPM {
+  long x;
+};

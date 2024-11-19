@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.16)
+project(wopm LANGUAGES C)
+if(NOT TARGET CycloneDDS::ddsc)
+  find_package(CycloneDDS REQUIRED)
+endif()
+idlc_generate(TARGET wopm_lib FILES wopm_type.idl)
+add_executable(wopm wopm.c)
+target_link_libraries(wopm wopm_lib CycloneDDS::ddsc)
