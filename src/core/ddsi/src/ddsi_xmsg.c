@@ -50,6 +50,7 @@ struct ddsi_xmsgpool {
 struct ddsi_xmsg_data {
   ddsi_rtps_info_src_t src;
   ddsi_rtps_info_dst_t dst;
+  uint32_t pre_payload_pad; /* for aligning payload to 4 bytes in RTPS message */
   char payload[]; /* of size maxsz */
 };
 
@@ -274,6 +275,7 @@ static struct ddsi_xmsg *ddsi_xmsg_allocnew (struct ddsi_xmsgpool *pool, size_t 
   d->dst.smhdr.submessageId = DDSI_RTPS_SMID_INFO_DST;
   d->dst.smhdr.flags = (DDSRT_ENDIAN == DDSRT_LITTLE_ENDIAN ? DDSI_RTPS_SUBMESSAGE_FLAG_ENDIANNESS : 0);
   d->dst.smhdr.octetsToNextHeader = sizeof (d->dst.guid_prefix);
+  d->pre_payload_pad = 0;
   ddsi_xmsg_reinit (m, kind);
   return m;
 }
@@ -1469,12 +1471,8 @@ int ddsi_xpack_addmsg (struct ddsi_xpack *xp, struct ddsi_xmsg *m, const uint32_
   assert (m->sz > 0);
   assert (m->dstmode != NN_XMSG_DST_UNSET);
 
-  /* Submessage offset must be a multiple of 4 to meet alignment
-     requirement (DDSI 2.1, 9.4.1).  If we keep everything 4-byte
-     aligned all the time, we don't need to check for padding here. */
-  assert ((xp->msg_len.length % 4) == 0);
+  // submessages (sans payload) are a multiple of 4
   assert ((m->sz % 4) == 0);
-  assert (m->refd_payload == NULL || (m->refd_payload_iov.iov_len % 4) == 0);
 
   if (xp->msgfrags == NULL)
   {
@@ -1598,16 +1596,18 @@ int ddsi_xpack_addmsg (struct ddsi_xpack *xp, struct ddsi_xmsg *m, const uint32_
     xp->last_dst = dst;
   }
 
+  const uint32_t required_pre_submsg_pad = (4 - (m->sz % 4)) % 4;
+
   /* Append submessage; can possibly be merged with preceding iovec */
-  if ((char *) xp->msgfrags->iov[niov-1].iov_base + xp->msgfrags->iov[niov-1].iov_len == (char *) m->data->payload)
-    xp->msgfrags->iov[niov-1].iov_len += (ddsrt_iov_len_t)m->sz;
+  if ((char *) xp->msgfrags->iov[niov-1].iov_base + xp->msgfrags->iov[niov-1].iov_len == (char *) (m->data->payload - required_pre_submsg_pad))
+    xp->msgfrags->iov[niov-1].iov_len += (ddsrt_iov_len_t) (m->sz + required_pre_submsg_pad);
   else
   {
-    xp->msgfrags->iov[niov].iov_base = m->data->payload;
-    xp->msgfrags->iov[niov].iov_len = (ddsrt_iov_len_t)m->sz;
+    xp->msgfrags->iov[niov].iov_base = m->data->payload - required_pre_submsg_pad;
+    xp->msgfrags->iov[niov].iov_len = (ddsrt_iov_len_t) (m->sz + required_pre_submsg_pad);
     niov++;
   }
-  sz += m->sz;
+  sz += m->sz + required_pre_submsg_pad;
 
   /* Append ref'd payload if given; whoever constructed the message
      should've taken care of proper alignment for the payload.  The
