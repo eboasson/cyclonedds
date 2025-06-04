@@ -173,13 +173,13 @@ struct dds_cdrstream_ops_info {
   dds_data_type_properties_t data_types;
 };
 
-const static struct dds_cdrstream_desc_mid_table static_empty_mid_table = { .table = (struct ddsrt_hh *) &ddsrt_hh_empty, .op0 = NULL };
+static const struct dds_cdrstream_desc_mid_table static_empty_mid_table = { .table = (struct ddsrt_hh *) &ddsrt_hh_empty, .op0 = NULL };
 
 static const uint32_t *dds_stream_skip_adr (uint32_t insn, const uint32_t *ops)
   ddsrt_attribute_warn_unused_result ddsrt_nonnull_all;
 
 static const uint32_t *dds_stream_skip_default (char * restrict data, const struct dds_cdrstream_allocator *allocator, const uint32_t *ops, enum sample_data_state sample_state)
-  ddsrt_attribute_warn_unused_result ddsrt_nonnull_all;
+  ddsrt_nonnull_all;
 
 static const uint32_t *dds_stream_extract_key_from_data1 (dds_istream_t *is, restrict_ostream_t *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table,
   const uint32_t *ops, bool mutable_member, bool mutable_member_or_parent, uint32_t n_keys, uint32_t * restrict keys_remaining)
@@ -195,7 +195,7 @@ static const uint32_t *stream_normalize_data_impl (char * restrict data, uint32_
   ddsrt_attribute_warn_unused_result ddsrt_nonnull_all;
 
 static const uint32_t *dds_stream_read_impl (dds_istream_t *is, char * restrict data, const struct dds_cdrstream_allocator *allocator, const uint32_t *ops, bool is_mutable_member, enum cdr_data_kind cdr_kind, enum sample_data_state sample_state)
-  ddsrt_attribute_warn_unused_result ddsrt_nonnull_all;
+  ddsrt_nonnull_all;
 
 static const uint32_t *stream_free_sample_adr (uint32_t insn, void * restrict data, const struct dds_cdrstream_allocator *allocator, const uint32_t *ops)
   ddsrt_attribute_warn_unused_result ddsrt_nonnull_all;
@@ -204,7 +204,7 @@ static const uint32_t *dds_stream_skip_adr_default (uint32_t insn, char * restri
   ddsrt_attribute_warn_unused_result ddsrt_nonnull_all;
 
 static const uint32_t *dds_stream_key_size (const uint32_t *ops, struct key_props *k)
-  ddsrt_attribute_warn_unused_result ddsrt_nonnull_all;
+  ddsrt_nonnull_all;
 
 static const uint32_t *dds_stream_free_sample_uni (char * restrict discaddr, char * restrict baseaddr, const struct dds_cdrstream_allocator *allocator, const uint32_t *ops, uint32_t insn)
   ddsrt_nonnull_all;
@@ -1173,8 +1173,8 @@ static void dds_stream_get_ops_info (const uint32_t *ops, struct dds_cdrstream_o
   dds_stream_get_ops_info1 (ops, 0, info);
 }
 
-ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
-static char *dds_stream_reuse_string_bound (dds_istream_t *is, char * restrict str, const uint32_t size)
+ddsrt_nonnull_all
+static void dds_stream_reuse_string_bound (dds_istream_t *is, char * restrict str, const uint32_t size)
 {
   const uint32_t length = dds_is_get4 (is);
   const void *src = is->m_buffer + is->m_index;
@@ -1185,7 +1185,6 @@ static char *dds_stream_reuse_string_bound (dds_istream_t *is, char * restrict s
   if (length > size)
     str[size - 1] = '\0';
   is->m_index += length;
-  return str;
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull ((1, 3))
@@ -1271,13 +1270,12 @@ static void wstring_from_utf16 (wchar_t * restrict dst, size_t dstlen, const uin
 }
 
 ddsrt_nonnull_all
-static wchar_t *dds_stream_reuse_wstring_bound (dds_istream_t *is, wchar_t * restrict str, const uint32_t size)
+static void dds_stream_reuse_wstring_bound (dds_istream_t *is, wchar_t * restrict str, const uint32_t size)
 {
   const uint32_t cdrsize = dds_is_get4 (is);
   const uint16_t *src = (const uint16_t *) (is->m_buffer + is->m_index);
   is->m_index += cdrsize;
   wstring_from_utf16 (str, size, src, cdrsize / 2);
-  return str;
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull ((1, 3))
@@ -1879,7 +1877,7 @@ struct getsize_state {
   const uint32_t xcdr_version;
 };
 
-ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
+ddsrt_nonnull_all
 static const uint32_t *dds_stream_getsize_impl (struct getsize_state *st, const char *data, const uint32_t *ops, bool is_mutable_member);
 
 ddsrt_nonnull_all
@@ -2702,7 +2700,7 @@ static const uint32_t *dds_stream_read_seq (dds_istream_t *is, char * restrict a
       seq->_length = (num <= seq->_maximum) ? num : seq->_maximum;
       char *ptr = (char *) seq->_buffer;
       for (uint32_t i = 0; i < seq->_length; i++)
-        (void) dds_stream_reuse_string_bound (is, ptr + i * elem_size, elem_size);
+        dds_stream_reuse_string_bound (is, ptr + i * elem_size, elem_size);
       for (uint32_t i = seq->_length; i < num; i++)
         dds_stream_skip_string (is);
       return ops + 3 + bound_op;
@@ -2715,7 +2713,7 @@ static const uint32_t *dds_stream_read_seq (dds_istream_t *is, char * restrict a
       seq->_length = (num <= seq->_maximum) ? num : seq->_maximum;
       wchar_t *ptr = (wchar_t *) seq->_buffer;
       for (uint32_t i = 0; i < seq->_length; i++)
-        (void) dds_stream_reuse_wstring_bound (is, ptr + i * bound, bound);
+        dds_stream_reuse_wstring_bound (is, ptr + i * bound, bound);
       for (uint32_t i = seq->_length; i < num; i++)
         dds_stream_skip_wstring (is);
       return ops + 3 + bound_op;
@@ -2801,14 +2799,14 @@ static const uint32_t *dds_stream_read_arr (dds_istream_t *is, char * restrict a
       char *ptr = (char *) addr;
       const uint32_t elem_size = ops[4];
       for (uint32_t i = 0; i < num; i++)
-        (void) dds_stream_reuse_string_bound (is, ptr + i * elem_size, elem_size);
+        dds_stream_reuse_string_bound (is, ptr + i * elem_size, elem_size);
       return ops + 5;
     }
     case DDS_OP_VAL_BWSTR: {
       wchar_t *ptr = (wchar_t *) addr;
       const uint32_t elem_size = ops[4];
       for (uint32_t i = 0; i < num; i++)
-        (void) dds_stream_reuse_wstring_bound (is, ptr + i * elem_size, elem_size);
+        dds_stream_reuse_wstring_bound (is, ptr + i * elem_size, elem_size);
       return ops + 5;
     }
     case DDS_OP_VAL_SEQ: case DDS_OP_VAL_BSQ: case DDS_OP_VAL_ARR: case DDS_OP_VAL_UNI: case DDS_OP_VAL_STU: {
@@ -2948,8 +2946,8 @@ static inline const uint32_t *dds_stream_read_adr (uint32_t insn, dds_istream_t 
     case DDS_OP_VAL_WCHAR: *((wchar_t *) addr) = (wchar_t) dds_is_get2 (&is1); ops += 2; break;
     case DDS_OP_VAL_STR: *((char **) addr) = dds_stream_reuse_string (&is1, *((char **) addr), allocator, sample_state); ops += 2; break;
     case DDS_OP_VAL_WSTR: *((wchar_t **) addr) = dds_stream_reuse_wstring (&is1, *((wchar_t **) addr), allocator, sample_state); ops += 2; break;
-    case DDS_OP_VAL_BST: (void) dds_stream_reuse_string_bound (&is1, (char *) addr, ops[2]); ops += 3; break;
-    case DDS_OP_VAL_BWSTR: (void) dds_stream_reuse_wstring_bound (&is1, (wchar_t *) addr, ops[2]); ops += 3; break;
+    case DDS_OP_VAL_BST: dds_stream_reuse_string_bound (&is1, (char *) addr, ops[2]); ops += 3; break;
+    case DDS_OP_VAL_BWSTR: dds_stream_reuse_wstring_bound (&is1, (wchar_t *) addr, ops[2]); ops += 3; break;
     case DDS_OP_VAL_SEQ: case DDS_OP_VAL_BSQ: ops = dds_stream_read_seq (&is1, addr, allocator, ops, insn, cdr_kind, sample_state); break;
     case DDS_OP_VAL_ARR: ops = dds_stream_read_arr (&is1, addr, allocator, ops, insn, cdr_kind, sample_state); break;
     case DDS_OP_VAL_UNI: ops = dds_stream_read_uni (&is1, addr, data, allocator, ops, insn, cdr_kind, sample_state); break;
@@ -3166,7 +3164,7 @@ static const uint32_t *dds_stream_skip_xcdr2_pl_default (char * restrict data, c
   return dds_stream_skip_xcdr2_pl_memberlist_default (data, allocator, ++ops, sample_state);
 }
 
-ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
+ddsrt_nonnull_all
 static const uint32_t *dds_stream_skip_default (char * restrict data, const struct dds_cdrstream_allocator *allocator, const uint32_t *ops, enum sample_data_state sample_state)
 {
   uint32_t insn;
@@ -3311,7 +3309,7 @@ static const uint32_t *dds_stream_read_xcdr2_pl (dds_istream_t *is, char * restr
   return ops;
 }
 
-ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
+ddsrt_nonnull_all
 static const uint32_t *dds_stream_read_impl (dds_istream_t *is, char * restrict data, const struct dds_cdrstream_allocator *allocator, const uint32_t *ops, bool is_mutable_member, enum cdr_data_kind cdr_kind, enum sample_data_state sample_state)
 {
   uint32_t insn;
@@ -5285,8 +5283,8 @@ static void dds_stream_read_key_impl (dds_istream_t *is, char *sample, const str
       break;
     case DDS_OP_VAL_STR: *((char **) dst) = dds_stream_reuse_string (is, *((char **) dst), allocator, sample_state); break;
     case DDS_OP_VAL_WSTR: *((wchar_t **) dst) = dds_stream_reuse_wstring (is, *((wchar_t **) dst), allocator, sample_state); break;
-    case DDS_OP_VAL_BST: (void) dds_stream_reuse_string_bound (is, dst, ops[2]); break;
-    case DDS_OP_VAL_BWSTR: (void) dds_stream_reuse_wstring_bound (is, dst, ops[2]); break;
+    case DDS_OP_VAL_BST: dds_stream_reuse_string_bound (is, dst, ops[2]); break;
+    case DDS_OP_VAL_BWSTR: dds_stream_reuse_wstring_bound (is, dst, ops[2]); break;
     case DDS_OP_VAL_ARR: {
       const enum dds_stream_typecode subtype = DDS_OP_SUBTYPE (insn);
       uint32_t num = ops[2];
