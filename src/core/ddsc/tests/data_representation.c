@@ -256,8 +256,8 @@ CU_Test(ddsc_data_representation, matching, .init = data_representation_init, .f
     { true,  { -1 },           0, { -1 },    0 },
     { true,  { -1 },           0, { XCDR1 }, 1 },
     { true,  { -1 },           0, { XCDR2 }, 1 },
-    { true,  { XCDR1 },        1, { -1 },    0 },
-    { false, { XCDR2 },        1, { -1 },    0 },
+    { false, { XCDR1 },        1, { -1 },    0 },
+    { true,  { XCDR2 },        1, { -1 },    0 },
   };
 
   for (uint32_t i = 0; i < sizeof (tests) / sizeof (tests[0]); i++)
