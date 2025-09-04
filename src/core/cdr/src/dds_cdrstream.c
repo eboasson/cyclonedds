@@ -4627,8 +4627,8 @@ static const uint32_t *stream_normalize_xcdr1_pl (char * restrict data, uint32_t
               return normalize_error_ops ();
             break;
           case NPMR_FOUND:
-            if (off1 != param_length)
-              return normalize_error_ops ();
+            //if (off1 != param_length)
+            //  return normalize_error_ops ();
             break;
           case NPMR_ERROR:
             return NULL;

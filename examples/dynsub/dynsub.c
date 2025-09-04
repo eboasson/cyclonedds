@@ -9,6 +9,7 @@
 // SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 
 #include <stdio.h>
+#include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -33,6 +34,8 @@
 // opaque.  For now, this'll have to do.
 #include "dds/ddsi/ddsi_xt_typeinfo.h"
 
+#include "dds/ddsi/ddsi_serdata.h"
+
 // For convenience, the DDS participant is global
 static dds_entity_t participant;
 
@@ -40,7 +43,7 @@ static dds_entity_t participant;
 // Helper function to wait for a DCPSPublication/DCPSSubscription to show up with the desired topic name,
 // then calls dds_find_topic to create a topic for that data writer's/reader's type up the retrieves the
 // type object.
-static dds_return_t get_topic_and_typeobj (const char *topic_name, dds_duration_t timeout, dds_entity_t *topic, DDS_XTypes_TypeObject **xtypeobj)
+static dds_return_t get_topic_and_typeobj (const char *topic_name, dds_duration_t timeout, dds_entity_t *topic, DDS_XTypes_TypeObject **xtypeobj, size_t *topic_size)
 {
   const dds_entity_t waitset = dds_create_waitset (participant);
   const dds_entity_t dcpspublication_reader = dds_create_reader (participant, DDS_BUILTIN_TOPIC_DCPSPUBLICATION, NULL, NULL);
@@ -89,6 +92,8 @@ static dds_return_t get_topic_and_typeobj (const char *topic_name, dds_duration_
           dds_return_loan (triggered_reader, &epraw, 1);
           goto error;
         }
+        *topic_size = descriptor->m_size;
+        dds_qset_data_representation (ep->qos, 0, NULL);
         if ((*topic = dds_create_topic (participant, descriptor, ep->topic_name, ep->qos, NULL)) < 0)
         {
           fprintf (stderr, "dds_create_topic_descriptor: %s (be sure to enable topic discovery in the configuration)\n", dds_strretcode (*topic));
@@ -166,7 +171,8 @@ int main (int argc, char **argv)
   // The one magic step: get a topic and type object ...
   DDS_XTypes_TypeObject *xtypeobj;
   type_cache_init ();
-  if ((ret = get_topic_and_typeobj (argv[1], DDS_SECS (10), &topic, &xtypeobj)) < 0)
+  size_t topic_size;
+  if ((ret = get_topic_and_typeobj (argv[1], DDS_SECS (10), &topic, &xtypeobj, &topic_size)) < 0)
   {
     fprintf (stderr, "get_topic_and_typeobj: %s\n", dds_strretcode (ret));
     goto error;
@@ -180,16 +186,94 @@ int main (int argc, char **argv)
   while (1)
   {
     (void) dds_waitset_wait (waitset, NULL, 0, DDS_INFINITY);
-    void *raw = NULL;
+    struct ddsi_serdata *sd = NULL;
     dds_sample_info_t si;
-    if ((ret = dds_take (reader, &raw, &si, 1, 1)) < 0)
+    if ((ret = dds_takecdr (reader, &sd, 1, &si, 0)) < 0)
       goto error;
     else if (ret != 0)
     {
       // ... that we then print
+      {
+        ddsrt_iovec_t iov;
+        struct ddsi_serdata *refsd;
+        uint16_t encoding;
+        ddsi_serdata_to_ser (sd, 0, 2, &encoding);
+        printf ("encoding: ");
+        switch (encoding)
+        {
+          case DDSI_RTPS_CDR_BE:
+          case DDSI_RTPS_CDR_LE:
+            printf ("cdr");
+            break;
+          case DDSI_RTPS_PL_CDR_BE:
+          case DDSI_RTPS_PL_CDR_LE:
+            printf ("pl_cdr");
+            break;
+          case DDSI_RTPS_CDR2_BE:
+          case DDSI_RTPS_CDR2_LE:
+            printf ("cdr2");
+            break;
+          case DDSI_RTPS_D_CDR2_BE:
+          case DDSI_RTPS_D_CDR2_LE:
+            printf ("d_cdr2");
+            break;
+          case DDSI_RTPS_PL_CDR2_BE:
+          case DDSI_RTPS_PL_CDR2_LE:
+            printf ("pl_cdr2");
+            break;
+          default:
+            printf ("unknown");
+        }
+        if (!si.valid_data)
+          printf (" (expect XCDR2 because it is an invalid sample)");
+        printf ("\n");
+        if (ddsi_serdata_size (sd) == 4)
+          printf ("(no payload)\n");
+        else
+        {
+          refsd = ddsi_serdata_to_ser_ref (sd, 4, ddsi_serdata_size (sd) - 4, &iov);
+          unsigned char const * const msg = iov.iov_base;
+          const size_t len = iov.iov_len;
+          for (size_t off16 = 0; off16 < len; off16 += 16)
+          {
+            printf ("%04" PRIxSIZE " ", off16);
+            char sep = ' ';
+            size_t off1;
+            for (off1 = 0; off1 < 16 && off16 + off1 < len; off1++) {
+              printf ("%s%c%02x", (off1 == 8) ? " " : "", sep, msg[off16 + off1]);
+            }
+            for (; off1 < 16; off1++) {
+              printf ("%s%c  ", (off1 == 8) ? " " : "", (sep == '[') ? ']' : sep);
+              sep = ' ';
+            }
+            printf ("  |");
+            for (off1 = 0; off1 < 16 && off16 + off1 < len; off1++) {
+              unsigned char c = msg[off16 + off1];
+              printf ("%c", (c >= 32 && c < 127) ? c : '.');
+            }
+            printf ("|\n");
+          }
+          ddsi_serdata_to_ser_unref (refsd, &iov);
+        }
+      }
+      
+      void *raw = calloc (1, topic_size);
+      if (si.valid_data)
+        (void) ddsi_serdata_to_sample (sd, raw, NULL, NULL);
+      else
+      {
+        const struct ddsi_sertype *st;
+        dds_get_entity_sertype (reader, &st);
+        (void) ddsi_serdata_untyped_to_sample (st, sd, raw, NULL, NULL);
+      }
+
       print_sample (si.valid_data, raw, &xtypeobj->_u.complete);
+#if 0
       if ((ret = dds_return_loan (reader, &raw, 1)) < 0)
         goto error;
+#endif
+      // leaks raw - who cares
+      ddsi_serdata_unref (sd);
     }
   }
 
