@@ -505,6 +505,28 @@ enum dds_stream_typecode_subtype {
 #define DDS_OP_FLAG_DEF  (1u << 1)
 
 /**
+ * @anchor DDS_OP_FLAG_TC_DEF
+ * @ingroup serialization
+ * @brief Try-construct fail-action DEFAULT. Applicable to:
+ * - struct and union members
+ * - union discriminator
+ * - sequence and array element type
+ * But only relevant when the type is one of:
+ * - enum
+ * - bounded string
+ * - bounded sequence
+ */
+#define DDS_OP_FLAG_TC_DEF   (1u << 1)
+
+/**
+ * @anchor DDS_OP_FLAG_TC_TRIM
+ * @ingroup serialization
+ * @brief Try-construct fail-action TRIM. For applicability,
+ * see @ref DDS_OP_FLAG_TC_DEF
+ */
+#define DDS_OP_FLAG_TC_TRIM  (1u << 2)
+
+/**
  * @anchor DDS_OP_FLAG_FP
  * @ingroup serialization
  * @brief floating-point,
