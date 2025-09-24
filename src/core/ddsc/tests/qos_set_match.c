@@ -1104,11 +1104,16 @@ static void do_ddsc_qos_set_endpoints_with_rxo (const dds_entity_t dprd, const d
                     }
                   }
                 }
-                printf (" match %d", match);
+                printf (" ");
+                tprintf ("match %d", match);
                 fflush (stdout);
                 rc = dds_get_matched_publications (rd, NULL, 0);
+                printf (" matched-pub %d", (int) rc);
+                fflush (stdout);
                 CU_ASSERT_FATAL (rc == (int) match);
                 rc = dds_get_matched_subscriptions (wr, NULL, 0);
+                printf (" matched-sub %d", (int) rc);
+                fflush (stdout);
                 CU_ASSERT_FATAL (rc == (int) match);
                 if (expect_incompatible_qos)
                 {
