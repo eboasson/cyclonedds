@@ -117,7 +117,7 @@ extern "C" {
 #define CU_ASSERT_STRNEQ(x_, y_) CU_ASSERT_STRING_OP_MAYBE_FATAL (x_, !=, y_, false)
 #define CU_ASSERT_STRNEQ_FATAL(x_, y_) CU_ASSERT_STRING_OP_MAYBE_FATAL (x_, !=, y_, true)
 
-#endif
+#else
 
 #define CU_ASSERT_IMPLEMENTATION(value_, line, expr, file, something, fatal_) do { \
   const bool cu_assert_impl_value = (value_); \
@@ -326,6 +326,8 @@ extern "C" {
  */
 #define CU_ASSERT_DOUBLE_NOT_EQUAL_FATAL(actual, expected, granularity) \
   CU_ASSERT_IMPLEMENTATION(((fabs((double)(actual) - (expected)) > fabs((double)(granularity)))), __LINE__, ("CU_ASSERT_DOUBLE_NOT_EQUAL_FATAL(" #actual ","  #expected "," #granularity ")"), __FILE__, "", true)
+
+#endif
 
 typedef void (*CU_TestFunc) (void);
 typedef int (*CU_InitializeFunc) (void);
