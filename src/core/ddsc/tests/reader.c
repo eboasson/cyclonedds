@@ -3364,7 +3364,7 @@ static void do_readtake_sample_rank (const char *opname_past_tense, dds_return_t
             {
               CU_ASSERT_EQ (si[i + j].instance_handle, si[first_of_inst].instance_handle);
               CU_ASSERT_EQ (si[i + j].sample_rank, (uint32_t) (nsamp_of_inst - j - 1));
-              CU_ASSERT_EQ (xs[i + j].long_2, (skip_even_long_2) ? 2*j+1 : j);
+              CU_ASSERT_EQ (xs[i + j].long_2, !si[i + j].valid_data ? 0 : skip_even_long_2 ? 2*j+1 : j);
             }
             i += nsamp_of_inst;
           }
