@@ -132,18 +132,18 @@ CU_Test(idl_file, untaint)
     ssize_t len;
 
     str = idl_strdup(tests[i].input);
-    CU_ASSERT_PTR_NOT_NULL_FATAL(str);
+    CU_ASSERT_NEQ_FATAL (str, NULL);
     assert(str);
     fprintf(stderr, "input: '%s'\n", str);
     len = idl_untaint_path(str);
     if (tests[i].length == -1) {
-      CU_ASSERT_EQUAL(len, -1);
+      CU_ASSERT_EQ (len, -1);
     } else {
-      CU_ASSERT_EQUAL(len, (ssize_t)strlen(tests[i].output));
+      CU_ASSERT_EQ (len, (ssize_t)strlen(tests[i].output));
     }
     if (len >= 0) {
       fprintf(stderr, "output: '%s'\n", str);
-      CU_ASSERT_STRING_EQUAL(str, tests[i].output);
+      CU_ASSERT_STREQ (str, tests[i].output);
     }
     free(str);
   }
@@ -155,11 +155,11 @@ CU_Test(idl_file, normalize_empty)
   char *norm = NULL;
 
   ret = idl_normalize_path("", &norm);
-  CU_ASSERT_FATAL(ret >= 0);
-  CU_ASSERT_PTR_NOT_NULL_FATAL(norm);
+  CU_ASSERT_NEQ (ret >= 0, 0);
+  CU_ASSERT_NEQ_FATAL (norm, NULL);
   assert(prefix);
   fprintf(stderr, "path: %s\nexpect: %s\nnormalized: %s\n", prefix, prefix, norm);
-  CU_ASSERT_STRING_EQUAL(norm, prefix);
+  CU_ASSERT_STREQ (norm, prefix);
   free(norm);
 }
 
@@ -169,11 +169,11 @@ CU_Test(idl_file, normalize_revert)
   char *norm = NULL, *path = NULL;
 
   (void) idl_asprintf(&path, "%s/..", prefix);
-  CU_ASSERT_PTR_NOT_NULL_FATAL(path);
+  CU_ASSERT_NEQ_FATAL (path, NULL);
   assert(path);
   ret = idl_normalize_path(path, &norm);
-  CU_ASSERT_FATAL(ret >= 0);
-  CU_ASSERT_PTR_NOT_NULL_FATAL(norm);
+  CU_ASSERT_NEQ (ret >= 0, 0);
+  CU_ASSERT_NEQ_FATAL (norm, NULL);
   assert(norm);
   fprintf(stderr, "path: %s\n", path);
   { size_t sep = 0;
@@ -181,11 +181,11 @@ CU_Test(idl_file, normalize_revert)
       if (idl_isseparator(path[i]))
         sep = i;
     }
-    CU_ASSERT_NOT_EQUAL_FATAL(sep, 0);
+    CU_ASSERT_NEQ_FATAL (sep, 0);
     path[sep] = '\0';
   }
   fprintf(stderr, "expect: %s\nnormalized: %s\n", path, norm);
-  CU_ASSERT_STRING_EQUAL(path, norm);
+  CU_ASSERT_STREQ (path, norm);
   free(path);
   free(norm);
 }
@@ -204,7 +204,7 @@ CU_Test(idl_file, normalize_revert_too_many)
   step = sizeof("/..") - 1;
   size = steps * step;
   revert = malloc(size + 1);
-  CU_ASSERT_PTR_NOT_NULL_FATAL(revert);
+  CU_ASSERT_NEQ_FATAL (revert, NULL);
   assert(revert);
   for (size_t i=0; i < steps; i++)
     memcpy(revert + (i*step), "/..", step);
@@ -214,14 +214,14 @@ CU_Test(idl_file, normalize_revert_too_many)
 
   path = NULL;
   (void) idl_asprintf(&path, "%s%s", prefix, revert);
-  CU_ASSERT_PTR_NOT_NULL_FATAL(path);
+  CU_ASSERT_NEQ_FATAL (path, NULL);
 
   fprintf(stderr, "path: %s\n", path);
 
   norm = NULL;
   ret = idl_normalize_path(path, &norm);
-  CU_ASSERT_EQUAL(ret, IDL_RETCODE_BAD_PARAMETER);
-  CU_ASSERT_PTR_NULL(norm);
+  CU_ASSERT_EQ (ret, IDL_RETCODE_BAD_PARAMETER);
+  CU_ASSERT_EQ (norm, NULL);
   free(revert);
   free(path);
   if (norm)
@@ -273,9 +273,9 @@ CU_Test(idl_file, relative_bad_params)
       fprintf(stderr, "relative: %s\n", rel ? rel : "-");
       if (rel)
         free(rel);
-      CU_ASSERT_EQUAL_FATAL(ret, bad_param);
+      CU_ASSERT_EQ_FATAL (ret, bad_param);
       // coverity[use_after_free:FALSE]
-      CU_ASSERT_PTR_NULL(rel);
+      CU_ASSERT_EQ (rel, NULL);
     }
   }
 }
@@ -311,14 +311,14 @@ CU_Test(idl_file, relative)
     fprintf(stderr, "base: '%s'\n", t[i].base);
     fprintf(stderr, "path: '%s'\n", t[i].path);
     ret = idl_relative_path(t[i].base, t[i].path, &rel);
-    CU_ASSERT_EQUAL(ret, t[i].retcode);
+    CU_ASSERT_EQ (ret, t[i].retcode);
     if (rel)
       fprintf(stderr, "relative: '%s'\n", rel);
     if (t[i].relpath) {
-      CU_ASSERT_PTR_NOT_NULL_FATAL(rel);
-      CU_ASSERT(rel && strcmp(t[i].relpath, rel) == 0);
+      CU_ASSERT_NEQ_FATAL (rel, NULL);
+      CU_ASSERT_NEQ (rel && strcmp(t[i].relpath, rel) == 0, 0);
     } else {
-      CU_ASSERT_PTR_NULL(rel);
+      CU_ASSERT_EQ (rel, NULL);
     }
     if (rel)
       free(rel);
@@ -340,10 +340,10 @@ static void test_out_file(const out_file_test_t test)
   char *out = NULL;
   idl_retcode_t ret = idl_generate_out_file(test.path, test.output_dir, test.base_dir, test.out_ext, &out, true);
 
-  CU_ASSERT_EQUAL(ret, test.ret);
+  CU_ASSERT_EQ (ret, test.ret);
 
   if(ret != IDL_RETCODE_BAD_PARAMETER){
-    CU_ASSERT_STRING_EQUAL(out, test.expected_out);
+    CU_ASSERT_STREQ (out, test.expected_out);
   }
 
   if (out)
