@@ -172,7 +172,7 @@ static void checkdata (dds_entity_t rd, const struct exp *exp, const char *heade
   }
   printf ("\n");
   fflush (stdout);
-  CU_ASSERT_FATAL (ret == exp->n);
+  CU_ASSERT_NEQ (ret == exp->n, 0);
   // sort because there's no ordering between instances
   qsort (data, (size_t) ret, sizeof (data[0]), cmpdata);
   for (int k = 0; k < exp->n; k++)
@@ -197,31 +197,31 @@ CU_Test (ddsc_filter, basic)
   for (int i = 0; i < 2; i++)
   {
     dp[i] = dds_create_participant (0, NULL, NULL);
-    CU_ASSERT_FATAL (dp[i] > 0);
+    CU_ASSERT_NEQ (dp[i] > 0, 0);
     for (int j = 0; j < 2; j++)
     {
       tp[i][j] = dds_create_topic (dp[i], &Space_Type1_desc, topicname, qos, NULL);
-      CU_ASSERT_FATAL (tp[i][j] > 0);
+      CU_ASSERT_NEQ (tp[i][j] > 0, 0);
       rd[i][j] = dds_create_reader (dp[i], tp[i][j], qos, NULL);
-      CU_ASSERT_FATAL (rd[i][j] > 0);
+      CU_ASSERT_NEQ (rd[i][j] > 0, 0);
       wr[i][j] = dds_create_writer (dp[i], tp[i][j], qos, NULL);
-      CU_ASSERT_FATAL (wr[i][j] > 0);
+      CU_ASSERT_NEQ (wr[i][j] > 0, 0);
     }
   }
   dds_delete_qos (qos);
 
   ret = dds_set_topic_filter_and_arg (tp[0][0], filter_long1_eq, (void *) 1);
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
   ret = dds_set_topic_filter_and_arg (tp[1][0], filter_long2_eq, (void *) 1);
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
   for (int i = 0; i < 2; i++)
   {
     for (int j = 0; j < 2; j++)
     {
       ret = dds_write (wr[i][j], &(Space_Type1){1,i,j});
-      CU_ASSERT_FATAL (ret == 0);
+      CU_ASSERT_NEQ (ret == 0, 0);
       ret = dds_write (wr[i][j], &(Space_Type1){2,i,j});
-      CU_ASSERT_FATAL (ret == 0);
+      CU_ASSERT_NEQ (ret == 0, 0);
     }
   }
 
@@ -289,56 +289,56 @@ CU_Test (ddsc_filter, ownership)
   dds_qset_history (qos, DDS_HISTORY_KEEP_ALL, 0);
   dds_qset_ownership (qos, DDS_OWNERSHIP_EXCLUSIVE);
   dp = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_FATAL (dp > 0);
+  CU_ASSERT_NEQ (dp > 0, 0);
   for (int i = 0; i < 2; i++)
   {
     tp[i] = dds_create_topic (dp, &Space_Type1_desc, topicname, qos, NULL);
-    CU_ASSERT_FATAL (tp[i] > 0);
+    CU_ASSERT_NEQ (tp[i] > 0, 0);
   }
   ret = dds_set_topic_filter_and_arg (tp[0], filter_long2_eq, (void *) 1);
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
   rd = dds_create_reader (dp, tp[0], qos, NULL);
-  CU_ASSERT_FATAL (rd > 0);
+  CU_ASSERT_NEQ (rd > 0, 0);
   for (int i = 0; i < 2; i++)
   {
     dds_qset_ownership_strength (qos, i);
     wr[i] = dds_create_writer (dp, tp[i], qos, NULL);
-    CU_ASSERT_FATAL (wr[i] > 0);
+    CU_ASSERT_NEQ (wr[i] > 0, 0);
   }
   dds_delete_qos (qos);
 
   // lower strength writer: create instance (and own it)
   ret = dds_write (wr[0], &(Space_Type1){1,1,0});
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
   // higher strength writer: filtered out on attribute should not affect ownership
   // instance already exists, so it still registers
   ret = dds_write (wr[1], &(Space_Type1){1,0,1});
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
   // and so a second write of the lower-strength writer should be visible
   ret = dds_write (wr[0], &(Space_Type1){1,1,2});
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
 
   // higher-strength writer, filtered out on non-existent instance: no effect
   ret = dds_write (wr[1], &(Space_Type1){2,0,0});
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
   // lower-strength writer creates instance, sole registered writer
   ret = dds_write (wr[0], &(Space_Type1){2,1,1});
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
 
   // sanity check: higher strength wins if it not filtered out
   ret = dds_write (wr[0], &(Space_Type1){3,1,0});
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
   ret = dds_write (wr[1], &(Space_Type1){3,1,1});
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
   ret = dds_write (wr[0], &(Space_Type1){3,1,2});
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
 
   // unregister/auto-dispose lower strength writer:
   // - key 1 -> alive, because the higher strength writer did register
   // - key 2 -> disposed, because the higher strength writer never registered
   // - key 3 -> alive, because the higher strength still owns it
   ret = dds_delete (wr[0]);
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
 
   struct exp exp = {
     .n = 5, .xs = (const Space_Type1[]) {
@@ -368,97 +368,97 @@ CU_Test (ddsc_filter, getset_extended)
   char topicname[100];
   create_unique_topic_name ("ddsc_filter", topicname, sizeof (topicname));
   dp = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_FATAL (dp > 0);
+  CU_ASSERT_NEQ (dp > 0, 0);
   tp = dds_create_topic (dp, &Space_Type1_desc, topicname, NULL, NULL);
-  CU_ASSERT_FATAL (tp > 0);
+  CU_ASSERT_NEQ (tp > 0, 0);
 
   dds_topic_filter_arg_fn fn;
   void *arg;
   struct dds_topic_filter filter;
 
   ret = dds_get_topic_filter_and_arg (tp, NULL, NULL);
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
 
   memset (&filter, 0xff, sizeof (filter));
   ret = dds_get_topic_filter_and_arg (tp, &fn, &arg);
-  CU_ASSERT_FATAL (ret == 0);
-  CU_ASSERT (fn == 0);
-  CU_ASSERT (arg == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
+  CU_ASSERT_NEQ (fn == 0, 0);
+  CU_ASSERT_NEQ (arg == 0, 0);
 
   ret = dds_get_topic_filter_extended (tp, NULL);
-  CU_ASSERT_FATAL (ret == DDS_RETCODE_BAD_PARAMETER);
+  CU_ASSERT_NEQ (ret == DDS_RETCODE_BAD_PARAMETER, 0);
 
   ret = dds_set_topic_filter_extended (tp, NULL);
-  CU_ASSERT_FATAL (ret == DDS_RETCODE_BAD_PARAMETER);
+  CU_ASSERT_NEQ (ret == DDS_RETCODE_BAD_PARAMETER, 0);
 
   // deliberately pass in bogus value for mode
   memset (&filter.mode, 0xff, sizeof (filter.mode));
   ret = dds_set_topic_filter_extended (tp, &filter);
-  CU_ASSERT_FATAL (ret == DDS_RETCODE_BAD_PARAMETER);
+  CU_ASSERT_NEQ (ret == DDS_RETCODE_BAD_PARAMETER, 0);
 
   filter.mode = DDS_TOPIC_FILTER_SAMPLE;
   filter.f.sample = filter_long1_eq_1;
   filter.arg = (void *) 1;
   ret = dds_set_topic_filter_extended (tp, &filter);
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
 
   memset (&filter, 0xff, sizeof (filter));
   ret = dds_get_topic_filter_extended (tp, &filter);
-  CU_ASSERT_FATAL (ret == 0);
-  CU_ASSERT (filter.mode == DDS_TOPIC_FILTER_SAMPLE);
-  CU_ASSERT (filter.f.sample == filter_long1_eq_1);
-  CU_ASSERT (filter.arg == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
+  CU_ASSERT_NEQ (filter.mode == DDS_TOPIC_FILTER_SAMPLE, 0);
+  CU_ASSERT_NEQ (filter.f.sample == filter_long1_eq_1, 0);
+  CU_ASSERT_NEQ (filter.arg == 0, 0);
 
   filter.mode = DDS_TOPIC_FILTER_SAMPLE_ARG;
   filter.f.sample_arg = filter_long1_eq;
   filter.arg = (void *) 1;
   ret = dds_set_topic_filter_extended (tp, &filter);
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
 
   memset (&filter, 0xff, sizeof (filter));
   ret = dds_get_topic_filter_extended (tp, &filter);
-  CU_ASSERT_FATAL (ret == 0);
-  CU_ASSERT (filter.mode == DDS_TOPIC_FILTER_SAMPLE_ARG);
-  CU_ASSERT (filter.f.sample_arg == filter_long1_eq);
-  CU_ASSERT (filter.arg == (void *) 1);
+  CU_ASSERT_NEQ (ret == 0, 0);
+  CU_ASSERT_NEQ (filter.mode == DDS_TOPIC_FILTER_SAMPLE_ARG, 0);
+  CU_ASSERT_NEQ (filter.f.sample_arg == filter_long1_eq, 0);
+  CU_ASSERT_NEQ (filter.arg == (void *) 1, 0);
 
   ret = dds_get_topic_filter_and_arg (tp, &fn, &arg);
-  CU_ASSERT_FATAL (ret == 0);
-  CU_ASSERT (fn == filter_long1_eq);
-  CU_ASSERT (arg == (void *) 1);
+  CU_ASSERT_NEQ (ret == 0, 0);
+  CU_ASSERT_NEQ (fn == filter_long1_eq, 0);
+  CU_ASSERT_NEQ (arg == (void *) 1, 0);
 
   struct xfarg xfarg = { 0, 0 };
   filter.mode = DDS_TOPIC_FILTER_SAMPLEINFO_ARG;
   filter.f.sampleinfo_arg = filter_sampleinfo;
   filter.arg = &xfarg;
   ret = dds_set_topic_filter_extended (tp, &filter);
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
 
   memset (&filter, 0xff, sizeof (filter));
   ret = dds_get_topic_filter_extended (tp, &filter);
-  CU_ASSERT_FATAL (ret == 0);
-  CU_ASSERT (filter.mode == DDS_TOPIC_FILTER_SAMPLEINFO_ARG);
-  CU_ASSERT (filter.f.sampleinfo_arg == filter_sampleinfo);
-  CU_ASSERT (filter.arg == &xfarg);
+  CU_ASSERT_NEQ (ret == 0, 0);
+  CU_ASSERT_NEQ (filter.mode == DDS_TOPIC_FILTER_SAMPLEINFO_ARG, 0);
+  CU_ASSERT_NEQ (filter.f.sampleinfo_arg == filter_sampleinfo, 0);
+  CU_ASSERT_NEQ (filter.arg == &xfarg, 0);
 
   ret = dds_get_topic_filter_and_arg (tp, &fn, &arg);
-  CU_ASSERT_FATAL (ret == DDS_RETCODE_PRECONDITION_NOT_MET);
+  CU_ASSERT_NEQ (ret == DDS_RETCODE_PRECONDITION_NOT_MET, 0);
 
   filter.mode = DDS_TOPIC_FILTER_SAMPLE_SAMPLEINFO_ARG;
   filter.f.sample_sampleinfo_arg = filter_long1_eq_sampleinfo;
   filter.arg = &xfarg;
   ret = dds_set_topic_filter_extended (tp, &filter);
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
 
   memset (&filter, 0xff, sizeof (filter));
   ret = dds_get_topic_filter_extended (tp, &filter);
-  CU_ASSERT_FATAL (ret == 0);
-  CU_ASSERT (filter.mode == DDS_TOPIC_FILTER_SAMPLE_SAMPLEINFO_ARG);
-  CU_ASSERT (filter.f.sample_sampleinfo_arg == filter_long1_eq_sampleinfo);
-  CU_ASSERT (filter.arg == &xfarg);
+  CU_ASSERT_NEQ (ret == 0, 0);
+  CU_ASSERT_NEQ (filter.mode == DDS_TOPIC_FILTER_SAMPLE_SAMPLEINFO_ARG, 0);
+  CU_ASSERT_NEQ (filter.f.sample_sampleinfo_arg == filter_long1_eq_sampleinfo, 0);
+  CU_ASSERT_NEQ (filter.arg == &xfarg, 0);
 
   ret = dds_get_topic_filter_and_arg (tp, &fn, &arg);
-  CU_ASSERT_FATAL (ret == DDS_RETCODE_PRECONDITION_NOT_MET);
+  CU_ASSERT_NEQ (ret == DDS_RETCODE_PRECONDITION_NOT_MET, 0);
 
   dds_delete (dp);
 }
@@ -474,24 +474,24 @@ CU_Test (ddsc_filter, sampleinfo)
   dds_qset_history (qos, DDS_HISTORY_KEEP_ALL, 0);
   dds_qset_writer_data_lifecycle (qos, false);
   dp = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_FATAL (dp > 0);
+  CU_ASSERT_NEQ (dp > 0, 0);
   for (int i = 0; i < 3; i++)
   {
     tp[i] = dds_create_topic (dp, &Space_Type1_desc, topicname, qos, NULL);
-    CU_ASSERT_FATAL (tp[i] > 0);
+    CU_ASSERT_NEQ (tp[i] > 0, 0);
   }
   // both writers on (unfiltered) tp[0]
   for (int i = 0; i < 2; i++)
   {
     wr[i] = dds_create_writer (dp, tp[0], qos, NULL);
-    CU_ASSERT_FATAL (wr[i] > 0);
+    CU_ASSERT_NEQ (wr[i] > 0, 0);
   }
 
   // reader on filtered tp[1] accepting only data from wr[0] with key value = 1
   struct xfarg xfarg;
   memset (&xfarg, 0, sizeof (xfarg));
   ret = dds_get_instance_handle (wr[0], &xfarg.pubhandle);
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
   xfarg.long_1 = 1;
   const struct dds_topic_filter filter0 = {
     .mode = DDS_TOPIC_FILTER_SAMPLE_SAMPLEINFO_ARG,
@@ -499,9 +499,9 @@ CU_Test (ddsc_filter, sampleinfo)
     .arg = &xfarg
   };
   ret = dds_set_topic_filter_extended (tp[1], &filter0);
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
   rd[0] = dds_create_reader (dp, tp[1], qos, NULL);
-  CU_ASSERT_FATAL (rd[0] > 0);
+  CU_ASSERT_NEQ (rd[0] > 0, 0);
 
   // reader on filtered tp[2] accepting only data from wr[0] (but with any key value)
   const struct dds_topic_filter filter1 = {
@@ -510,9 +510,9 @@ CU_Test (ddsc_filter, sampleinfo)
     .arg = &xfarg
   };
   ret = dds_set_topic_filter_extended (tp[2], &filter1);
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
   rd[1] = dds_create_reader (dp, tp[2], qos, NULL);
-  CU_ASSERT_FATAL (rd[1] > 0);
+  CU_ASSERT_NEQ (rd[1] > 0, 0);
   dds_delete_qos (qos);
 
   // register instances for the two key values we use, so we have the instance
@@ -520,9 +520,9 @@ CU_Test (ddsc_filter, sampleinfo)
   // and the reader)
   dds_instance_handle_t ih[2];
   ret = dds_register_instance (wr[0], &ih[0], &(Space_Type1){0,0,0});
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
   ret = dds_register_instance (wr[0], &ih[1], &(Space_Type1){1,0,0});
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
 
   // write two samples with wr[0], only one of which passes the content filter for rd[0]
   // both of which pass for rd[1]
@@ -531,30 +531,30 @@ CU_Test (ddsc_filter, sampleinfo)
   xfarg.inststate = DDS_ALIVE_INSTANCE_STATE;
   xfarg.insthandle = ih[0];
   ret = dds_write (wr[0], &(Space_Type1){0,0,0});
-  CU_ASSERT_FATAL (ret == 0);
-  CU_ASSERT (!xfarg.invalid_dynamic);
+  CU_ASSERT_NEQ (ret == 0, 0);
+  CU_ASSERT_NEQ (!xfarg.invalid_dynamic, 0);
   xfarg.insthandle = ih[1];
   ret = dds_write (wr[0], &(Space_Type1){1,0,0});
-  CU_ASSERT_FATAL (ret == 0);
-  CU_ASSERT (!xfarg.invalid_dynamic);
+  CU_ASSERT_NEQ (ret == 0, 0);
+  CU_ASSERT_NEQ (!xfarg.invalid_dynamic, 0);
 
   // write two samples with wr[1], neither of which passes the sample info filters
   xfarg.viewstate = DDS_NEW_VIEW_STATE;
   xfarg.inststate = DDS_ALIVE_INSTANCE_STATE;
   xfarg.insthandle = ih[0];
   ret = dds_write (wr[1], &(Space_Type1){0,0,0});
-  CU_ASSERT_FATAL (ret == 0);
-  CU_ASSERT (!xfarg.invalid_dynamic);
+  CU_ASSERT_NEQ (ret == 0, 0);
+  CU_ASSERT_NEQ (!xfarg.invalid_dynamic, 0);
   xfarg.viewstate = DDS_NEW_VIEW_STATE;
   xfarg.inststate = DDS_ALIVE_INSTANCE_STATE;
   xfarg.insthandle = ih[1];
   ret = dds_write (wr[1], &(Space_Type1){1,0,0});
-  CU_ASSERT_FATAL (ret == 0);
-  CU_ASSERT (!xfarg.invalid_dynamic);
+  CU_ASSERT_NEQ (ret == 0, 0);
+  CU_ASSERT_NEQ (!xfarg.invalid_dynamic, 0);
   // but does affect registrations for known samples (because we currently can't
   // distinguish between filtering on key values or attributes)
   ret = dds_unregister_instance(wr[1], &(Space_Type1){1,0,0});
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
 
   // check data matches expectations
   // doing this now changes the view state
@@ -582,44 +582,44 @@ CU_Test (ddsc_filter, sampleinfo)
   xfarg.inststate = DDS_ALIVE_INSTANCE_STATE;
   xfarg.insthandle = ih[1];
   ret = dds_write (wr[0], &(Space_Type1){1,0,1});
-  CU_ASSERT_FATAL (ret == 0);
-  CU_ASSERT (!xfarg.invalid_dynamic);
+  CU_ASSERT_NEQ (ret == 0, 0);
+  CU_ASSERT_NEQ (!xfarg.invalid_dynamic, 0);
   // unregister doesn't trigger a filter invocation
   ret = dds_unregister_instance (wr[0], &(Space_Type1){1,0,0});
-  CU_ASSERT_FATAL (ret == 0);
+  CU_ASSERT_NEQ (ret == 0, 0);
   // next write, it should show up in the filter as NOT_ALIVE_NO_WRITERS
   xfarg.viewstate = DDS_NOT_NEW_VIEW_STATE;
   xfarg.inststate = DDS_NOT_ALIVE_NO_WRITERS_INSTANCE_STATE;
   ret = dds_write (wr[0], &(Space_Type1){1,0,2});
-  CU_ASSERT_FATAL (ret == 0);
-  CU_ASSERT (!xfarg.invalid_dynamic);
+  CU_ASSERT_NEQ (ret == 0, 0);
+  CU_ASSERT_NEQ (!xfarg.invalid_dynamic, 0);
   // new view state and alive again; bumped no writers generation
   xfarg.viewstate = DDS_NEW_VIEW_STATE;
   xfarg.inststate = DDS_ALIVE_INSTANCE_STATE;
   xfarg.insthandle = ih[1];
   xfarg.nowrgen++;
   ret = dds_write (wr[0], &(Space_Type1){1,0,3});
-  CU_ASSERT_FATAL (ret == 0);
-  CU_ASSERT (!xfarg.invalid_dynamic);
+  CU_ASSERT_NEQ (ret == 0, 0);
+  CU_ASSERT_NEQ (!xfarg.invalid_dynamic, 0);
 
   // dispose doesn't trigger a filter invocation
   ret = dds_dispose (wr[0], &(Space_Type1){1,0,0});
-  CU_ASSERT_FATAL (ret == 0);
-  CU_ASSERT (!xfarg.invalid_dynamic);
+  CU_ASSERT_NEQ (ret == 0, 0);
+  CU_ASSERT_NEQ (!xfarg.invalid_dynamic, 0);
   // next write, it should show up in the filter as DISPOSED
   xfarg.viewstate = DDS_NEW_VIEW_STATE;
   xfarg.inststate = DDS_NOT_ALIVE_DISPOSED_INSTANCE_STATE;
   ret = dds_write (wr[0], &(Space_Type1){1,0,4});
-  CU_ASSERT_FATAL (ret == 0);
-  CU_ASSERT (!xfarg.invalid_dynamic);
+  CU_ASSERT_NEQ (ret == 0, 0);
+  CU_ASSERT_NEQ (!xfarg.invalid_dynamic, 0);
   // alive again; bumped disposed generation
   xfarg.viewstate = DDS_NEW_VIEW_STATE;
   xfarg.inststate = DDS_ALIVE_INSTANCE_STATE;
   xfarg.dispgen++;
   xfarg.insthandle = ih[1];
   ret = dds_write (wr[0], &(Space_Type1){1,0,5});
-  CU_ASSERT_FATAL (ret == 0);
-  CU_ASSERT (!xfarg.invalid_dynamic);
+  CU_ASSERT_NEQ (ret == 0, 0);
+  CU_ASSERT_NEQ (!xfarg.invalid_dynamic, 0);
 
   // all local, so filter evaluations happen during the call to write and we can
   // safely inspect the filter argument despite it being modified by the filter
@@ -627,14 +627,14 @@ CU_Test (ddsc_filter, sampleinfo)
   // all samples from an unacceptable writer must be from wr[1]
   dds_instance_handle_t wr1_ih;
   ret = dds_get_instance_handle (wr[1], &wr1_ih);
-  CU_ASSERT_FATAL (ret == 0);
-  CU_ASSERT_FATAL (xfarg.rejhandle == wr1_ih);
-  CU_ASSERT_FATAL (!xfarg.toomany);
-  CU_ASSERT_FATAL (!xfarg.invalid_fixed);
-  CU_ASSERT_FATAL (!xfarg.invalid_dynamic);
+  CU_ASSERT_NEQ (ret == 0, 0);
+  CU_ASSERT_NEQ (xfarg.rejhandle == wr1_ih, 0);
+  CU_ASSERT_NEQ (!xfarg.toomany, 0);
+  CU_ASSERT_NEQ (!xfarg.invalid_fixed, 0);
+  CU_ASSERT_NEQ (!xfarg.invalid_dynamic, 0);
 
-  CU_ASSERT_FATAL (xfarg.sampleinfo_called);
-  CU_ASSERT_FATAL (xfarg.sample_sampleinfo_called);
+  CU_ASSERT_NEQ (xfarg.sampleinfo_called, 0);
+  CU_ASSERT_NEQ (xfarg.sample_sampleinfo_called, 0);
 
   const struct exp expX = {
     .n = 5, .xs = (const Space_Type1[]) {

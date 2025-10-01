@@ -42,17 +42,17 @@
 
 static void check (dds_return_t res)
 {
-  CU_ASSERT (res == DDS_RETCODE_PRECONDITION_NOT_MET || res == DDS_RETCODE_BAD_PARAMETER || res == DDS_RETCODE_UNSUPPORTED);
+  CU_ASSERT_NEQ (res == DDS_RETCODE_PRECONDITION_NOT_MET || res == DDS_RETCODE_BAD_PARAMETER || res == DDS_RETCODE_UNSUPPORTED, 0);
 }
 
 static void check_0 (void *ptr)
 {
-  CU_ASSERT (ptr == 0);
+  CU_ASSERT_NEQ (ptr == 0, 0);
 }
 
 static void check_ih (dds_instance_handle_t ih)
 {
-  CU_ASSERT (ih == 0);
+  CU_ASSERT_NEQ (ih == 0, 0);
 }
 
 static bool filter_fn (const void *sample) { (void) sample; return true; }
