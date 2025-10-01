@@ -263,7 +263,7 @@ static void corrupt_permission_signature(DDS_Security_AuthenticatedPeerCredentia
   CU_ASSERT_NEQ (token->properties._length == 2, 0);
   CU_ASSERT_NEQ (token->properties._buffer[1].name != NULL, 0);
   CU_ASSERT_NEQ (token->properties._buffer[1].value != NULL, 0);
-  CU_ASSERT_NEQ (strcmp(token->properties._buffer[1].name, DDS_ACTOKEN_PROP_C_PERM) == 0, 0);
+  CU_ASSERT_STREQ (token->properties._buffer[1].name, DDS_ACTOKEN_PROP_C_PERM);
 
   /* Corrupt a byte somewhere in the signature. */
   permissions = token->properties._buffer[1].value;

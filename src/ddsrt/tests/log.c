@@ -267,7 +267,7 @@ CU_Test(dds_log, no_sink, .init=setup, .fini=teardown)
   dds_set_log_sink(&copy, &ptr);
   DDS_ERROR("foobaz\n");
   CU_ASSERT_NEQ_FATAL (ptr, NULL);
-  CU_ASSERT_NEQ (strcmp(ptr, "foobaz\n") == 0, 0);
+  CU_ASSERT_STREQ (ptr, "foobaz\n");
   ddsrt_free(ptr);
   ptr = NULL;
   /* Verify it has not been written to the stream. */
@@ -317,7 +317,7 @@ CU_Test(dds_log, newline_terminates, .fini=reset)
   CU_ASSERT_EQ_FATAL (msg, NULL);
   DDS_ERROR("baz\n");
   CU_ASSERT_NEQ_FATAL (msg, NULL);
-  CU_ASSERT_NEQ (strcmp(msg, "foobarbaz\n") == 0, 0);
+  CU_ASSERT_STREQ (msg, "foobarbaz\n");
   ddsrt_free(msg);
 #endif
 }
@@ -333,7 +333,7 @@ CU_Test(dds_log, disabled_categories_discarded, .fini=reset)
   dds_set_log_mask(DDS_LC_FATAL | DDS_LC_ERROR | DDS_LC_INFO);
   DDS_INFO("foobar\n");
   CU_ASSERT_NEQ_FATAL (msg, NULL);
-  CU_ASSERT_NEQ (strcmp(msg, "foobar\n") == 0, 0);
+  CU_ASSERT_STREQ (msg, "foobar\n");
   ddsrt_free(msg);
 #endif
 }

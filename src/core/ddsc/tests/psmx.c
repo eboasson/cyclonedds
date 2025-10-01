@@ -1705,13 +1705,13 @@ CU_Test (ddsc_psmx, configstr)
         assert (strcmp (cases[i].kv[j].k, "SERVICE_NAME") != 0);
         char *v = dds_psmx_get_config_option_value (p, cases[i].kv[j].k);
         CU_ASSERT_NEQ (v != NULL, 0);
-        CU_ASSERT_NEQ (strcmp (v, cases[i].kv[j].v) == 0, 0);
+        CU_ASSERT_STREQ (v, cases[i].kv[j].v);
         ddsrt_free (v);
         if (strcmp (cases[i].kv[j].k, "INSTANCE_NAME") == 0)
         {
           v = dds_psmx_get_config_option_value (p, "SERVICE_NAME");
           CU_ASSERT_NEQ (v != NULL, 0);
-          CU_ASSERT_NEQ (strcmp (v, cases[i].kv[j].v) == 0, 0);
+          CU_ASSERT_STREQ (v, cases[i].kv[j].v);
           ddsrt_free (v);
         }
       }

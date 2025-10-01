@@ -206,7 +206,7 @@ CU_Test(ddssec_builtin_register_remote_participant, empty_identity, .init = suit
 
   CU_ASSERT_NEQ (remote_crypto_handle == DDS_SECURITY_HANDLE_NIL, 0);
   CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, 0);
-  CU_ASSERT_NEQ (!strcmp(exception.message, DDS_SECURITY_ERR_IDENTITY_EMPTY_MESSAGE), 0);
+  CU_ASSERT_STREQ (exception.message, DDS_SECURITY_ERR_IDENTITY_EMPTY_MESSAGE);
   reset_exception(&exception);
 
   (void)crypto->crypto_key_factory->unregister_participant(

@@ -161,7 +161,7 @@ CU_Test(ddsrt_sockets, gethostname)
   int ret = gethostname(sysbuf, sizeof(sysbuf));
   CU_ASSERT_EQ (ret, 0);
 #endif
-  CU_ASSERT_NEQ (strcmp(buf, sysbuf) == 0, 0);
+  CU_ASSERT_STREQ (buf, sysbuf);
 
   rc = ddsrt_gethostname(buf, strlen(buf) - 1);
   CU_ASSERT_EQ (rc, DDS_RETCODE_NOT_ENOUGH_SPACE);

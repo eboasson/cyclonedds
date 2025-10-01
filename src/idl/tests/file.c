@@ -316,7 +316,7 @@ CU_Test(idl_file, relative)
       fprintf(stderr, "relative: '%s'\n", rel);
     if (t[i].relpath) {
       CU_ASSERT_NEQ_FATAL (rel, NULL);
-      CU_ASSERT_NEQ (rel && strcmp(t[i].relpath, rel) == 0, 0);
+      CU_ASSERT_STREQ (t[i].relpath, rel);
     } else {
       CU_ASSERT_EQ (rel, NULL);
     }

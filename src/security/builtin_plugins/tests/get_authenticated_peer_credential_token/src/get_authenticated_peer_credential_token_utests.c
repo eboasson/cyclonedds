@@ -1189,7 +1189,7 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_request )
     CU_ASSERT_NEQ_FATAL (success, false);
 
     CU_ASSERT_NEQ (credential_token.class_id != NULL, 0);
-    CU_ASSERT_NEQ (strcmp(credential_token.class_id, DDS_AUTHTOKEN_CLASS_ID) == 0, 0);
+    CU_ASSERT_STREQ (credential_token.class_id, DDS_AUTHTOKEN_CLASS_ID);
     CU_ASSERT_NEQ (credential_token.properties._length == 2, 0);
     CU_ASSERT_NEQ (credential_token.binary_properties._length == 0, 0);
 
@@ -1197,13 +1197,13 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_request )
     CU_ASSERT_NEQ (c_id != NULL, 0);
     CU_ASSERT_NEQ (c_id->value != NULL, 0);
     //printf("c_id->value: %s\n", c_id->value);
-    CU_ASSERT_NEQ (strcmp(c_id->value, REMOTE_IDENTITY_CERTIFICATE) == 0, 0);
+    CU_ASSERT_STREQ (c_id->value, REMOTE_IDENTITY_CERTIFICATE);
 
     c_perm = find_property(&credential_token, DDS_AUTHTOKEN_PROP_C_PERM);
     CU_ASSERT_NEQ (c_perm != NULL, 0);
     CU_ASSERT_NEQ (c_perm->value != NULL, 0);
     //printf("c_perm->value: %s\n", c_perm->value);
-    CU_ASSERT_NEQ (strcmp(c_perm->value, PERMISSIONS_DOCUMENT) == 0, 0);
+    CU_ASSERT_STREQ (c_perm->value, PERMISSIONS_DOCUMENT);
 
     success = g_auth->return_authenticated_peer_credential_token(g_auth, &credential_token, &exception);
     CU_ASSERT_NEQ (success, false);
@@ -1314,7 +1314,7 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_reply )
     CU_ASSERT_NEQ_FATAL (success, false);
 
     CU_ASSERT_NEQ (credential_token.class_id != NULL, 0);
-    CU_ASSERT_NEQ (strcmp(credential_token.class_id, DDS_AUTHTOKEN_CLASS_ID) == 0, 0);
+    CU_ASSERT_STREQ (credential_token.class_id, DDS_AUTHTOKEN_CLASS_ID);
     CU_ASSERT_NEQ (credential_token.properties._length == 2, 0);
     CU_ASSERT_NEQ (credential_token.binary_properties._length == 0, 0);
 
@@ -1322,13 +1322,13 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_reply )
     CU_ASSERT_NEQ (c_id != NULL, 0);
     CU_ASSERT_NEQ (c_id->value != NULL, 0);
     //printf("c_id->value: %s\n", c_id->value);
-    CU_ASSERT_NEQ (strcmp(c_id->value, REMOTE_IDENTITY_CERTIFICATE) == 0, 0);
+    CU_ASSERT_STREQ (c_id->value, REMOTE_IDENTITY_CERTIFICATE);
 
     c_perm = find_property(&credential_token, DDS_AUTHTOKEN_PROP_C_PERM);
     CU_ASSERT_NEQ (c_perm != NULL, 0);
     CU_ASSERT_NEQ (c_perm->value != NULL, 0);
     //printf("c_perm->value: %s\n", c_perm->value);
-    CU_ASSERT_NEQ (strcmp(c_perm->value, PERMISSIONS_DOCUMENT) == 0, 0);
+    CU_ASSERT_STREQ (c_perm->value, PERMISSIONS_DOCUMENT);
 
 
     success = g_auth->return_authenticated_peer_credential_token(g_auth, &credential_token, &exception);

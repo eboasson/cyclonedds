@@ -314,7 +314,8 @@ static void partition_check (const enum check_mode check_mode, const dds_qos_t *
     } else {
       char name[13];
       snprintf (name, sizeof (name), "p%d", v[0]);
-      CU_ASSERT_NEQ (n == 1 && strcmp (ps[0], name) == 0, 0);
+      CU_ASSERT_EQ (n, 1);
+      CU_ASSERT_STREQ (ps[0], name);
     }
   }
   if (r && n > 0) {
@@ -446,7 +447,7 @@ static void entity_name_check (const enum check_mode check_mode, const dds_qos_t
   if (check_mode == CM_SET) {
     char name[13];
     snprintf (name, sizeof (name), "q%d", v[0]);
-    CU_ASSERT_NEQ (strcmp (n, name) == 0, 0);
+    CU_ASSERT_STREQ (n, name);
   }
   if (r) {
     dds_free (n);

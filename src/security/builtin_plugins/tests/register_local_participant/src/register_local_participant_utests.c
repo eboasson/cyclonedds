@@ -147,7 +147,7 @@ CU_Test(ddssec_builtin_register_local_participant, empty_identity, .init = suite
 
   CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, 0);
   CU_ASSERT_NEQ (exception.message != NULL, 0);
-  CU_ASSERT_NEQ (!strcmp(exception.message, DDS_SECURITY_ERR_IDENTITY_EMPTY_MESSAGE), 0);
+  CU_ASSERT_STREQ (exception.message, DDS_SECURITY_ERR_IDENTITY_EMPTY_MESSAGE);
   CU_ASSERT_NEQ (result == 0, 0);
 
   reset_exception(&exception);

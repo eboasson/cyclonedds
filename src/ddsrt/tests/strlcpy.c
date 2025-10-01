@@ -72,8 +72,8 @@ CU_Theory((char *seed, char *src, size_t size), ddsrt_strlcat, dest_size)
     }
 
     (void)snprintf(foobar, len+1, "%s%s", seed, src);
-    CU_ASSERT_NEQ ((strncmp(dest, foobar, len) == 0), 0);
+    CU_ASSERT_EQ (strncmp(dest, foobar, len), 0);
   } else {
-    CU_ASSERT_NEQ ((strcmp(dest, seed) == 0), 0);
+    CU_ASSERT_STREQ (dest, seed);
   }
 }

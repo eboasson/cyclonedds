@@ -358,16 +358,16 @@ CU_Test (ddsc_nwpart, mapping_multiple)
   struct ddsi_config_partitionmapping_listelem *m0, *m1;
   m0 = gv->config.partitionMappings;
   m1 = m0->next;
-  CU_ASSERT_NEQ (strcmp (m0->networkPartition, "P0") == 0, 0);
-  CU_ASSERT_NEQ (strcmp (m1->networkPartition, "p2") == 0, 0);
+  CU_ASSERT_STREQ (m0->networkPartition, "P0");
+  CU_ASSERT_STREQ (m1->networkPartition, "p2");
   CU_ASSERT_NEQ (m1->next == NULL, 0);
   struct ddsi_config_networkpartition_listelem *p0, *p1, *p2;
   p2 = gv->config.networkPartitions; // this order matches the names
   p1 = p2->next;
   p0 = p1->next;
-  CU_ASSERT_NEQ (strcmp (p2->name, "p2") == 0, 0);
-  CU_ASSERT_NEQ (strcmp (p1->name, "p1") == 0, 0);
-  CU_ASSERT_NEQ (strcmp (p0->name, "p0") == 0, 0);
+  CU_ASSERT_STREQ (p2->name, "p2");
+  CU_ASSERT_STREQ (p1->name, "p1");
+  CU_ASSERT_STREQ (p0->name, "p0");
   CU_ASSERT_NEQ (p0->next == NULL, 0);
   // given that:
   CU_ASSERT_NEQ (m0->partition == p0, 0);

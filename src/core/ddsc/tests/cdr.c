@@ -1005,8 +1005,8 @@ CU_Test(ddsc_cdr, forward_conv_serdata)
   struct sampletype ys = { 0 };
   bool ok = ddsi_serdata_to_sample (sd0, &ys, NULL, NULL);
   CU_ASSERT_NEQ (ok, 0);
-  CU_ASSERT_NEQ (strcmp (ys.key, xs.key) == 0, 0);
-  CU_ASSERT_NEQ (strcmp (ys.value, xs.value) == 0, 0);
+  CU_ASSERT_STREQ (ys.key, xs.key);
+  CU_ASSERT_STREQ (ys.value, xs.value);
   ddsi_sertype_free_sample (tw.st, &ys, DDS_FREE_CONTENTS);
   ddsi_serdata_unref (sd0);
 

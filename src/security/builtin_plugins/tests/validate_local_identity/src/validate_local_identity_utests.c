@@ -1230,7 +1230,7 @@ CU_Test(ddssec_builtin_validate_local_identity,missing_certificate_property)
     CU_ASSERT_NEQ (result != DDS_SECURITY_VALIDATION_OK, 0);
     CU_ASSERT_NEQ (exception.minor_code != 0, 0);
     CU_ASSERT_NEQ (exception.message != NULL, 0);
-    CU_ASSERT_NEQ (strcmp(exception.message, "validate_local_identity: missing property '" DDS_SEC_PROP_AUTH_IDENTITY_CERT "'") == 0, 0);
+    CU_ASSERT_STREQ (exception.message, "validate_local_identity: missing property '" DDS_SEC_PROP_AUTH_IDENTITY_CERT "'");
 
     dds_security_property_deinit(&participant_qos.property.value);
     reset_exception(&exception);
@@ -1288,7 +1288,7 @@ CU_Test(ddssec_builtin_validate_local_identity,missing_ca_property)
     CU_ASSERT_NEQ (result != DDS_SECURITY_VALIDATION_OK, 0);
     CU_ASSERT_NEQ (exception.minor_code != 0, 0);
     CU_ASSERT_NEQ (exception.message != NULL, 0);
-    CU_ASSERT_NEQ (strcmp(exception.message, "validate_local_identity: missing property '" DDS_SEC_PROP_AUTH_IDENTITY_CA "'") == 0, 0);
+    CU_ASSERT_STREQ (exception.message, "validate_local_identity: missing property '" DDS_SEC_PROP_AUTH_IDENTITY_CA "'");
 
     dds_security_property_deinit(&participant_qos.property.value);
     reset_exception(&exception);
@@ -1341,7 +1341,7 @@ CU_Test(ddssec_builtin_validate_local_identity,missing_private_key_property)
     CU_ASSERT_NEQ (result != DDS_SECURITY_VALIDATION_OK, 0);
     CU_ASSERT_NEQ (exception.minor_code != 0, 0);
     CU_ASSERT_NEQ (exception.message != NULL, 0);
-    CU_ASSERT_NEQ (strcmp(exception.message, "validate_local_identity: missing property '" DDS_SEC_PROP_AUTH_PRIV_KEY "'") == 0, 0);
+    CU_ASSERT_STREQ (exception.message, "validate_local_identity: missing property '" DDS_SEC_PROP_AUTH_PRIV_KEY "'");
 
     dds_security_property_deinit(&participant_qos.property.value);
     reset_exception(&exception);

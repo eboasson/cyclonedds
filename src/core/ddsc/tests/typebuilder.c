@@ -175,14 +175,14 @@ CU_Theory((const dds_topic_descriptor_t *desc), ddsc_typebuilder, topic_desc, .i
   for (uint32_t n = 0; n < desc->m_nkeys; n++)
   {
     tprintf("key[%u] name: %s (%s)\n", n, generated_desc->m_keys[n].m_name, desc->m_keys[n].m_name);
-    CU_ASSERT_EQ_FATAL (strcmp (desc->m_keys[n].m_name, generated_desc->m_keys[n].m_name), 0);
+    CU_ASSERT_STREQ_FATAL (desc->m_keys[n].m_name, generated_desc->m_keys[n].m_name);
     tprintf("  offset: %u (%u)\n", generated_desc->m_keys[n].m_offset, desc->m_keys[n].m_offset);
     CU_ASSERT_EQ_FATAL (desc->m_keys[n].m_offset, generated_desc->m_keys[n].m_offset);
     tprintf("  index: %u (%u)\n", generated_desc->m_keys[n].m_idx, desc->m_keys[n].m_idx);
     CU_ASSERT_EQ_FATAL (desc->m_keys[n].m_idx, generated_desc->m_keys[n].m_idx);
   }
   tprintf ("typename: %s (%s)\n", generated_desc->m_typename, desc->m_typename);
-  CU_ASSERT_EQ_FATAL (strcmp (desc->m_typename, generated_desc->m_typename), 0);
+  CU_ASSERT_STREQ_FATAL (desc->m_typename, generated_desc->m_typename);
   tprintf ("nops: %u (%u)\n", generated_desc->m_nops, desc->m_nops);
   CU_ASSERT_EQ_FATAL (desc->m_nops, generated_desc->m_nops);
 

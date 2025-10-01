@@ -308,10 +308,12 @@ static void sample_check_XType5a_5 (void *ptr1, void *ptr2)
 {
   XSpace_XType5a *s_wr = (XSpace_XType5a *) ptr1;
   XSpace_XType5 *s_rd = (XSpace_XType5 *) ptr2;
-  CU_ASSERT_NEQ (strlen (s_rd->str_1) == strlen (s_wr->str_1) && strlen (s_rd->str_1) == 999, 0);
-  CU_ASSERT_NEQ (strlen (s_rd->str_2) == strlen (s_wr->str_2) && strlen (s_rd->str_2) == 5, 0);
-  CU_ASSERT_NEQ (!strcmp (s_rd->str_1, s_wr->str_1), 0);
-  CU_ASSERT_NEQ (!strcmp (s_rd->str_2, s_wr->str_2), 0);
+  CU_ASSERT_EQ (strlen (s_rd->str_1), strlen (s_wr->str_1));
+  CU_ASSERT_EQ (strlen (s_rd->str_1), 999);
+  CU_ASSERT_EQ (strlen (s_rd->str_2), strlen (s_wr->str_2));
+  CU_ASSERT_EQ (strlen (s_rd->str_2), 5);
+  CU_ASSERT_STREQ (s_rd->str_1, s_wr->str_1);
+  CU_ASSERT_STREQ (s_rd->str_2, s_wr->str_2);
 }
 
 #define D(n) XSpace_ ## n ## _desc

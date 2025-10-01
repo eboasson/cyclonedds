@@ -304,27 +304,27 @@ CU_Test(ddsrt_strtoll, lltostr)
   /* calling os_lltostr with %lld with buffer size of 5, expected result \"5432\" */
   ll = 54321;
   ptr = ddsrt_lltostr(ll, buf, 5, NULL);
-  CU_ASSERT_NEQ (strcmp(ptr, "5432") == 0, 0);
+  CU_ASSERT_STREQ (ptr, "5432");
 
   ll = llmax;
   ptr = ddsrt_lltostr(ll, buf, sizeof(buf), NULL);
-  CU_ASSERT_NEQ (strcmp(ptr, str_llmax) == 0, 0);
+  CU_ASSERT_STREQ (ptr, str_llmax);
 
   ll = llmin;
   ptr = ddsrt_lltostr(ll, buf, sizeof(buf), NULL);
-  CU_ASSERT_NEQ (strcmp(ptr, str_llmin) == 0, 0);
+  CU_ASSERT_STREQ (ptr, str_llmin);
 
   ll = 1;
   ptr = ddsrt_lltostr(ll, buf, sizeof(buf), NULL);
-  CU_ASSERT_NEQ (strcmp(ptr, "1") == 0, 0);
+  CU_ASSERT_STREQ (ptr, "1");
 
   ll = 0;
   ptr = ddsrt_lltostr(ll, buf, sizeof(buf), NULL);
-  CU_ASSERT_NEQ (strcmp(ptr, "0") == 0, 0);
+  CU_ASSERT_STREQ (ptr, "0");
 
   ll = -1;
   ptr = ddsrt_lltostr(ll, buf, sizeof(buf), NULL);
-  CU_ASSERT_NEQ (strcmp(ptr, "-1") == 0, 0);
+  CU_ASSERT_STREQ (ptr, "-1");
 }
 
 CU_Test(ddsrt_strtoll, ulltostr)
@@ -333,10 +333,10 @@ CU_Test(ddsrt_strtoll, ulltostr)
 
   ull = ullmax;
   ptr = ddsrt_ulltostr(ull, buf, sizeof(buf), NULL);
-  CU_ASSERT_NEQ (strcmp(ptr, str_ullmax) == 0, 0);
+  CU_ASSERT_STREQ (ptr, str_ullmax);
 
   ull = 0ULL;
   ptr = ddsrt_ulltostr(ull, buf, sizeof(buf), NULL);
-  CU_ASSERT_NEQ (strcmp(ptr, "0") == 0, 0);
+  CU_ASSERT_STREQ (ptr, "0");
 }
 

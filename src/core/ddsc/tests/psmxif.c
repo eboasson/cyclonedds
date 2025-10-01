@@ -197,7 +197,7 @@ static void assert_psmx_instance_names(dds_entity_t endpt, const char** names_ex
   CU_ASSERT_EQ_FATAL (n_names, strs_len);
   for (size_t n = 0; n < n_names; n++)
   {
-    CU_ASSERT_NEQ (strcmp(strs[n], names_expected[n]) == 0, 0);
+    CU_ASSERT_STREQ (strs[n], names_expected[n]);
   }
   free_strings(strs_len, strs);
   dds_delete_qos(qos);
@@ -336,7 +336,7 @@ static void do_psmxif_shared_memory (const char *dummylib)
 
     // Check that the config string passed to `dds_create_domain()` has been correctly forwarded to the dummy psmx.
     char dmock_config_expected[] = "LOCATOR=4a4d203df6996395e1412fbecc2de4b6;INSTANCE_NAME=service_psmx_dummy;KEYED_TOPICS=true;";
-    CU_ASSERT_NEQ (strcmp(dmock->config, dmock_config_expected) == 0, 0);
+    CU_ASSERT_STREQ (dmock->config, dmock_config_expected);
 
     void* sample = NULL;
     dds_entity_t writer1 = 0, reader1 = 0, writer2 = 0, reader2 = 0;
