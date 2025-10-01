@@ -490,14 +490,14 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_happy_day, .init = su
   bool result;
 
   result = plugins_init();
-  CU_ASSERT_FATAL(result);
-  CU_ASSERT_FATAL(access_control != NULL);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ (access_control != NULL, 0);
   assert(access_control != NULL);
-  CU_ASSERT_FATAL(access_control->get_participant_sec_attributes != NULL);
+  CU_ASSERT_NEQ (access_control->get_participant_sec_attributes != NULL, 0);
   assert(access_control->get_participant_sec_attributes != 0);
 
   result = create_local_identity(0, "Test_Governance_full.p7s");
-  CU_ASSERT_FATAL(result);
+  CU_ASSERT_NEQ (result, 0);
 
   memset(&attributes, 0, sizeof(attributes));
 
@@ -506,7 +506,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_happy_day, .init = su
       local_permissions_handle,
       &attributes,
       &exception);
-  CU_ASSERT(result);
+  CU_ASSERT_NEQ (result, 0);
 
   /*
      * Expect these values based on these options, which is the 1st domain rule
@@ -518,24 +518,24 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_happy_day, .init = su
      *    <liveliness_protection_kind>ENCRYPT</liveliness_protection_kind>
      *    <rtps_protection_kind>ENCRYPT_WITH_ORIGIN_AUTHENTICATION</rtps_protection_kind>
      */
-  CU_ASSERT(attributes.allow_unauthenticated_participants == false);
-  CU_ASSERT(attributes.is_access_protected == true);
-  CU_ASSERT(attributes.is_discovery_protected == true);
-  CU_ASSERT(attributes.is_liveliness_protected == true);
-  CU_ASSERT(attributes.is_rtps_protected == true);
-  CU_ASSERT((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_ENCRYPTED) == DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_ENCRYPTED);
-  CU_ASSERT((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_DISCOVERY_ENCRYPTED) == 0);
-  CU_ASSERT((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_LIVELINESS_ENCRYPTED) == DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_LIVELINESS_ENCRYPTED);
-  CU_ASSERT((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_AUTHENTICATED) == DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_AUTHENTICATED);
-  CU_ASSERT((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_DISCOVERY_AUTHENTICATED) == DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_DISCOVERY_AUTHENTICATED);
-  CU_ASSERT((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_LIVELINESS_AUTHENTICATED) == 0);
-  CU_ASSERT((attributes.plugin_participant_attributes & DDS_SECURITY_PARTICIPANT_ATTRIBUTES_FLAG_IS_VALID) != 0);
+  CU_ASSERT_NEQ (attributes.allow_unauthenticated_participants == false, 0);
+  CU_ASSERT_NEQ (attributes.is_access_protected == true, 0);
+  CU_ASSERT_NEQ (attributes.is_discovery_protected == true, 0);
+  CU_ASSERT_NEQ (attributes.is_liveliness_protected == true, 0);
+  CU_ASSERT_NEQ (attributes.is_rtps_protected == true, 0);
+  CU_ASSERT_NEQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_ENCRYPTED) == DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_ENCRYPTED, 0);
+  CU_ASSERT_NEQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_DISCOVERY_ENCRYPTED) == 0, 0);
+  CU_ASSERT_NEQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_LIVELINESS_ENCRYPTED) == DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_LIVELINESS_ENCRYPTED, 0);
+  CU_ASSERT_NEQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_AUTHENTICATED) == DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_AUTHENTICATED, 0);
+  CU_ASSERT_NEQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_DISCOVERY_AUTHENTICATED) == DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_DISCOVERY_AUTHENTICATED, 0);
+  CU_ASSERT_NEQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_LIVELINESS_AUTHENTICATED) == 0, 0);
+  CU_ASSERT_NEQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PARTICIPANT_ATTRIBUTES_FLAG_IS_VALID) != 0, 0);
 
   result = access_control->return_participant_sec_attributes(
       access_control,
       &attributes,
       &exception);
-  CU_ASSERT(result);
+  CU_ASSERT_NEQ (result, 0);
 
   clear_local_identity();
   plugins_fini();
@@ -551,14 +551,14 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datawriter_happy_day, .init = sui
   unsigned i;
 
   result = plugins_init();
-  CU_ASSERT_FATAL(result);
-  CU_ASSERT_FATAL(access_control != NULL);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ (access_control != NULL, 0);
   assert(access_control != NULL);
-  CU_ASSERT_FATAL(access_control->get_datawriter_sec_attributes != NULL);
+  CU_ASSERT_NEQ (access_control->get_datawriter_sec_attributes != NULL, 0);
   assert(access_control->get_datawriter_sec_attributes != 0);
 
   result = create_local_identity(0, "Test_Governance_full.p7s");
-  CU_ASSERT_FATAL(result);
+  CU_ASSERT_NEQ (result, 0);
 
   memset(&attributes, 0, sizeof(attributes));
 
@@ -580,10 +580,10 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datawriter_happy_day, .init = sui
         &attributes,
         &exception);
 
-    CU_ASSERT_FATAL(result);
+    CU_ASSERT_NEQ (result, 0);
 
-    CU_ASSERT_FATAL(exception.code == DDS_SECURITY_ERR_OK_CODE);
-    CU_ASSERT_FATAL(verify_endpoint_attributes(i, &attributes));
+    CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_OK_CODE, 0);
+    CU_ASSERT_NEQ (verify_endpoint_attributes(i, &attributes), 0);
 
     //reset control values
     memset(&attributes, 0, sizeof(attributes));
@@ -602,15 +602,15 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datawriter_non_existing_topic, .i
   bool result;
 
   result = plugins_init();
-  CU_ASSERT_FATAL(result);
-  CU_ASSERT_FATAL(access_control != NULL);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ (access_control != NULL, 0);
   assert(access_control != NULL);
-  CU_ASSERT_FATAL(access_control->get_datawriter_sec_attributes != NULL);
+  CU_ASSERT_NEQ (access_control->get_datawriter_sec_attributes != NULL, 0);
   assert(access_control->get_datawriter_sec_attributes != 0);
 
   /* use a different domain(30) to get non matching topic result */
   result = create_local_identity(30, "Test_Governance_full.p7s");
-  CU_ASSERT_FATAL(result);
+  CU_ASSERT_NEQ (result, 0);
 
   memset(&attributes, 0, sizeof(attributes));
 
@@ -624,9 +624,9 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datawriter_non_existing_topic, .i
       &attributes,
       &exception);
 
-  CU_ASSERT_FATAL(!result);
+  CU_ASSERT_NEQ (!result, 0);
 
-  CU_ASSERT_FATAL(exception.code == DDS_SECURITY_ERR_CAN_NOT_FIND_TOPIC_IN_DOMAIN_CODE);
+  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_CAN_NOT_FIND_TOPIC_IN_DOMAIN_CODE, 0);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -645,14 +645,14 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datareader_happy_day, .init = sui
   unsigned i;
 
   result = plugins_init();
-  CU_ASSERT_FATAL(result);
-  CU_ASSERT_FATAL(access_control != NULL);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ (access_control != NULL, 0);
   assert(access_control != NULL);
-  CU_ASSERT_FATAL(access_control->get_datareader_sec_attributes != NULL);
+  CU_ASSERT_NEQ (access_control->get_datareader_sec_attributes != NULL, 0);
   assert(access_control->get_datareader_sec_attributes != 0);
 
   result = create_local_identity(0, "Test_Governance_full.p7s");
-  CU_ASSERT_FATAL(result);
+  CU_ASSERT_NEQ (result, 0);
 
   memset(&attributes, 0, sizeof(attributes));
 
@@ -674,10 +674,10 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datareader_happy_day, .init = sui
         &attributes,
         &exception);
 
-    CU_ASSERT_FATAL(result);
+    CU_ASSERT_NEQ (result, 0);
 
-    CU_ASSERT_FATAL(exception.code == DDS_SECURITY_ERR_OK_CODE);
-    CU_ASSERT_FATAL(verify_endpoint_attributes(i, &attributes) == true);
+    CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_OK_CODE, 0);
+    CU_ASSERT_NEQ (verify_endpoint_attributes(i, &attributes) == true, 0);
 
     //reset control values
     memset(&attributes, 0, sizeof(attributes));
@@ -696,15 +696,15 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datareader_non_existing_topic, .i
   bool result;
 
   result = plugins_init();
-  CU_ASSERT_FATAL(result);
-  CU_ASSERT_FATAL(access_control != NULL);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ (access_control != NULL, 0);
   assert(access_control != NULL);
-  CU_ASSERT_FATAL(access_control->get_datawriter_sec_attributes != NULL);
+  CU_ASSERT_NEQ (access_control->get_datawriter_sec_attributes != NULL, 0);
   assert(access_control->get_datawriter_sec_attributes != 0);
 
   /* use a different domain (30) to get non matching topic result */
   result = create_local_identity(30, "Test_Governance_full.p7s");
-  CU_ASSERT_FATAL(result);
+  CU_ASSERT_NEQ (result, 0);
 
   memset(&attributes, 0, sizeof(attributes));
 
@@ -717,9 +717,9 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datareader_non_existing_topic, .i
       &attributes,
       &exception);
 
-  CU_ASSERT_FATAL(!result);
+  CU_ASSERT_NEQ (!result, 0);
 
-  CU_ASSERT_FATAL(exception.code == DDS_SECURITY_ERR_CAN_NOT_FIND_TOPIC_IN_DOMAIN_CODE);
+  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_CAN_NOT_FIND_TOPIC_IN_DOMAIN_CODE, 0);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -737,10 +737,10 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_invalid_param, .init 
   memset(&attributes, 0, sizeof(attributes));
 
   result = plugins_init();
-  CU_ASSERT_FATAL(result);
-  CU_ASSERT_FATAL(access_control != NULL);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ (access_control != NULL, 0);
   assert(access_control != NULL);
-  CU_ASSERT_FATAL(access_control->get_participant_sec_attributes != NULL);
+  CU_ASSERT_NEQ (access_control->get_participant_sec_attributes != NULL, 0);
   assert(access_control->get_participant_sec_attributes != 0);
 
   result = access_control->get_participant_sec_attributes(
@@ -748,8 +748,8 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_invalid_param, .init 
       local_permissions_handle,
       &attributes,
       &exception);
-  CU_ASSERT(!result);
-  CU_ASSERT(exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
+  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
   memset(&attributes, 0, sizeof(attributes));
   reset_exception(&exception);
 
@@ -758,8 +758,8 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_invalid_param, .init 
       0,
       &attributes,
       &exception);
-  CU_ASSERT(!result);
-  CU_ASSERT(exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
+  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
   memset(&attributes, 0, sizeof(attributes));
   reset_exception(&exception);
 
@@ -768,8 +768,8 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_invalid_param, .init 
       local_permissions_handle,
       NULL,
       &exception);
-  CU_ASSERT(!result);
-  CU_ASSERT(exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
+  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
   memset(&attributes, 0, sizeof(attributes));
   reset_exception(&exception);
 
@@ -778,8 +778,8 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_invalid_param, .init 
       local_permissions_handle + 12345,
       &attributes,
       &exception);
-  CU_ASSERT(!result);
-  CU_ASSERT(exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
+  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
   memset(&attributes, 0, sizeof(attributes));
   reset_exception(&exception);
 
@@ -795,10 +795,10 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datareader_invalid_param, .init =
   bool result;
 
   result = plugins_init();
-  CU_ASSERT_FATAL(result);
-  CU_ASSERT_FATAL(access_control != NULL);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ (access_control != NULL, 0);
   assert(access_control != NULL);
-  CU_ASSERT_FATAL(access_control->get_datareader_sec_attributes != NULL);
+  CU_ASSERT_NEQ (access_control->get_datareader_sec_attributes != NULL, 0);
   assert(access_control->get_datareader_sec_attributes != 0);
 
   memset(&attributes, 0, sizeof(attributes));
@@ -814,8 +814,8 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datareader_invalid_param, .init =
       &attributes,
       &exception);
 
-  CU_ASSERT_FATAL(!result);
-  CU_ASSERT_FATAL(exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
+  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -830,8 +830,8 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datareader_invalid_param, .init =
       &attributes,
       &exception);
 
-  CU_ASSERT_FATAL(!result);
-  CU_ASSERT_FATAL(exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
+  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -846,8 +846,8 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datareader_invalid_param, .init =
       NULL,
       &exception);
 
-  CU_ASSERT_FATAL(!result);
-  CU_ASSERT_FATAL(exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
+  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -862,8 +862,8 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datareader_invalid_param, .init =
       &attributes,
       &exception);
 
-  CU_ASSERT_FATAL(!result);
-  CU_ASSERT_FATAL(exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
+  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -881,10 +881,10 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datawriter_invalid_param, .init =
   bool result;
 
   result = plugins_init();
-  CU_ASSERT_FATAL(result);
-  CU_ASSERT_FATAL(access_control != NULL);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ (access_control != NULL, 0);
   assert(access_control != NULL);
-  CU_ASSERT_FATAL(access_control->get_datawriter_sec_attributes != NULL);
+  CU_ASSERT_NEQ (access_control->get_datawriter_sec_attributes != NULL, 0);
   assert(access_control->get_datawriter_sec_attributes != 0);
 
   memset(&attributes, 0, sizeof(attributes));
@@ -900,8 +900,8 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datawriter_invalid_param, .init =
       &attributes,
       &exception);
 
-  CU_ASSERT_FATAL(!result);
-  CU_ASSERT_FATAL(exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
+  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -916,8 +916,8 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datawriter_invalid_param, .init =
       &attributes,
       &exception);
 
-  CU_ASSERT_FATAL(!result);
-  CU_ASSERT_FATAL(exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
+  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -932,8 +932,8 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datawriter_invalid_param, .init =
       NULL,
       &exception);
 
-  CU_ASSERT_FATAL(!result);
-  CU_ASSERT_FATAL(exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
+  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -948,8 +948,8 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datawriter_invalid_param, .init =
       &attributes,
       &exception);
 
-  CU_ASSERT_FATAL(!result);
-  CU_ASSERT_FATAL(exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
+  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -966,14 +966,14 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, topic_happy_day, .init = suite_ge
   unsigned i;
 
   result = plugins_init();
-  CU_ASSERT_FATAL(result);
-  CU_ASSERT_FATAL(access_control != NULL);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ (access_control != NULL, 0);
   assert(access_control != NULL);
-  CU_ASSERT_FATAL(access_control->get_topic_sec_attributes != NULL);
+  CU_ASSERT_NEQ (access_control->get_topic_sec_attributes != NULL, 0);
   assert(access_control->get_topic_sec_attributes != 0);
 
   result = create_local_identity(0, "Test_Governance_full.p7s");
-  CU_ASSERT_FATAL(result);
+  CU_ASSERT_NEQ (result, 0);
 
   memset(&attributes, 0, sizeof(attributes));
 
@@ -993,10 +993,10 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, topic_happy_day, .init = suite_ge
         &attributes,
         &exception);
 
-    CU_ASSERT_FATAL(result);
+    CU_ASSERT_NEQ (result, 0);
 
-    CU_ASSERT_FATAL(exception.code == DDS_SECURITY_ERR_OK_CODE);
-    CU_ASSERT_FATAL(verify_topic_attributes(i, &attributes));
+    CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_OK_CODE, 0);
+    CU_ASSERT_NEQ (verify_topic_attributes(i, &attributes), 0);
 
     //reset control values
     memset(&attributes, 0, sizeof(attributes));
@@ -1013,14 +1013,14 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, topic_non_existing_topic, .init =
   bool result;
 
   result = plugins_init();
-  CU_ASSERT_FATAL(result);
-  CU_ASSERT_FATAL(access_control != NULL);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ (access_control != NULL, 0);
   assert(access_control != NULL);
-  CU_ASSERT_FATAL(access_control->get_topic_sec_attributes != NULL);
+  CU_ASSERT_NEQ (access_control->get_topic_sec_attributes != NULL, 0);
   assert(access_control->get_topic_sec_attributes != 0);
 
   result = create_local_identity(30, "Test_Governance_full.p7s");
-  CU_ASSERT_FATAL(result);
+  CU_ASSERT_NEQ (result, 0);
 
   memset(&attributes, 0, sizeof(attributes));
 
@@ -1037,9 +1037,9 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, topic_non_existing_topic, .init =
       &attributes,
       &exception);
 
-  CU_ASSERT_FATAL(!result);
+  CU_ASSERT_NEQ (!result, 0);
 
-  CU_ASSERT_FATAL(exception.code == DDS_SECURITY_ERR_CAN_NOT_FIND_TOPIC_IN_DOMAIN_CODE);
+  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_CAN_NOT_FIND_TOPIC_IN_DOMAIN_CODE, 0);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -1055,14 +1055,14 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, topic_invalid_param, .init = suit
   bool result;
 
   result = plugins_init();
-  CU_ASSERT_FATAL(result);
-  CU_ASSERT_FATAL(access_control != NULL);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ (access_control != NULL, 0);
   assert(access_control != NULL);
-  CU_ASSERT_FATAL(access_control->get_topic_sec_attributes != NULL);
+  CU_ASSERT_NEQ (access_control->get_topic_sec_attributes != NULL, 0);
   assert(access_control->get_topic_sec_attributes != 0);
 
   result = create_local_identity(0, "Test_Governance_full.p7s");
-  CU_ASSERT_FATAL(result);
+  CU_ASSERT_NEQ (result, 0);
 
   memset(&attributes, 0, sizeof(attributes));
 
@@ -1075,8 +1075,8 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, topic_invalid_param, .init = suit
       &attributes,
       &exception);
 
-  CU_ASSERT_FATAL(!result);
-  CU_ASSERT_FATAL(exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
+  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -1089,8 +1089,8 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, topic_invalid_param, .init = suit
       &attributes,
       &exception);
 
-  CU_ASSERT_FATAL(!result);
-  CU_ASSERT_FATAL(exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
+  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -1103,8 +1103,8 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, topic_invalid_param, .init = suit
       NULL,
       &exception);
 
-  CU_ASSERT_FATAL(!result);
-  CU_ASSERT_FATAL(exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
+  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -1117,8 +1117,8 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, topic_invalid_param, .init = suit
       &attributes,
       &exception);
 
-  CU_ASSERT_FATAL(!result);
-  CU_ASSERT_FATAL(exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
+  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -1134,14 +1134,14 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_2nd_rule, .init = sui
   bool result;
 
   result = plugins_init();
-  CU_ASSERT_FATAL(result);
-  CU_ASSERT_FATAL(access_control != NULL);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ (access_control != NULL, 0);
   assert(access_control != NULL);
-  CU_ASSERT_FATAL(access_control->get_participant_sec_attributes != NULL);
+  CU_ASSERT_NEQ (access_control->get_participant_sec_attributes != NULL, 0);
   assert(access_control->get_participant_sec_attributes != 0);
 
   result = create_local_identity(30, "Test_Governance_full.p7s");
-  CU_ASSERT_FATAL(result);
+  CU_ASSERT_NEQ (result, 0);
 
   memset(&attributes, 0, sizeof(attributes));
 
@@ -1150,7 +1150,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_2nd_rule, .init = sui
       local_permissions_handle,
       &attributes,
       &exception);
-  CU_ASSERT(result);
+  CU_ASSERT_NEQ (result, 0);
 
   /*
      * Expect these values based on these options, which is the 2nd domain rule
@@ -1162,11 +1162,11 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_2nd_rule, .init = sui
      *    <liveliness_protection_kind>ENCRYPT</liveliness_protection_kind>
      *    <rtps_protection_kind>NONE</rtps_protection_kind>
      */
-  CU_ASSERT(attributes.allow_unauthenticated_participants == true);
-  CU_ASSERT(attributes.is_access_protected == false);
-  CU_ASSERT(attributes.is_discovery_protected == true);
-  CU_ASSERT(attributes.is_liveliness_protected == true);
-  CU_ASSERT(attributes.is_rtps_protected == false);
+  CU_ASSERT_NEQ (attributes.allow_unauthenticated_participants == true, 0);
+  CU_ASSERT_NEQ (attributes.is_access_protected == false, 0);
+  CU_ASSERT_NEQ (attributes.is_discovery_protected == true, 0);
+  CU_ASSERT_NEQ (attributes.is_liveliness_protected == true, 0);
+  CU_ASSERT_NEQ (attributes.is_rtps_protected == false, 0);
   CU_ASSERT((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_ENCRYPTED) ==
             0);
   CU_ASSERT((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_DISCOVERY_ENCRYPTED) ==
@@ -1184,7 +1184,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_2nd_rule, .init = sui
       access_control,
       &attributes,
       &exception);
-  CU_ASSERT(result);
+  CU_ASSERT_NEQ (result, 0);
 
   clear_local_identity();
   plugins_fini();
@@ -1204,7 +1204,7 @@ static void test_liveliness_discovery_participant_attr(
   DDS_Security_ParticipantSecurityAttributes attr;
   bool result;
 
-  CU_ASSERT_FATAL(access_control->get_participant_sec_attributes != NULL);
+  CU_ASSERT_NEQ (access_control->get_participant_sec_attributes != NULL, 0);
   assert(access_control->get_participant_sec_attributes != 0);
 
   memset(&attr, 0, sizeof(attr));
@@ -1214,20 +1214,20 @@ static void test_liveliness_discovery_participant_attr(
       hdl,
       &attr,
       &exception);
-  CU_ASSERT(result);
+  CU_ASSERT_NEQ (result, 0);
 
-  CU_ASSERT(attr.allow_unauthenticated_participants == false);
-  CU_ASSERT(attr.is_access_protected == true);
-  CU_ASSERT(attr.is_discovery_protected == discovery_protected);
-  CU_ASSERT(attr.is_liveliness_protected == liveliness_protected);
-  CU_ASSERT(attr.is_rtps_protected == false);
-  CU_ASSERT(attr.plugin_participant_attributes == mask);
+  CU_ASSERT_NEQ (attr.allow_unauthenticated_participants == false, 0);
+  CU_ASSERT_NEQ (attr.is_access_protected == true, 0);
+  CU_ASSERT_NEQ (attr.is_discovery_protected == discovery_protected, 0);
+  CU_ASSERT_NEQ (attr.is_liveliness_protected == liveliness_protected, 0);
+  CU_ASSERT_NEQ (attr.is_rtps_protected == false, 0);
+  CU_ASSERT_NEQ (attr.plugin_participant_attributes == mask, 0);
 
   result = access_control->return_participant_sec_attributes(
       access_control,
       &attr,
       &exception);
-  CU_ASSERT(result);
+  CU_ASSERT_NEQ (result, 0);
 }
 
 static void test_liveliness_discovery_writer_attr(
@@ -1245,7 +1245,7 @@ static void test_liveliness_discovery_writer_attr(
   DDS_Security_PartitionQosPolicy *partition = NULL;
   bool result;
 
-  CU_ASSERT_FATAL(access_control->get_datawriter_sec_attributes != NULL);
+  CU_ASSERT_NEQ (access_control->get_datawriter_sec_attributes != NULL, 0);
   assert(access_control->get_datawriter_sec_attributes != 0);
 
   memset(&attr, 0, sizeof(attr));
@@ -1258,22 +1258,22 @@ static void test_liveliness_discovery_writer_attr(
       &data_tag,
       &attr,
       &exception);
-  CU_ASSERT_FATAL(result);
+  CU_ASSERT_NEQ (result, 0);
 
-  CU_ASSERT(attr.is_read_protected == false);
-  CU_ASSERT(attr.is_write_protected == false);
-  CU_ASSERT(attr.is_submessage_protected == submsg_protected);
-  CU_ASSERT(attr.is_payload_protected == false);
-  CU_ASSERT(attr.is_key_protected == false);
-  CU_ASSERT(attr.is_discovery_protected == discovery_protected);
-  CU_ASSERT(attr.is_liveliness_protected == liveliness_protected);
-  CU_ASSERT(attr.plugin_endpoint_attributes == mask);
+  CU_ASSERT_NEQ (attr.is_read_protected == false, 0);
+  CU_ASSERT_NEQ (attr.is_write_protected == false, 0);
+  CU_ASSERT_NEQ (attr.is_submessage_protected == submsg_protected, 0);
+  CU_ASSERT_NEQ (attr.is_payload_protected == false, 0);
+  CU_ASSERT_NEQ (attr.is_key_protected == false, 0);
+  CU_ASSERT_NEQ (attr.is_discovery_protected == discovery_protected, 0);
+  CU_ASSERT_NEQ (attr.is_liveliness_protected == liveliness_protected, 0);
+  CU_ASSERT_NEQ (attr.plugin_endpoint_attributes == mask, 0);
 
   result = access_control->return_datawriter_sec_attributes(
       access_control,
       &attr,
       &exception);
-  CU_ASSERT(result);
+  CU_ASSERT_NEQ (result, 0);
 }
 
 static void test_liveliness_discovery_reader_attr(
@@ -1291,7 +1291,7 @@ static void test_liveliness_discovery_reader_attr(
   DDS_Security_PartitionQosPolicy *partition = NULL;
   bool result;
 
-  CU_ASSERT_FATAL(access_control->get_datareader_sec_attributes != NULL);
+  CU_ASSERT_NEQ (access_control->get_datareader_sec_attributes != NULL, 0);
   assert(access_control->get_datareader_sec_attributes != 0);
 
   memset(&attr, 0, sizeof(attr));
@@ -1304,22 +1304,22 @@ static void test_liveliness_discovery_reader_attr(
       &data_tag,
       &attr,
       &exception);
-  CU_ASSERT_FATAL(result);
+  CU_ASSERT_NEQ (result, 0);
 
-  CU_ASSERT(attr.is_read_protected == false);
-  CU_ASSERT(attr.is_write_protected == false);
-  CU_ASSERT(attr.is_submessage_protected == submsg_protected);
-  CU_ASSERT(attr.is_payload_protected == false);
-  CU_ASSERT(attr.is_key_protected == false);
-  CU_ASSERT(attr.is_discovery_protected == discovery_protected);
-  CU_ASSERT(attr.is_liveliness_protected == liveliness_protected);
-  CU_ASSERT(attr.plugin_endpoint_attributes == mask);
+  CU_ASSERT_NEQ (attr.is_read_protected == false, 0);
+  CU_ASSERT_NEQ (attr.is_write_protected == false, 0);
+  CU_ASSERT_NEQ (attr.is_submessage_protected == submsg_protected, 0);
+  CU_ASSERT_NEQ (attr.is_payload_protected == false, 0);
+  CU_ASSERT_NEQ (attr.is_key_protected == false, 0);
+  CU_ASSERT_NEQ (attr.is_discovery_protected == discovery_protected, 0);
+  CU_ASSERT_NEQ (attr.is_liveliness_protected == liveliness_protected, 0);
+  CU_ASSERT_NEQ (attr.plugin_endpoint_attributes == mask, 0);
 
   result = access_control->return_datareader_sec_attributes(
       access_control,
       &attr,
       &exception);
-  CU_ASSERT(result);
+  CU_ASSERT_NEQ (result, 0);
 }
 
 static void test_liveliness_discovery_attr(
@@ -1334,11 +1334,11 @@ static void test_liveliness_discovery_attr(
   bool result;
 
   result = plugins_init();
-  CU_ASSERT_FATAL(result);
-  CU_ASSERT_FATAL(access_control != NULL);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ (access_control != NULL, 0);
 
   result = create_local_identity(0, governance);
-  CU_ASSERT_FATAL(result);
+  CU_ASSERT_NEQ (result, 0);
 
   /* For some endpoints, the submsg encryption mask depends on either the
      * discovery or liveliness mask. */

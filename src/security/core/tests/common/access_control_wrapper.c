@@ -932,7 +932,7 @@ int finalize_test_access_control_wrapped(void *context)
   bool returns_valid = all_returns_valid (impl);
   fini_returns_log (impl);
   printf("returns result (impl %p): %s\n", impl, returns_valid ? "all valid" : "invalid");
-  CU_ASSERT_FATAL (returns_valid);
+  CU_ASSERT_NEQ (returns_valid, 0);
   return finalize_test_access_control_common (impl, true);
 }
 

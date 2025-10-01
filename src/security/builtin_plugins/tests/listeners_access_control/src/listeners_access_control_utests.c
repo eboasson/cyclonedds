@@ -573,20 +573,20 @@ CU_Test(ddssec_builtin_listeners_access_control, local_2secs)
          * Just take our losses and quit, simulating a success. */
     return;
   }
-  CU_ASSERT_FATAL(valid == DDS_SECURITY_ERR_OK_CODE);
+  CU_ASSERT_NEQ (valid == DDS_SECURITY_ERR_OK_CODE, 0);
 
   /* Check if we actually have validate_remote_permissions function. */
-  CU_ASSERT_FATAL(local_identity_handle != DDS_SECURITY_HANDLE_NIL);
-  CU_ASSERT_FATAL(access_control != NULL);
+  CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
+  CU_ASSERT_NEQ (access_control != NULL, 0);
   assert(access_control != NULL);
-  CU_ASSERT_FATAL(access_control->validate_remote_permissions != NULL);
+  CU_ASSERT_NEQ (access_control->validate_remote_permissions != NULL, 0);
   assert(access_control->validate_remote_permissions != 0);
-  CU_ASSERT_FATAL(access_control->return_permissions_handle != NULL);
+  CU_ASSERT_NEQ (access_control->return_permissions_handle != NULL, 0);
   assert(access_control->return_permissions_handle != 0);
 
   fill_permissions_token(&permissions_token);
   r = fill_peer_credential_token(&credential_token, 1);
-  CU_ASSERT_FATAL(r);
+  CU_ASSERT_NEQ (r, 0);
 
   remote_identity_handle++;
 
@@ -606,7 +606,7 @@ CU_Test(ddssec_builtin_listeners_access_control, local_2secs)
     printf("validate_remote_permissions_failed: %s\n", exception.message ? exception.message : "Error message missing");
     /* Expiry can happen on very slow platforms or when doing a valgrind run.
          * Just take our losses and quit, simulating a success. */
-    CU_ASSERT(exception.code == DDS_SECURITY_ERR_VALIDITY_PERIOD_EXPIRED_CODE);
+    CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_VALIDITY_PERIOD_EXPIRED_CODE, 0);
     goto end;
   }
 
@@ -645,8 +645,8 @@ CU_Test(ddssec_builtin_listeners_access_control, local_2secs)
     time_left -= DDS_MSECS(100);
   }
 
-  CU_ASSERT(local_expired);
-  CU_ASSERT(remote_expired);
+  CU_ASSERT_NEQ (local_expired, 0);
+  CU_ASSERT_NEQ (remote_expired, 0);
 
   access_control->return_permissions_handle(access_control, result, &exception);
 

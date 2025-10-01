@@ -381,7 +381,7 @@ static uint32_t get_transformation_kind(uint32_t key_size, bool encoded)
   {
     kind = encoded ? CRYPTO_TRANSFORMATION_KIND_AES256_GCM : CRYPTO_TRANSFORMATION_KIND_AES256_GMAC;
   }
-  CU_ASSERT_FATAL(kind != CRYPTO_TRANSFORMATION_KIND_INVALID);
+  CU_ASSERT_NEQ (kind != CRYPTO_TRANSFORMATION_KIND_INVALID, 0);
   return kind;
 }
 
@@ -394,8 +394,8 @@ static void suite_decode_serialized_payload_init(void)
                       NULL    /* Authentication */,
                       &crypto /* Cryptograpy    */,
                       NULL)) != NULL);
-  CU_ASSERT_EQUAL_FATAL (register_local_participant(), 0);
-  CU_ASSERT_EQUAL_FATAL (register_remote_participant(), 0);
+  CU_ASSERT_EQ_FATAL (register_local_participant(), 0);
+  CU_ASSERT_EQ_FATAL (register_remote_participant(), 0);
 }
 
 static void suite_decode_serialized_payload_fini(void)
@@ -451,10 +451,10 @@ static void decode_serialized_payload_check(uint32_t key_size, bool encrypted)
   session_key_material *session_keys;
   size_t length;
 
-  CU_ASSERT_FATAL(crypto != NULL);
-  CU_ASSERT_FATAL(crypto->crypto_transform != NULL);
-  CU_ASSERT_FATAL(crypto->crypto_transform->encode_serialized_payload != NULL);
-  CU_ASSERT_FATAL(crypto->crypto_transform->decode_serialized_payload != NULL);
+  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
+  CU_ASSERT_NEQ (crypto->crypto_transform->encode_serialized_payload != NULL, 0);
+  CU_ASSERT_NEQ (crypto->crypto_transform->decode_serialized_payload != NULL, 0);
 
   memset(&extra_inline_qos, 0, sizeof(extra_inline_qos));
 
@@ -464,24 +464,24 @@ static void decode_serialized_payload_check(uint32_t key_size, bool encrypted)
   memcpy((char *)plain_buffer._buffer, sample_test_data, length);
 
   local_writer_crypto = register_local_datawriter(encrypted);
-  CU_ASSERT_FATAL(local_writer_crypto != 0);
-  CU_ASSERT(check_writer_protection_kind(local_writer_crypto, encrypted ? DDS_SECURITY_BASICPROTECTION_KIND_ENCRYPT : DDS_SECURITY_BASICPROTECTION_KIND_SIGN));
+  CU_ASSERT_NEQ (local_writer_crypto != 0, 0);
+  CU_ASSERT_NEQ (check_writer_protection_kind(local_writer_crypto, encrypted ? DDS_SECURITY_BASICPROTECTION_KIND_ENCRYPT : DDS_SECURITY_BASICPROTECTION_KIND_SIGN), 0);
 
   session_keys = get_datawriter_session(local_writer_crypto);
   session_keys->master_key_material->transformation_kind = get_transformation_kind(key_size, encrypted);
   session_keys->key_size = key_size;
 
   local_reader_crypto = register_local_datareader(encrypted);
-  CU_ASSERT_FATAL(local_reader_crypto != 0);
+  CU_ASSERT_NEQ (local_reader_crypto != 0, 0);
 
   remote_reader_crypto = register_remote_datareader(local_writer_crypto);
-  CU_ASSERT_FATAL(remote_reader_crypto != 0);
+  CU_ASSERT_NEQ (remote_reader_crypto != 0, 0);
 
   remote_writer_crypto = register_remote_datawriter(local_reader_crypto);
-  CU_ASSERT_FATAL(remote_writer_crypto != 0);
+  CU_ASSERT_NEQ (remote_writer_crypto != 0, 0);
 
   result = set_remote_datawriter_tokens(local_writer_crypto, remote_reader_crypto, local_reader_crypto, remote_writer_crypto);
-  CU_ASSERT_FATAL(result);
+  CU_ASSERT_NEQ (result, 0);
 
   /* Encrypt the data. */
   result = crypto->crypto_transform->encode_serialized_payload(
@@ -497,9 +497,9 @@ static void decode_serialized_payload_check(uint32_t key_size, bool encrypted)
     printf("encode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_FATAL(result);
-  CU_ASSERT(exception.code == 0);
-  CU_ASSERT(exception.message == NULL);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ (exception.code == 0, 0);
+  CU_ASSERT_NEQ (exception.message == NULL, 0);
 
   reset_exception(&exception);
 
@@ -518,9 +518,9 @@ static void decode_serialized_payload_check(uint32_t key_size, bool encrypted)
     printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_FATAL(result);
-  CU_ASSERT(exception.code == 0);
-  CU_ASSERT(exception.message == NULL);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ (exception.code == 0, 0);
+  CU_ASSERT_NEQ (exception.message == NULL, 0);
 
   unregister_datareader(remote_reader_crypto);
   unregister_datawriter(remote_writer_crypto);
@@ -570,11 +570,11 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_args, .init = suite_de
   session_key_material *session_keys;
   size_t length;
 
-  CU_ASSERT_FATAL(crypto != NULL);
+  CU_ASSERT_NEQ (crypto != NULL, 0);
   assert(crypto != NULL);
-  CU_ASSERT_FATAL(crypto->crypto_transform != NULL);
+  CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
   assert(crypto->crypto_transform != NULL);
-  CU_ASSERT_FATAL(crypto->crypto_transform->encode_serialized_payload != NULL);
+  CU_ASSERT_NEQ (crypto->crypto_transform->encode_serialized_payload != NULL, 0);
   assert(crypto->crypto_transform->encode_serialized_payload != 0);
 
   memset(&extra_inline_qos, 0, sizeof(extra_inline_qos));
@@ -586,23 +586,23 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_args, .init = suite_de
   memcpy((char *)plain_buffer._buffer, sample_test_data, length);
 
   local_writer_crypto = register_local_datawriter(true);
-  CU_ASSERT_FATAL(local_writer_crypto != 0);
+  CU_ASSERT_NEQ (local_writer_crypto != 0, 0);
 
   session_keys = get_datawriter_session(local_writer_crypto);
   session_keys->master_key_material->transformation_kind = CRYPTO_TRANSFORMATION_KIND_AES256_GCM;
   session_keys->key_size = 256;
 
   local_reader_crypto = register_local_datareader(true);
-  CU_ASSERT_FATAL(local_reader_crypto != 0);
+  CU_ASSERT_NEQ (local_reader_crypto != 0, 0);
 
   remote_reader_crypto = register_remote_datareader(local_writer_crypto);
-  CU_ASSERT_FATAL(remote_reader_crypto != 0);
+  CU_ASSERT_NEQ (remote_reader_crypto != 0, 0);
 
   remote_writer_crypto = register_remote_datawriter(local_reader_crypto);
-  CU_ASSERT_FATAL(remote_writer_crypto != 0);
+  CU_ASSERT_NEQ (remote_writer_crypto != 0, 0);
 
   result = set_remote_datawriter_tokens(local_writer_crypto, remote_reader_crypto, local_reader_crypto, remote_writer_crypto);
-  CU_ASSERT_FATAL(result);
+  CU_ASSERT_NEQ (result, 0);
 
   /* encrypt the data */
   result = crypto->crypto_transform->encode_serialized_payload(
@@ -618,9 +618,9 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_args, .init = suite_de
     printf("encode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_FATAL(result);
-  CU_ASSERT(exception.code == 0);
-  CU_ASSERT(exception.message == NULL);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ (exception.code == 0, 0);
+  CU_ASSERT_NEQ (exception.message == NULL, 0);
 
   reset_exception(&exception);
 
@@ -639,9 +639,9 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_args, .init = suite_de
     printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT(!result);
-  CU_ASSERT(exception.code != 0);
-  CU_ASSERT(exception.message != NULL);
+  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT_NEQ (exception.code != 0, 0);
+  CU_ASSERT_NEQ (exception.message != NULL, 0);
 
   reset_exception(&exception);
 
@@ -660,9 +660,9 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_args, .init = suite_de
     printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT(!result);
-  CU_ASSERT(exception.code != 0);
-  CU_ASSERT(exception.message != NULL);
+  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT_NEQ (exception.code != 0, 0);
+  CU_ASSERT_NEQ (exception.message != NULL, 0);
 
   reset_exception(&exception);
 
@@ -681,9 +681,9 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_args, .init = suite_de
     printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT(!result);
-  CU_ASSERT(exception.code != 0);
-  CU_ASSERT(exception.message != NULL);
+  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT_NEQ (exception.code != 0, 0);
+  CU_ASSERT_NEQ (exception.message != NULL, 0);
 
   reset_exception(&exception);
 
@@ -702,9 +702,9 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_args, .init = suite_de
     printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT(!result);
-  CU_ASSERT(exception.code != 0);
-  CU_ASSERT(exception.message != NULL);
+  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT_NEQ (exception.code != 0, 0);
+  CU_ASSERT_NEQ (exception.message != NULL, 0);
 
   unregister_datareader(remote_reader_crypto);
   unregister_datawriter(remote_writer_crypto);
@@ -735,11 +735,11 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
   struct crypto_footer *footer = NULL;
   unsigned char *contents = NULL;
 
-  CU_ASSERT_FATAL(crypto != NULL);
+  CU_ASSERT_NEQ (crypto != NULL, 0);
   assert(crypto != NULL);
-  CU_ASSERT_FATAL(crypto->crypto_transform != NULL);
+  CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
   assert(crypto->crypto_transform != NULL);
-  CU_ASSERT_FATAL(crypto->crypto_transform->encode_serialized_payload != NULL);
+  CU_ASSERT_NEQ (crypto->crypto_transform->encode_serialized_payload != NULL, 0);
   assert(crypto->crypto_transform->encode_serialized_payload != 0);
 
   memset(&extra_inline_qos, 0, sizeof(extra_inline_qos));
@@ -750,23 +750,23 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
   memcpy((char *)plain_buffer._buffer, sample_test_data, length);
 
   local_writer_crypto = register_local_datawriter(true);
-  CU_ASSERT_FATAL(local_writer_crypto != 0);
+  CU_ASSERT_NEQ (local_writer_crypto != 0, 0);
 
   session_keys = get_datawriter_session(local_writer_crypto);
   session_keys->master_key_material->transformation_kind = CRYPTO_TRANSFORMATION_KIND_AES256_GCM;
   session_keys->key_size = 256;
 
   local_reader_crypto = register_local_datareader(true);
-  CU_ASSERT_FATAL(local_reader_crypto != 0);
+  CU_ASSERT_NEQ (local_reader_crypto != 0, 0);
 
   remote_reader_crypto = register_remote_datareader(local_writer_crypto);
-  CU_ASSERT_FATAL(remote_reader_crypto != 0);
+  CU_ASSERT_NEQ (remote_reader_crypto != 0, 0);
 
   remote_writer_crypto = register_remote_datawriter(local_reader_crypto);
-  CU_ASSERT_FATAL(remote_writer_crypto != 0);
+  CU_ASSERT_NEQ (remote_writer_crypto != 0, 0);
 
   result = set_remote_datawriter_tokens(local_writer_crypto, remote_reader_crypto, local_reader_crypto, remote_writer_crypto);
-  CU_ASSERT_FATAL(result);
+  CU_ASSERT_NEQ (result, 0);
 
   /* Encrypt the data. */
   result = crypto->crypto_transform->encode_serialized_payload(
@@ -782,14 +782,14 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
     printf("encode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_FATAL(result);
-  CU_ASSERT(exception.code == 0);
-  CU_ASSERT(exception.message == NULL);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ (exception.code == 0, 0);
+  CU_ASSERT_NEQ (exception.message == NULL, 0);
 
   reset_exception(&exception);
 
   result = split_encoded_data(encoded_buffer._buffer, encoded_buffer._length, &header, &contents, &length, &footer);
-  CU_ASSERT_FATAL(result);
+  CU_ASSERT_NEQ (result, 0);
   assert(result); // for Clang's static analyzer
 
   /* use incorrect transformation kind */
@@ -810,9 +810,9 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
       printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT(!result);
-    CU_ASSERT(exception.code != 0);
-    CU_ASSERT(exception.message != NULL);
+    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT_NEQ (exception.code != 0, 0);
+    CU_ASSERT_NEQ (exception.message != NULL, 0);
 
     reset_exception(&exception);
 
@@ -841,9 +841,9 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
       printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT(!result);
-    CU_ASSERT(exception.code != 0);
-    CU_ASSERT(exception.message != NULL);
+    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT_NEQ (exception.code != 0, 0);
+    CU_ASSERT_NEQ (exception.message != NULL, 0);
 
     reset_exception(&exception);
 
@@ -872,9 +872,9 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
       printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT(!result);
-    CU_ASSERT(exception.code != 0);
-    CU_ASSERT(exception.message != NULL);
+    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT_NEQ (exception.code != 0, 0);
+    CU_ASSERT_NEQ (exception.message != NULL, 0);
 
     reset_exception(&exception);
 
@@ -910,9 +910,9 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
       printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT(!result);
-    CU_ASSERT(exception.code != 0);
-    CU_ASSERT(exception.message != NULL);
+    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT_NEQ (exception.code != 0, 0);
+    CU_ASSERT_NEQ (exception.message != NULL, 0);
 
     reset_exception(&exception);
 
@@ -948,9 +948,9 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
       printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT(!result);
-    CU_ASSERT(exception.code != 0);
-    CU_ASSERT(exception.message != NULL);
+    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT_NEQ (exception.code != 0, 0);
+    CU_ASSERT_NEQ (exception.message != NULL, 0);
 
     reset_exception(&exception);
 
@@ -981,9 +981,9 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
       printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT(!result);
-    CU_ASSERT(exception.code != 0);
-    CU_ASSERT(exception.message != NULL);
+    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT_NEQ (exception.code != 0, 0);
+    CU_ASSERT_NEQ (exception.message != NULL, 0);
 
     reset_exception(&exception);
 
@@ -1017,9 +1017,9 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
       printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT(!result);
-    CU_ASSERT(exception.code != 0);
-    CU_ASSERT(exception.message != NULL);
+    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT_NEQ (exception.code != 0, 0);
+    CU_ASSERT_NEQ (exception.message != NULL, 0);
 
     reset_exception(&exception);
 
@@ -1044,9 +1044,9 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
       printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT(!result);
-    CU_ASSERT(exception.code != 0);
-    CU_ASSERT(exception.message != NULL);
+    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT_NEQ (exception.code != 0, 0);
+    CU_ASSERT_NEQ (exception.message != NULL, 0);
 
     reset_exception(&exception);
 

@@ -366,7 +366,7 @@ static DDS_Security_long_long check_handle(DDS_Security_long_long handle)
 {
   /* Assume that handle, which actually is a pointer, has a value that is likely to be
      a valid memory address and not a value returned by the mock implementation. */
-  CU_ASSERT_FATAL (handle == 0 || handle > 4096);
+  CU_ASSERT_NEQ (handle == 0 || handle > 4096, 0);
   return handle;
 }
 
