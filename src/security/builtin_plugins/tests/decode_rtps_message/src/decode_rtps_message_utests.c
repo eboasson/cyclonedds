@@ -367,11 +367,11 @@ static void suite_decode_rtps_message_init(void)
 {
   allocate_shared_secret();
 
-  CU_ASSERT_FATAL ((plugins = load_plugins(
-                      NULL    /* Access Control */,
-                      NULL    /* Authentication */,
-                      &crypto /* Cryptograpy    */,
-                      NULL)) != NULL);
+  CU_ASSERT_NEQ_FATAL ((plugins = load_plugins(
+    NULL    /* Access Control */,
+    NULL    /* Authentication */,
+    &crypto /* Cryptograpy    */,
+    NULL)), NULL);
 }
 
 static void suite_decode_rtps_message_fini(void)

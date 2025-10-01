@@ -27,8 +27,10 @@ CU_Clean(ddsrt_select)
 
 static struct timeval tv_init = { .tv_sec = -2, .tv_usec = -2 };
 
-#define CU_ASSERT_TIMEVAL_EQUAL(tv, secs, usecs) \
-  CU_ASSERT((tv.tv_sec == secs) && (tv.tv_usec == usecs))
+#define CU_ASSERT_TIMEVAL_EQ(tv, secs, usecs) do { \
+    CU_ASSERT_EQ (tv.tv_sec, secs); \
+    CU_ASSERT_EQ (tv.tv_usec, usecs); \
+  } while (0) \
 
 /* Simple test to validate that duration to timeval conversion is correct. */
 CU_Test(ddsrt_select, duration_to_timeval)
@@ -56,52 +58,52 @@ CU_Test(ddsrt_select, duration_to_timeval)
   tv = tv_init;
   tvptr = ddsrt_duration_to_timeval_ceil(INT64_MIN, &tv);
   CU_ASSERT_EQ (tvptr, &tv);
-  CU_ASSERT_TIMEVAL_EQUAL(tv, 0, 0);
+  CU_ASSERT_TIMEVAL_EQ(tv, 0, 0);
 
   tv = tv_init;
   tvptr = ddsrt_duration_to_timeval_ceil(INT64_MIN + 1, &tv);
   CU_ASSERT_EQ (tvptr, &tv);
-  CU_ASSERT_TIMEVAL_EQUAL(tv, 0, 0);
+  CU_ASSERT_TIMEVAL_EQ(tv, 0, 0);
 
   tv = tv_init;
   tvptr = ddsrt_duration_to_timeval_ceil(-2, &tv);
   CU_ASSERT_EQ (tvptr, &tv);
-  CU_ASSERT_TIMEVAL_EQUAL(tv, 0, 0);
+  CU_ASSERT_TIMEVAL_EQ(tv, 0, 0);
 
   tv = tv_init;
   tvptr = ddsrt_duration_to_timeval_ceil(-1, &tv);
   CU_ASSERT_EQ (tvptr, &tv);
-  CU_ASSERT_TIMEVAL_EQUAL(tv, 0, 0);
+  CU_ASSERT_TIMEVAL_EQ(tv, 0, 0);
 
   tv = tv_init;
   tvptr = ddsrt_duration_to_timeval_ceil(0, &tv);
   CU_ASSERT_EQ (tvptr, &tv);
-  CU_ASSERT_TIMEVAL_EQUAL(tv, 0, 0);
+  CU_ASSERT_TIMEVAL_EQ(tv, 0, 0);
 
   tv = tv_init;
   tvptr = ddsrt_duration_to_timeval_ceil(nsecs_max - 1, &tv);
   CU_ASSERT_EQ (tvptr, &tv);
-  CU_ASSERT_TIMEVAL_EQUAL(tv, secs_max, usecs_max);
+  CU_ASSERT_TIMEVAL_EQ(tv, secs_max, usecs_max);
 
   tv = tv_init;
   tvptr = ddsrt_duration_to_timeval_ceil(nsecs_max, &tv);
   CU_ASSERT_EQ (tvptr, &tv);
-  CU_ASSERT_TIMEVAL_EQUAL(tv, secs_max, usecs_max);
+  CU_ASSERT_TIMEVAL_EQ(tv, secs_max, usecs_max);
 
   tv = tv_init;
   tvptr = ddsrt_duration_to_timeval_ceil(nsecs_max + 1, &tv);
   CU_ASSERT_EQ (tvptr, &tv);
-  CU_ASSERT_TIMEVAL_EQUAL(tv, secs_max, usecs_max);
+  CU_ASSERT_TIMEVAL_EQ(tv, secs_max, usecs_max);
 
   tv = tv_init;
   tvptr = ddsrt_duration_to_timeval_ceil(DDS_INFINITY - 1, &tv);
   CU_ASSERT_EQ (tvptr, &tv);
-  CU_ASSERT_TIMEVAL_EQUAL(tv, secs_max, usecs_max);
+  CU_ASSERT_TIMEVAL_EQ(tv, secs_max, usecs_max);
 
   tv = tv_init;
   tvptr = ddsrt_duration_to_timeval_ceil(DDS_INFINITY, &tv);
   CU_ASSERT_EQ (tvptr, NULL);
-  CU_ASSERT_TIMEVAL_EQUAL(tv, 0, 0);
+  CU_ASSERT_TIMEVAL_EQ(tv, 0, 0);
 }
 
 typedef struct {

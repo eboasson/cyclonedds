@@ -149,11 +149,11 @@ static void unregister_participants(void)
 
 static void suite_create_local_participant_crypto_tokens_init(void)
 {
-  CU_ASSERT_FATAL ((plugins = load_plugins(
-                      NULL    /* Access Control */,
-                      NULL    /* Authentication */,
-                      &crypto /* Cryptograpy    */,
-                      NULL)) != NULL);
+  CU_ASSERT_NEQ_FATAL ((plugins = load_plugins(
+    NULL    /* Access Control */,
+    NULL    /* Authentication */,
+    &crypto /* Cryptograpy    */,
+    NULL)), NULL);
   allocate_shared_secret();
   CU_ASSERT_EQ_FATAL (register_participants(), 0);
 }

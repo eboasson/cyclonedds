@@ -388,11 +388,11 @@ CU_Test (ddsc_waitset, torture)
      and macOS seem ok.  The thresholds here appear to be sufficiently low to not give
      many spurious failures, while still being sanity check that at least something
      happened. */
-  CU_ASSERT (ddsrt_atomic_ld32 (&attach_ok) +
-             ddsrt_atomic_ld32 (&settrig_ok) +
-             ddsrt_atomic_ld32 (&create_ws_ok) +
-             create_ent_ok_sum +
-             wait_ok_sum > 1000);
+  CU_ASSERT_GT (ddsrt_atomic_ld32 (&attach_ok) +
+                ddsrt_atomic_ld32 (&settrig_ok) +
+                ddsrt_atomic_ld32 (&create_ws_ok) +
+                create_ent_ok_sum +
+                wait_ok_sum, 1000);
 
   /* Library should be de-initialized at this point.  That ordinarily means the handle
      table is gone and PRECONDITION_NOT_MET is returned.  For some reason, on Windows x64

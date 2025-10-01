@@ -1186,7 +1186,7 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_request )
                         handshake_handle,
                         &exception);
 
-    CU_ASSERT_TRUE_FATAL (success);
+    CU_ASSERT_NEQ_FATAL (success, false);
 
     CU_ASSERT_NEQ (credential_token.class_id != NULL, 0);
     CU_ASSERT_NEQ (strcmp(credential_token.class_id, DDS_AUTHTOKEN_CLASS_ID) == 0, 0);
@@ -1206,7 +1206,7 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_request )
     CU_ASSERT_NEQ (strcmp(c_perm->value, PERMISSIONS_DOCUMENT) == 0, 0);
 
     success = g_auth->return_authenticated_peer_credential_token(g_auth, &credential_token, &exception);
-    CU_ASSERT_TRUE (success);
+    CU_ASSERT_NEQ (success, false);
     CU_ASSERT_NEQ (credential_token.class_id == NULL, 0);
     CU_ASSERT_NEQ (credential_token.properties._buffer == NULL, 0);
     CU_ASSERT_NEQ (credential_token.properties._maximum == 0, 0);
@@ -1216,7 +1216,7 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_request )
     CU_ASSERT_NEQ (credential_token.binary_properties._length == 0, 0);
 
     success = g_auth->return_handshake_handle(g_auth, handshake_handle, &exception);
-    CU_ASSERT_TRUE (success);
+    CU_ASSERT_NEQ (success, false);
 
     reset_exception(&exception);
 
@@ -1311,7 +1311,7 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_reply )
                         handshake_handle,
                         &exception);
 
-    CU_ASSERT_TRUE_FATAL (success);
+    CU_ASSERT_NEQ_FATAL (success, false);
 
     CU_ASSERT_NEQ (credential_token.class_id != NULL, 0);
     CU_ASSERT_NEQ (strcmp(credential_token.class_id, DDS_AUTHTOKEN_CLASS_ID) == 0, 0);
@@ -1332,7 +1332,7 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_reply )
 
 
     success = g_auth->return_authenticated_peer_credential_token(g_auth, &credential_token, &exception);
-    CU_ASSERT_TRUE (success);
+    CU_ASSERT_NEQ (success, false);
     CU_ASSERT_NEQ (credential_token.class_id == NULL, 0);
     CU_ASSERT_NEQ (credential_token.properties._buffer == NULL, 0);
     CU_ASSERT_NEQ (credential_token.properties._maximum == 0, 0);
@@ -1342,7 +1342,7 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_reply )
     CU_ASSERT_NEQ (credential_token.binary_properties._length == 0, 0);
 
     success = g_auth->return_handshake_handle(g_auth, handshake_handle, &exception);
-    CU_ASSERT_TRUE_FATAL (success);
+    CU_ASSERT_NEQ_FATAL (success, false);
 
     reset_exception(&exception);
 
@@ -1360,37 +1360,37 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_invalid_arguments
     DDS_Security_boolean success;
 
     success = g_auth->get_authenticated_peer_credential_token(g_auth, &credential_token, invalid_handle, &exception);
-    CU_ASSERT_FALSE (success);
+    CU_ASSERT_EQ (success, false);
     CU_ASSERT_NEQ (exception.code != 0, 0);
     CU_ASSERT_NEQ (exception.message != NULL, 0);
     reset_exception(&exception);
 
     success = g_auth->get_authenticated_peer_credential_token(NULL, &credential_token, invalid_handle, &exception);
-    CU_ASSERT_FALSE (success);
+    CU_ASSERT_EQ (success, false);
     CU_ASSERT_NEQ (exception.code != 0, 0);
     CU_ASSERT_NEQ (exception.message != NULL, 0);
     reset_exception(&exception);
 
     success = g_auth->get_authenticated_peer_credential_token(g_auth, NULL, invalid_handle, &exception);
-    CU_ASSERT_FALSE (success);
+    CU_ASSERT_EQ (success, false);
     CU_ASSERT_NEQ (exception.code != 0, 0);
     CU_ASSERT_NEQ (exception.message != NULL, 0);
     reset_exception(&exception);
 
     success = g_auth->get_authenticated_peer_credential_token(g_auth, &credential_token, 0, &exception);
-    CU_ASSERT_FALSE (success);
+    CU_ASSERT_EQ (success, false);
     CU_ASSERT_NEQ (exception.code != 0, 0);
     CU_ASSERT_NEQ (exception.message != NULL, 0);
     reset_exception(&exception);
 
     success = g_auth->return_authenticated_peer_credential_token(NULL, &credential_token, &exception);
-    CU_ASSERT_FALSE (success);
+    CU_ASSERT_EQ (success, false);
     CU_ASSERT_NEQ (exception.code != 0, 0);
     CU_ASSERT_NEQ (exception.message != NULL, 0);
     reset_exception(&exception);
 
     success = g_auth->return_authenticated_peer_credential_token(g_auth, NULL, &exception);
-    CU_ASSERT_FALSE (success);
+    CU_ASSERT_EQ (success, false);
     CU_ASSERT_NEQ (exception.code != 0, 0);
     CU_ASSERT_NEQ (exception.message != NULL, 0);
     reset_exception(&exception);

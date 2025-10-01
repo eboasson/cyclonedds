@@ -990,7 +990,7 @@ static dds_return_t get_single_configuration(dds_qos_t *qos, sysdef_qos_conf_t *
   dds_return_t ret = DDS_RETCODE_OK;
   char *qos_conf = NULL;
   ret = qos_to_conf(qos, conf, &qos_conf, kind, validate_mask, false);
-  CU_ASSERT_TRUE(ret >= 0);
+  CU_ASSERT_GEQ (ret, 0);
   char *def = NULL;
   switch(kind)
   {
@@ -1018,7 +1018,7 @@ static dds_return_t get_single_configuration(dds_qos_t *qos, sysdef_qos_conf_t *
   }
   ret = ddsrt_asprintf(out_conf, def, qos_conf);
   ddsrt_free(qos_conf);
-  CU_ASSERT_TRUE(ret >= 0);
+  CU_ASSERT_GEQ (ret, 0);
 
   return ret;
 }
@@ -1070,7 +1070,7 @@ CU_Theory((dds_qos_kind_t kind, sysdef_qos_conf_t dur_conf), ddsc_qos_provider, 
   uint64_t validate_mask = 0;
   // init configuraiton with qos of `kind` in sysdef format
   ret = get_single_configuration(&qos, &dur_conf, kind, &full_configuration, &validate_mask);
-  CU_ASSERT_TRUE(ret >= 0);
+  CU_ASSERT_GEQ (ret, 0);
   dds_qos_provider_t *provider;
   // init qos provider with create configuration
   ret = dds_create_qos_provider(full_configuration, &provider);
@@ -1182,7 +1182,7 @@ CU_Theory((dds_qos_kind_t kind), ddsc_qos_provider, get_qos_all)
     uint64_t validate_mask = 0;
     // init configuraiton with qos of `kind` in sysdef format
     ret = get_single_configuration(&qos, &dur_conf, kind, &full_configuration, &validate_mask);
-    CU_ASSERT_TRUE(ret >= 0);
+    CU_ASSERT_GEQ (ret, 0);
     dds_qos_provider_t *provider;
     // init qos provider with create configuration
     ret = dds_create_qos_provider(full_configuration, &provider);
@@ -1249,10 +1249,10 @@ CU_Theory((dds_qos_kind_t kind, dds_return_t code), ddsc_qos_provider, create_wr
     default:
       CU_FAIL("unsupported QOS_KIND");
   }
-  CU_ASSERT_TRUE(ret >= 0);
+  CU_ASSERT_GEQ (ret, 0);
   ret = ddsrt_asprintf(&full_configuration, def, qos_conf);
   ddsrt_free(qos_conf);
-  CU_ASSERT_TRUE(ret >= 0);
+  CU_ASSERT_GEQ (ret, 0);
   dds_qos_provider_t *provider = NULL;
   // init qos provider with create configuration
   ret = dds_create_qos_provider(full_configuration, &provider);

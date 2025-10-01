@@ -177,11 +177,10 @@ static void checkdata (dds_entity_t rd, const struct exp *exp, const char *heade
   qsort (data, (size_t) ret, sizeof (data[0]), cmpdata);
   for (int k = 0; k < exp->n; k++)
   {
-    CU_ASSERT_FATAL (exp->xs[k].long_1 == data[k].long_1 &&
-                     exp->xs[k].long_2 == data[k].long_2 &&
-                     exp->xs[k].long_3 == data[k].long_3);
-    CU_ASSERT_FATAL (exp->is == NULL ||
-                     exp->is[data[k].long_1] == si[k].instance_state);
+    CU_ASSERT_EQ_FATAL (exp->xs[k].long_1, data[k].long_1);
+    CU_ASSERT_EQ_FATAL (exp->xs[k].long_2, data[k].long_2);
+    CU_ASSERT_EQ_FATAL (exp->xs[k].long_3, data[k].long_3);
+    CU_ASSERT_NEQ_FATAL (exp->is == NULL || exp->is[data[k].long_1] == si[k].instance_state, false);
   }
 }
 

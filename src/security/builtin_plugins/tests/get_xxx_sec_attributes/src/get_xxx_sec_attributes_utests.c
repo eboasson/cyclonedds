@@ -1167,17 +1167,15 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_2nd_rule, .init = sui
   CU_ASSERT_NEQ (attributes.is_discovery_protected == true, 0);
   CU_ASSERT_NEQ (attributes.is_liveliness_protected == true, 0);
   CU_ASSERT_NEQ (attributes.is_rtps_protected == false, 0);
-  CU_ASSERT((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_ENCRYPTED) ==
-            0);
-  CU_ASSERT((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_DISCOVERY_ENCRYPTED) ==
-            0);
-  CU_ASSERT((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_LIVELINESS_ENCRYPTED) ==
+  CU_ASSERT_EQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_ENCRYPTED), 0);
+  CU_ASSERT_EQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_DISCOVERY_ENCRYPTED), 0);
+  CU_ASSERT_EQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_LIVELINESS_ENCRYPTED),
             DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_LIVELINESS_ENCRYPTED);
-  CU_ASSERT((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_AUTHENTICATED) ==
+  CU_ASSERT_EQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_AUTHENTICATED),
             0);
-  CU_ASSERT((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_DISCOVERY_AUTHENTICATED) ==
+  CU_ASSERT_EQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_DISCOVERY_AUTHENTICATED),
             0);
-  CU_ASSERT((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_LIVELINESS_AUTHENTICATED) ==
+  CU_ASSERT_EQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_LIVELINESS_AUTHENTICATED),
             0);
 
   result = access_control->return_participant_sec_attributes(

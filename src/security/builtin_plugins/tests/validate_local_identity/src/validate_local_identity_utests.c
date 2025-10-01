@@ -679,7 +679,7 @@ CU_Test(ddssec_builtin_validate_local_identity,happy_day)
     reset_exception(&exception);
 
     success = auth->return_identity_handle(auth, local_identity_handle, &exception);
-    CU_ASSERT_TRUE (success);
+    CU_ASSERT_NEQ (success, false);
 
     if (!success) {
         printf("return_identity_handle failed: %s\n", exception.message ? exception.message : "Error message missing");
@@ -723,7 +723,7 @@ CU_Test(ddssec_builtin_validate_local_identity,happy_day)
     reset_exception(&exception);
 
     success = auth->return_identity_handle(auth, local_identity_handle, &exception);
-    CU_ASSERT_TRUE (success);
+    CU_ASSERT_NEQ (success, false);
 
     if (!success) {
         printf("return_identity_handle failed: %s\n", exception.message ? exception.message : "Error message missing");
@@ -1712,7 +1712,7 @@ CU_Test(ddssec_builtin_validate_local_identity,happy_day_elliptic)
     reset_exception(&exception);
 
     success = auth->return_identity_handle(auth, local_identity_handle, &exception);
-    CU_ASSERT_TRUE (success);
+    CU_ASSERT_NEQ (success, false);
 
     if (!success) {
         printf("return_identity_handle failed: %s\n", exception.message ? exception.message : "Error message missing");
@@ -1755,7 +1755,7 @@ CU_Test(ddssec_builtin_validate_local_identity,happy_day_elliptic)
     reset_exception(&exception);
 
     success = auth->return_identity_handle(auth, local_identity_handle, &exception);
-    CU_ASSERT_TRUE (success);
+    CU_ASSERT_NEQ (success, false);
 
     if (!success) {
         printf("return_identity_handle failed: %s\n", exception.message ? exception.message : "Error message missing");
@@ -2018,7 +2018,7 @@ CU_Test(ddssec_builtin_validate_local_identity,return_freed_handle)
     reset_exception(&exception);
 
     success = auth->return_identity_handle(auth, local_identity_handle, &exception);
-    CU_ASSERT_FALSE (success);
+    CU_ASSERT_EQ (success, false);
     CU_ASSERT_NEQ (exception.minor_code != 0, 0);
     CU_ASSERT_NEQ (exception.message != NULL, 0);
 
@@ -2200,7 +2200,7 @@ CU_Test(ddssec_builtin_validate_local_identity,with_extended_certificate_check)
     reset_exception(&exception);
 
     success = auth->return_identity_handle(auth, local_identity_handle, &exception);
-    CU_ASSERT_TRUE (success);
+    CU_ASSERT_NEQ (success, false);
 
     local_identity_handle = DDS_SECURITY_HANDLE_NIL;
     reset_exception(&exception);

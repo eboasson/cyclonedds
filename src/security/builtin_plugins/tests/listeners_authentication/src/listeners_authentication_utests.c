@@ -1700,7 +1700,7 @@ CU_Test(ddssec_builtin_listeners_auth, local_remote_set_before_validation)
     DDS_Security_DataHolder_deinit((DDS_Security_DataHolder *) &credential_token);
 
 
-    CU_ASSERT_TRUE (result == 1);
+    CU_ASSERT_EQ (result, 1);
 
     reset_exception(&exception);
 

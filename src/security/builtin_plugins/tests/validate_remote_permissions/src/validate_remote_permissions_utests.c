@@ -877,7 +877,7 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_expired, .init =
 
   CU_ASSERT_NEQ (result == 0, 0);
   CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_VALIDITY_PERIOD_EXPIRED_CODE, 0);
-  CU_ASSERT_NSTRING_EQUAL_FATAL(DDS_SECURITY_ERR_VALIDITY_PERIOD_EXPIRED_MESSAGE, exception.message, strlen(DDS_SECURITY_ERR_VALIDITY_PERIOD_EXPIRED_MESSAGE) - 16);
+  CU_ASSERT_EQ_FATAL (strncmp (DDS_SECURITY_ERR_VALIDITY_PERIOD_EXPIRED_MESSAGE, exception.message, strlen (DDS_SECURITY_ERR_VALIDITY_PERIOD_EXPIRED_MESSAGE) - 16), 0);
   reset_exception(&exception);
 
   DDS_Security_DataHolder_deinit((DDS_Security_DataHolder *)&permissions_token);
@@ -918,7 +918,7 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_not_yet, .init =
 
   CU_ASSERT_NEQ (result == 0, 0);
   CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_VALIDITY_PERIOD_NOT_STARTED_CODE, 0);
-  CU_ASSERT_NSTRING_EQUAL_FATAL(DDS_SECURITY_ERR_VALIDITY_PERIOD_NOT_STARTED_MESSAGE, exception.message, strlen(DDS_SECURITY_ERR_VALIDITY_PERIOD_NOT_STARTED_MESSAGE) - 14);
+  CU_ASSERT_STRNEQ_FATAL(DDS_SECURITY_ERR_VALIDITY_PERIOD_NOT_STARTED_MESSAGE, exception.message);
   reset_exception(&exception);
 
   DDS_Security_DataHolder_deinit((DDS_Security_DataHolder *)&permissions_token);

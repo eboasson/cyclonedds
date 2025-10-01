@@ -183,11 +183,11 @@ static void reset_exception(DDS_Security_SecurityException *ex)
 static void suite_set_remote_datawriter_crypto_tokens_init(void)
 {
   allocate_shared_secret();
-  CU_ASSERT_FATAL ((plugins = load_plugins(
-                      NULL    /* Access Control */,
-                      NULL    /* Authentication */,
-                      &crypto /* Cryptograpy    */,
-                      NULL)) != NULL);
+  CU_ASSERT_NEQ_FATAL ((plugins = load_plugins(
+    NULL    /* Access Control */,
+    NULL    /* Authentication */,
+    &crypto /* Cryptograpy    */,
+    NULL)), NULL);
   CU_ASSERT_EQ_FATAL (register_local_participant(), 0);
   CU_ASSERT_EQ_FATAL (register_remote_participant(), 0);
   CU_ASSERT_EQ_FATAL (register_local_datareader(), 0);

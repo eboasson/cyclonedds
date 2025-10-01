@@ -477,7 +477,7 @@ CU_Test(ddssec_builtin_validate_remote_identity,happy_day_nil_auth_req )
     if ((result == DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_REQUEST) ||
         (result == DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE)) {
          DDS_Security_boolean success = auth->return_identity_handle(auth, remote_identity_handle, &exception);
-         CU_ASSERT_TRUE (success);
+         CU_ASSERT_NEQ (success, false);
 
          if (!success) {
              printf("return_identity_handle failed: %s\n", exception.message ? exception.message : "Error message missing");
@@ -533,7 +533,7 @@ CU_Test(ddssec_builtin_validate_remote_identity,happy_day_with_auth_req )
     DDS_Security_DataHolder_deinit(&local_auth_request_token);
 
     success = auth->return_identity_handle(auth, remote_identity_handle, &exception);
-    CU_ASSERT_TRUE (success);
+    CU_ASSERT_NEQ (success, false);
 
     if (!success) {
         printf("return_identity_handle failed: %s\n", exception.message ? exception.message : "Error message missing");
@@ -1064,7 +1064,7 @@ CU_Test(ddssec_builtin_validate_remote_identity,already_validated_same_token )
     DDS_Security_DataHolder_deinit(&local_auth_request_token);
 
     success = auth->return_identity_handle(auth, remote_identity_handle, &exception);
-    CU_ASSERT_TRUE (success);
+    CU_ASSERT_NEQ (success, false);
 
     if (!success) {
         printf("return_identity_handle failed: %s\n", exception.message ? exception.message : "Error message missing");
@@ -1148,7 +1148,7 @@ CU_Test(ddssec_builtin_validate_remote_identity,already_validated_different_toke
     DDS_Security_DataHolder_deinit(&local_auth_request_token);
 
     success = auth->return_identity_handle(auth, remote_identity_handle, &exception);
-    CU_ASSERT_TRUE (success);
+    CU_ASSERT_NEQ (success, false);
 
     if (!success) {
         printf("return_identity_handle failed: %s\n", exception.message ? exception.message : "Error message missing");

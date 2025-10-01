@@ -649,7 +649,7 @@ CU_Test(ddsc_entity, all_data_available, .init=init_entity_status, .fini=fini_en
     /* status after taking the data should be reset */
     ret = dds_get_status_changes (rea, &sta);
     CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
-    CU_ASSERT_FALSE(sta & DDS_DATA_AVAILABLE_STATUS);
+    CU_ASSERT_EQ (sta & DDS_DATA_AVAILABLE_STATUS, 0);
 
     /* status from reader2 should not be reset, as the take does not influence it*/
     ret = dds_get_status_changes (reader2, &sta);

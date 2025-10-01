@@ -1528,7 +1528,7 @@ CU_Test(ddssec_builtin_process_handshake,happy_day_after_request)
     CU_ASSERT_NEQ ( check_shared_secret(auth, 1, dh1, dh_ecdh_key, handshake_handle)== 0, 0);
 
     success= auth->return_handshake_handle(auth, handshake_handle, &exception);
-    CU_ASSERT_TRUE (success);
+    CU_ASSERT_NEQ (success, false);
 
     reset_exception(&exception);
 
@@ -1617,7 +1617,7 @@ CU_Test(ddssec_builtin_process_handshake,happy_day_after_reply)
     CU_ASSERT_NEQ ( check_shared_secret(auth, 0, dh2, dh_modp_key, handshake_handle)== 0, 0);
 
     success= auth->return_handshake_handle(auth, handshake_handle, &exception);
-    CU_ASSERT_TRUE (success);
+    CU_ASSERT_NEQ (success, false);
 
     if (!success) {
         printf("return_handshake_handle failed: %s\n", exception.message ? exception.message : "Error message missing");
@@ -1734,7 +1734,7 @@ CU_Test(ddssec_builtin_process_handshake,invalid_arguments)
     reset_exception(&exception);
 
     success= auth->return_handshake_handle(auth, handshake_handle, &exception);
-    CU_ASSERT_TRUE (success);
+    CU_ASSERT_NEQ (success, false);
 
     handshake_message_deinit(&handshake_token_in);
     handshake_message_deinit(&handshake_token_out);
@@ -1821,7 +1821,7 @@ CU_Test(ddssec_builtin_process_handshake,invalid_certificate)
     reset_exception(&exception);
 
     success= auth->return_handshake_handle(auth, handshake_handle, &exception);
-    CU_ASSERT_TRUE (success);
+    CU_ASSERT_NEQ (success, false);
 
     reset_exception(&exception);
 
@@ -2112,7 +2112,7 @@ CU_Test(ddssec_builtin_process_handshake,return_handle)
     reset_exception(&exception);
 
     success = auth->return_handshake_handle(auth, handshake_handle, &exception);
-    CU_ASSERT_TRUE (success);
+    CU_ASSERT_NEQ (success, false);
 
     if (!success) {
         printf("return_handshake_handle failed: %s\n", exception.message ? exception.message : "Error message missing");
@@ -2120,7 +2120,7 @@ CU_Test(ddssec_builtin_process_handshake,return_handle)
     reset_exception(&exception);
 
     success = auth->return_handshake_handle(auth, handshake_handle, &exception);
-    CU_ASSERT_FALSE (success);
+    CU_ASSERT_EQ (success, false);
     CU_ASSERT_NEQ (exception.minor_code != 0, 0);
     CU_ASSERT_NEQ (exception.message != NULL, 0);
 
@@ -2217,7 +2217,7 @@ CU_Test(ddssec_builtin_process_handshake,extended_certificate_check)
     CU_ASSERT_NEQ ( check_shared_secret(auth, 1, dh1, dh_ecdh_key, handshake_handle)== 0, 0);
 
     success= auth->return_handshake_handle(auth, handshake_handle, &exception);
-    CU_ASSERT_TRUE (success);
+    CU_ASSERT_NEQ (success, false);
 
     reset_exception(&exception);
 

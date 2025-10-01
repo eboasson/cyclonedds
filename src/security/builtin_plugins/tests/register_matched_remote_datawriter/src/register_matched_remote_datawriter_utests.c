@@ -85,11 +85,11 @@ static void suite_register_matched_remote_datawriter_init(void)
   DDS_Security_PermissionsHandle participant_permissions = 3; //valid dummy value
   DDS_Security_ParticipantSecurityAttributes participant_security_attributes;
 
-  CU_ASSERT_FATAL ((plugins = load_plugins(
-                      NULL    /* Access Control */,
-                      NULL    /* Authentication */,
-                      &crypto /* Cryptograpy    */,
-                      NULL)) != NULL);
+  CU_ASSERT_NEQ_FATAL ((plugins = load_plugins(
+    NULL    /* Access Control */,
+    NULL    /* Authentication */,
+    &crypto /* Cryptograpy    */,
+    NULL)), NULL);
 
   /* prepare test shared secret handle */
   shared_secret_handle_impl = ddsrt_malloc(sizeof(DDS_Security_SharedSecretHandleImpl));

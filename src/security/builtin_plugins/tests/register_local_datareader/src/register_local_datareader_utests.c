@@ -64,11 +64,11 @@ static void suite_register_local_datareader_init(void)
   DDS_Security_ParticipantSecurityAttributes participant_security_attributes;
 
   /* Only need the crypto plugin. */
-  CU_ASSERT_FATAL((plugins = load_plugins(
-                       NULL /* Access Control */,
-                       NULL /* Authentication */,
-                       &crypto /* Cryptograpy    */,
-                       NULL)) != NULL);
+  CU_ASSERT_NEQ_FATAL((plugins = load_plugins(
+    NULL /* Access Control */,
+    NULL /* Authentication */,
+    &crypto /* Cryptograpy    */,
+    NULL)), NULL);
 
   /* prepare test shared secret handle */
   shared_secret_handle_impl = ddsrt_malloc(sizeof(DDS_Security_SharedSecretHandleImpl));
@@ -90,13 +90,14 @@ static void suite_register_local_datareader_init(void)
   memset(&exception, 0, sizeof(DDS_Security_SecurityException));
   memset(&participant_properties, 0, sizeof(participant_properties));
   prepare_participant_security_attributes(&participant_security_attributes);
-  CU_ASSERT_FATAL((local_participant_crypto_handle = crypto->crypto_key_factory->register_local_participant(
-                       crypto->crypto_key_factory,
-                       participant_identity,
-                       participant_permissions,
-                       &participant_properties,
-                       &participant_security_attributes,
-                       &exception)) != DDS_SECURITY_HANDLE_NIL);
+  local_participant_crypto_handle = crypto->crypto_key_factory->register_local_participant(
+    crypto->crypto_key_factory,
+    participant_identity,
+    participant_permissions,
+    &participant_properties,
+    &participant_security_attributes,
+    &exception);
+  CU_ASSERT_NEQ_FATAL (local_participant_crypto_handle, DDS_SECURITY_HANDLE_NIL);
 
   /* Now call the function. */
   remote_participant_crypto_handle = crypto->crypto_key_factory->register_matched_remote_participant(
@@ -318,7 +319,7 @@ CU_Test(ddssec_builtin_register_local_datareader, invalid_participant, .init = s
   /* Invalid handle should be returned */
   CU_ASSERT_NEQ (result == 0, 0);
   CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_CRYPTO_HANDLE_CODE, 0);
-  CU_ASSERT_NSTRING_EQUAL_FATAL(exception.message, DDS_SECURITY_ERR_INVALID_CRYPTO_HANDLE_MESSAGE, sizeof(DDS_SECURITY_ERR_INVALID_CRYPTO_HANDLE_MESSAGE));
+  CU_ASSERT_STREQ_FATAL (exception.message, DDS_SECURITY_ERR_INVALID_CRYPTO_HANDLE_MESSAGE);
   reset_exception(&exception);
 }
 

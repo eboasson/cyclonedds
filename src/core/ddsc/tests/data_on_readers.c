@@ -91,9 +91,9 @@ CU_Test (ddsc_data_on_readers, basic)
       CU_ASSERT_NEQ (rc == 1, 0);
       rc = dds_read_status (sub, &status, DDS_DATA_ON_READERS_STATUS);
       CU_ASSERT_NEQ (rc == 0, 0);
-      CU_ASSERT_FATAL ((materialized && status == 0) ||
-                       (!materialized && k < NRDS-1 && status != 0) ||
-                       (!materialized && k == NRDS-1 && status == 0));
+      CU_ASSERT_NEQ_FATAL ((materialized && status == 0) ||
+                           (!materialized && k < NRDS-1 && status != 0) ||
+                           (!materialized && k == NRDS-1 && status == 0), false);
       for (int i = 0; i < NRDS; i++)
       {
         rc = dds_read_status (rds[i], &status, DDS_DATA_AVAILABLE_STATUS);

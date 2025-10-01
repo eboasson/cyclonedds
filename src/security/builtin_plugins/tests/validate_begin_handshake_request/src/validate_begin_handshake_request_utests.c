@@ -604,7 +604,7 @@ CU_Test(ddssec_builtin_validate_begin_handshake_request,happy_day_challenge)
     release_local_participant_data(&local_participant_data);
 
     success= auth->return_handshake_handle(auth, handshake_handle, &exception);
-    CU_ASSERT_TRUE (success);
+    CU_ASSERT_NEQ (success, false);
 
     if (!success) {
         printf("return_handshake_handle failed: %s\n", exception.message ? exception.message : "Error message missing");
@@ -655,7 +655,7 @@ CU_Test(ddssec_builtin_validate_begin_handshake_request,happy_day_future_challen
     release_local_participant_data(&local_participant_data);
 
     success = auth->return_handshake_handle(auth, handshake_handle, &exception);
-    CU_ASSERT_TRUE (success);
+    CU_ASSERT_NEQ (success, false);
 
     if (!success) {
         printf("return_handshake_handle failed: %s\n", exception.message ? exception.message : "Error message missing");
@@ -812,7 +812,7 @@ CU_Test(ddssec_builtin_validate_begin_handshake_request,return_handle)
     release_local_participant_data(&local_participant_data);
 
     success = auth->return_handshake_handle(auth, handshake_handle, &exception);
-    CU_ASSERT_TRUE (success);
+    CU_ASSERT_NEQ (success, false);
 
     if (!success) {
         printf("return_handshake_handle failed: %s\n", exception.message ? exception.message : "Error message missing");
@@ -820,7 +820,7 @@ CU_Test(ddssec_builtin_validate_begin_handshake_request,return_handle)
     reset_exception(&exception);
 
     success = auth->return_handshake_handle(auth, handshake_handle, &exception);
-    CU_ASSERT_FALSE (success);
+    CU_ASSERT_EQ (success, false);
     CU_ASSERT_NEQ (exception.minor_code != 0, 0);
     CU_ASSERT_NEQ (exception.message != NULL, 0);
 

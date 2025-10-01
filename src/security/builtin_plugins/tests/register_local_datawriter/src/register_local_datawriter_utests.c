@@ -63,11 +63,11 @@ static void suite_register_local_datawriter_init(void)
   DDS_Security_PermissionsHandle participant_permissions = 3; //valid dummy value
   DDS_Security_ParticipantSecurityAttributes participant_security_attributes;
 
-  CU_ASSERT_FATAL ((plugins = load_plugins(
-                        NULL    /* Access Control */,
-                        NULL    /* Authentication */,
-                        &crypto /* Cryptograpy    */,
-                        NULL)) != NULL);
+  CU_ASSERT_NEQ_FATAL ((plugins = load_plugins(
+    NULL    /* Access Control */,
+    NULL    /* Authentication */,
+    &crypto /* Cryptograpy    */,
+    NULL)), NULL);
 
   /* prepare test shared secret handle */
   shared_secret_handle_impl = ddsrt_malloc(sizeof(DDS_Security_SharedSecretHandleImpl));
@@ -341,7 +341,7 @@ CU_Test(ddssec_builtin_register_local_datawriter, invalid_participant, .init = s
   CU_ASSERT_NEQ (result == 0, 0);
 
   CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_CRYPTO_HANDLE_CODE, 0);
-  CU_ASSERT_NSTRING_EQUAL_FATAL(exception.message, DDS_SECURITY_ERR_INVALID_CRYPTO_HANDLE_MESSAGE, sizeof(DDS_SECURITY_ERR_INVALID_CRYPTO_HANDLE_MESSAGE));
+  CU_ASSERT_STREQ_FATAL (exception.message, DDS_SECURITY_ERR_INVALID_CRYPTO_HANDLE_MESSAGE);
 
   reset_exception(&exception);
 }

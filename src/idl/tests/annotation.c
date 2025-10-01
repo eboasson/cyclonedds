@@ -548,7 +548,7 @@ void test_id(
     const idl_node_t *node = pstate->root;
     while (idl_is_module(node)) {
       const idl_module_t *mod = (const idl_module_t *)node;
-      CU_ASSERT_TRUE_FATAL(m < sizeof(test.id)/sizeof(test.id[0]));
+      CU_ASSERT_LT_FATAL (m,  sizeof(test.id)/sizeof(test.id[0]));
       CU_ASSERT_EQ (mod->autoid.value, test.aid[m]);
       m++;
       assert(mod->definitions);
@@ -556,7 +556,7 @@ void test_id(
     }
 
     IDL_FOREACH(node, node) {
-      CU_ASSERT_TRUE_FATAL(m < sizeof(test.id)/sizeof(test.id[0]));
+      CU_ASSERT_LT_FATAL (m, sizeof(test.id)/sizeof(test.id[0]));
       if (idl_is_struct(node)) {
         const idl_struct_t *s = (const idl_struct_t*)node;
         CU_ASSERT_EQ (s->autoid.value, test.aid[m]);
@@ -566,7 +566,7 @@ void test_id(
         const idl_declarator_t *decl = NULL;
         IDL_FOREACH(mem, s->members) {
           IDL_FOREACH(decl, mem->declarators) {
-            CU_ASSERT_TRUE_FATAL(n < sizeof(test.aid)/sizeof(test.aid[0]));
+            CU_ASSERT_LT_FATAL (n, sizeof(test.aid)/sizeof(test.aid[0]));
             if (test.annotation_present[n]) {
               CU_ASSERT_NEQ (decl->id.annotation, NULL);
             } else {
@@ -583,7 +583,7 @@ void test_id(
 
         const idl_case_t *_case = NULL;
         IDL_FOREACH(_case, u->cases) {
-          CU_ASSERT_TRUE_FATAL(n < sizeof(test.aid)/sizeof(test.aid[0]));
+          CU_ASSERT_LT_FATAL (n, sizeof(test.aid)/sizeof(test.aid[0]));
           if (test.annotation_present[n]) {
             CU_ASSERT_NEQ (_case->declarator->id.annotation, NULL);
           } else {
@@ -1232,7 +1232,7 @@ typedef struct minmax_test {
   double max;
 } minmax_test_t;
 
-static void validate_limit(const idl_literal_t *lit, double to_test, double granularity)
+static void validate_limit(const idl_literal_t *lit, double to_test)
 {
   assert(lit);
   double fval = 0;
@@ -1279,7 +1279,7 @@ static void validate_limit(const idl_literal_t *lit, double to_test, double gran
     default:
       CU_ASSERT_NEQ (false, 0);
   }
-  CU_ASSERT_DOUBLE_EQUAL(fval, to_test, granularity);
+  CU_ASSERT_EQ (fval, to_test);
 }
 
 static void test_min_max(minmax_test_t test)
@@ -1295,18 +1295,18 @@ static void test_min_max(minmax_test_t test)
     const idl_member_t *mem = ((const idl_struct_t*)pstate->root)->members;
     CU_ASSERT_EQ (test.min_present, mem->min.annotation != NULL);
     if (mem->min.annotation)
-      validate_limit(mem->min.value,test.min, 0.000001);
+      validate_limit(mem->min.value,test.min);
     CU_ASSERT_EQ (test.max_present, mem->max.annotation != NULL);
     if (mem->max.annotation)
-      validate_limit(mem->max.value,test.max, 0.000001);
+      validate_limit(mem->max.value,test.max);
   } else if (idl_is_union(pstate->root)) {
     const idl_case_t *cs = ((const idl_union_t*)pstate->root)->cases;
     CU_ASSERT_EQ (test.min_present, cs->min.annotation != NULL);
     if (cs->min.annotation)
-      validate_limit(cs->min.value,test.min, 0.000001);
+      validate_limit(cs->min.value,test.min);
     CU_ASSERT_EQ (test.max_present, cs->max.annotation != NULL);
     if (cs->max.annotation)
-      validate_limit(cs->max.value,test.max, 0.000001);
+      validate_limit(cs->max.value,test.max);
   } else {
     CU_FAIL("Invalid data type");
   }

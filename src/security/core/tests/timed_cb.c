@@ -124,11 +124,11 @@ CU_Test(ddssec_timed_cb, simple_test, .init = setup, .fini = teardown)
   CU_ASSERT_NEQ_FATAL (d1, NULL);
   dds_security_timed_dispatcher_add(d1, simple_callback, future, (void *)&test_var);
   dds_security_timed_dispatcher_enable(d1);
-  CU_ASSERT_FALSE_FATAL(test_var);
+  CU_ASSERT_EQ_FATAL (test_var, false);
   dds_sleepfor(DDS_MSECS(500));
-  CU_ASSERT_FALSE_FATAL(test_var);
+  CU_ASSERT_EQ_FATAL (test_var, false);
   dds_sleepfor(DDS_SECS(2));
-  CU_ASSERT_TRUE_FATAL(test_var);
+  CU_ASSERT_NEQ_FATAL (test_var, false);
   dds_security_timed_dispatcher_free(d1);
 }
 
@@ -154,12 +154,12 @@ CU_Test(ddssec_timed_cb, test_enabled_and_disabled, .init = setup, .fini = teard
   CU_ASSERT_NEQ_FATAL (d1, NULL);
   dds_security_timed_dispatcher_add(d1, simple_callback, future, (void *)&test_var);
   dds_security_timed_dispatcher_enable(d1);
-  CU_ASSERT_FALSE(test_var);
+  CU_ASSERT_EQ (test_var, false);
   (void) dds_security_timed_dispatcher_disable(d1);
   dds_sleepfor(DDS_MSECS(500));
-  CU_ASSERT_FALSE(test_var);
+  CU_ASSERT_EQ (test_var, false);
   dds_sleepfor(DDS_SECS(2));
-  CU_ASSERT_FALSE(test_var);
+  CU_ASSERT_EQ (test_var, false);
   dds_security_timed_dispatcher_free(d1);
 }
 
@@ -172,11 +172,11 @@ CU_Test(ddssec_timed_cb, simple_test_with_future, .init = setup, .fini = teardow
   dds_security_timed_dispatcher_enable(d1);
   dds_security_timed_dispatcher_add(d1, simple_callback, future, (void *)&test_var);
   dds_security_timed_dispatcher_add(d1, simple_callback, far_future, (void *)&test_var);
-  CU_ASSERT_FALSE_FATAL(test_var);
+  CU_ASSERT_EQ_FATAL (test_var, false);
   dds_sleepfor(DDS_MSECS(500));
-  CU_ASSERT_FALSE_FATAL(test_var);
+  CU_ASSERT_EQ_FATAL (test_var, false);
   dds_sleepfor(DDS_SECS(2));
-  CU_ASSERT_TRUE_FATAL(test_var);
+  CU_ASSERT_NEQ_FATAL (test_var, false);
   dds_security_timed_dispatcher_free(d1);
 }
 
@@ -192,11 +192,11 @@ CU_Test(ddssec_timed_cb, test_multiple_dispatchers, .init = setup, .fini = teard
   dds_security_timed_dispatcher_free(d2);
   dds_security_timed_dispatcher_add(d1, simple_callback, future, (void *)&test_var);
   dds_security_timed_dispatcher_add(d1, simple_callback, far_future, (void *)&test_var);
-  CU_ASSERT_FALSE_FATAL(test_var);
+  CU_ASSERT_EQ_FATAL (test_var, false);
   dds_sleepfor(DDS_MSECS(500));
-  CU_ASSERT_FALSE_FATAL(test_var);
+  CU_ASSERT_EQ_FATAL (test_var, false);
   dds_sleepfor(DDS_SECS(2));
-  CU_ASSERT_TRUE_FATAL(test_var);
+  CU_ASSERT_NEQ_FATAL (test_var, false);
   dds_security_timed_dispatcher_free(d1);
 }
 

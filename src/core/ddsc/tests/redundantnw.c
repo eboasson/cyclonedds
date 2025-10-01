@@ -232,8 +232,8 @@ CU_Test (ddsc_redundant_networking, uc_data_on_all_intfs)
   // We expect exactly two unicast orelse two multicast addresses
   // (which ones we get depends on whether the network interface
   // supports multicast and on decisions in wraddrset)
-  CU_ASSERT_FATAL ((ddsi_addrset_count_uc (xwr->m_wr->as) == 2 && ddsi_addrset_count_mc (xwr->m_wr->as) == 0) ||
-                   (ddsi_addrset_count_uc (xwr->m_wr->as) == 0 && ddsi_addrset_count_mc (xwr->m_wr->as) == 2));
+  CU_ASSERT_NEQ_FATAL ((ddsi_addrset_count_uc (xwr->m_wr->as) == 2 && ddsi_addrset_count_mc (xwr->m_wr->as) == 0) ||
+                       (ddsi_addrset_count_uc (xwr->m_wr->as) == 0 && ddsi_addrset_count_mc (xwr->m_wr->as) == 2), false);
   const bool data_uses_mc = (ddsi_addrset_count_mc (xwr->m_wr->as) > 0);
   char guidstr[1 + 4 * 8 + 3 * 1 + 2];
   snprintf (guidstr, sizeof (guidstr), "*"PGUIDFMT"*", PGUID (xwr->m_entity.m_guid));
