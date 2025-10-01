@@ -82,7 +82,7 @@ extern "C" {
   const char *xv__ = (const char *) (x_);                               \
   const char *yv__ = (const char *) (y_);                               \
   const bool fatal__ = (fatal_);                                        \
-  const bool satisfied__ = strcmp (xv__, yv__) op_ 0;                   \
+  const bool satisfied__ = xv__ && yv__ && strcmp (xv__, yv__) op_ 0;   \
   if (!satisfied__) {                                                   \
     fprintf (stderr, "%s:%d: not satisfied: %s (%s) %s %s (%s)\n", __FILE__, __LINE__, #x_, xv__, #op_, #y_, yv__); \
     CU_assertImplementation (false, __LINE__, #x_ #op_ #y_, __FILE__, "", fatal_); \
