@@ -33,7 +33,7 @@ CU_Theory((char *src, size_t size), ddsrt_strlcpy, dest_size)
     }
     CU_ASSERT_EQ (dest[len], '\0');
     CU_ASSERT_EQ (dest[len+1], '.');
-    CU_ASSERT_NEQ ((strncmp(dest, src, len) == 0), 0);
+    CU_ASSERT_EQ (strncmp(dest, src, len), 0);
   } else {
     CU_ASSERT_EQ (dest[0], '.');
   }

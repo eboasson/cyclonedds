@@ -98,7 +98,7 @@ CU_Test(ddssec_builtintopic, participant_iid)
     CU_ASSERT_EQ (n, 1);
     CU_ASSERT_NEQ (si.valid_data, 0);
     const dds_builtintopic_participant_t *s = raw;
-    CU_ASSERT_NEQ (memcmp (&s->key, &guid, sizeof (guid)) == 0, 0);
+    CU_ASSERT_EQ (memcmp (&s->key, &guid, sizeof (guid)), 0);
     dds_return_loan (rd, &raw, 1);
   }
 

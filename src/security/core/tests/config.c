@@ -477,7 +477,7 @@ CU_Test(ddssec_config, qos, .init = ddsrt_init, .fini = ddsrt_fini)
   };
 
   /* Create the qos */
-  CU_ASSERT_NEQ ((qos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ (qos = dds_create_qos(), NULL);
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_LIBRARY_PATH, WRAPPERLIB_PATH("dds_security_authentication_wrapper")"");
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_LIBRARY_INIT, "init_test_authentication_all_ok");
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_LIBRARY_FINALIZE, "finalize_test_authentication_all_ok");
@@ -525,7 +525,7 @@ CU_Test(ddssec_config, qos_props, .init = ddsrt_init, .fini = ddsrt_fini)
 
   /* Create the qos */
   unsigned char bvalue[3] = { 0x01, 0x02, 0x03 };
-  CU_ASSERT_NEQ ((qos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ (qos = dds_create_qos(), NULL);
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_LIBRARY_PATH, WRAPPERLIB_PATH("dds_security_authentication_wrapper")"");
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_LIBRARY_INIT, "init_test_authentication_all_ok");
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_LIBRARY_FINALIZE, "finalize_test_authentication_all_ok");
@@ -598,7 +598,7 @@ CU_Test(ddssec_config, config_qos, .init = ddsrt_init, .fini = ddsrt_fini)
     "  </Security>"
     "</Domain>";
 
-  CU_ASSERT_NEQ ((qos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ (qos = dds_create_qos(), NULL);
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_LIBRARY_PATH, WRAPPERLIB_PATH("dds_security_authentication_wrapper"));
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_LIBRARY_INIT, "init_test_authentication_all_ok");
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_LIBRARY_FINALIZE, "finalize_test_authentication_all_ok");
@@ -669,7 +669,7 @@ CU_Test(ddssec_config, other_prop, .init = ddsrt_init, .fini = ddsrt_fini)
     "  </Security>"
     "</Domain>";
 
-  CU_ASSERT_NEQ ((qos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ (qos = dds_create_qos(), NULL);
   dds_qset_prop(qos, "test.dds.sec.prop1", "testtext_value1_testtext");
 
   set_logger_exp(log_expected, NULL);
@@ -734,7 +734,7 @@ CU_Test(ddssec_config, qos_invalid, .init = ddsrt_init, .fini = ddsrt_fini)
 
   set_logger_exp(log_expected, NULL);
 
-  CU_ASSERT_NEQ ((qos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ (qos = dds_create_qos(), NULL);
   dds_qset_prop(qos, DDS_SEC_PROP_PREFIX "dummy", "testtext_dummy_testtext");
 
   /* Create participant with security config in qos. */
@@ -798,7 +798,7 @@ CU_Test(ddssec_config, qos_invalid_proprietary, .init = ddsrt_init, .fini = ddsr
 
   set_logger_exp(log_expected, NULL);
 
-  CU_ASSERT_NEQ ((qos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ (qos = dds_create_qos(), NULL);
   dds_qset_prop(qos, "org.eclipse.cyclonedds.sec.dummy", "testtext_dummy_testtext");
 
   /* Create participant with security config in qos. */
@@ -846,7 +846,7 @@ CU_Test(ddssec_config, config_qos_missing_crl, .init = ddsrt_init, .fini = ddsrt
     "  </Security>"
     "</Domain>";
 
-  CU_ASSERT_NEQ ((qos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ (qos = dds_create_qos(), NULL);
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_LIBRARY_PATH, WRAPPERLIB_PATH("dds_security_authentication_wrapper"));
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_LIBRARY_INIT, "init_test_authentication_all_ok");
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_LIBRARY_FINALIZE, "finalize_test_authentication_all_ok");
@@ -938,7 +938,7 @@ CU_Test(ddssec_config, config_qos_override_crl, .init = ddsrt_init, .fini = ddsr
     "  </Security>"
     "</Domain>";
 
-  CU_ASSERT_NEQ ((qos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ (qos = dds_create_qos(), NULL);
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_LIBRARY_PATH, WRAPPERLIB_PATH("dds_security_authentication_wrapper"));
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_LIBRARY_INIT, "init_test_authentication_all_ok");
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_LIBRARY_FINALIZE, "finalize_test_authentication_all_ok");

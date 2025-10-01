@@ -178,8 +178,8 @@ CU_Test(ddssec_builtin_register_remote_datawriter, happy_day, .init = suite_regi
 
   /* Check if we actually have the function. */
   CU_ASSERT_NEQ (crypto, NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory->register_matched_remote_datawriter != NULL, 0);
+  CU_ASSERT_NEQ (crypto->crypto_key_factory, NULL);
+  CU_ASSERT_NEQ (crypto->crypto_key_factory->register_matched_remote_datawriter, NULL);
   register_local_regular();
 
   /* Now call the function. */
@@ -196,10 +196,10 @@ CU_Test(ddssec_builtin_register_remote_datawriter, happy_day, .init = suite_regi
 
   /* NOTE: It would be better to check if the keys have been generated but there is no interface to get them from handle */
   writer_crypto = (remote_datawriter_crypto *)result;
-  CU_ASSERT_NEQ (writer_crypto->reader2writer_key_material != NULL, 0);
+  CU_ASSERT_NEQ (writer_crypto->reader2writer_key_material, NULL);
   CU_ASSERT_NEQ (master_salt_not_empty(writer_crypto->reader2writer_key_material), 0);
   CU_ASSERT_NEQ (master_key_not_empty(writer_crypto->reader2writer_key_material), 0);
-  CU_ASSERT_NEQ (writer_crypto->reader2writer_key_material->receiver_specific_key_id == 0, 0);
+  CU_ASSERT_EQ (writer_crypto->reader2writer_key_material->receiver_specific_key_id, 0);
   reset_exception(&exception);
 
   unregister_result = crypto->crypto_key_factory->unregister_datawriter(crypto->crypto_key_factory, result, &exception);
@@ -217,8 +217,8 @@ CU_Test(ddssec_builtin_register_remote_datawriter, volatile_secure, .init = suit
 
   /* Check if we actually have the function. */
   CU_ASSERT_NEQ (crypto, NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory->register_matched_remote_datawriter != NULL, 0);
+  CU_ASSERT_NEQ (crypto->crypto_key_factory, NULL);
+  CU_ASSERT_NEQ (crypto->crypto_key_factory->register_matched_remote_datawriter, NULL);
 
   datareader_properties._length = datareader_properties._maximum = 1;
   datareader_properties._buffer = DDS_Security_PropertySeq_allocbuf(1);
@@ -270,9 +270,9 @@ CU_Test(ddssec_builtin_register_remote_datawriter, with_origin_authentication, .
   /* Check if we actually have the function. */
   CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
+  CU_ASSERT_NEQ (crypto->crypto_key_factory, NULL);
   assert(crypto->crypto_key_factory != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory->register_matched_remote_datawriter != NULL, 0);
+  CU_ASSERT_NEQ (crypto->crypto_key_factory->register_matched_remote_datawriter, NULL);
   assert(crypto->crypto_key_factory->register_matched_remote_datawriter != 0);
   register_local_regular();
 
@@ -297,10 +297,10 @@ CU_Test(ddssec_builtin_register_remote_datawriter, with_origin_authentication, .
 
   /* NOTE: It would be better to check if the keys have been generated but there is no interface to get them from handle */
   writer_crypto = (remote_datawriter_crypto *)result;
-  CU_ASSERT_NEQ (writer_crypto->reader2writer_key_material != NULL, 0);
+  CU_ASSERT_NEQ (writer_crypto->reader2writer_key_material, NULL);
   CU_ASSERT_NEQ (master_salt_not_empty(writer_crypto->reader2writer_key_material), 0);
   CU_ASSERT_NEQ (master_key_not_empty(writer_crypto->reader2writer_key_material), 0);
-  CU_ASSERT_NEQ (writer_crypto->reader2writer_key_material->receiver_specific_key_id != 0, 0);
+  CU_ASSERT_NEQ (writer_crypto->reader2writer_key_material->receiver_specific_key_id, 0);
   CU_ASSERT_NEQ (master_receiver_specific_key_not_empty(writer_crypto->reader2writer_key_material), 0);
   reset_exception(&exception);
 
@@ -325,9 +325,9 @@ CU_Test(ddssec_builtin_register_remote_datawriter, invalid_participant, .init = 
   /* Check if we actually have the function. */
   CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
+  CU_ASSERT_NEQ (crypto->crypto_key_factory, NULL);
   assert(crypto->crypto_key_factory != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory->register_matched_remote_datawriter != NULL, 0);
+  CU_ASSERT_NEQ (crypto->crypto_key_factory->register_matched_remote_datawriter, NULL);
   assert(crypto->crypto_key_factory->register_matched_remote_datawriter != 0);
   register_local_regular();
 
@@ -356,9 +356,9 @@ CU_Test(ddssec_builtin_register_remote_datawriter, invalid_writer_properties, .i
   /* Check if we actually have the function. */
   CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
+  CU_ASSERT_NEQ (crypto->crypto_key_factory, NULL);
   assert(crypto->crypto_key_factory != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory->register_matched_remote_datawriter != NULL, 0);
+  CU_ASSERT_NEQ (crypto->crypto_key_factory->register_matched_remote_datawriter, NULL);
   assert(crypto->crypto_key_factory->register_matched_remote_datawriter != 0);
   register_local_regular();
 

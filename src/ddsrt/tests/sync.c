@@ -93,12 +93,12 @@ CU_Test(ddsrt_sync, mutex_trylock)
 
   ddsrt_mutex_init(&lock);
   locked = ddsrt_mutex_trylock(&lock);
-  CU_ASSERT_NEQ (locked == true, 0);
+  CU_ASSERT_EQ (locked, true);
   locked = ddsrt_mutex_trylock (&lock);
   /* NOTE: On VxWorks RTP mutexes seemingly can be locked recursively. Still,
            behavior should be consistent across targets. If this fails, fix
            the implementation instead. */
-  CU_ASSERT_NEQ (locked == false, 0);
+  CU_ASSERT_EQ (locked, false);
   ddsrt_mutex_unlock(&lock);
   ddsrt_mutex_destroy(&lock);
 }

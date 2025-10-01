@@ -173,7 +173,7 @@ CU_Test(dds_log, only_log_file, .init=setup, .fini=teardown)
   (void)fseek(fh, 0L, SEEK_SET);
   nbytes = fread(buf, 1, sizeof(buf) - 1, fh);
   /* At least foobar should have been printed to the log file. */
-  CU_ASSERT_NEQ (nbytes > 6, 0);
+  CU_ASSERT_GT (nbytes, 6);
   buf[nbytes] = '\0';
   ptr = strstr(buf, "foobar\n");
   CU_ASSERT_NEQ (ptr, NULL);
@@ -199,7 +199,7 @@ CU_Test(dds_log, same_file, .init=setup, .fini=teardown)
   (void)fseek(fh, 0L, SEEK_SET);
   nbytes = fread(buf, 1, sizeof(buf) - 1, fh);
   /* At least foobar should have been written to the trace file. */
-  CU_ASSERT_NEQ (nbytes > 6, 0);
+  CU_ASSERT_NEQ (nbytes, 6);
   buf[nbytes] = '\0';
   ptr = strstr(buf, "foobar\n");
   CU_ASSERT_NEQ_FATAL (ptr, NULL);
@@ -401,8 +401,8 @@ CU_Test(dds_log, synchronous_sink_changes, .fini=reset)
   ddsrt_cond_wait(&cond, &mutex);
   dds_set_log_sink(dummy, NULL);
 
-  CU_ASSERT_NEQ (arg.before < arg.after, 0);
-  CU_ASSERT_NEQ (arg.after < dds_time(), 0);
+  CU_ASSERT_LT (arg.before, arg.after);
+  CU_ASSERT_LT (arg.after, dds_time());
 #endif
 }
 
@@ -501,7 +501,7 @@ CU_Theory((bool local, int mode, bool expect_in_trace), dds_log, fatal_aborts)
       DDS_FATAL ("oops\n");
     }
     sigaction (SIGABRT, &oldaction, NULL);
-    CU_ASSERT_NEQ (0, 0);
+    CU_FAIL ("deliberately asserting false here");
   }
 #else
   (void) local;

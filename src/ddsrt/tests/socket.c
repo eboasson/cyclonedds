@@ -175,7 +175,7 @@ static void gethostbyname_test(char *name, int af, dds_return_t exp)
   rc = ddsrt_gethostbyname(name, af, &hent);
   CU_ASSERT_EQ (rc, exp);
   if (rc == DDS_RETCODE_OK) {
-    CU_ASSERT_NEQ (hent->naddrs > 0, 0);
+    CU_ASSERT_GT (hent->naddrs, 0);
     if (af != AF_UNSPEC) {
       CU_ASSERT_EQ (hent->addrs[0].ss_family, af);
     }

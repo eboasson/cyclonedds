@@ -81,13 +81,13 @@ CU_Theory((const char *str, const char *srch, const char *subst, size_t max, con
   char * r = ddsrt_str_replace(str, srch, subst, max);
   if (exp != NULL)
   {
-    CU_ASSERT_NEQ (r != NULL, 0);
+    CU_ASSERT_NEQ (r, NULL);
     CU_ASSERT_STREQ (r, exp);
     ddsrt_free(r);
   }
   else
   {
-    CU_ASSERT_NEQ (r == NULL, 0);
+    CU_ASSERT_EQ (r, NULL);
   }
 }
 

@@ -44,7 +44,7 @@ static char * get_x509_data(X509 * cert)
   if (!PEM_write_bio_X509 (output_bio, cert)) {
     printf ("Error writing certificate\n");
     ERR_print_errors_fp (stderr);
-    CU_ASSERT_NEQ (false, 0);
+    CU_FAIL ("oops");
   }
 
   // Get string
@@ -172,7 +172,7 @@ char * generate_pkcs11_private_key(const char *token, const char *name, uint32_t
   if (EVP_PKEY_keygen_init(ctx) <= 0)
   {
     ERR_print_errors_fp (stderr);
-    CU_ASSERT_NEQ (false, 0);
+    CU_FAIL ("oops");
   }
 
   OSSL_PARAM params[3];
@@ -183,14 +183,14 @@ char * generate_pkcs11_private_key(const char *token, const char *name, uint32_t
   if (EVP_PKEY_CTX_set_params(ctx, params) <= 0)
   {
     ERR_print_errors_fp (stderr);
-    CU_ASSERT_NEQ (false, 0);
+    CU_FAIL ("oops");
   }
 
   /* Generate the key */
   if (EVP_PKEY_generate(ctx, &pkey) <= 0)
   {
     ERR_print_errors_fp (stderr);
-    CU_ASSERT_NEQ (false, 0);
+    CU_FAIL ("oops");
   }
   EVP_PKEY_free(pkey);
   printf("PRIV_KEY_URI=%s\n", uri);
@@ -214,7 +214,7 @@ EVP_PKEY * get_priv_key_pkcs11(const char *uri)
   if (!(store_ctx = OSSL_STORE_open(uri, NULL, NULL, NULL, NULL)))
   {
     ERR_print_errors_fp (stderr);
-    CU_ASSERT_NEQ (false, 0);
+    CU_FAIL ("oops");
   }
 
   while (!pkey)
@@ -228,10 +228,10 @@ EVP_PKEY * get_priv_key_pkcs11(const char *uri)
     else if (OSSL_STORE_error(store_ctx))
     {
       ERR_print_errors_fp (stderr);
-      CU_ASSERT_NEQ (false, 0);
+      CU_FAIL ("oops");
     }
     else
-      CU_ASSERT_NEQ (false, 0);
+      CU_FAIL ("oops");
   }
   OSSL_STORE_close(store_ctx);
 
@@ -252,7 +252,7 @@ X509 * get_certificate_pkcs11(const char *uri)
   if (!(store_ctx = OSSL_STORE_open(uri, NULL, NULL, NULL, NULL)))
   {
     ERR_print_errors_fp (stderr);
-    CU_ASSERT_NEQ (false, 0);
+    CU_FAIL ("oops");
   }
 
   while (!cert)
@@ -266,10 +266,10 @@ X509 * get_certificate_pkcs11(const char *uri)
     else if (OSSL_STORE_error(store_ctx))
     {
       ERR_print_errors_fp (stderr);
-      CU_ASSERT_NEQ (false, 0);
+      CU_FAIL ("oops");
     }
     else
-      CU_ASSERT_NEQ (false, 0);
+      CU_FAIL ("oops");
   }
   OSSL_STORE_close(store_ctx);
 

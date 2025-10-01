@@ -391,7 +391,7 @@ CU_Test(ddssec_security_plugin_loading, all_ok_with_props, .init = ddsrt_init, .
       NULL};
 
   unsigned char bvalue[3] = {0x01, 0x02, 0x03};
-  CU_ASSERT_NEQ ((qos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ (qos = dds_create_qos(), NULL);
   dds_qset_prop(qos, "test.prop1", "testtext_value1_testtext");
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_IDENTITY_CA, "testtext_IdentityCA_testtext");
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_PRIV_KEY, "testtext_PrivateKey_testtext");
@@ -439,7 +439,7 @@ CU_Test(ddssec_security_plugin_loading, missing_plugin_property_with_props, .ini
       NULL};
 
   unsigned char bvalue[3] = {0x01, 0x02, 0x03};
-  CU_ASSERT_NEQ ((qos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ (qos = dds_create_qos(), NULL);
   dds_qset_prop(qos, "test.prop1", "testtext_value1_testtext");
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_IDENTITY_CA, "testtext_IdentityCA_testtext");
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_PRIV_KEY, "testtext_PrivateKey_testtext");
@@ -486,7 +486,7 @@ CU_Test(ddssec_security_plugin_loading, empty_plugin_property_with_props, .init 
       NULL};
 
   unsigned char bvalue[3] = {0x01, 0x02, 0x03};
-  CU_ASSERT_NEQ ((qos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ (qos = dds_create_qos(), NULL);
   dds_qset_prop(qos, "test.prop1", "testtext_value1_testtext");
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_IDENTITY_CA, "testtext_IdentityCA_testtext");
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_PRIV_KEY, "testtext_PrivateKey_testtext");
@@ -533,7 +533,7 @@ CU_Test(ddssec_security_plugin_loading, missing_security_property_with_props, .i
       NULL};
 
   unsigned char bvalue[3] = {0x01, 0x02, 0x03};
-  CU_ASSERT_NEQ ((qos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ (qos = dds_create_qos(), NULL);
   dds_qset_prop(qos, "test.prop1", "testtext_value1_testtext");
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_IDENTITY_CA, "testtext_IdentityCA_testtext");
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_PRIV_KEY, "testtext_PrivateKey_testtext");
@@ -641,7 +641,7 @@ CU_Test(ddssec_security_plugin_loading, multiple_domains_different_config, .init
   CU_ASSERT_GT (domain2, 0);
 
   /* Create the qos */
-  CU_ASSERT_NEQ ((qos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ (qos = dds_create_qos(), NULL);
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_IDENTITY_CA, "testtext_IdentityCA_testtext");
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_PRIV_KEY, "testtext_PrivateKey_testtext");
   dds_qset_prop(qos, DDS_SEC_PROP_AUTH_IDENTITY_CERT, "testtext_IdentityCertificate_testtext");

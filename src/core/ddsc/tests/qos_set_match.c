@@ -29,7 +29,7 @@ static void durability_set (dds_qos_t * const q, int const * const v) {
 static void durability_check (const enum check_mode check_mode, const dds_qos_t * const q, int const * const v) {
   assert ((int) DDS_DURABILITY_VOLATILE <= v[0] && v[0] <= (int) DDS_DURABILITY_PERSISTENT);
   dds_durability_kind_t k = (dds_durability_kind_t) ((int) DDS_DURABILITY_PERSISTENT - v[0]);
-  CU_ASSERT_NEQ (dds_qget_durability (q, &k) == (check_mode != CM_UNSET), 0);
+  CU_ASSERT_EQ (dds_qget_durability (q, &k), (check_mode != CM_UNSET));
   if (check_mode == CM_SET) {
     CU_ASSERT_EQ ((int) k, v[0]);
   }
@@ -49,7 +49,7 @@ static void reliability_check (const enum check_mode check_mode, const dds_qos_t
   assert ((int) DDS_RELIABILITY_BEST_EFFORT <= v[0] && v[0] <= (int) DDS_RELIABILITY_RELIABLE);
   dds_reliability_kind_t k = (dds_reliability_kind_t) ((int) DDS_RELIABILITY_RELIABLE - v[0]);
   dds_duration_t d = -1;
-  CU_ASSERT_NEQ (dds_qget_reliability (q, &k, &d) == (check_mode != CM_UNSET), 0);
+  CU_ASSERT_EQ (dds_qget_reliability (q, &k, &d), (check_mode != CM_UNSET));
   if (check_mode == CM_SET) {
     CU_ASSERT_EQ ((int) k, v[0]);
     CU_ASSERT_EQ (d, max_blocking_time_offset);
@@ -68,7 +68,7 @@ static void latency_budget_set (dds_qos_t * const q, int const * const v) {
 }
 static void latency_budget_check (const enum check_mode check_mode, const dds_qos_t * const q, int const * const v) {
   dds_duration_t d = -1;
-  CU_ASSERT_NEQ (dds_qget_latency_budget (q, &d) == (check_mode != CM_UNSET), 0);
+  CU_ASSERT_EQ (dds_qget_latency_budget (q, &d), (check_mode != CM_UNSET));
   if (check_mode == CM_SET) {
     CU_ASSERT_EQ (d, v[0] + latency_budget_offset);
   }
@@ -86,7 +86,7 @@ static void deadline_set (dds_qos_t * const q, int const * const v) {
 }
 static void deadline_check (const enum check_mode check_mode, const dds_qos_t * const q, int const * const v) {
   dds_duration_t d = -1;
-  CU_ASSERT_NEQ (dds_qget_deadline (q, &d) == (check_mode != CM_UNSET), 0);
+  CU_ASSERT_EQ (dds_qget_deadline (q, &d), (check_mode != CM_UNSET));
   if (check_mode == CM_SET) {
     CU_ASSERT_EQ (d, v[0] + deadline_offset);
   }
@@ -104,7 +104,7 @@ static void time_based_filter_set (dds_qos_t * const q, int const * const v) {
 }
 static void time_based_filter_check (const enum check_mode check_mode, const dds_qos_t * const q, int const * const v) {
   dds_duration_t d = -1;
-  CU_ASSERT_NEQ (dds_qget_time_based_filter (q, &d) == (check_mode != CM_UNSET), 0);
+  CU_ASSERT_EQ (dds_qget_time_based_filter (q, &d), (check_mode != CM_UNSET));
   if (check_mode == CM_SET) {
     CU_ASSERT_EQ (d, v[0] + time_based_filter_offset);
   }
@@ -121,7 +121,7 @@ static void ownership_set (dds_qos_t * const q, int const * const v) {
 static void ownership_check (const enum check_mode check_mode, const dds_qos_t * const q, int const * const v) {
   assert ((int) DDS_OWNERSHIP_SHARED <= v[0] && v[0] <= (int) DDS_OWNERSHIP_EXCLUSIVE);
   dds_ownership_kind_t k = (dds_ownership_kind_t) ((int) DDS_OWNERSHIP_EXCLUSIVE - v[0]);
-  CU_ASSERT_NEQ (dds_qget_ownership (q, &k) == (check_mode != CM_UNSET), 0);
+  CU_ASSERT_EQ (dds_qget_ownership (q, &k), (check_mode != CM_UNSET));
   if (check_mode == CM_SET) {
     CU_ASSERT_EQ ((int) k, v[0]);
   }
@@ -136,7 +136,7 @@ static void ownership_strength_set (dds_qos_t * const q, int const * const v) {
 }
 static void ownership_strength_check (const enum check_mode check_mode, const dds_qos_t * const q, int const * const v) {
   int32_t k = -1;
-  CU_ASSERT_NEQ (dds_qget_ownership_strength (q, &k) == (check_mode != CM_UNSET), 0);
+  CU_ASSERT_EQ (dds_qget_ownership_strength (q, &k), (check_mode != CM_UNSET));
   if (check_mode == CM_SET) {
     CU_ASSERT_EQ (k, v[0] + ownership_strength_offset);
   }
@@ -150,7 +150,7 @@ static void destination_order_set (dds_qos_t * const q, int const * const v) {
 static void destination_order_check (const enum check_mode check_mode, const dds_qos_t * const q, int const * const v) {
   assert ((int) DDS_DESTINATIONORDER_BY_RECEPTION_TIMESTAMP <= v[0] && v[0] <= (int) DDS_DESTINATIONORDER_BY_SOURCE_TIMESTAMP);
   dds_destination_order_kind_t k = (dds_destination_order_kind_t) ((int) DDS_DESTINATIONORDER_BY_SOURCE_TIMESTAMP - v[0]);
-  CU_ASSERT_NEQ (dds_qget_destination_order (q, &k) == (check_mode != CM_UNSET), 0);
+  CU_ASSERT_EQ (dds_qget_destination_order (q, &k), (check_mode != CM_UNSET));
   if (check_mode == CM_SET) {
     CU_ASSERT_EQ ((int) k, v[0]);
   }
@@ -166,7 +166,7 @@ static void lifespan_set (dds_qos_t * const q, int const * const v) {
 }
 static void lifespan_check (const enum check_mode check_mode, const dds_qos_t * const q, int const * const v) {
   dds_duration_t d = -1;
-  CU_ASSERT_NEQ (dds_qget_lifespan (q, &d) == (check_mode != CM_UNSET), 0);
+  CU_ASSERT_EQ (dds_qget_lifespan (q, &d), (check_mode != CM_UNSET));
   if (check_mode == CM_SET) {
     CU_ASSERT_EQ (d, v[0] + lifespan_offset);
   }
@@ -183,7 +183,7 @@ static void transport_priority_set (dds_qos_t * const q, int const * const v) {
 }
 static void transport_priority_check (const enum check_mode check_mode, const dds_qos_t * const q, int const * const v) {
   int32_t d = -1;
-  CU_ASSERT_NEQ (dds_qget_transport_priority (q, &d) == (check_mode != CM_UNSET), 0);
+  CU_ASSERT_EQ (dds_qget_transport_priority (q, &d), (check_mode != CM_UNSET));
   if (check_mode == CM_SET) {
     CU_ASSERT_EQ (d, v[0] + transport_priority_offset);
   }
@@ -199,7 +199,7 @@ static void history_check (const enum check_mode check_mode, const dds_qos_t * c
   assert ((int) DDS_HISTORY_KEEP_LAST <= v[0] && v[0] <= (int) DDS_HISTORY_KEEP_ALL);
   dds_history_kind_t k = (dds_history_kind_t) ((int) DDS_HISTORY_KEEP_ALL - v[0]);
   int32_t d = -1;
-  CU_ASSERT_NEQ (dds_qget_history (q, &k, &d) == (check_mode != CM_UNSET), 0);
+  CU_ASSERT_EQ (dds_qget_history (q, &k, &d), (check_mode != CM_UNSET));
   if (check_mode == CM_SET) {
     CU_ASSERT_EQ ((int) k, v[0]);
     CU_ASSERT_EQ (d, history_depth);
@@ -220,7 +220,7 @@ static void liveliness_check (const enum check_mode check_mode, const dds_qos_t 
   assert ((int) DDS_LIVELINESS_AUTOMATIC <= v[0] && v[0] <= (int) DDS_LIVELINESS_MANUAL_BY_TOPIC && v[1] >= 0);
   dds_liveliness_kind_t k = (dds_liveliness_kind_t) ((int) DDS_LIVELINESS_MANUAL_BY_TOPIC - v[0]);
   dds_duration_t d = -1;
-  CU_ASSERT_NEQ (dds_qget_liveliness (q, &k, &d) == (check_mode != CM_UNSET), 0);
+  CU_ASSERT_EQ (dds_qget_liveliness (q, &k, &d), (check_mode != CM_UNSET));
   if (check_mode == CM_SET) {
     CU_ASSERT_EQ ((int) k, v[0]);
     CU_ASSERT_EQ (d, DDS_SECS (1) + v[1]);
@@ -253,7 +253,7 @@ static void resource_limits_set (dds_qos_t * const q, int const * const v) {
 }
 static void resource_limits_check (const enum check_mode check_mode, const dds_qos_t * const q, int const * const v) {
   int32_t a = 0, b = 0, c = 0;
-  CU_ASSERT_NEQ (dds_qget_resource_limits (q, &a, &b, &c) == (check_mode != CM_UNSET), 0);
+  CU_ASSERT_EQ (dds_qget_resource_limits (q, &a, &b, &c), (check_mode != CM_UNSET));
   if (check_mode == CM_SET) {
     CU_ASSERT_EQ (a, resource_limits_cnv (v[0],0,2));
     CU_ASSERT_EQ (b, resource_limits_cnv (v[0],1,1));
@@ -279,7 +279,7 @@ static void presentation_check (const enum check_mode check_mode, const dds_qos_
   assert ((v[1] == 0 || v[1] == 1) && (v[2] == 0 || v[2] == 1));
   dds_presentation_access_scope_kind_t k = (dds_presentation_access_scope_kind_t) ((int) DDS_PRESENTATION_GROUP - v[0]);
   bool w = !v[1], x = !v[2];
-  CU_ASSERT_NEQ (dds_qget_presentation (q, &k, &w, &x) == (check_mode != CM_UNSET), 0);
+  CU_ASSERT_EQ (dds_qget_presentation (q, &k, &w, &x), (check_mode != CM_UNSET));
   if (check_mode == CM_SET) {
     CU_ASSERT_EQ ((int) k, v[0]);
     CU_ASSERT_EQ (w, v[1]);
@@ -307,7 +307,7 @@ static void partition_check (const enum check_mode check_mode, const dds_qos_t *
   uint32_t n = UINT32_MAX;
   char dummy, *dummyptr = &dummy, **ps = &dummyptr;
   bool r = dds_qget_partition (q, &n, &ps);
-  CU_ASSERT_NEQ (r == (check_mode != CM_UNSET), 0);
+  CU_ASSERT_EQ (r, (check_mode != CM_UNSET));
   if (check_mode == CM_SET) {
     if (v[0] == 0) {
       CU_ASSERT_NEQ (n == 0 && ps == NULL, 0); // Beware: there is an open PR to change this case!
@@ -332,7 +332,7 @@ static void ignorelocal_set (dds_qos_t * const q, int const * const v) {
 static void ignorelocal_check (const enum check_mode check_mode, const dds_qos_t * const q, int const * const v) {
   assert ((int) DDS_IGNORELOCAL_NONE <= v[0] && v[0] <= (int) DDS_IGNORELOCAL_PROCESS);
   dds_ignorelocal_kind_t k = (dds_ignorelocal_kind_t) ((int) DDS_IGNORELOCAL_PROCESS - v[0]);
-  CU_ASSERT_NEQ (dds_qget_ignorelocal (q, &k) == (check_mode != CM_UNSET), 0);
+  CU_ASSERT_EQ (dds_qget_ignorelocal (q, &k), (check_mode != CM_UNSET));
   if (check_mode == CM_SET) {
     CU_ASSERT_EQ ((int) k, v[0]);
   }
@@ -348,7 +348,7 @@ static void writer_batching_set (dds_qos_t * const q, int const * const v) {
 static void writer_batching_check (const enum check_mode check_mode, const dds_qos_t * const q, int const * const v) {
   assert (0 <= v[0] && v[0] <= 1);
   bool k = (bool) (1 - v[0]);
-  CU_ASSERT_NEQ (dds_qget_writer_batching (q, &k) == (check_mode != CM_UNSET), 0);
+  CU_ASSERT_EQ (dds_qget_writer_batching (q, &k), (check_mode != CM_UNSET));
   if (check_mode == CM_SET) {
     CU_ASSERT_EQ ((int) k, v[0]);
   }
@@ -362,7 +362,7 @@ static void writer_data_lifecycle_set (dds_qos_t * const q, int const * const v)
 static void writer_data_lifecycle_check (const enum check_mode check_mode, const dds_qos_t * const q, int const * const v) {
   assert (0 <= v[0] && v[0] <= 1);
   bool k = (bool) (1 - v[0]);
-  CU_ASSERT_NEQ (dds_qget_writer_data_lifecycle (q, &k) == (check_mode != CM_UNSET), 0);
+  CU_ASSERT_EQ (dds_qget_writer_data_lifecycle (q, &k), (check_mode != CM_UNSET));
   if (check_mode == CM_SET) {
     CU_ASSERT_EQ ((int) k, v[0]);
   }
@@ -376,7 +376,7 @@ static void reader_data_lifecycle_set (dds_qos_t * const q, int const * const v)
 static void reader_data_lifecycle_check (const enum check_mode check_mode, const dds_qos_t * const q, int const * const v) {
   assert (0 <= v[0] && 0 <= v[1]);
   dds_duration_t k = -1, l = -1;
-  CU_ASSERT_NEQ (dds_qget_reader_data_lifecycle (q, &k, &l) == (check_mode != CM_UNSET), 0);
+  CU_ASSERT_EQ (dds_qget_reader_data_lifecycle (q, &k, &l), (check_mode != CM_UNSET));
   if (check_mode == CM_SET) {
     CU_ASSERT_EQ ((int) k, DDS_MSECS(100) + v[0]);
     CU_ASSERT_EQ ((int) l, DDS_MSECS(200) + v[1]);
@@ -406,7 +406,7 @@ static void durability_service_check (const enum check_mode check_mode, const dd
   dds_duration_t a = -1;
   dds_history_kind_t b = (dds_history_kind_t) ((int) DDS_HISTORY_KEEP_ALL - v[1]);
   int32_t c = 0, d = 0, e = 0, f = 0;
-  CU_ASSERT_NEQ (dds_qget_durability_service (q, &a, &b, &c, &d, &e, &f) == (check_mode != CM_UNSET), 0);
+  CU_ASSERT_EQ (dds_qget_durability_service (q, &a, &b, &c, &d, &e, &f), (check_mode != CM_UNSET));
   if (check_mode == CM_SET) {
     CU_ASSERT_EQ (a, cleanup_service_delay_offset + v[0]);
     CU_ASSERT_EQ (b, (dds_history_kind_t) v[1]);
@@ -443,7 +443,7 @@ static void entity_name_check (const enum check_mode check_mode, const dds_qos_t
   bool r = dds_qget_entity_name (q, &n);
   // Deviation from pattern: entity name we expect to see only when we set it explicitly because we run
   // with entity auto-naming disabled (the default)
-  CU_ASSERT_NEQ (r == (check_mode == CM_SET), 0);
+  CU_ASSERT_EQ (r, (check_mode == CM_SET));
   if (check_mode == CM_SET) {
     char name[13];
     snprintf (name, sizeof (name), "q%d", v[0]);
@@ -1262,7 +1262,8 @@ CU_Test(ddsc_qos_set, partition_mismatch_no_incompat_qos)
   rc = dds_read_status (wr, &wrstat, DDS_OFFERED_INCOMPATIBLE_QOS_STATUS);
   CU_ASSERT_EQ (rc, 0);
 
-  CU_ASSERT_NEQ (rdstat == 0 && wrstat == 0, 0);
+  CU_ASSERT_EQ (rdstat, 0);
+  CU_ASSERT_EQ (wrstat, 0);
 
   rc = dds_delete (dom);
   CU_ASSERT_EQ (rc, 0);
