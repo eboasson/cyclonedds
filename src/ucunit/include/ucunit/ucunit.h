@@ -67,9 +67,9 @@ extern "C" {
   const bool fatal__ = (fatal_);                                        \
   const bool satisfied__ = (xv__) op_ (yv__);                           \
   if (!satisfied__) {                                                   \
-    char fmt[100];                                                      \
-    snprintf (fmt, sizeof (fmt), "%%s:%%d: not satisfied: %%s (%s) %%s %%s (%s)\n", CU_ASSERT_PRINTF_FORMAT (xv__), CU_ASSERT_PRINTF_FORMAT (yv__)); \
-    fprintf (stderr, fmt, __FILE__, __LINE__, #x_, xv__, #op_, #y_, yv__); \
+    char fmt__[100];                                                    \
+    snprintf (fmt__, sizeof (fmt__), "%%s:%%d: not satisfied: %%s (%s) %%s %%s (%s)\n", CU_ASSERT_PRINTF_FORMAT (xv__), CU_ASSERT_PRINTF_FORMAT (yv__)); \
+    fprintf (stderr, fmt__, __FILE__, __LINE__, #x_, xv__, #op_, #y_, yv__); \
     CU_assertImplementation (false, __LINE__, #x_ #op_ #y_, __FILE__, "", fatal__); \
     if (!satisfied__ && fatal__)                                         \
       CU_UNREACHABLE;                                                   \
