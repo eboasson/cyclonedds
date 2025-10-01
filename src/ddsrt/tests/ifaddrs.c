@@ -101,7 +101,7 @@ CU_Test(ddsrt_getifaddrs, null_filter)
     cnt++;
   }
 
-  CU_ASSERT_NEQ (cnt > 0, 0);
+  CU_ASSERT_GT (cnt, 0);
   ddsrt_freeifaddrs(ifa_root);
 }
 

@@ -84,7 +84,7 @@ CU_Test(ddsrt_strtoll, strtoll)
   ptr = dummy;
   ll = -5;
   rc = ddsrt_strtoll(str, &ptr, 37, &ll);
-  CU_ASSERT_NEQ (rc == DDS_RETCODE_BAD_PARAMETER, 0);
+  CU_ASSERT_EQ (rc, DDS_RETCODE_BAD_PARAMETER);
   CU_ASSERT_NEQ (ll == -5 && ptr == dummy, 0);
 
   str = " \t \n 1050505055";
@@ -141,14 +141,14 @@ CU_Test(ddsrt_strtoll, strtoll)
   str = (const char *)str_llrange;
   ll = -14;
   rc = ddsrt_strtoll(str, &ptr, 10, &ll);
-  CU_ASSERT_NEQ (rc == DDS_RETCODE_OUT_OF_RANGE, 0);
+  CU_ASSERT_EQ (rc, DDS_RETCODE_OUT_OF_RANGE);
   CU_ASSERT_NEQ (ll == llmax && *ptr == '1', 0);
 
   str = "0x100";
   ll = -15;
   rc = ddsrt_strtoll(str, NULL, 16, &ll);
   CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
-  CU_ASSERT_NEQ (ll == 0x100LL, 0);
+  CU_ASSERT_EQ (ll, 0x100LL);
 
   str = "0X100";
   ll = -16;

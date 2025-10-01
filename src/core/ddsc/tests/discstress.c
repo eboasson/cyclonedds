@@ -199,8 +199,8 @@ static bool checksample (struct ddsrt_hh *wrinfo, const dds_sample_info_t *si, c
   struct wrinfo *wri;
   bool result = true;
 
-  CU_ASSERT_NEQ (s->wridx < N_WRITERS, 0);
-  CU_ASSERT_NEQ (s->histidx < DEPTH, 0);
+  CU_ASSERT_LT (s->wridx, N_WRITERS);
+  CU_ASSERT_LT (s->histidx, DEPTH);
 
   if ((wri = ddsrt_hh_lookup (wrinfo, &(struct wrinfo){ .wrid = s->wrseq, .rdid = rdid })) == NULL)
   {
@@ -361,7 +361,7 @@ static uint32_t createwriter_subscriber (void *varg)
         tprintf ("--- reader %d current_count %"PRIu32"\n", i, st.current_count);
       }
       fflush (stdout);
-      CU_ASSERT_NEQ (0, 0);
+      CU_FAIL ("oops");
     }
 
 #define READ_LEN 3
@@ -385,7 +385,7 @@ static uint32_t createwriter_subscriber (void *varg)
         if (error)
         {
           fflush (stdout);
-          CU_ASSERT_NEQ (0, 0);
+          CU_FAIL ("oops");
         }
 
         rc = dds_return_loan (readers[xs[i]], raw, n);

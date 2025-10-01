@@ -376,7 +376,7 @@ CU_Test(ddsrt_hopscotch, concurrent, .timeout = 20)
   for (uint32_t i = 0; i < 4; i++)
   {
     dds_return_t ret = ddsrt_thread_join (tids[i], NULL);
-    CU_ASSERT_NEQ (ret == 0, 0);
+    CU_ASSERT_EQ (ret, 0);
     printf ("args[%"PRIu32"] add %"PRIu32" rm %"PRIu32" lk %"PRIu32" max %"PRIu32"\n",
             i, args[i].adds, args[i].removes, args[i].lookups, args[i].maxnkeys);
   }
