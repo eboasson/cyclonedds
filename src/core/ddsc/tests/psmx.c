@@ -94,9 +94,9 @@ ${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}\
   const dds_entity_t dom = dds_create_domain (int_dom, xconfigstr);
   ddsrt_free (xconfigstr);
   ddsrt_free (configstr);
-  CU_ASSERT_NEQ (dom > 0, 0);
+  CU_ASSERT_GT (dom, 0);
   const dds_entity_t pp = dds_create_participant (int_dom, NULL, NULL);
-  CU_ASSERT_NEQ (pp > 0, 0);
+  CU_ASSERT_GT (pp, 0);
   return pp;
 }
 
@@ -113,12 +113,12 @@ static bool endpoint_has_psmx_enabled (dds_entity_t rd_or_wr)
   struct dds_entity *x;
   bool psmx_enabled = false;
   rc = dds_entity_pin (rd_or_wr, &x);
-  CU_ASSERT_NEQ (rc == DDS_RETCODE_OK, 0);
+  CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
   if ( dds_entity_kind (x) == DDS_KIND_READER ) {
     struct dds_reader const * const rd = (struct dds_reader *) x;
     psmx_enabled = (rd->m_endpoint.psmx_endpoints.length > 0);
   } else {
-    CU_ASSERT_NEQ (dds_entity_kind (x) == DDS_KIND_WRITER, 0);
+    CU_ASSERT_EQ (dds_entity_kind (x), DDS_KIND_WRITER);
     struct dds_writer const * const wr = (struct dds_writer *) x;
     psmx_enabled = (wr->m_endpoint.psmx_endpoints.length > 0);
   }
@@ -133,14 +133,14 @@ static bool psmx_supports_keys (dds_entity_t pp)
   char checktopicname[100];
   create_unique_topic_name ("test_psmx_keys", checktopicname, sizeof (checktopicname));
   const dds_entity_t tp = dds_create_topic (pp, &PsmxKeySupportCheck_desc, checktopicname, NULL, NULL);
-  CU_ASSERT_NEQ (tp > 0, 0);
+  CU_ASSERT_GT (tp, 0);
   const dds_entity_t wr = dds_create_writer (pp, tp, NULL, NULL);
-  CU_ASSERT_NEQ (wr > 0, 0);
+  CU_ASSERT_GT (wr, 0);
   const bool type_supported = endpoint_has_psmx_enabled (wr);
   dds_return_t rc = dds_delete (wr);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   rc = dds_delete (tp);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   return type_supported;
 }
 
@@ -149,12 +149,12 @@ static uint32_t reader_unicast_port (dds_entity_t rdhandle)
   dds_return_t rc;
   struct dds_entity *x;
   rc = dds_entity_pin (rdhandle, &x);
-  CU_ASSERT_NEQ (rc == DDS_RETCODE_OK, 0);
-  CU_ASSERT_NEQ (dds_entity_kind (x) == DDS_KIND_READER, 0);
+  CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
+  CU_ASSERT_EQ (dds_entity_kind (x), DDS_KIND_READER);
   uint32_t port = x->m_domain->gv.loc_default_uc.port;
   dds_entity_unpin (x);
   // FIXME test code assumes non-Iceoryx means port > 0
-  CU_ASSERT_NEQ (port > 0, 0);
+  CU_ASSERT_GT (port, 0);
   return port;
 }
 
@@ -209,10 +209,10 @@ static bool check_writer_addrset_once (struct tracebuf *tb, dds_entity_t wrhandl
   dds_return_t rc;
   struct dds_entity *x;
   rc = dds_entity_pin (wrhandle, &x);
-  CU_ASSERT_NEQ (rc == DDS_RETCODE_OK, 0);
-  CU_ASSERT_NEQ (dds_entity_kind (x) == DDS_KIND_WRITER, 0);
+  CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
+  CU_ASSERT_EQ (dds_entity_kind (x), DDS_KIND_WRITER);
   struct ddsi_writer * const wr = ((struct dds_writer *) x)->m_wr;
-  CU_ASSERT_NEQ (nports < 31, 0);
+  CU_ASSERT_LT (nports, 31);
   struct check_writer_addrset_helper_arg arg = {
     .ports_seen = 0,
     .tb = tb,
@@ -244,7 +244,7 @@ static bool check_writer_addrset (struct tracebuf *tb, dds_entity_t wrhandle, in
 static dds_entity_t create_endpoint (dds_entity_t tp, bool use_psmx, dds_entity_t (*f) (dds_entity_t pp, dds_entity_t tp, const dds_qos_t *qos, const dds_listener_t *listener))
 {
   dds_qos_t *qos = dds_create_qos ();
-  CU_ASSERT_NEQ (qos != NULL, 0);
+  CU_ASSERT_NEQ (qos, NULL);
   dds_qset_reliability (qos, DDS_RELIABILITY_RELIABLE, 0);
   // Use depth = 2 so that we can observe stuttering if the fastpath/slowpath
   // fails to correctly skip PSMX readers
@@ -253,9 +253,9 @@ static dds_entity_t create_endpoint (dds_entity_t tp, bool use_psmx, dds_entity_
   if (!use_psmx)
     dds_qset_psmx_instances (qos, 0, NULL);
   dds_entity_t ep = f (dds_get_participant (tp), tp, qos, NULL);
-  CU_ASSERT_NEQ (ep > 0, 0);
+  CU_ASSERT_GT (ep, 0);
   dds_delete_qos (qos);
-  CU_ASSERT_NEQ (endpoint_has_psmx_enabled (ep) == use_psmx, 0);
+  CU_ASSERT_EQ (endpoint_has_psmx_enabled (ep), use_psmx);
   return ep;
 }
 
@@ -297,7 +297,7 @@ static int get_current_match_count (dds_entity_t rd_or_wr)
   else if (rc == DDS_RETCODE_ILLEGAL_OPERATION)
   {
     rc = dds_get_subscription_matched_status (rd_or_wr, &sm);
-    CU_ASSERT_NEQ (rc == 0, 0);
+    CU_ASSERT_EQ (rc, 0);
     CU_ASSERT_NEQ (sm.current_count == 0 || sm.current_count == 1, 0);
     return (int) sm.current_count;
   }
@@ -325,7 +325,7 @@ static bool allmatched (dds_entity_t ws, dds_entity_t wr, int nrds, const dds_en
   for (int i = 0; i < nrds; i++)
   {
     dds_return_t rc = dds_get_guid (rds[i], &rdguids[i]);
-    CU_ASSERT_NEQ (rc == 0, 0);
+    CU_ASSERT_EQ (rc, 0);
   }
   qsort (rdguids, (size_t) nrds, sizeof (rdguids[0]), ddsi_compare_guid);
 
@@ -348,7 +348,7 @@ static bool allmatched (dds_entity_t ws, dds_entity_t wr, int nrds, const dds_en
 
     dds_instance_handle_t ms[MAX_DOMAINS * MAX_READERS_PER_DOMAIN];
     int32_t nms = dds_get_matched_subscriptions (wr, ms, sizeof (ms) / sizeof (ms[0]));
-    CU_ASSERT_NEQ (nms >= 0, 0);
+    CU_ASSERT_GEQ (nms, 0);
     if (nms != nrds)
       continue;
     dds_guid_t mguids[MAX_DOMAINS * MAX_READERS_PER_DOMAIN];
@@ -392,7 +392,7 @@ static bool alldataseen (struct tracebuf *tb, int nrds, const dds_entity_t *rds,
   assert (nrds > 0);
   dds_return_t rc;
   const dds_entity_t ws = dds_create_waitset (DDS_CYCLONEDDS_HANDLE);
-  CU_ASSERT_NEQ (ws > 0, 0);
+  CU_ASSERT_GT (ws, 0);
   dds_entity_t *rdconds = dds_alloc ((size_t) nrds * sizeof (*rdconds));
   for (int i = 0; i < nrds; i++)
   {
@@ -402,9 +402,9 @@ static bool alldataseen (struct tracebuf *tb, int nrds, const dds_entity_t *rds,
     else
     {
       rdconds[i] = dds_create_readcondition (rds[i], DDS_ANY_STATE);
-      CU_ASSERT_NEQ (rdconds[i] > 0, 0);
+      CU_ASSERT_GT (rdconds[i], 0);
       rc = dds_waitset_attach (ws, rdconds[i], i);
-      CU_ASSERT_NEQ (rc == 0, 0);
+      CU_ASSERT_EQ (rc, 0);
     }
   }
 
@@ -452,7 +452,7 @@ static bool alldataseen (struct tracebuf *tb, int nrds, const dds_entity_t *rds,
           if (dataseen[i] > 1)
             toomuchdataseen = true;
         }
-        CU_ASSERT_NEQ (n == 0, 0);
+        CU_ASSERT_EQ (n, 0);
         if (!use_rd_loan)
           dds_sample_free (sampleptr, tpdesc, DDS_FREE_ALL);
       }
@@ -482,10 +482,10 @@ out:
   for (int i = 0; i < nrds; i++)
   {
     rc = rdconds[i] ? dds_delete (rdconds[i]) : 0;
-    CU_ASSERT_NEQ (rc == 0, 0);
+    CU_ASSERT_EQ (rc, 0);
   }
   rc = dds_delete (ws);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   dds_free (rdconds);
   dds_free (dataseen);
   return alldataseen && !toomuchdataseen;
@@ -501,8 +501,8 @@ static void wait_for_fastpath_ready (dds_entity_t wrhandle)
   dds_return_t rc;
   struct dds_entity *x;
   rc = dds_entity_pin (wrhandle, &x);
-  CU_ASSERT_NEQ (rc == DDS_RETCODE_OK, 0);
-  CU_ASSERT_NEQ (dds_entity_kind (x) == DDS_KIND_WRITER, 0);
+  CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
+  CU_ASSERT_EQ (dds_entity_kind (x), DDS_KIND_WRITER);
   struct ddsi_writer * const wr = ((struct dds_writer *) x)->m_wr;
   ddsrt_mutex_lock (&wr->rdary.rdary_lock);
   while (!wr->rdary.fastpath_ok)
@@ -520,8 +520,8 @@ static struct fastpath_info getset_fastpath_reader_count (dds_entity_t wrhandle,
   dds_return_t rc;
   struct dds_entity *x;
   rc = dds_entity_pin (wrhandle, &x);
-  CU_ASSERT_NEQ (rc == DDS_RETCODE_OK, 0);
-  CU_ASSERT_NEQ (dds_entity_kind (x) == DDS_KIND_WRITER, 0);
+  CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
+  CU_ASSERT_EQ (dds_entity_kind (x), DDS_KIND_WRITER);
   struct ddsi_writer * const wr = ((struct dds_writer *) x)->m_wr;
   ddsrt_mutex_lock (&wr->rdary.rdary_lock);
   assert (wr->rdary.fastpath_ok);
@@ -542,8 +542,8 @@ static void getset_fastpath_enabled (dds_entity_t wrhandle, bool enable)
   struct dds_entity *x;
 
   rc = dds_entity_pin (wrhandle, &x);
-  CU_ASSERT_NEQ (rc == DDS_RETCODE_OK, 0);
-  CU_ASSERT_NEQ (dds_entity_kind (x) == DDS_KIND_WRITER, 0);
+  CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
+  CU_ASSERT_EQ (dds_entity_kind (x), DDS_KIND_WRITER);
   struct ddsi_writer * const wr = ((struct dds_writer *) x)->m_wr;
   ddsrt_mutex_lock (&wr->rdary.rdary_lock);
   assert ((wr->rdary.fastpath_ok && !enable) ||
@@ -621,7 +621,7 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample, bo
   struct ddsi_domaingv *gvs[MAX_DOMAINS];
 
   const dds_entity_t ws = dds_create_waitset (DDS_CYCLONEDDS_HANDLE);
-  CU_ASSERT_NEQ (ws > 0, 0);
+  CU_ASSERT_GT (ws, 0);
 
   char topicname[100];
   create_unique_topic_name ("test_psmx", topicname, sizeof (topicname));
@@ -629,7 +629,7 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample, bo
   {
     pp[i] = create_participant ((dds_domainid_t) i); // FIXME: vary shm_enable for i > 0
     tp[i] = dds_create_topic (pp[i], tpdesc, topicname, NULL, NULL);
-    CU_ASSERT_NEQ (tp[i] > 0, 0);
+    CU_ASSERT_GT (tp[i], 0);
     gvs[i] = get_domaingv (pp[i]);
   }
 
@@ -644,9 +644,9 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample, bo
   {
     const dds_entity_t wr = create_writer (tp[0], (wr_use_psmx != 0));
     rc = dds_set_status_mask (wr, DDS_PUBLICATION_MATCHED_STATUS);
-    CU_ASSERT_NEQ (rc == 0, 0);
+    CU_ASSERT_EQ (rc, 0);
     rc = dds_waitset_attach (ws, wr, 0);
-    CU_ASSERT_NEQ (rc == 0, 0);
+    CU_ASSERT_EQ (rc, 0);
 
     // rdmode: trit 0: reader 0; trit 1: reader 1; ...
     //   0: no reader
@@ -713,9 +713,9 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample, bo
         }
 
         rc = dds_set_status_mask (rds[i], DDS_SUBSCRIPTION_MATCHED_STATUS);
-        CU_ASSERT_NEQ (rc == 0, 0);
+        CU_ASSERT_EQ (rc, 0);
         rc = dds_waitset_attach (ws, rds[i], i + 1);
-        CU_ASSERT_NEQ (rc == 0, 0);
+        CU_ASSERT_EQ (rc, 0);
         nrds_active++;
       }
 
@@ -800,7 +800,7 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample, bo
         {
           void *loan;
           rc = dds_request_loan (wr, &loan);
-          CU_ASSERT_NEQ (rc == 0, 0);
+          CU_ASSERT_EQ (rc, 0);
           memcpy (loan, sample, tpdesc->m_size);
           sample_to_write = loan;
         }
@@ -821,9 +821,9 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample, bo
         {
           const struct ddsi_sertype *st;
           rc = dds_get_entity_sertype (wr, &st);
-          CU_ASSERT_NEQ (rc == 0, 0);
+          CU_ASSERT_EQ (rc, 0);
           struct ddsi_serdata * const sd = ddsi_serdata_from_sample (st, valid_data ? SDK_DATA : SDK_KEY, sample);
-          CU_ASSERT_NEQ (sd != NULL, 0);
+          CU_ASSERT_NEQ (sd, NULL);
           // the odious dds_writecdr overwrites statusinfo and timestamp, but dds_forwardcdr is better behaved
           switch (ops[opidx].op)
           {
@@ -846,7 +846,7 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample, bo
             ddsi_serdata_unref (check_sd);
           }
         }
-        CU_ASSERT_NEQ (rc == 0, 0);
+        CU_ASSERT_EQ (rc, 0);
         if (!alldataseen (&tb, nrds_active, rds, ops[opidx].istate, valid_data, sample, eq, use_rd_loan, tpdesc, ts))
         {
           fail_one = true;
@@ -883,7 +883,7 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample, bo
       for (int i = 0; i < nrds_active; i++)
       {
         rc = dds_delete (rds[i]);
-        CU_ASSERT_NEQ (rc == 0, 0);
+        CU_ASSERT_EQ (rc, 0);
       }
       // "increment" rdmode according to the rules
       for (int i = 0; i <= MAX_DOMAINS * MAX_READERS_PER_DOMAIN; i++)
@@ -895,16 +895,16 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample, bo
     }
 
     rc = dds_delete (wr);
-    CU_ASSERT_NEQ (rc == 0, 0);
+    CU_ASSERT_EQ (rc, 0);
   }
 
 skip_because_of_keys:
   rc = dds_delete (ws);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   for (int i = 0; i < MAX_DOMAINS; i++)
   {
     rc = dds_delete (dds_get_parent (pp[i]));
-    CU_ASSERT_NEQ (rc == 0, 0);
+    CU_ASSERT_EQ (rc, 0);
   }
 }
 
@@ -1070,22 +1070,22 @@ CU_Test(ddsc_psmx, return_loan)
   char topicname[100];
   create_unique_topic_name ("test_psmx", topicname, sizeof (topicname));
   const dds_entity_t tp = dds_create_topic (pp, &Array100_desc, topicname, NULL, NULL);
-  CU_ASSERT_NEQ (tp > 0, 0);
+  CU_ASSERT_GT (tp, 0);
   const dds_entity_t wr = create_writer (tp, true);
 
   for (int i = 0; i < 10000; i ++)
   {
     void *sample;
     rc = dds_request_loan (wr, &sample);
-    CU_ASSERT_NEQ (rc == DDS_RETCODE_OK, 0);
+    CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
     rc = dds_return_loan (wr, &sample, 1);
-    CU_ASSERT_NEQ (rc == DDS_RETCODE_OK, 0);
+    CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
   }
 
   // FIXME: check RSS
 
   rc = dds_delete (dds_get_parent (pp));
-  CU_ASSERT_NEQ (rc == DDS_RETCODE_OK, 0);
+  CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
 }
 
 CU_Test(ddsc_psmx, partition_xtalk)
@@ -1095,10 +1095,10 @@ CU_Test(ddsc_psmx, partition_xtalk)
   char topicname[100];
   create_unique_topic_name ("test_psmx", topicname, sizeof (topicname));
   const dds_entity_t tp = dds_create_topic (pp, &PsmxType1_desc, topicname, NULL, NULL);
-  CU_ASSERT_NEQ (tp > 0, 0);
+  CU_ASSERT_GT (tp, 0);
 
   dds_qos_t *qos = dds_create_qos ();
-  CU_ASSERT_NEQ (qos != NULL, 0);
+  CU_ASSERT_NEQ (qos, NULL);
   dds_qset_reliability (qos, DDS_RELIABILITY_RELIABLE, 0);
   dds_qset_writer_data_lifecycle (qos, false);
 
@@ -1136,26 +1136,26 @@ CU_Test(ddsc_psmx, partition_xtalk)
 
     dds_qset_partition (qos, tc->wr.np, (const char **) tc->wr.p);
     dds_entity_t wr = dds_create_writer (pp, tp, qos, NULL);
-    CU_ASSERT_NEQ (wr > 0, 0);
+    CU_ASSERT_GT (wr, 0);
 
     dds_qset_partition (qos, tc->rd.np, (const char **) tc->rd.p);
     dds_entity_t rd = dds_create_reader (pp, tp, qos, NULL);
-    CU_ASSERT_NEQ (rd > 0, 0);
+    CU_ASSERT_GT (rd, 0);
 
     dds_entity_t checkwr = 0;
     if (tc->checkwrp)
     {
       dds_qset_partition1 (qos, tc->checkwrp);
       checkwr = dds_create_writer (pp, tp, qos, NULL);
-      CU_ASSERT_NEQ (checkwr > 0, 0);
+      CU_ASSERT_GT (checkwr, 0);
     }
 
     rc = dds_write (wr, &(PsmxType1){ {1, 2}, 3 });
-    CU_ASSERT_NEQ (rc == 0, 0);
+    CU_ASSERT_EQ (rc, 0);
     if (checkwr)
     {
       rc = dds_write (checkwr, &(PsmxType1){ {4, 5}, 6 });
-      CU_ASSERT_NEQ (rc == 0, 0);
+      CU_ASSERT_EQ (rc, 0);
     }
 
     PsmxType1 t;
@@ -1163,7 +1163,7 @@ CU_Test(ddsc_psmx, partition_xtalk)
     dds_sample_info_t si;
     while ((rc = dds_take (rd, &tptr, &si, 1, 1)) <= 0)
       dds_sleepfor (DDS_MSECS (10));
-    CU_ASSERT_NEQ (rc == 1, 0);
+    CU_ASSERT_EQ (rc, 1);
     if (checkwr == 0) {
       CU_ASSERT_NEQ (t.xy.x == 1 && t.xy.y == 2 && t.z == 3, 0);
     } else {
@@ -1171,19 +1171,19 @@ CU_Test(ddsc_psmx, partition_xtalk)
     }
 
     rc = dds_delete (wr);
-    CU_ASSERT_NEQ (rc == 0, 0);
+    CU_ASSERT_EQ (rc, 0);
     rc = dds_delete (rd);
-    CU_ASSERT_NEQ (rc == 0, 0);
+    CU_ASSERT_EQ (rc, 0);
     if (checkwr)
     {
       rc = dds_delete (checkwr);
-      CU_ASSERT_NEQ (rc == 0, 0);
+      CU_ASSERT_EQ (rc, 0);
     }
   }
 
   dds_delete_qos (qos);
   rc = dds_delete (dds_get_parent (pp));
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 }
 
 /// @brief Check that shared memory is not supported by endpoints created from a default Cyclone domain.
@@ -1195,18 +1195,18 @@ CU_Test(ddsc_psmx, no_shared_memory)
   dds_entity_t participant, topic, writer, reader;
 
   participant = dds_create_participant(0, NULL, NULL);
-  CU_ASSERT_NEQ (participant > 0, 0);
+  CU_ASSERT_GT (participant, 0);
 
   char topicname[100];
   create_unique_topic_name("test_psmx_no_shared_memory", topicname, sizeof(topicname));
   topic = dds_create_topic(participant, &SC_Model_desc, topicname, NULL, NULL);
-  CU_ASSERT_NEQ (topic > 0, 0);
+  CU_ASSERT_GT (topic, 0);
 
   writer = dds_create_writer(participant, topic, NULL, NULL);
-  CU_ASSERT_NEQ (writer > 0, 0);
+  CU_ASSERT_GT (writer, 0);
 
   reader = dds_create_reader(participant, topic, NULL, NULL);
-  CU_ASSERT_NEQ (reader > 0, 0);
+  CU_ASSERT_GT (reader, 0);
 
   CU_ASSERT_NEQ (!dds_is_shared_memory_available(writer), 0);
   CU_ASSERT_NEQ (!dds_is_shared_memory_available(reader), 0);
@@ -1223,20 +1223,20 @@ CU_Test (ddsc_psmx, basic)
   bool psmx_enabled;
 
   participant = create_participant (0);
-  CU_ASSERT_NEQ (participant > 0, 0);
+  CU_ASSERT_GT (participant, 0);
 
   char topicname[100];
   create_unique_topic_name ("test_psmx_basic", topicname, sizeof (topicname));
   topic = dds_create_topic (participant, &SC_Model_desc, topicname, NULL, NULL);
-  CU_ASSERT_NEQ (topic > 0, 0);
+  CU_ASSERT_GT (topic, 0);
 
   writer = dds_create_writer (participant, topic, NULL, NULL);
-  CU_ASSERT_NEQ (writer > 0, 0);
+  CU_ASSERT_GT (writer, 0);
   psmx_enabled = endpoint_has_psmx_enabled (writer);
   CU_ASSERT_NEQ (psmx_enabled, 0);
 
   reader = dds_create_reader (participant, topic, NULL, NULL);
-  CU_ASSERT_NEQ (reader > 0, 0);
+  CU_ASSERT_GT (reader, 0);
   psmx_enabled = endpoint_has_psmx_enabled (reader);
   CU_ASSERT_NEQ (psmx_enabled, 0);
 
@@ -1282,13 +1282,13 @@ CU_Test (ddsc_psmx, local_zero_copy)
   dds_return_t rc;
 
   const dds_entity_t pp = create_participant (0);
-  CU_ASSERT_NEQ (pp > 0, 0);
+  CU_ASSERT_GT (pp, 0);
   for (size_t k = 0; k < sizeof (cases) / sizeof (cases[0]); k++)
   {
     char topicname[100];
     create_unique_topic_name ("zero_copy", topicname, sizeof (topicname));
     const dds_entity_t tp = dds_create_topic (pp, cases[k].desc, topicname, NULL, NULL);
-    CU_ASSERT_NEQ (tp > 0, 0);
+    CU_ASSERT_GT (tp, 0);
     for (int psmx_enabled_i = 0; psmx_enabled_i <= 1; psmx_enabled_i++)
     {
       const bool psmx_enabled = psmx_enabled_i;
@@ -1302,20 +1302,20 @@ CU_Test (ddsc_psmx, local_zero_copy)
         fflush (stdout);
 
         const dds_entity_t wr = dds_create_writer (pp, tp, qos, NULL);
-        CU_ASSERT_NEQ (wr > 0, 0);
-        CU_ASSERT_NEQ (endpoint_has_psmx_enabled (wr) == psmx_enabled, 0);
+        CU_ASSERT_GT (wr, 0);
+        CU_ASSERT_EQ (endpoint_has_psmx_enabled (wr), psmx_enabled);
         dds_entity_t rds[2];
         const dds_entity_t ws = dds_create_waitset (pp);
         for (size_t i = 0; i < sizeof (rds) / sizeof (rds[0]); i++)
         {
           rds[i] = dds_create_reader (pp, tp, qos, NULL);
-          CU_ASSERT_NEQ (rds[i] > 0, 0);
-          CU_ASSERT_NEQ (endpoint_has_psmx_enabled (rds[i]) == psmx_enabled, 0);
+          CU_ASSERT_GT (rds[i], 0);
+          CU_ASSERT_EQ (endpoint_has_psmx_enabled (rds[i]), psmx_enabled);
           sync_reader_writer (pp, rds[i], pp, wr);
           rc = dds_set_status_mask (rds[i], DDS_DATA_AVAILABLE_STATUS);
-          CU_ASSERT_NEQ (rc == 0, 0);
+          CU_ASSERT_EQ (rc, 0);
           rc = dds_waitset_attach (ws, rds[i], rds[i]);
-          CU_ASSERT_NEQ (rc == 0, 0);
+          CU_ASSERT_EQ (rc, 0);
         }
 
         const void *wrdata = cases[k].data;
@@ -1323,13 +1323,13 @@ CU_Test (ddsc_psmx, local_zero_copy)
         {
           void *tmp;
           rc = dds_request_loan (wr, &tmp);
-          CU_ASSERT_NEQ (rc == 0, 0);
+          CU_ASSERT_EQ (rc, 0);
           memcpy (tmp, wrdata, cases[k].desc->m_size);
           wrdata = tmp;
         }
         printf (" | write %p", wrdata); fflush (stdout);
         rc = dds_write (wr, wrdata);
-        CU_ASSERT_NEQ (rc == 0, 0);
+        CU_ASSERT_EQ (rc, 0);
 
         // wait until all readers have data
         {
@@ -1338,24 +1338,24 @@ CU_Test (ddsc_psmx, local_zero_copy)
           {
             dds_attach_t ts[2];
             int32_t n = dds_waitset_wait (ws, ts, sizeof (ts) / sizeof (ts[0]), DDS_INFINITY);
-            CU_ASSERT_NEQ (n > 0, 0);
+            CU_ASSERT_GT (n, 0);
             ready += (size_t) n;
             for (int32_t i = 0; i < n; i++)
             {
               rc = dds_waitset_detach (ws, (dds_entity_t) ts[i]);
-              CU_ASSERT_NEQ (rc == 0, 0);
+              CU_ASSERT_EQ (rc, 0);
             }
           }
         }
         rc = dds_delete (ws);
-        CU_ASSERT_NEQ (rc == 0, 0);
+        CU_ASSERT_EQ (rc, 0);
 
         dds_sample_info_t si;
         void *rddata[sizeof (rds) / sizeof (rds[0])] = { NULL };
         for (size_t i = 0; i < sizeof (rds) / sizeof (rds[0]); i++)
         {
           rc = dds_read (rds[i], &rddata[i], &si, 1, 1);
-          CU_ASSERT_NEQ (rc == 1, 0);
+          CU_ASSERT_EQ (rc, 1);
           printf (" | rddata[%d] %p", (int) i, rddata[i]); fflush (stdout);
         }
 
@@ -1363,29 +1363,29 @@ CU_Test (ddsc_psmx, local_zero_copy)
         if (local_zerocopy_occurred)
         {
           for (size_t i = 0; i < sizeof (rds) / sizeof (rds[0]) - 1; i++)
-            CU_ASSERT_NEQ (rddata[i] == rddata[i+1], 0);
+            CU_ASSERT_EQ (rddata[i], rddata[i+1]);
           if (wrloan_i)
-            CU_ASSERT_NEQ (wrdata == rddata[0], 0);
+            CU_ASSERT_EQ (wrdata, rddata[0]);
         } else {
           for (size_t i = 0; i < sizeof (rds) / sizeof (rds[0]) - 1; i++)
             for (size_t j = i + 1; j < sizeof (rds) / sizeof (rds[0]); j++)
-              CU_ASSERT_NEQ (rddata[i] != rddata[j], 0);
+              CU_ASSERT_NEQ (rddata[i], rddata[j]);
         }
 
         printf ("\n"); fflush (stdout);
         rc = dds_delete (wr);
-        CU_ASSERT_NEQ (rc == 0, 0);
+        CU_ASSERT_EQ (rc, 0);
         for (size_t i = 0; i < sizeof (rds) / sizeof (rds[0]); i++)
         {
           rc = dds_delete (rds[i]);
-          CU_ASSERT_NEQ (rc == 0, 0);
+          CU_ASSERT_EQ (rc, 0);
         }
       }
       dds_delete_qos (qos);
     }
 
     rc = dds_delete (tp);
-    CU_ASSERT_NEQ (rc == 0, 0);
+    CU_ASSERT_EQ (rc, 0);
   }
   dds_delete (dds_get_parent (pp));
 }
@@ -1415,7 +1415,7 @@ static const void *get_write_datapointer (dds_entity_t wr, const dds_topic_descr
   {
     void *tmp;
     dds_return_t rc = dds_request_loan (wr, &tmp);
-    CU_ASSERT_NEQ (rc == 0, 0);
+    CU_ASSERT_EQ (rc, 0);
     deepcopy_sample_contents (tpdesc, tmp, template);
     return tmp;
   }
@@ -1471,13 +1471,13 @@ CU_Test (ddsc_psmx, writer_loan)
   dds_return_t rc;
 
   const dds_entity_t pp = create_participant (0);
-  CU_ASSERT_NEQ (pp > 0, 0);
+  CU_ASSERT_GT (pp, 0);
   for (size_t k = 0; k < sizeof (cases) / sizeof (cases[0]); k++)
   {
     char topicname[100];
     create_unique_topic_name ("writer_loan", topicname, sizeof (topicname));
     const dds_entity_t tp = dds_create_topic (pp, cases[k].desc, topicname, NULL, NULL);
-    CU_ASSERT_NEQ (tp > 0, 0);
+    CU_ASSERT_GT (tp, 0);
     for (int wr_psmx_enabled_i = 0; wr_psmx_enabled_i <= 1; wr_psmx_enabled_i++)
     {
       const bool wr_psmx_enabled = wr_psmx_enabled_i;
@@ -1498,8 +1498,8 @@ CU_Test (ddsc_psmx, writer_loan)
             if (!wr_psmx_enabled)
               dds_qset_psmx_instances (qos, 0, NULL);
             const dds_entity_t wr = dds_create_writer (pp, tp, qos, NULL);
-            CU_ASSERT_NEQ (wr > 0, 0);
-            CU_ASSERT_NEQ (endpoint_has_psmx_enabled (wr) == wr_psmx_enabled, 0);
+            CU_ASSERT_GT (wr, 0);
+            CU_ASSERT_EQ (endpoint_has_psmx_enabled (wr), wr_psmx_enabled);
             dds_delete_qos (qos);
 
             qos = dds_create_qos ();
@@ -1508,14 +1508,14 @@ CU_Test (ddsc_psmx, writer_loan)
             dds_entity_t rd;
             const dds_entity_t ws = dds_create_waitset (pp);
             rd = dds_create_reader (pp, tp, qos, NULL);
-            CU_ASSERT_NEQ (rd > 0, 0);
-            CU_ASSERT_NEQ (endpoint_has_psmx_enabled (rd) == rd_psmx_enabled, 0);
+            CU_ASSERT_GT (rd, 0);
+            CU_ASSERT_EQ (endpoint_has_psmx_enabled (rd), rd_psmx_enabled);
             dds_delete_qos (qos);
 
             rc = dds_set_status_mask (rd, DDS_DATA_AVAILABLE_STATUS);
-            CU_ASSERT_NEQ (rc == 0, 0);
+            CU_ASSERT_EQ (rc, 0);
             rc = dds_waitset_attach (ws, rd, 0);
-            CU_ASSERT_NEQ (rc == 0, 0);
+            CU_ASSERT_EQ (rc, 0);
 
             for (int step_i = 0; step_i < (int) (sizeof (cases[k].step) / sizeof (cases[k].step[0])); step_i++)
             {
@@ -1529,7 +1529,7 @@ CU_Test (ddsc_psmx, writer_loan)
               const bool justkey = (op != dds_write);
               printf (" | %s %p", (op == dds_write) ? "write" : "dispose", wrdata); fflush (stdout);
               rc = op (wr, get_write_datapointer (wr, cases[k].desc, wrdata, wrloan));
-              CU_ASSERT_NEQ (rc == 0, 0);
+              CU_ASSERT_EQ (rc, 0);
               (void) dds_waitset_wait (ws, NULL, 0, DDS_INFINITY);
               dds_sample_info_t si;
               void *rddata;
@@ -1541,7 +1541,7 @@ CU_Test (ddsc_psmx, writer_loan)
                 memset (rddata, 0, cases[k].desc->m_size);
               }
               rc = dds_take (rd, &rddata, &si, 1, 1);
-              CU_ASSERT_NEQ (rc == 1, 0);
+              CU_ASSERT_EQ (rc, 1);
               printf (" | rddata %p", rddata); fflush (stdout);
               CU_ASSERT_NEQ (data_equal (cases[k].desc, wrdata, rddata, justkey), 0);
               if (!rdloan)
@@ -1549,23 +1549,23 @@ CU_Test (ddsc_psmx, writer_loan)
               else
               {
                 rc = dds_return_loan (rd, &rddata, 1);
-                CU_ASSERT_NEQ (rc == DDS_RETCODE_OK, 0);
+                CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
               }
             }
             printf ("\n"); fflush (stdout);
 
             rc = dds_delete (wr);
-            CU_ASSERT_NEQ (rc == 0, 0);
+            CU_ASSERT_EQ (rc, 0);
             rc = dds_delete (rd);
-            CU_ASSERT_NEQ (rc == 0, 0);
+            CU_ASSERT_EQ (rc, 0);
             rc = dds_delete (ws);
-            CU_ASSERT_NEQ (rc == 0, 0);
+            CU_ASSERT_EQ (rc, 0);
           }
         }
       }
     }
     rc = dds_delete (tp);
-    CU_ASSERT_NEQ (rc == 0, 0);
+    CU_ASSERT_EQ (rc, 0);
   }
   dds_delete (dds_get_parent (pp));
 }
@@ -1575,74 +1575,74 @@ CU_Test (ddsc_psmx, reader_loan_on_delete)
   dds_return_t rc;
 
   const dds_entity_t dpw = create_participant (0);
-  CU_ASSERT_NEQ (dpw > 0, 0);
+  CU_ASSERT_GT (dpw, 0);
   const dds_entity_t dpr = create_participant (1); // different "process" same "host"
-  CU_ASSERT_NEQ (dpr > 0, 0);
+  CU_ASSERT_GT (dpr, 0);
   char topicname[100];
   create_unique_topic_name ("reader_loan_on_delete", topicname, sizeof (topicname));
   dds_qos_t * const qos = dds_create_qos ();
   dds_qset_reliability (qos, DDS_RELIABILITY_RELIABLE, DDS_INFINITY);
   const dds_entity_t tpw = dds_create_topic (dpw, &PsmxLoanTest0_desc, topicname, qos, NULL);
-  CU_ASSERT_NEQ (tpw > 0, 0);
+  CU_ASSERT_GT (tpw, 0);
   const dds_entity_t tpr = dds_create_topic (dpr, &PsmxLoanTest0_desc, topicname, qos, NULL);
-  CU_ASSERT_NEQ (tpr > 0, 0);
+  CU_ASSERT_GT (tpr, 0);
   dds_delete_qos (qos);
   const dds_entity_t wr = dds_create_writer (dpw, tpw, NULL, NULL);
-  CU_ASSERT_NEQ (wr > 0, 0);
+  CU_ASSERT_GT (wr, 0);
   CU_ASSERT_NEQ (endpoint_has_psmx_enabled (wr), 0);
   const dds_entity_t rd = dds_create_reader (dpr, tpr, NULL, NULL);
-  CU_ASSERT_NEQ (rd > 0, 0);
+  CU_ASSERT_GT (rd, 0);
   CU_ASSERT_NEQ (endpoint_has_psmx_enabled (rd), 0);
   const dds_entity_t ws = dds_create_waitset (DDS_CYCLONEDDS_HANDLE);
   rc = dds_set_status_mask (wr, DDS_PUBLICATION_MATCHED_STATUS);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   rc = dds_waitset_attach (ws, wr, 0);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   rc = dds_set_status_mask (rd, DDS_SUBSCRIPTION_MATCHED_STATUS);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   rc = dds_waitset_attach (ws, rd, 0);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 
   uint32_t stat = 0;
   do {
     rc = dds_waitset_wait (ws, NULL, 0, DDS_INFINITY);
-    CU_ASSERT_NEQ (rc > 0, 0);
+    CU_ASSERT_GT (rc, 0);
     uint32_t tmp;
     rc = dds_take_status (rd, &tmp, DDS_SUBSCRIPTION_MATCHED_STATUS);
-    CU_ASSERT_NEQ (rc == 0, 0);
+    CU_ASSERT_EQ (rc, 0);
     stat |= tmp;
     rc = dds_take_status (wr, &tmp, DDS_PUBLICATION_MATCHED_STATUS);
-    CU_ASSERT_NEQ (rc == 0, 0);
+    CU_ASSERT_EQ (rc, 0);
     stat |= tmp;
   } while (stat != (DDS_PUBLICATION_MATCHED_STATUS | DDS_SUBSCRIPTION_MATCHED_STATUS));
   rc = dds_waitset_detach (ws, wr);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   rc = dds_set_status_mask (rd, DDS_DATA_AVAILABLE_STATUS);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 
   void *vwrdata;
   rc = dds_request_loan (wr, &vwrdata);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   tprintf ("wrdata = %p\n", vwrdata);
   PsmxLoanTest0 * const wrdata = vwrdata;
   wrdata->xy.x = 0x12345678;
   wrdata->xy.y = 0x55;
   wrdata->z = 0x22;
   rc = dds_write (wr, wrdata);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 
   (void) dds_waitset_wait (ws, NULL, 0, DDS_INFINITY);
   dds_sample_info_t si;
   void *rddata = NULL;
   rc = dds_take (rd, &rddata, &si, 1, 1);
-  CU_ASSERT_NEQ (rc == 1, 0);
+  CU_ASSERT_EQ (rc, 1);
 
   tprintf ("rddata = %p\n", rddata);
   fflush (stdout);
 
   // delete reader with loan still outstanding
   rc = dds_delete (rd);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 
   dds_delete (ws);
   dds_delete (dds_get_parent (dpr));
@@ -1698,19 +1698,19 @@ CU_Test (ddsc_psmx, configstr)
     char *p = dds_pubsub_message_exchange_configstr (cases[i].in, "aa");
     CU_ASSERT_NEQ ((p == NULL) == (cases[i].out == NULL), 0);
     if (p) {
-      CU_ASSERT_NEQ (memcmp (p, cases[i].out, outsz) == 0, 0);
+      CU_ASSERT_EQ (memcmp (p, cases[i].out, outsz), 0);
 
       for (size_t j = 0; j < cases[i].nkv; j++)
       {
         assert (strcmp (cases[i].kv[j].k, "SERVICE_NAME") != 0);
         char *v = dds_psmx_get_config_option_value (p, cases[i].kv[j].k);
-        CU_ASSERT_NEQ (v != NULL, 0);
+        CU_ASSERT_NEQ (v, NULL);
         CU_ASSERT_STREQ (v, cases[i].kv[j].v);
         ddsrt_free (v);
         if (strcmp (cases[i].kv[j].k, "INSTANCE_NAME") == 0)
         {
           v = dds_psmx_get_config_option_value (p, "SERVICE_NAME");
-          CU_ASSERT_NEQ (v != NULL, 0);
+          CU_ASSERT_NEQ (v, NULL);
           CU_ASSERT_STREQ (v, cases[i].kv[j].v);
           ddsrt_free (v);
         }
@@ -1762,10 +1762,10 @@ static void do_multi_psmx_get_loans (const bool include_real, const bool include
   char *xconfigstr = ddsrt_expand_envvars (multi_psmx_configstr, 0);
   const dds_entity_t dom = dds_create_domain (0, xconfigstr);
   ddsrt_free (xconfigstr);
-  CU_ASSERT_NEQ (dom > 0, 0);
+  CU_ASSERT_GT (dom, 0);
 
   const dds_entity_t pp = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_NEQ (pp > 0, 0);
+  CU_ASSERT_GT (pp, 0);
 
   char topicname[200];
   create_unique_topic_name ("multi_psmx_get_loans", topicname, sizeof (topicname));
@@ -1777,7 +1777,7 @@ static void do_multi_psmx_get_loans (const bool include_real, const bool include
   dummy_loans_alloc(dmock, 2);
 
   const dds_entity_t tp = dds_create_topic (pp, &PsmxLoanTest3_desc, topicname, NULL, NULL);
-  CU_ASSERT_NEQ (tp > 0, 0);
+  CU_ASSERT_GT (tp, 0);
 
   //create qos with the required names of psmx interfaces set
   const char *qosstrs[2] = {real_name, "dummy"};
@@ -1792,7 +1792,7 @@ static void do_multi_psmx_get_loans (const bool include_real, const bool include
 
   const dds_entity_t wr = dds_create_writer (pp, tp, qos, NULL);
   dds_delete_qos (qos);
-  CU_ASSERT_NEQ (wr > 0, 0);
+  CU_ASSERT_GT (wr, 0);
   CU_ASSERT_EQ_FATAL (include_real || include_dummy, endpoint_has_psmx_enabled (wr));
 
   void *loan = NULL;

@@ -117,9 +117,9 @@ ${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}\
   const dds_entity_t domain = dds_create_domain(domainId, config2str);
   ddsrt_free (config2str);
   ddsrt_free (config1str);
-  CU_ASSERT_NEQ (domain > 0, 0);
+  CU_ASSERT_GT (domain, 0);
   const dds_entity_t participant = dds_create_participant(domainId, NULL, NULL);
-  CU_ASSERT_NEQ (participant > 0, 0);
+  CU_ASSERT_GT (participant, 0);
   return participant;
 }
 
@@ -144,9 +144,9 @@ ${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}\
   const dds_entity_t domain = dds_create_domain(domainId, config2str);
   ddsrt_free (config2str);
   ddsrt_free (config1str);
-  CU_ASSERT_NEQ (domain > 0, 0);
+  CU_ASSERT_GT (domain, 0);
   const dds_entity_t participant = dds_create_participant(domainId, NULL, NULL);
-  CU_ASSERT_NEQ (participant > 0, 0);
+  CU_ASSERT_GT (participant, 0);
   return participant;
 }
 
@@ -182,7 +182,7 @@ ${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}\
   }
   const dds_entity_t domain = dds_create_domain (domainId, configstr_in);
   ddsrt_free(configstr_in);
-  CU_ASSERT_NEQ (domain > 0, 0);
+  CU_ASSERT_GT (domain, 0);
   dds_delete(domain);
 }
 
@@ -237,22 +237,22 @@ static void do_psmxif_instance_name (const char *dummylib)
 
     create_unique_topic_name("shared_memory", topicname, sizeof(topicname));
     dds_entity_t topic1 = dds_create_topic(participant, &SC_Model_desc, topicname, NULL, NULL);
-    CU_ASSERT_NEQ (topic1 > 0, 0);
+    CU_ASSERT_GT (topic1, 0);
     create_unique_topic_name("shared_memory", topicname, sizeof(topicname));
     dds_entity_t topic2 = dds_create_topic(participant, &PsmxType1_desc, topicname, NULL, NULL);
-    CU_ASSERT_NEQ (topic2 > 0, 0);
+    CU_ASSERT_GT (topic2, 0);
 
     writer1 = dds_create_writer(participant, topic1, NULL, NULL);
-    CU_ASSERT_NEQ (writer1 > 0, 0);
+    CU_ASSERT_GT (writer1, 0);
     assert_psmx_instance_names(writer1, psmx_names, i);
     reader1 = dds_create_reader(participant, topic1, NULL, NULL);
-    CU_ASSERT_NEQ (reader1 > 0, 0);
+    CU_ASSERT_GT (reader1, 0);
     assert_psmx_instance_names(reader1, psmx_names, i);
     writer2 = dds_create_writer(participant, topic2, NULL, NULL);
-    CU_ASSERT_NEQ (writer2 > 0, 0);
+    CU_ASSERT_GT (writer2, 0);
     assert_psmx_instance_names(writer2, psmx_names, i);
     reader2 = dds_create_reader(participant, topic2, NULL, NULL);
-    CU_ASSERT_NEQ (reader2 > 0, 0);
+    CU_ASSERT_GT (reader2, 0);
     assert_psmx_instance_names(reader2, psmx_names, i);
     dds_delete(domain);
   }
@@ -300,9 +300,9 @@ static void do_psmxif_shared_memory (const char *dummylib)
     // Check that the data types I'm planning to use are actually suitable for use with shared memory.
     dds_data_type_properties_t props;
     props = dds_stream_data_types(SC_Model_desc.m_ops);
-    CU_ASSERT_NEQ ((props & DDS_DATA_TYPE_IS_MEMCPY_SAFE) == DDS_DATA_TYPE_IS_MEMCPY_SAFE, 0);
+    CU_ASSERT_EQ ((props & DDS_DATA_TYPE_IS_MEMCPY_SAFE), DDS_DATA_TYPE_IS_MEMCPY_SAFE);
     props = dds_stream_data_types(PsmxType1_desc.m_ops);
-    CU_ASSERT_NEQ ((props & DDS_DATA_TYPE_IS_MEMCPY_SAFE) == DDS_DATA_TYPE_IS_MEMCPY_SAFE, 0);
+    CU_ASSERT_EQ ((props & DDS_DATA_TYPE_IS_MEMCPY_SAFE), DDS_DATA_TYPE_IS_MEMCPY_SAFE);
   }
   const size_t psmx_interface_counts[] = {1, 1, 2};
 
@@ -349,59 +349,59 @@ static void do_psmxif_shared_memory (const char *dummylib)
     create_unique_topic_name("shared_memory", topicname, sizeof(topicname));
     psmx_topic_expected = (dds_psmx_topic_t*)dmock->topics._buffer + dmock->topics._length;
     dds_entity_t topic1 = dds_create_topic(participant, &SC_Model_desc, topicname, NULL, NULL);
-    CU_ASSERT_NEQ (topic1 > 0, 0);
+    CU_ASSERT_GT (topic1, 0);
 
     psmx_endpt_expected = (dds_psmx_endpoint_t*)dmock->endpoints._buffer + dmock->endpoints._length;
     delete_endpoint_expected[delete_endpoint_idx++] = psmx_endpt_expected;
     writer1 = dds_create_writer(participant, topic1, NULL, NULL);
-    CU_ASSERT_NEQ (writer1 > 0, 0);
+    CU_ASSERT_GT (writer1, 0);
     CU_ASSERT_NEQ (dmock->create_endpoint_rcv_topic == psmx_topic_expected, 0);
-    CU_ASSERT_NEQ (dds_request_loan(writer1, &sample) == DDS_RETCODE_OK, 0);
+    CU_ASSERT_EQ (dds_request_loan(writer1, &sample), DDS_RETCODE_OK);
     CU_ASSERT_NEQ (dmock->request_loan_rcv_endpt == psmx_endpt_expected, 0);
     dmock->write_rcv_loan = NULL;
     dmock->request_loan_rcv_endpt = NULL;
-    CU_ASSERT_NEQ (dds_write(writer1, sample) == DDS_RETCODE_OK, 0);
+    CU_ASSERT_EQ (dds_write(writer1, sample), DDS_RETCODE_OK);
     CU_ASSERT_NEQ (dmock->write_rcv_endpt == psmx_endpt_expected, 0);
     CU_ASSERT_NEQ (dmock->write_rcv_loan == &dmock->loan, 0);
 
     psmx_endpt_expected = (dds_psmx_endpoint_t*)dmock->endpoints._buffer + dmock->endpoints._length;
     delete_endpoint_expected[delete_endpoint_idx++] = psmx_endpt_expected;
     reader1 = dds_create_reader(participant, topic1, NULL, NULL);
-    CU_ASSERT_NEQ (reader1 > 0, 0);
+    CU_ASSERT_GT (reader1, 0);
     CU_ASSERT_NEQ (dmock->create_endpoint_rcv_topic == psmx_topic_expected, 0);
 
     create_unique_topic_name("shared_memory", topicname, sizeof(topicname));
     psmx_topic_expected = (dds_psmx_topic_t*)dmock->topics._buffer + dmock->topics._length;
     dds_entity_t topic2 = dds_create_topic(participant, &PsmxType1_desc, topicname, NULL, NULL);
-    CU_ASSERT_NEQ (topic2 > 0, 0);
+    CU_ASSERT_GT (topic2, 0);
 
     psmx_endpt_expected = (dds_psmx_endpoint_t*)dmock->endpoints._buffer + dmock->endpoints._length;
     delete_endpoint_expected[delete_endpoint_idx++] = psmx_endpt_expected;
     writer2 = dds_create_writer(participant, topic2, NULL, NULL);
-    CU_ASSERT_NEQ (writer2 > 0, 0);
+    CU_ASSERT_GT (writer2, 0);
     CU_ASSERT_NEQ (dmock->create_endpoint_rcv_topic == psmx_topic_expected, 0);
-    CU_ASSERT_NEQ (dds_request_loan(writer2, &sample) == DDS_RETCODE_OK, 0);
+    CU_ASSERT_EQ (dds_request_loan(writer2, &sample), DDS_RETCODE_OK);
     CU_ASSERT_NEQ (dmock->request_loan_rcv_endpt == psmx_endpt_expected, 0);
     dmock->write_rcv_loan = NULL;
     dmock->request_loan_rcv_endpt = NULL;
-    CU_ASSERT_NEQ (dds_write(writer2, sample) == DDS_RETCODE_OK, 0);
+    CU_ASSERT_EQ (dds_write(writer2, sample), DDS_RETCODE_OK);
     CU_ASSERT_NEQ (dmock->write_rcv_endpt == psmx_endpt_expected, 0);
     CU_ASSERT_NEQ (dmock->write_rcv_loan == &dmock->loan, 0);
 
     psmx_endpt_expected = (dds_psmx_endpoint_t*)dmock->endpoints._buffer + dmock->endpoints._length;
     delete_endpoint_expected[delete_endpoint_idx++] = psmx_endpt_expected;
     reader2 = dds_create_reader(participant, topic2, NULL, NULL);
-    CU_ASSERT_NEQ (reader2 > 0, 0);
+    CU_ASSERT_GT (reader2, 0);
     CU_ASSERT_NEQ (dmock->create_endpoint_rcv_topic == psmx_topic_expected, 0);
 
     // Check that shared memory is available when it should, and not available when it shouldn't.
-    CU_ASSERT_NEQ (dds_is_shared_memory_available(writer1) == supports_shared_memory_expected, 0);
-    CU_ASSERT_NEQ (dds_is_shared_memory_available(reader1) == supports_shared_memory_expected, 0);
-    CU_ASSERT_NEQ (dds_is_shared_memory_available(writer2) == supports_shared_memory_expected, 0);
-    CU_ASSERT_NEQ (dds_is_shared_memory_available(reader2) == supports_shared_memory_expected, 0);
+    CU_ASSERT_EQ (dds_is_shared_memory_available(writer1), supports_shared_memory_expected);
+    CU_ASSERT_EQ (dds_is_shared_memory_available(reader1), supports_shared_memory_expected);
+    CU_ASSERT_EQ (dds_is_shared_memory_available(writer2), supports_shared_memory_expected);
+    CU_ASSERT_EQ (dds_is_shared_memory_available(reader2), supports_shared_memory_expected);
 
     // Check that psmx_endpoint pointers originally from `dummy_psmx_create_endpoint()`, end up in `dummy_psmx_delete_endpoint()`.
-    CU_ASSERT_NEQ (delete_endpoint_idx == endpt_cnt, 0);
+    CU_ASSERT_EQ (delete_endpoint_idx, endpt_cnt);
     dds_delete(reader2);
     CU_ASSERT_NEQ (dmock->delete_endpoint_rcv_endpt == delete_endpoint_expected[--delete_endpoint_idx], 0);
     dds_delete(writer2);
@@ -449,12 +449,12 @@ static void check_psmx_instances (dds_entity_t e, size_t nexp, const char **vexp
 {
   dds_qos_t * const qos = dds_create_qos ();
   dds_return_t ret = dds_get_qos (e, qos);
-  CU_ASSERT_NEQ (ret == DDS_RETCODE_OK, 0);
+  CU_ASSERT_EQ (ret, DDS_RETCODE_OK);
   uint32_t n;
   char **v;
   const bool getres = dds_qget_psmx_instances (qos, &n, &v);
   CU_ASSERT_NEQ (getres, 0);
-  CU_ASSERT_NEQ (n == nexp, 0);
+  CU_ASSERT_EQ (n, nexp);
   for (size_t i = 0; i < nexp; i++)
   {
     bool found = false;
@@ -488,62 +488,62 @@ ${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}\
   char *configstr = ddsrt_expand_envvars (configstr_in, 0);
   const dds_entity_t dom = dds_create_domain (0, configstr);
   ddsrt_free (configstr);
-  CU_ASSERT_NEQ (dom > 0, 0);
+  CU_ASSERT_GT (dom, 0);
   const dds_entity_t dp = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_NEQ (dp > 0, 0);
+  CU_ASSERT_GT (dp, 0);
   char topicname[100];
   create_unique_topic_name ("reject_invalid_psmx_instances_qos", topicname, sizeof (topicname));
   const dds_entity_t tp = dds_create_topic (dp, &Space_Type3_desc, topicname, NULL, NULL);
-  CU_ASSERT_NEQ (tp > 0, 0);
+  CU_ASSERT_GT (tp, 0);
 
   dds_qos_t *qos = dds_create_qos ();
   dds_entity_t wr;
 
   wr = dds_create_writer (dp, tp, NULL, NULL);
-  CU_ASSERT_NEQ (wr > 0, 0);
+  CU_ASSERT_GT (wr, 0);
   check_psmx_instances (wr, 2, (const char *[]){"cdds", "cdds1"});
   dds_delete (wr);
 
   wr = dds_create_writer (dp, tp, qos, NULL);
-  CU_ASSERT_NEQ (wr > 0, 0);
+  CU_ASSERT_GT (wr, 0);
   check_psmx_instances (wr, 2, (const char *[]){"cdds", "cdds1"});
   dds_delete (wr);
 
   dds_qset_psmx_instances (qos, 1, (const char *[]){"cdds"});
   wr = dds_create_writer (dp, tp, qos, NULL);
-  CU_ASSERT_NEQ (wr > 0, 0);
+  CU_ASSERT_GT (wr, 0);
   check_psmx_instances (wr, 1, (const char *[]){"cdds"});
   dds_delete (wr);
 
   dds_qset_psmx_instances (qos, 1, (const char *[]){"cdds1"});
   wr = dds_create_writer (dp, tp, qos, NULL);
-  CU_ASSERT_NEQ (wr > 0, 0);
+  CU_ASSERT_GT (wr, 0);
   check_psmx_instances (wr, 1, (const char *[]){"cdds1"});
   dds_delete (wr);
 
   dds_qset_psmx_instances (qos, 2, (const char *[]){"cdds","cdds1"});
   wr = dds_create_writer (dp, tp, qos, NULL);
-  CU_ASSERT_NEQ (wr > 0, 0);
+  CU_ASSERT_GT (wr, 0);
   check_psmx_instances (wr, 2, (const char *[]){"cdds","cdds1"});
   dds_delete (wr);
 
   dds_qset_psmx_instances (qos, 2, (const char *[]){"cdds1","cdds"});
   wr = dds_create_writer (dp, tp, qos, NULL);
-  CU_ASSERT_NEQ (wr > 0, 0);
+  CU_ASSERT_GT (wr, 0);
   check_psmx_instances (wr, 2, (const char *[]){"cdds","cdds1"});
   dds_delete (wr);
 
   dds_qset_psmx_instances (qos, 1, (const char *[]){"kwik"});
   wr = dds_create_writer (dp, tp, qos, NULL);
-  CU_ASSERT_NEQ (wr == DDS_RETCODE_BAD_PARAMETER, 0);
+  CU_ASSERT_EQ (wr, DDS_RETCODE_BAD_PARAMETER);
 
   dds_qset_psmx_instances (qos, 2, (const char *[]){"cdds","cdds"});
   wr = dds_create_writer (dp, tp, qos, NULL);
-  CU_ASSERT_NEQ (wr == DDS_RETCODE_BAD_PARAMETER, 0);
+  CU_ASSERT_EQ (wr, DDS_RETCODE_BAD_PARAMETER);
 
   dds_qset_psmx_instances (qos, 2, (const char *[]){"cdds","kwik"});
   wr = dds_create_writer (dp, tp, qos, NULL);
-  CU_ASSERT_NEQ (wr == DDS_RETCODE_BAD_PARAMETER, 0);
+  CU_ASSERT_EQ (wr, DDS_RETCODE_BAD_PARAMETER);
 
   dds_delete_qos (qos);
   dds_delete (dom);
@@ -564,9 +564,9 @@ ${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}\
   char *configstr = ddsrt_expand_envvars (configstr_in, 0);
   const dds_entity_t dom = dds_create_domain (0, configstr);
   ddsrt_free (configstr);
-  CU_ASSERT_NEQ (dom > 0, 0);
+  CU_ASSERT_GT (dom, 0);
   const dds_entity_t dp = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_NEQ (dp > 0, 0);
+  CU_ASSERT_GT (dp, 0);
 
   dummy_mockstats_t * const dmock = dummy_mockstats_get_ptr ();
   dmock->fail_create_topic = true;
@@ -574,6 +574,6 @@ ${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}\
   char topicname[100];
   create_unique_topic_name ("create_topic_failure", topicname, sizeof (topicname));
   const dds_entity_t tp = dds_create_topic (dp, &Space_Type3_desc, topicname, NULL, NULL);
-  CU_ASSERT_NEQ (tp < 0, 0);
+  CU_ASSERT_LT (tp, 0);
   dds_delete (dom);
 }

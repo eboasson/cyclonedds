@@ -73,7 +73,7 @@ CU_Test(ddssec_builtin_register_local_participant, happy_day, .init = suite_regi
   DDS_Security_ParticipantSecurityAttributes participant_security_attributes;
 
   /* Check if we actually have the validate_local_identity() function. */
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
   CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
   assert(crypto->crypto_key_factory != NULL);
@@ -98,8 +98,8 @@ CU_Test(ddssec_builtin_register_local_participant, happy_day, .init = suite_regi
     printf("register_local_participant: %s\n", exception.message ? exception.message : "Error message missing");
 
   /* A valid handle to be returned */
-  CU_ASSERT_NEQ (hdl != DDS_SECURITY_HANDLE_NIL, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_OK_CODE, 0);
+  CU_ASSERT_NEQ (hdl, DDS_SECURITY_HANDLE_NIL);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_OK_CODE);
 
   reset_exception(&exception);
 
@@ -123,7 +123,7 @@ CU_Test(ddssec_builtin_register_local_participant, empty_identity, .init = suite
   DDS_Security_ParticipantSecurityAttributes participant_security_attributes;
 
   /* Check if we actually have the validate_local_identity() function. */
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
   CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
   assert(crypto->crypto_key_factory != NULL);
@@ -145,10 +145,10 @@ CU_Test(ddssec_builtin_register_local_participant, empty_identity, .init = suite
   if (exception.code != 0)
     printf("register_local_participant: %s\n", exception.message ? exception.message : "Error message missing");
 
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE, 0);
-  CU_ASSERT_NEQ (exception.message != NULL, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE);
+  CU_ASSERT_NEQ (exception.message, NULL);
   CU_ASSERT_STREQ (exception.message, DDS_SECURITY_ERR_IDENTITY_EMPTY_MESSAGE);
-  CU_ASSERT_NEQ (result == 0, 0);
+  CU_ASSERT_EQ (result, 0);
 
   reset_exception(&exception);
 }

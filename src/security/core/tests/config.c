@@ -150,7 +150,7 @@ CU_Test(ddssec_config, empty, .init = ddsrt_init, .fini = ddsrt_fini)
   reset_logger();
 
   /* All traces should have been provided. */
-  CU_ASSERT_NEQ (found == 0x7, 0);
+  CU_ASSERT_EQ (found, 0x7);
 }
 
 /* Create domain without security element, there shouldn't
@@ -165,12 +165,12 @@ CU_Test(ddssec_config, non, .init = ddsrt_init, .fini = ddsrt_fini)
 
   set_logger_exp(log_expected, NULL);
   domain = dds_create_domain(0, default_config);
-  CU_ASSERT_NEQ (domain > 0, 0);
+  CU_ASSERT_GT (domain, 0);
   dds_delete(domain);
   reset_logger();
 
   /* No security traces should have been provided. */
-  CU_ASSERT_NEQ (found == 0x0, 0);
+  CU_ASSERT_EQ (found, 0x0);
 }
 
 /* Expected traces when creating domain with the security elements. */
@@ -207,7 +207,7 @@ CU_Test(ddssec_config, missing, .init = ddsrt_init, .fini = ddsrt_fini)
   reset_logger();
 
   /* All traces should have been provided. */
-  CU_ASSERT_NEQ (found == 0x7, 0);
+  CU_ASSERT_EQ (found, 0x7);
 }
 
 /* Expected traces when creating domain with the security elements. */
@@ -277,22 +277,22 @@ CU_Test(ddssec_config, all, .init = ddsrt_init, .fini = ddsrt_fini)
 
   set_logger_exp(log_expected, PARTICIPANT_PROPERTY_LINE);
   domain = dds_create_domain(0, sec_config);
-  CU_ASSERT_NEQ (domain > 0, 0);
+  CU_ASSERT_GT (domain, 0);
   participant = dds_create_participant(0, NULL, NULL);
-  CU_ASSERT_NEQ (participant > 0, 0);
+  CU_ASSERT_GT (participant, 0);
   dds_delete(participant);
   dds_delete(domain);
 
-  CU_ASSERT_NEQ (extracted_line != NULL, 0);
+  CU_ASSERT_NEQ (extracted_line, NULL);
 
   /* The config should have been parsed into the participant QoS. */
   for (uint32_t i = 0; props_expected[i] != NULL && extracted_line; i++) {
-    CU_ASSERT_NEQ (strstr(extracted_line, props_expected[i]) != NULL, 0);
+    CU_ASSERT_NEQ (strstr(extracted_line, props_expected[i]), NULL);
   }
 
   /* All traces should have been provided. */
   printf("found: %x\n", found);
-  CU_ASSERT_NEQ (found == 0x1fffff, 0);
+  CU_ASSERT_EQ (found, 0x1fffff);
 
   reset_logger();
 }
@@ -361,21 +361,21 @@ CU_Test(ddssec_config, security, .init = ddsrt_init, .fini = ddsrt_fini)
 
   set_logger_exp(log_expected, PARTICIPANT_PROPERTY_LINE);
   domain = dds_create_domain(0, sec_config);
-  CU_ASSERT_NEQ (domain > 0, 0);
+  CU_ASSERT_GT (domain, 0);
   participant = dds_create_participant(0, NULL, NULL);
-  CU_ASSERT_NEQ (participant > 0, 0);
+  CU_ASSERT_GT (participant, 0);
   dds_delete(participant);
   dds_delete(domain);
 
-  CU_ASSERT_NEQ (extracted_line != NULL, 0);
+  CU_ASSERT_NEQ (extracted_line, NULL);
 
   /* The config should have been parsed into the participant QoS. */
   for (uint32_t i = 0; props_expected[i] != NULL && extracted_line; i++) {
-    CU_ASSERT_NEQ (strstr(extracted_line, props_expected[i]) != NULL, 0);
+    CU_ASSERT_NEQ (strstr(extracted_line, props_expected[i]), NULL);
   }
 
   /* All traces should have been provided. */
-  CU_ASSERT_NEQ (found == 0x1fffff, 0);
+  CU_ASSERT_EQ (found, 0x1fffff);
   reset_logger();
 }
 
@@ -446,21 +446,21 @@ CU_Test(ddssec_config, deprecated, .init = ddsrt_init, .fini = ddsrt_fini)
 
   set_logger_exp(log_expected, PARTICIPANT_PROPERTY_LINE);
   domain = dds_create_domain(0, sec_config);
-  CU_ASSERT_NEQ (domain > 0, 0);
+  CU_ASSERT_GT (domain, 0);
   participant = dds_create_participant(0, NULL, NULL);
-  CU_ASSERT_NEQ (participant > 0, 0);
+  CU_ASSERT_GT (participant, 0);
   dds_delete(participant);
   dds_delete(domain);
 
-  CU_ASSERT_NEQ (extracted_line != NULL, 0);
+  CU_ASSERT_NEQ (extracted_line, NULL);
 
   /* The config should have been parsed into the participant QoS. */
   for (uint32_t i = 0; props_expected[i] != NULL && extracted_line; i++) {
-    CU_ASSERT_NEQ (strstr(extracted_line, props_expected[i]) != NULL, 0);
+    CU_ASSERT_NEQ (strstr(extracted_line, props_expected[i]), NULL);
   }
 
   /* All traces should have been provided. */
-  CU_ASSERT_NEQ (found == 0x1fffff, 0);
+  CU_ASSERT_EQ (found, 0x1fffff);
   reset_logger();
 
 }
@@ -499,16 +499,16 @@ CU_Test(ddssec_config, qos, .init = ddsrt_init, .fini = ddsrt_fini)
 
   set_logger_exp(log_expected, NULL);
   domain = dds_create_domain(0, default_config);
-  CU_ASSERT_NEQ (domain > 0, 0);
+  CU_ASSERT_GT (domain, 0);
   participant = dds_create_participant(0, qos, NULL);
-  CU_ASSERT_NEQ (participant > 0, 0);
+  CU_ASSERT_GT (participant, 0);
   dds_delete(participant);
   dds_delete_qos(qos);
   dds_delete(domain);
   reset_logger();
 
   /* All traces should have been provided. */
-  CU_ASSERT_NEQ (found == 0x1, 0);
+  CU_ASSERT_EQ (found, 0x1);
 }
 
 /* Expected traces when creating participant with the security elements. */
@@ -550,16 +550,16 @@ CU_Test(ddssec_config, qos_props, .init = ddsrt_init, .fini = ddsrt_fini)
 
   set_logger_exp(log_expected, NULL);
   domain = dds_create_domain(0, default_config);
-  CU_ASSERT_NEQ (domain > 0, 0);
+  CU_ASSERT_GT (domain, 0);
   participant = dds_create_participant(0, qos, NULL);
-  CU_ASSERT_NEQ (participant > 0, 0);
+  CU_ASSERT_GT (participant, 0);
   dds_delete(participant);
   dds_delete_qos(qos);
   dds_delete(domain);
   reset_logger();
 
   /* All traces should have been provided. */
-  CU_ASSERT_NEQ (found == 0x1, 0);
+  CU_ASSERT_EQ (found, 0x1);
 }
 
 /* Expect qos settings used when creating participant with config security elements and qos. */
@@ -617,16 +617,16 @@ CU_Test(ddssec_config, config_qos, .init = ddsrt_init, .fini = ddsrt_fini)
 
   set_logger_exp(log_expected, NULL);
   domain = dds_create_domain(0, sec_config);
-  CU_ASSERT_NEQ (domain > 0, 0);
+  CU_ASSERT_GT (domain, 0);
   participant = dds_create_participant(0, qos, NULL);
-  CU_ASSERT_NEQ (participant > 0, 0);
+  CU_ASSERT_GT (participant, 0);
   dds_delete(participant);
   dds_delete_qos(qos);
   dds_delete(domain);
   reset_logger();
 
   /* All traces should have been provided. */
-  CU_ASSERT_NEQ (found == 0x3, 0);
+  CU_ASSERT_EQ (found, 0x3);
 }
 
 /* Expect config used when creating participant with config security elements and
@@ -674,16 +674,16 @@ CU_Test(ddssec_config, other_prop, .init = ddsrt_init, .fini = ddsrt_fini)
 
   set_logger_exp(log_expected, NULL);
   domain = dds_create_domain(0, sec_config);
-  CU_ASSERT_NEQ (domain > 0, 0);
+  CU_ASSERT_GT (domain, 0);
   participant = dds_create_participant(0, qos, NULL);
-  CU_ASSERT_NEQ (participant > 0, 0);
+  CU_ASSERT_GT (participant, 0);
   dds_delete(participant);
   dds_delete_qos(qos);
   dds_delete(domain);
   reset_logger();
 
   /* All traces should have been provided. */
-  CU_ASSERT_NEQ (found == 0x1, 0);
+  CU_ASSERT_EQ (found, 0x1);
 }
 
 /* Expected traces when creating participant with the security elements. */
@@ -739,7 +739,7 @@ CU_Test(ddssec_config, qos_invalid, .init = ddsrt_init, .fini = ddsrt_fini)
 
   /* Create participant with security config in qos. */
   domain = dds_create_domain(0, sec_config);
-  CU_ASSERT_NEQ (domain > 0, 0);
+  CU_ASSERT_GT (domain, 0);
   participant = dds_create_participant(0, qos, NULL);
   CU_ASSERT_EQ_FATAL (participant, DDS_RETCODE_ERROR);
   dds_delete_qos(qos);
@@ -747,7 +747,7 @@ CU_Test(ddssec_config, qos_invalid, .init = ddsrt_init, .fini = ddsrt_fini)
   reset_logger();
 
   /* All traces should have been provided. */
-  CU_ASSERT_NEQ (found == 0xffff, 0);
+  CU_ASSERT_EQ (found, 0xffff);
 }
 
 /* Expected traces when creating participant with the security elements. */
@@ -803,7 +803,7 @@ CU_Test(ddssec_config, qos_invalid_proprietary, .init = ddsrt_init, .fini = ddsr
 
   /* Create participant with security config in qos. */
   domain = dds_create_domain(0, sec_config);
-  CU_ASSERT_NEQ (domain > 0, 0);
+  CU_ASSERT_GT (domain, 0);
   participant = dds_create_participant(0, qos, NULL);
   CU_ASSERT_EQ_FATAL (participant, DDS_RETCODE_ERROR);
   dds_delete_qos(qos);
@@ -811,7 +811,7 @@ CU_Test(ddssec_config, qos_invalid_proprietary, .init = ddsrt_init, .fini = ddsr
   reset_logger();
 
   /* All traces should have been provided. */
-  CU_ASSERT_NEQ (found == 0xffff, 0);
+  CU_ASSERT_EQ (found, 0xffff);
 }
 
 /* Expect qos settings used when creating participant with config security elements and qos. */
@@ -865,15 +865,15 @@ CU_Test(ddssec_config, config_qos_missing_crl, .init = ddsrt_init, .fini = ddsrt
 
   set_logger_exp(log_expected, NULL);
   domain = dds_create_domain(0, sec_config);
-  CU_ASSERT_NEQ (domain > 0, 0);
+  CU_ASSERT_GT (domain, 0);
   participant = dds_create_participant(0, qos, NULL);
-  CU_ASSERT_NEQ (participant < 0, 0);
+  CU_ASSERT_LT (participant, 0);
   dds_delete_qos(qos);
   dds_delete(domain);
   reset_logger();
 
   /* All traces should have been provided. */
-  CU_ASSERT_NEQ (found == 0x1, 0);
+  CU_ASSERT_EQ (found, 0x1);
 }
 
 /* Expected traces when creating participant overriding security settings from QoS. */
@@ -958,14 +958,14 @@ CU_Test(ddssec_config, config_qos_override_crl, .init = ddsrt_init, .fini = ddsr
 
   set_logger_exp(log_expected, NULL);
   domain = dds_create_domain(0, sec_config);
-  CU_ASSERT_NEQ (domain > 0, 0);
+  CU_ASSERT_GT (domain, 0);
   participant = dds_create_participant(0, qos, NULL);
-  CU_ASSERT_NEQ (participant > 0, 0);
+  CU_ASSERT_GT (participant, 0);
   dds_delete(participant);
   dds_delete_qos(qos);
   dds_delete(domain);
   reset_logger();
 
   /* All traces should have been provided. */
-  CU_ASSERT_NEQ (found == 0x3fffff, 0);
+  CU_ASSERT_EQ (found, 0x3fffff);
 }

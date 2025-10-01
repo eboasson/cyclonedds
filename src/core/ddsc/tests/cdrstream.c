@@ -836,17 +836,17 @@ static void cdrstream_init (void)
 {
   char * conf = ddsrt_expand_envvars (DDS_CONFIG, DDS_DOMAINID1);
   d1 = dds_create_domain (DDS_DOMAINID1, conf);
-  CU_ASSERT_NEQ (d1 > 0, 0);
+  CU_ASSERT_GT (d1, 0);
   ddsrt_free (conf);
   conf = ddsrt_expand_envvars (DDS_CONFIG, DDS_DOMAINID2);
   d2 = dds_create_domain (DDS_DOMAINID2, conf);
-  CU_ASSERT_NEQ (d2 > 0, 0);
+  CU_ASSERT_GT (d2, 0);
   ddsrt_free (conf);
 
   dp1 = dds_create_participant (DDS_DOMAINID1, NULL, NULL);
-  CU_ASSERT_NEQ (dp1 > 0, 0);
+  CU_ASSERT_GT (dp1, 0);
   dp2 = dds_create_participant (DDS_DOMAINID2, NULL, NULL);
-  CU_ASSERT_NEQ (dp2 > 0, 0);
+  CU_ASSERT_GT (dp2, 0);
 }
 
 static void entity_init (const dds_topic_descriptor_t *desc, dds_data_representation_id_t data_representation, bool exp_rd_wr_fail)
@@ -855,9 +855,9 @@ static void entity_init (const dds_topic_descriptor_t *desc, dds_data_representa
   create_unique_topic_name ("ddsc_cdrstream", topicname, sizeof topicname);
 
   tp1 = dds_create_topic (dp1, desc, topicname, NULL, NULL);
-  CU_ASSERT_NEQ (tp1 > 0, 0);
+  CU_ASSERT_GT (tp1, 0);
   tp2 = dds_create_topic (dp2, desc, topicname, NULL, NULL);
-  CU_ASSERT_NEQ (tp2 > 0, 0);
+  CU_ASSERT_GT (tp2, 0);
 
   dds_qos_t *qos = dds_create_qos ();
   dds_qset_history(qos, DDS_HISTORY_KEEP_ALL, DDS_LENGTH_UNLIMITED);
@@ -1652,9 +1652,9 @@ CU_Test (ddsc_cdrstream, check_write_reject)
     CU_ASSERT_NEQ (ret == (tests[i].cdr_if_ok != NULL), 0);
     if (tests[i].cdr_if_ok)
     {
-      CU_ASSERT_NEQ (size == os.m_index, 0);
-      CU_ASSERT_NEQ (os.m_index == tests[i].cdrsize_if_ok, 0);
-      CU_ASSERT_NEQ (memcmp (tests[i].cdr_if_ok, os.m_buffer, os.m_index) == 0, 0);
+      CU_ASSERT_EQ (size, os.m_index);
+      CU_ASSERT_EQ (os.m_index, tests[i].cdrsize_if_ok);
+      CU_ASSERT_EQ (memcmp (tests[i].cdr_if_ok, os.m_buffer, os.m_index), 0);
     }
 
     if (desc.keys.nkeys)
@@ -1668,9 +1668,9 @@ CU_Test (ddsc_cdrstream, check_write_reject)
       CU_ASSERT_NEQ (ret == (tests[i].cdr_if_ok != NULL), 0);
       if (tests[i].cdr_if_ok)
       {
-        CU_ASSERT_NEQ (size == os.m_index, 0);
-        CU_ASSERT_NEQ (os.m_index == tests[i].cdrsize_if_ok, 0);
-        CU_ASSERT_NEQ (memcmp (tests[i].cdr_if_ok, os.m_buffer, os.m_index) == 0, 0);
+        CU_ASSERT_EQ (size, os.m_index);
+        CU_ASSERT_EQ (os.m_index, tests[i].cdrsize_if_ok);
+        CU_ASSERT_EQ (memcmp (tests[i].cdr_if_ok, os.m_buffer, os.m_index), 0);
       }
     }
 
@@ -1720,12 +1720,12 @@ CU_Test (ddsc_cdrstream, check_normalize_boolean)
     uint32_t act_size;
     bool ret = dds_stream_normalize (cdr, tests[i].cdrsize, false, DDSI_RTPS_CDR_ENC_VERSION_2, &desc, false, &act_size);
     CU_ASSERT_NEQ (ret && act_size == tests[i].cdrsize, 0);
-    CU_ASSERT_NEQ (memcmp (cdr, tests[i].ncdr, tests[i].cdrsize) == 0, 0);
+    CU_ASSERT_EQ (memcmp (cdr, tests[i].ncdr, tests[i].cdrsize), 0);
     if (desc.keys.nkeys)
     {
       ret = dds_stream_normalize (cdr, tests[i].cdrsize, true, DDSI_RTPS_CDR_ENC_VERSION_2, &desc, false, &act_size);
       CU_ASSERT_NEQ (ret && act_size == tests[i].cdrsize, 0);
-      CU_ASSERT_NEQ (memcmp (cdr, tests[i].ncdr, tests[i].cdrsize) == 0, 0);
+      CU_ASSERT_EQ (memcmp (cdr, tests[i].ncdr, tests[i].cdrsize), 0);
     }
     ddsrt_free (cdr);
     dds_cdrstream_desc_fini (&desc, &dds_cdrstream_default_allocator);
@@ -1795,7 +1795,7 @@ static void test_cdr (const struct test_cdr_params *test)
     const bool kok = dds_stream_extract_key_from_data (&is, &osk, &dds_cdrstream_default_allocator, &desc);
     CU_ASSERT_NEQ (kok, 0);
     // key is a 32-bit int at the end, so need to consume all input and result must match tail of expected CDR
-    CU_ASSERT_NEQ (is.m_index == os.m_index, 0);
+    CU_ASSERT_EQ (is.m_index, os.m_index);
     CU_ASSERT_NEQ (osk.m_index == 4 && memcmp (osk.m_buffer, test->cdr + test->cdrsize - 4, 4) == 0, 0);
     dds_ostream_fini (&osk, &dds_cdrstream_default_allocator);
   }
@@ -1803,7 +1803,7 @@ static void test_cdr (const struct test_cdr_params *test)
   dds_istream_init (&is, os.m_index, os.m_buffer, os.m_xcdr_version);
   void *data = dds_alloc (desc.size);
   dds_stream_read (&is, data, &dds_cdrstream_default_allocator, desc.ops.ops);
-  CU_ASSERT_NEQ (is.m_index == is.m_size, 0);
+  CU_ASSERT_EQ (is.m_index, is.m_size);
   CU_ASSERT_NEQ (test->eq (test->data, data), 0);
   dds_stream_free_sample (data, &dds_cdrstream_default_allocator, desc.ops.ops);
   dds_free (data);
@@ -2126,7 +2126,7 @@ static void run_test_xcdr1_normalize (const dds_topic_descriptor_t *tdesc, const
   dds_ostream_init (&os, &dds_cdrstream_default_allocator, 0, DDSI_RTPS_CDR_ENC_VERSION_1);
   void *cdr_copy = ddsrt_memdup (cdr, cdrsize);
   const bool res = dds_stream_normalize (cdr_copy, cdrsize, false, DDSI_RTPS_CDR_ENC_VERSION_1, &desc, false, act_size);
-  CU_ASSERT_NEQ (res == valid, 0);
+  CU_ASSERT_EQ (res, valid);
   ddsrt_free (cdr_copy);
   dds_cdrstream_desc_fini (&desc, &dds_cdrstream_default_allocator);
 }
@@ -2217,7 +2217,7 @@ CU_Test (ddsc_cdrstream, check_xcdr1_appendable_normalize)
     printf("running test %"PRIu32" for type %s\n", i, tests[i].desc->m_typename);
     run_test_xcdr1_normalize (tests[i].desc, tests[i].cdr, tests[i].cdrsize, tests[i].normalize_valid, &act_size);
     if (tests[i].normalize_valid)
-      CU_ASSERT_NEQ (tests[i].cdrsize == (uint32_t) ((int32_t) act_size + tests[i].dsize), 0);
+      CU_ASSERT_EQ (tests[i].cdrsize, (uint32_t) ((int32_t) act_size + tests[i].dsize));
   }
 }
 #undef D

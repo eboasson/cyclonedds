@@ -31,12 +31,12 @@ static void get_localhost_address (locstr_t *str)
   const char *cyclonedds_uri = "";
   (void) ddsrt_getenv ("CYCLONEDDS_URI", &cyclonedds_uri);
   dds_entity_t eh = dds_create_domain (0, cyclonedds_uri);
-  CU_ASSERT_NEQ (eh > 0, 0);
+  CU_ASSERT_GT (eh, 0);
   const struct ddsi_domaingv *gv = get_domaingv (eh);
-  CU_ASSERT_NEQ (gv != NULL, 0);
+  CU_ASSERT_NEQ (gv, NULL);
   ddsi_locator_to_string_no_port (str->str, sizeof (str->str), &gv->interfaces[0].loc);
   dds_return_t rc = dds_delete (eh);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 }
 
 static void get_nonexist_address (locstr_t *str)
@@ -44,9 +44,9 @@ static void get_nonexist_address (locstr_t *str)
   const char *cyclonedds_uri = "";
   (void) ddsrt_getenv ("CYCLONEDDS_URI", &cyclonedds_uri);
   dds_entity_t eh = dds_create_domain (0, cyclonedds_uri);
-  CU_ASSERT_NEQ (eh > 0, 0);
+  CU_ASSERT_GT (eh, 0);
   const struct ddsi_domaingv *gv = get_domaingv (eh);
-  CU_ASSERT_NEQ (gv != NULL, 0);
+  CU_ASSERT_NEQ (gv, NULL);
   // No guarantee that this really yields a locator that doesn't point to an existing machine
   // running DDSI at the port number we use, but in combination with a random domain tag,
   // it hopefully probably works out ok
@@ -58,7 +58,7 @@ static void get_nonexist_address (locstr_t *str)
     loc.address[15]++;
   ddsi_locator_to_string_no_port (str->str, sizeof (str->str), &loc);
   dds_return_t rc = dds_delete (eh);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 }
 
 // returns domain handle
@@ -124,10 +124,10 @@ static dds_entity_t make_domain_and_participant (uint32_t domainid, int base_por
   //tprintf ("%s\n", config);
 
   const dds_entity_t dom = dds_create_domain (domainid, config);
-  CU_ASSERT_NEQ (dom > 0, 0);
+  CU_ASSERT_GT (dom, 0);
   ddsrt_free (config);
   const dds_entity_t pp = dds_create_participant (domainid, NULL, NULL);
-  CU_ASSERT_NEQ (pp > 0, 0);
+  CU_ASSERT_GT (pp, 0);
   return dom;
 }
 

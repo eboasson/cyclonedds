@@ -927,7 +927,7 @@ static void init_testcase(void)
         res = -1;
     }
 
-    CU_ASSERT_NEQ ( res == 0 , 0);
+    CU_ASSERT_EQ (res, 0 );
 }
 
 static void fini_testcase(void)
@@ -1225,11 +1225,11 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply, happy_day,  .init = init_
     DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
     DDS_Security_boolean success;
 
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle1 != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle2 != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (auth->begin_handshake_reply != NULL, 0);
     assert (auth->begin_handshake_reply != 0);
 
@@ -1249,8 +1249,8 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply, happy_day,  .init = init_
         printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE, 0);
-    CU_ASSERT_NEQ (handshake_handle != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
+    CU_ASSERT_NEQ (handshake_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (validate_handshake_token(&handshake_token_out, &challenge2->value, NULL), 0);
 
     reset_exception(&exception);
@@ -1277,11 +1277,11 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,future_challenge,  .init =
     DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
     DDS_Security_boolean success;
 
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle1 != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle2 != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (auth->begin_handshake_reply != NULL, 0);
     assert (auth->begin_handshake_reply != NULL);
 
@@ -1301,8 +1301,8 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,future_challenge,  .init =
         printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE, 0);
-    CU_ASSERT_NEQ (handshake_handle != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
+    CU_ASSERT_NEQ (handshake_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (validate_handshake_token(&handshake_token_out, &challenge2->value, &challenge1->value), 0);
 
     reset_exception(&exception);
@@ -1331,11 +1331,11 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_arguments,  .init 
     DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
     DDS_Security_OctetSeq serdata = DDS_SECURITY_SEQUENCE_INIT;
 
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle1 != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle2 != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (auth->begin_handshake_reply != NULL, 0);
     assert (auth->begin_handshake_reply != 0);
 
@@ -1354,9 +1354,9 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_arguments,  .init 
     if (result != DDS_SECURITY_VALIDATION_OK) {
         printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
 
     result = auth->begin_handshake_reply(
@@ -1372,9 +1372,9 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_arguments,  .init 
     if (result != DDS_SECURITY_VALIDATION_OK) {
         printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
 
     result = auth->begin_handshake_reply(
@@ -1390,9 +1390,9 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_arguments,  .init 
     if (result != DDS_SECURITY_VALIDATION_OK) {
         printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
 
     result = auth->begin_handshake_reply(
@@ -1408,9 +1408,9 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_arguments,  .init 
      if (result != DDS_SECURITY_VALIDATION_OK) {
          printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
      }
-     CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-     CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-     CU_ASSERT_NEQ (exception.message != NULL, 0);
+     CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+     CU_ASSERT_NEQ (exception.minor_code, 0);
+     CU_ASSERT_NEQ (exception.message, NULL);
      reset_exception(&exception);
 
      result = auth->begin_handshake_reply(
@@ -1426,9 +1426,9 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_arguments,  .init 
      if (result != DDS_SECURITY_VALIDATION_OK) {
          printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
      }
-     CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-     CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-     CU_ASSERT_NEQ (exception.message != NULL, 0);
+     CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+     CU_ASSERT_NEQ (exception.minor_code, 0);
+     CU_ASSERT_NEQ (exception.message, NULL);
      reset_exception(&exception);
 
      result = auth->begin_handshake_reply(
@@ -1444,9 +1444,9 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_arguments,  .init 
      if (result != DDS_SECURITY_VALIDATION_OK) {
          printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
      }
-     CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-     CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-     CU_ASSERT_NEQ (exception.message != NULL, 0);
+     CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+     CU_ASSERT_NEQ (exception.minor_code, 0);
+     CU_ASSERT_NEQ (exception.message, NULL);
      reset_exception(&exception);
 
      result = auth->begin_handshake_reply(
@@ -1462,9 +1462,9 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_arguments,  .init 
      if (result != DDS_SECURITY_VALIDATION_OK) {
          printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
      }
-     CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-     CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-     CU_ASSERT_NEQ (exception.message != NULL, 0);
+     CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+     CU_ASSERT_NEQ (exception.minor_code, 0);
+     CU_ASSERT_NEQ (exception.message, NULL);
      reset_exception(&exception);
 
      handshake_message_deinit(&handshake_token_in);
@@ -1479,11 +1479,11 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_certificate,  .ini
     DDS_Security_HandshakeMessageToken handshake_token_out = DDS_SECURITY_TOKEN_INIT;
     DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
 
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle1 != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle2 != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (auth->begin_handshake_reply != NULL, 0);
     assert (auth->begin_handshake_reply != 0);
 
@@ -1506,9 +1506,9 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_certificate,  .ini
         printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result != DDS_SECURITY_VALIDATION_OK, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (result, DDS_SECURITY_VALIDATION_OK);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
     handshake_message_deinit(&handshake_token_in);
@@ -1532,9 +1532,9 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_certificate,  .ini
         printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result != DDS_SECURITY_VALIDATION_OK, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (result, DDS_SECURITY_VALIDATION_OK);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1550,11 +1550,11 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_participant_data ,
     DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
     DDS_Security_BinaryProperty_t *property;
 
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle1 != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle2 != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (auth->begin_handshake_reply != NULL, 0);
     assert (auth->begin_handshake_reply != 0);
 
@@ -1577,9 +1577,9 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_participant_data ,
         printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result != DDS_SECURITY_VALIDATION_OK, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (result, DDS_SECURITY_VALIDATION_OK);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1591,7 +1591,7 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_participant_data ,
             dh_pubkey_modp_2048_value, dh_pubkey_modp_2048_length, challenge2->value._buffer, challenge2->value._length);
 
     property = find_binary_property(&handshake_token_in, "c.pdata");
-    CU_ASSERT_NEQ (property != NULL, 0);
+    CU_ASSERT_NEQ (property, NULL);
 
     ddsrt_free(property->name);
     property->name = ddsrt_strdup("c.pdatax");
@@ -1610,9 +1610,9 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_participant_data ,
         printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result != DDS_SECURITY_VALIDATION_OK, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (result, DDS_SECURITY_VALIDATION_OK);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1628,11 +1628,11 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_dsign_algo ,  .ini
     DDS_Security_HandshakeMessageToken handshake_token_out = DDS_SECURITY_TOKEN_INIT;
     DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
 
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle1 != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle2 != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (auth->begin_handshake_reply != NULL, 0);
     assert (auth->begin_handshake_reply != 0);
 
@@ -1655,9 +1655,9 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_dsign_algo ,  .ini
         printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result != DDS_SECURITY_VALIDATION_OK, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (result, DDS_SECURITY_VALIDATION_OK);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1682,9 +1682,9 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_dsign_algo ,  .ini
          printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
      }
 
-     CU_ASSERT_NEQ (result != DDS_SECURITY_VALIDATION_OK, 0);
-     CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-     CU_ASSERT_NEQ (exception.message != NULL, 0);
+     CU_ASSERT_NEQ (result, DDS_SECURITY_VALIDATION_OK);
+     CU_ASSERT_NEQ (exception.minor_code, 0);
+     CU_ASSERT_NEQ (exception.message, NULL);
 
      reset_exception(&exception);
 
@@ -1699,11 +1699,11 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_kagree_algo ,  .in
     DDS_Security_HandshakeMessageToken handshake_token_out = DDS_SECURITY_TOKEN_INIT;
     DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
 
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle1 != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle2 != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (auth->begin_handshake_reply != NULL, 0);
     assert (auth->begin_handshake_reply != 0);
 
@@ -1726,9 +1726,9 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_kagree_algo ,  .in
         printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result != DDS_SECURITY_VALIDATION_OK, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (result, DDS_SECURITY_VALIDATION_OK);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1753,9 +1753,9 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_kagree_algo ,  .in
          printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
      }
 
-     CU_ASSERT_NEQ (result != DDS_SECURITY_VALIDATION_OK, 0);
-     CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-     CU_ASSERT_NEQ (exception.message != NULL, 0);
+     CU_ASSERT_NEQ (result, DDS_SECURITY_VALIDATION_OK);
+     CU_ASSERT_NEQ (exception.minor_code, 0);
+     CU_ASSERT_NEQ (exception.message, NULL);
 
      reset_exception(&exception);
 
@@ -1770,11 +1770,11 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_diffie_hellman ,  
     DDS_Security_HandshakeMessageToken handshake_token_out = DDS_SECURITY_TOKEN_INIT;
     DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
 
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle1 != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle2 != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (auth->begin_handshake_reply != NULL, 0);
     assert (auth->begin_handshake_reply != 0);
 
@@ -1797,9 +1797,9 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_diffie_hellman ,  
         printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result != DDS_SECURITY_VALIDATION_OK, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (result, DDS_SECURITY_VALIDATION_OK);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1824,9 +1824,9 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_diffie_hellman ,  
          printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
      }
 
-     CU_ASSERT_NEQ (result != DDS_SECURITY_VALIDATION_OK, 0);
-     CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-     CU_ASSERT_NEQ (exception.message != NULL, 0);
+     CU_ASSERT_NEQ (result, DDS_SECURITY_VALIDATION_OK);
+     CU_ASSERT_NEQ (exception.minor_code, 0);
+     CU_ASSERT_NEQ (exception.message, NULL);
 
      reset_exception(&exception);
 
@@ -1841,11 +1841,11 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_challenge ,  .init
     DDS_Security_HandshakeMessageToken handshake_token_out = DDS_SECURITY_TOKEN_INIT;
     DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
 
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle1 != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle2 != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (auth->begin_handshake_reply != NULL, 0);
     assert (auth->begin_handshake_reply != 0);
 
@@ -1860,7 +1860,7 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_challenge ,  .init
       local_identity_handle,
       &serialized_participant_data,
       &exception);
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
 
     handshake_message_deinit(&handshake_token_in);
     handshake_message_deinit(&handshake_token_out);
@@ -1885,9 +1885,9 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_challenge ,  .init
         printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result != DDS_SECURITY_VALIDATION_OK, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (result, DDS_SECURITY_VALIDATION_OK);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1912,9 +1912,9 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_challenge ,  .init
          printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
      }
 
-     CU_ASSERT_NEQ (result != DDS_SECURITY_VALIDATION_OK, 0);
-     CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-     CU_ASSERT_NEQ (exception.message != NULL, 0);
+     CU_ASSERT_NEQ (result, DDS_SECURITY_VALIDATION_OK);
+     CU_ASSERT_NEQ (exception.minor_code, 0);
+     CU_ASSERT_NEQ (exception.message, NULL);
 
 
      reset_exception(&exception);
@@ -1932,11 +1932,11 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,return_handle,  .init = in
     DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
     DDS_Security_boolean success;
 
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle1 != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle2 != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (auth->begin_handshake_reply != NULL, 0);
     assert (auth->begin_handshake_reply != 0);
 
@@ -1956,8 +1956,8 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,return_handle,  .init = in
         printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE, 0);
-    CU_ASSERT_NEQ (handshake_handle != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
+    CU_ASSERT_NEQ (handshake_handle, DDS_SECURITY_HANDLE_NIL);
 
     reset_exception(&exception);
 
@@ -1970,9 +1970,9 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,return_handle,  .init = in
     reset_exception(&exception);
 
     success = auth->return_handshake_handle(auth, handshake_handle, &exception);
-    CU_ASSERT_NEQ ( success == false , 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (success, false );
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     if (!success) {
         printf("return_handshake_handle failed: %s\n", exception.message ? exception.message : "Error message missing");
@@ -1996,14 +1996,14 @@ CU_Test(validate_begin_handshake_reply,extended_certificate_check,  .init = init
     release_local_identity();
     release_remote_identities();
 
-    CU_ASSERT_NEQ ( !validate_local_identity("trusted_ca_dir", NULL) , 0);
-    CU_ASSERT_NEQ ( !validate_remote_identities( remote_identity_trusted ) , 0);
+    CU_ASSERT_NEQ (!validate_local_identity("trusted_ca_dir", NULL) , 0);
+    CU_ASSERT_NEQ (!validate_remote_identities( remote_identity_trusted ) , 0);
 
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle1 != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle2 != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (auth->begin_handshake_reply != NULL, 0);
     assert (auth->begin_handshake_reply != 0);
 
@@ -2026,8 +2026,8 @@ CU_Test(validate_begin_handshake_reply,extended_certificate_check,  .init = init
         printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE, 0);
-    CU_ASSERT_NEQ (handshake_handle != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
+    CU_ASSERT_NEQ (handshake_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (validate_handshake_token(&handshake_token_out, &challenge2->value, NULL), 0);
 
     reset_exception(&exception);
@@ -2046,14 +2046,14 @@ CU_Test(validate_begin_handshake_reply,extended_certificate_check,  .init = init
     release_local_identity();
     release_remote_identities();
 
-    CU_ASSERT_NEQ ( !validate_local_identity("trusted_ca_dir", NULL) , 0);
-    CU_ASSERT_NEQ ( !validate_remote_identities( remote_identity_untrusted ) , 0);
+    CU_ASSERT_NEQ (!validate_local_identity("trusted_ca_dir", NULL) , 0);
+    CU_ASSERT_NEQ (!validate_remote_identities( remote_identity_untrusted ) , 0);
 
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle1 != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle2 != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (auth->begin_handshake_reply != NULL, 0);
     assert (auth->begin_handshake_reply != 0);
 
@@ -2072,8 +2072,8 @@ CU_Test(validate_begin_handshake_reply,extended_certificate_check,  .init = init
                     &serialized_participant_data,
                     &exception);
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ ( exception.code != 0 , 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.code, 0 );
 
     reset_exception(&exception);
 
@@ -2086,14 +2086,14 @@ CU_Test(validate_begin_handshake_reply,extended_certificate_check,  .init = init
     release_local_identity();
     release_remote_identities();
 
-    CU_ASSERT_NEQ ( !validate_local_identity("trusted_ca_dir", NULL) , 0);
-    CU_ASSERT_NEQ ( !validate_remote_identities( remote_identity_trusted_expired ) , 0);
+    CU_ASSERT_NEQ (!validate_local_identity("trusted_ca_dir", NULL) , 0);
+    CU_ASSERT_NEQ (!validate_remote_identities( remote_identity_trusted_expired ) , 0);
 
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle1 != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle2 != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (auth->begin_handshake_reply != NULL, 0);
     assert (auth->begin_handshake_reply != 0);
 
@@ -2112,8 +2112,8 @@ CU_Test(validate_begin_handshake_reply,extended_certificate_check,  .init = init
                     &serialized_participant_data,
                     &exception);
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ ( exception.code != 0 , 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.code, 0 );
 
     reset_exception(&exception);
 
@@ -2135,14 +2135,14 @@ CU_Test(validate_begin_handshake_reply,crl,  .init = init_testcase, .fini = fini
     release_local_identity();
     release_remote_identities();
 
-    CU_ASSERT_NEQ ( !validate_local_identity(NULL, crl) , 0);
-    CU_ASSERT_NEQ ( !validate_remote_identities( remote_identity_revoked ) , 0);
+    CU_ASSERT_NEQ (!validate_local_identity(NULL, crl) , 0);
+    CU_ASSERT_NEQ (!validate_remote_identities( remote_identity_revoked ) , 0);
 
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle1 != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (remote_identity_handle2 != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (auth->begin_handshake_reply != NULL, 0);
     assert (auth->begin_handshake_reply != 0);
 
@@ -2165,9 +2165,9 @@ CU_Test(validate_begin_handshake_reply,crl,  .init = init_testcase, .fini = fini
         printf("begin_handshake_reply failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result != DDS_SECURITY_VALIDATION_OK, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (result, DDS_SECURITY_VALIDATION_OK);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 

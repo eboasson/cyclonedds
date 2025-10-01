@@ -573,11 +573,11 @@ CU_Test(ddssec_builtin_listeners_access_control, local_2secs)
          * Just take our losses and quit, simulating a success. */
     return;
   }
-  CU_ASSERT_NEQ (valid == DDS_SECURITY_ERR_OK_CODE, 0);
+  CU_ASSERT_EQ (valid, DDS_SECURITY_ERR_OK_CODE);
 
   /* Check if we actually have validate_remote_permissions function. */
-  CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ (access_control->validate_remote_permissions != NULL, 0);
   assert(access_control->validate_remote_permissions != 0);
@@ -606,7 +606,7 @@ CU_Test(ddssec_builtin_listeners_access_control, local_2secs)
     printf("validate_remote_permissions_failed: %s\n", exception.message ? exception.message : "Error message missing");
     /* Expiry can happen on very slow platforms or when doing a valgrind run.
          * Just take our losses and quit, simulating a success. */
-    CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_VALIDITY_PERIOD_EXPIRED_CODE, 0);
+    CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_VALIDITY_PERIOD_EXPIRED_CODE);
     goto end;
   }
 

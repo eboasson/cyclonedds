@@ -291,13 +291,13 @@ CU_Test (ddsi_security_msg, serializer)
 
   /* Check creation result. */
   equal = ddsi_plist_equal_generic (&msg_in, &test_msg_in, ddsi_pserop_participant_generic_message);
-  CU_ASSERT_NEQ (equal == true, 0);
+  CU_ASSERT_EQ (equal, true);
 
   /* Serialize the message. */
   ret = ddsi_participant_generic_message_serialize(&msg_in, &data, &len);
-  CU_ASSERT_NEQ (ret == DDS_RETCODE_OK, 0);
+  CU_ASSERT_EQ (ret, DDS_RETCODE_OK);
   CU_ASSERT_NEQ_FATAL (data, NULL);
-  CU_ASSERT_NEQ (len > 0, 0);
+  CU_ASSERT_GT (len, 0);
 
   /* Check serialization result. */
   size_t cmpsize = (len < sizeof(test_msg_ser)) ? len : sizeof(test_msg_ser);
@@ -310,15 +310,15 @@ CU_Test (ddsi_security_msg, serializer)
               (data[k] == test_msg_ser[k]) ? "" : "<--");
     CU_ASSERT_NEQ (!(bool)"memcmp", 0);
   }
-  CU_ASSERT_NEQ (len == sizeof(test_msg_ser), 0);
+  CU_ASSERT_EQ (len, sizeof(test_msg_ser));
 
   /* Deserialize the message. */
   ret = ddsi_participant_generic_message_deseralize(&msg_ser, data, len, false);
-  CU_ASSERT_NEQ (ret == DDS_RETCODE_OK, 0);
+  CU_ASSERT_EQ (ret, DDS_RETCODE_OK);
 
   /* Check deserialization result. */
   equal = ddsi_plist_equal_generic (&msg_ser, &test_msg_out, ddsi_pserop_participant_generic_message);
-  CU_ASSERT_NEQ (equal == true, 0);
+  CU_ASSERT_EQ (equal, true);
 
   /* Cleanup. */
   ddsi_participant_generic_message_deinit(&msg_in);

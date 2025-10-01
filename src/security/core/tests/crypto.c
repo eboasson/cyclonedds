@@ -87,7 +87,7 @@ static void init_domain_pp (dds_domainid_t domain_id, const char *id_cert, const
   CU_ASSERT_EQ_FATAL (expand_lookup_unmatched (config_vars), 0);
   *domain = dds_create_domain (domain_id, conf);
   *pp = dds_create_participant (domain_id, NULL, NULL);
-  CU_ASSERT_NEQ (*pp > 0, 0);
+  CU_ASSERT_GT (*pp, 0);
   ddsrt_free (conf);
 }
 

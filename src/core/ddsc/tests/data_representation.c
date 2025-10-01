@@ -37,17 +37,17 @@ static void data_representation_init (void)
 {
   char * conf = ddsrt_expand_envvars (DDS_CONFIG, DDS_DOMAINID1);
   d1 = dds_create_domain (DDS_DOMAINID1, conf);
-  CU_ASSERT_NEQ (d1 > 0, 0);
+  CU_ASSERT_GT (d1, 0);
   ddsrt_free (conf);
   conf = ddsrt_expand_envvars (DDS_CONFIG, DDS_DOMAINID2);
   d2 = dds_create_domain (DDS_DOMAINID2, conf);
-  CU_ASSERT_NEQ (d2 > 0, 0);
+  CU_ASSERT_GT (d2, 0);
   ddsrt_free (conf);
 
   dp1 = dds_create_participant (DDS_DOMAINID1, NULL, NULL);
-  CU_ASSERT_NEQ (dp1 > 0, 0);
+  CU_ASSERT_GT (dp1, 0);
   dp2 = dds_create_participant (DDS_DOMAINID2, NULL, NULL);
-  CU_ASSERT_NEQ (dp2 > 0, 0);
+  CU_ASSERT_GT (dp2, 0);
 }
 
 static void data_representation_fini (void)
@@ -204,27 +204,27 @@ CU_Test (ddsc_data_representation, xcdr1_xcdr2, .init = data_representation_init
     create_unique_topic_name ("ddsc_data_representation", topicname, sizeof topicname);
 
     dds_entity_t tp1 = dds_create_topic (dp1, tests[i].desc, topicname, NULL, NULL);
-    CU_ASSERT_NEQ (tp1 > 0, 0);
+    CU_ASSERT_GT (tp1, 0);
     dds_entity_t tp2 = dds_create_topic (dp2, tests[i].desc, topicname, NULL, NULL);
-    CU_ASSERT_NEQ (tp2 > 0, 0);
+    CU_ASSERT_GT (tp2, 0);
 
     dds_entity_t rd = dds_create_reader (dp2, tp2, qos_xcdr_both, NULL);
-    CU_ASSERT_NEQ (rd > 0, 0);
+    CU_ASSERT_GT (rd, 0);
 
     dds_entity_t wr1 = dds_create_writer (dp1, tp1, qos_xcdr1, NULL);
-    CU_ASSERT_NEQ (wr1 > 0, 0);
+    CU_ASSERT_GT (wr1, 0);
     sync_reader_writer (dp2, rd, dp1, wr1);
 
     dds_entity_t wr2 = dds_create_writer (dp1, tp1, qos_xcdr2, NULL);
-    CU_ASSERT_NEQ (wr2 > 0, 0);
+    CU_ASSERT_GT (wr2, 0);
     sync_reader_writer (dp2, rd, dp1, wr2);
 
     ret = dds_set_status_mask (rd, DDS_DATA_AVAILABLE_STATUS);
-    CU_ASSERT_NEQ (ret == 0, 0);
+    CU_ASSERT_EQ (ret, 0);
     dds_entity_t ws = dds_create_waitset (dp2);
-    CU_ASSERT_NEQ (ws > 0, 0);
+    CU_ASSERT_GT (ws, 0);
     ret = dds_waitset_attach (ws, rd, rd);
-    CU_ASSERT_NEQ (ret == 0, 0);
+    CU_ASSERT_EQ (ret, 0);
 
     void *sample = tests[i].sample_init ();
     dds_instance_handle_t ih1 = write_read_sample (ws, wr1, rd, sample, tests[i].sample_equal);
@@ -280,26 +280,26 @@ CU_Test(ddsc_data_representation, matching, .init = data_representation_init, .f
     char topicname[100];
     create_unique_topic_name ("ddsc_data_representation", topicname, sizeof topicname);
     dds_entity_t tp1 = dds_create_topic (dp1, &DataRepresentationTypes_Type1_desc, topicname, NULL, NULL);
-    CU_ASSERT_NEQ (tp1 > 0, 0);
+    CU_ASSERT_GT (tp1, 0);
     dds_entity_t tp2 = dds_create_topic (dp2, &DataRepresentationTypes_Type1_desc, topicname, NULL, NULL);
-    CU_ASSERT_NEQ (tp2 > 0, 0);
+    CU_ASSERT_GT (tp2, 0);
 
     dds_entity_t rd = dds_create_reader (dp2, tp2, qos_rd, NULL);
-    CU_ASSERT_NEQ (rd > 0, 0);
+    CU_ASSERT_GT (rd, 0);
 
     dds_entity_t wr = dds_create_writer (dp1, tp1, qos_wr, NULL);
-    CU_ASSERT_NEQ (wr > 0, 0);
+    CU_ASSERT_GT (wr, 0);
 
     if (tests[i].match)
     {
       sync_reader_writer (dp2, rd, dp1, wr);
 
       ret = dds_set_status_mask (rd, DDS_DATA_AVAILABLE_STATUS);
-      CU_ASSERT_NEQ (ret == 0, 0);
+      CU_ASSERT_EQ (ret, 0);
       dds_entity_t ws = dds_create_waitset (dp2);
-      CU_ASSERT_NEQ (ws > 0, 0);
+      CU_ASSERT_GT (ws, 0);
       ret = dds_waitset_attach (ws, rd, rd);
-      CU_ASSERT_NEQ (ret == 0, 0);
+      CU_ASSERT_EQ (ret, 0);
       DataRepresentationTypes_Type1 sample = { { 1, 2, 3 }, "test", 4 };
       (void) write_read_sample (ws, wr, rd, &sample, NULL);
 
@@ -314,7 +314,7 @@ CU_Test(ddsc_data_representation, matching, .init = data_representation_init, .f
       CU_ASSERT_EQ_FATAL (ret, 1);
       CU_ASSERT_EQ_FATAL (si->instance_state, DDS_NOT_ALIVE_DISPOSED_INSTANCE_STATE);
       ret = dds_return_loan (rd, rds, 1);
-      CU_ASSERT_NEQ (ret == 0, 0);
+      CU_ASSERT_EQ (ret, 0);
     }
     else
       no_sync_reader_writer (dp2, rd, dp1, wr, DDS_MSECS (200));
@@ -469,7 +469,7 @@ CU_Test (ddsc_data_representation, update_qos, .init = data_representation_init,
   char topicname[100];
   create_unique_topic_name ("ddsc_data_representation", topicname, sizeof topicname);
   dds_entity_t tp1 = dds_create_topic (dp1, &DESC(TypeFinal), topicname, NULL, NULL);
-  CU_ASSERT_NEQ (tp1 > 0, 0);
+  CU_ASSERT_GT (tp1, 0);
 
   enum { RD, WR, TP } tests[] = { RD, WR, TP };
   for (uint32_t i = 0; i < sizeof (tests) / sizeof (tests[0]); i++)
@@ -480,7 +480,7 @@ CU_Test (ddsc_data_representation, update_qos, .init = data_representation_init,
       case WR: tprintf("WR\n"); ent = dds_create_writer (dp1, tp1, NULL, NULL); break;
       case TP: tprintf("TP\n"); ent = tp1; break;
     }
-    CU_ASSERT_NEQ (ent > 0, 0);
+    CU_ASSERT_GT (ent, 0);
 
     {
       // data representation should be implicitly set to XCDR1, XCDR2

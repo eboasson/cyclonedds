@@ -45,19 +45,19 @@ static void topic_find_global_init (void)
          * This allows to create two domains in a single test process. */
   char * conf = ddsrt_expand_envvars (DDS_CONFIG_NO_PORT_GAIN, DDS_DOMAINID1);
   g_domain1 = dds_create_domain (DDS_DOMAINID1, conf);
-  CU_ASSERT_NEQ (g_domain1 > 0, 0);
+  CU_ASSERT_GT (g_domain1, 0);
   dds_free (conf);
   conf = ddsrt_expand_envvars (DDS_CONFIG_NO_PORT_GAIN, DDS_DOMAINID2);
   g_domain_remote1 = dds_create_domain (DDS_DOMAINID2, conf);
-  CU_ASSERT_NEQ (g_domain_remote1 > 0, 0);
+  CU_ASSERT_GT (g_domain_remote1, 0);
   dds_free (conf);
   conf = ddsrt_expand_envvars (DDS_CONFIG_NO_PORT_GAIN, DDS_DOMAINID3);
   g_domain_remote2 = dds_create_domain (DDS_DOMAINID3, conf);
-  CU_ASSERT_NEQ (g_domain_remote2 > 0, 0);
+  CU_ASSERT_GT (g_domain_remote2, 0);
   dds_free (conf);
 
   g_participant1 = dds_create_participant (DDS_DOMAINID1, NULL, NULL);
-  CU_ASSERT_NEQ (g_participant1 > 0, 0);
+  CU_ASSERT_GT (g_participant1, 0);
 }
 
 static void topic_find_global_fini (void)
@@ -70,17 +70,17 @@ static void topic_find_global_fini (void)
 static void create_remote_topic (char * topic_name_remote)
 {
   dds_entity_t participant_remote = dds_create_participant (DDS_DOMAINID2, NULL, NULL);
-  CU_ASSERT_NEQ (participant_remote > 0, 0);
+  CU_ASSERT_GT (participant_remote, 0);
 
   create_unique_topic_name ("ddsc_topic_find_remote", topic_name_remote, MAX_NAME_SIZE);
   dds_entity_t topic_remote = dds_create_topic (participant_remote, &Space_Type1_desc, topic_name_remote, NULL, NULL);
-  CU_ASSERT_NEQ (topic_remote > 0, 0);
+  CU_ASSERT_GT (topic_remote, 0);
 }
 
 static void wait_for_remote_topic (char * topic_name_remote)
 {
   dds_entity_t topic_rd = dds_create_reader (g_participant1, DDS_BUILTIN_TOPIC_DCPSTOPIC, NULL, NULL);
-  CU_ASSERT_NEQ (topic_rd > 0, 0);
+  CU_ASSERT_GT (topic_rd, 0);
   dds_time_t t_exp = dds_time () + DDS_SECS (10);
   bool seen = false;
   do
@@ -102,7 +102,7 @@ static void wait_for_remote_topic (char * topic_name_remote)
 static dds_typeinfo_t *get_desc_typeinfo (const dds_topic_descriptor_t *desc)
 {
   ddsi_typeinfo_t *type_info = ddsi_typeinfo_deser (desc->type_information.data, desc->type_information.sz);
-  CU_ASSERT_NEQ (type_info != NULL, 0);
+  CU_ASSERT_NEQ (type_info, NULL);
   return (dds_typeinfo_t *) type_info;
 }
 
@@ -126,7 +126,7 @@ CU_Test(ddsc_topic_find_global, participant, .init = topic_find_global_init, .fi
 
   dds_typeinfo_t *type_info = get_desc_typeinfo (&Space_Type1_desc);
   dds_entity_t topic = dds_find_topic (DDS_FIND_SCOPE_GLOBAL, g_participant1, topic_name_remote, type_info, DDS_SECS (10));
-  CU_ASSERT_NEQ (topic > 0, 0);
+  CU_ASSERT_GT (topic, 0);
   dds_free_typeinfo (type_info);
 }
 
@@ -163,7 +163,7 @@ static uint32_t topics_thread (void *a)
   {
     set_topic_name (topic_name, sizeof (topic_name), arg->topic_name_prefix, t);
     topics[t] = dds_create_topic (arg->pp, arg->topic_desc, topic_name, NULL, NULL);
-    CU_ASSERT_NEQ (topics[t] > 0, 0);
+    CU_ASSERT_GT (topics[t], 0);
   }
   ddsrt_atomic_st32 (&arg->state, DONE);
   tprintf ("%s topics thread: finished creating topics with prefix %s\n", arg->remote ? "remote" : "local", arg->topic_name_prefix);
@@ -204,7 +204,7 @@ CU_Theory ((uint32_t num_local_pp, uint32_t num_remote_pp, uint32_t num_tp), dds
   tprintf("ddsc_topic_find_global.find_delete_topics: %u/%u local/remote participants, %u topics\n", num_local_pp, num_remote_pp, num_tp);
   dds_return_t ret;
   dds_entity_t participant_remote = dds_create_participant (DDS_DOMAINID2, NULL, NULL);
-  CU_ASSERT_NEQ (participant_remote > 0, 0);
+  CU_ASSERT_GT (participant_remote, 0);
   ddsrt_atomic_st32 (&g_stop, 0);
   char topic_name[MAX_NAME_SIZE + 10];
 
@@ -240,7 +240,7 @@ CU_Theory ((uint32_t num_local_pp, uint32_t num_remote_pp, uint32_t num_tp), dds
     {
       set_topic_name (topic_name, sizeof (topic_name), create_args[n].topic_name_prefix, t);
       dds_entity_t topic = dds_find_topic (DDS_FIND_SCOPE_GLOBAL, g_participant1, topic_name, (dds_typeinfo_t *) type_info, DDS_SECS (5));
-      CU_ASSERT_NEQ (topic > 0, 0);
+      CU_ASSERT_GT (topic, 0);
     }
 
     ddsi_typeinfo_fini (type_info);
@@ -276,21 +276,21 @@ CU_Theory ((uint32_t num_local_pp, uint32_t num_remote_pp, uint32_t num_tp), dds
 CU_Test (ddsc_topic_find_global, same_name, .init = topic_find_global_init, .fini = topic_find_global_fini, .timeout = 30)
 {
   dds_entity_t participant_remote1 = dds_create_participant (DDS_DOMAINID2, NULL, NULL);
-  CU_ASSERT_NEQ (participant_remote1 > 0, 0);
+  CU_ASSERT_GT (participant_remote1, 0);
   dds_entity_t participant_remote2 = dds_create_participant (DDS_DOMAINID3, NULL, NULL);
-  CU_ASSERT_NEQ (participant_remote2 > 0, 0);
+  CU_ASSERT_GT (participant_remote2, 0);
 
   /* create 2 topics with same name, different type */
   char topic_name[MAX_NAME_SIZE];
   create_unique_topic_name ("ddsc_topic_find_global_same_name", topic_name, MAX_NAME_SIZE);
   dds_entity_t topic_remote1 = dds_create_topic (participant_remote1, &Space_Type1_desc, topic_name, NULL, NULL);
-  CU_ASSERT_NEQ (topic_remote1 > 0, 0);
+  CU_ASSERT_GT (topic_remote1, 0);
   dds_entity_t topic_remote2 = dds_create_topic (participant_remote2, &Space_Type2_desc, topic_name, NULL, NULL);
-  CU_ASSERT_NEQ (topic_remote2 > 0, 0);
+  CU_ASSERT_GT (topic_remote2, 0);
 
   /* Wait for both topics to be discovered */
   dds_entity_t topic_rd = dds_create_reader (g_participant1, DDS_BUILTIN_TOPIC_DCPSTOPIC, NULL, NULL);
-  CU_ASSERT_NEQ (topic_rd > 0, 0);
+  CU_ASSERT_GT (topic_rd, 0);
   dds_time_t t_exp = dds_time () + DDS_SECS (10);
   uint32_t seen = 0;
   do
@@ -316,9 +316,9 @@ CU_Test (ddsc_topic_find_global, same_name, .init = topic_find_global_init, .fin
   CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
 
   dds_entity_t topic1 = dds_find_topic (DDS_FIND_SCOPE_GLOBAL, g_participant1, topic_name, typeinfo1, DDS_SECS (5));
-  CU_ASSERT_NEQ (topic1 > 0, 0);
+  CU_ASSERT_GT (topic1, 0);
   dds_entity_t topic2 = dds_find_topic (DDS_FIND_SCOPE_GLOBAL, g_participant1, topic_name, typeinfo2, DDS_SECS (5));
-  CU_ASSERT_NEQ (topic2 > 0, 0);
+  CU_ASSERT_GT (topic2, 0);
 
   dds_free_typeinfo (typeinfo1);
   dds_free_typeinfo (typeinfo2);

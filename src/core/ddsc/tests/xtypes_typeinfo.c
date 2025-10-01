@@ -74,14 +74,14 @@ static void xtypes_typeinfo_init (void)
   dds_free (conf2);
 
   g_participant1 = dds_create_participant (DDS_DOMAINID_PUB, NULL, NULL);
-  CU_ASSERT_NEQ (g_participant1 > 0, 0);
+  CU_ASSERT_GT (g_participant1, 0);
   g_participant2 = dds_create_participant (DDS_DOMAINID_SUB, NULL, NULL);
-  CU_ASSERT_NEQ (g_participant2 > 0, 0);
+  CU_ASSERT_GT (g_participant2, 0);
 
   g_publisher1 = dds_create_publisher (g_participant1, NULL, NULL);
-  CU_ASSERT_NEQ (g_publisher1 > 0, 0);
+  CU_ASSERT_GT (g_publisher1, 0);
   g_subscriber2 = dds_create_subscriber (g_participant2, NULL, NULL);
-  CU_ASSERT_NEQ (g_subscriber2 > 0, 0);
+  CU_ASSERT_GT (g_subscriber2, 0);
 }
 
 static void xtypes_typeinfo_fini (void)
@@ -116,7 +116,7 @@ CU_Test (ddsc_xtypes_typeinfo, invalid_top_level_local_hash, .init = xtypes_type
 
     create_unique_topic_name ("ddsc_xtypes_typeinfo", topic_name, sizeof (topic_name));
     dds_entity_t topic = dds_create_topic (g_participant1, &desc, topic_name, NULL, NULL);
-    CU_ASSERT_NEQ (topic < 0, 0);
+    CU_ASSERT_LT (topic, 0);
 
     ddsi_typeinfo_fini ((ddsi_typeinfo_t *) ti);
     ddsrt_free (ti);
@@ -142,7 +142,7 @@ CU_Test (ddsc_xtypes_typeinfo, invalid_top_level_local_non_hash, .init = xtypes_
 
   create_unique_topic_name ("ddsc_xtypes_typeinfo", topic_name, sizeof (topic_name));
   dds_entity_t topic = dds_create_topic (g_participant1, &desc, topic_name, NULL, NULL);
-  CU_ASSERT_NEQ (topic < 0, 0);
+  CU_ASSERT_LT (topic, 0);
 
   ddsi_typeinfo_fini ((ddsi_typeinfo_t *) ti);
   ddsrt_free (ti);
@@ -219,7 +219,7 @@ CU_Theory ((const char *test_descr, const dds_topic_descriptor_t *topic_desc, ty
   // test that topic creation fails
   create_unique_topic_name ("ddsc_xtypes_typeinfo", topic_name, sizeof (topic_name));
   dds_entity_t topic = dds_create_topic (g_participant1, &desc, topic_name, NULL, NULL);
-  CU_ASSERT_NEQ (topic < 0, 0);
+  CU_ASSERT_LT (topic, 0);
 
   if (matching_typeinfo)
     ddsrt_free ((void *) desc.type_information.data);
@@ -237,7 +237,7 @@ CU_Test (ddsc_xtypes_typeinfo, invalid_top_level_remote_hash, .init = xtypes_typ
 
   // create local topic so that types are in type lib and resolved
   dds_entity_t topic = dds_create_topic (g_participant1, &XSpace_to_toplevel_desc, topic_name, NULL, NULL);
-  CU_ASSERT_NEQ (topic > 0, 0);
+  CU_ASSERT_GT (topic, 0);
 
   // create type id with invalid top-level
   // coverity[store_writes_const_field]
@@ -293,9 +293,9 @@ CU_Theory ((const char *test_descr, const dds_topic_descriptor_t *topic_desc, ty
 
   // local writer
   dds_entity_t topic = dds_create_topic (g_participant1, topic_desc, topic_name, NULL, NULL);
-  CU_ASSERT_NEQ (topic > 0, 0);
+  CU_ASSERT_GT (topic, 0);
   dds_entity_t wr = dds_create_writer (g_participant1, topic, NULL, NULL);
-  CU_ASSERT_NEQ (wr > 0, 0);
+  CU_ASSERT_GT (wr, 0);
 
   dds_topic_descriptor_t desc;
   xtypes_util_modify_type_meta (&desc, topic_desc, mod, true, DDS_XTypes_EK_MINIMAL);
@@ -349,11 +349,11 @@ CU_Test (ddsc_xtypes_typeinfo, get_type_info, .init = xtypes_typeinfo_init, .fin
   create_unique_topic_name ("ddsc_xtypes_typeinfo", topic_name, sizeof (topic_name));
 
   dds_entity_t topic = dds_create_topic (g_participant1, &XSpace_XType1_desc, topic_name, NULL, NULL);
-  CU_ASSERT_NEQ (topic > 0, 0);
+  CU_ASSERT_GT (topic, 0);
   dds_entity_t wr = dds_create_writer (g_participant1, topic, NULL, NULL);
-  CU_ASSERT_NEQ (wr > 0, 0);
+  CU_ASSERT_GT (wr, 0);
   dds_entity_t rd = dds_create_reader (g_participant1, topic, NULL, NULL);
-  CU_ASSERT_NEQ (rd > 0, 0);
+  CU_ASSERT_GT (rd, 0);
 
   dds_typeinfo_t *type_info_tp, *type_info_wr, *type_info_rd;
   dds_return_t ret;

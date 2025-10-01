@@ -20,9 +20,9 @@ CU_Test (ddsc_sertype_default, compare)
 {
   dds_return_t ret;
   dds_entity_t domain = dds_create_domain (0, NULL);
-  CU_ASSERT_NEQ (domain >= 0, 0);
+  CU_ASSERT_GEQ (domain, 0);
   dds_entity_t participant = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_NEQ (participant >= 0, 0);
+  CU_ASSERT_GEQ (participant, 0);
 
   char topic_name[100];
   create_unique_topic_name ("ddsc_dynamic_type", topic_name, sizeof (topic_name));
@@ -56,8 +56,8 @@ CU_Test (ddsc_sertype_default, compare)
   const ddsi_typeid_t * rd_type_compl = ddsi_typeinfo_complete_typeid (rd_type_info);
   const ddsi_typeid_t * wr_type_compl = ddsi_typeinfo_complete_typeid (wr_type_info);
 
-  CU_ASSERT_NEQ (ddsi_typeid_compare (rd_type_min, wr_type_min) == 0, 0);
-  CU_ASSERT_NEQ (ddsi_typeid_compare (rd_type_compl, wr_type_compl) != 0, 0);
+  CU_ASSERT_EQ (ddsi_typeid_compare (rd_type_min, wr_type_min), 0);
+  CU_ASSERT_NEQ (ddsi_typeid_compare (rd_type_compl, wr_type_compl), 0);
 
   // Sertypes should be different, because of different complete types
   CU_ASSERT_NEQ (rd_sertype, wr_sertype);

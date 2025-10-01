@@ -80,37 +80,37 @@ read_instance_init(void)
     CU_ASSERT_NEQ_FATAL (qos, NULL);
 
     g_participant = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_NEQ (g_participant > 0, 0);
+    CU_ASSERT_GT (g_participant, 0);
 
     g_subscriber = dds_create_subscriber(g_participant, NULL, NULL);
-    CU_ASSERT_NEQ (g_subscriber > 0, 0);
+    CU_ASSERT_GT (g_subscriber, 0);
 
     g_publisher = dds_create_publisher(g_participant, NULL, NULL);
-    CU_ASSERT_NEQ (g_publisher > 0, 0);
+    CU_ASSERT_GT (g_publisher, 0);
 
     g_waitset = dds_create_waitset(g_participant);
-    CU_ASSERT_NEQ (g_waitset > 0, 0);
+    CU_ASSERT_GT (g_waitset, 0);
 
     g_topic = dds_create_topic(g_participant, &Space_Type1_desc, create_unique_topic_name("ddsc_read_instance_test", name, sizeof name), NULL, NULL);
-    CU_ASSERT_NEQ (g_topic > 0, 0);
+    CU_ASSERT_GT (g_topic, 0);
 
     /* Create a writer that will not automatically dispose unregistered samples. */
     dds_qset_writer_data_lifecycle(qos, false);
     g_writer = dds_create_writer(g_publisher, g_topic, qos, NULL);
-    CU_ASSERT_NEQ (g_writer > 0, 0);
+    CU_ASSERT_GT (g_writer, 0);
 
     /* Create a reader that keeps all samples when not taken. */
     dds_qset_history(qos, DDS_HISTORY_KEEP_ALL, DDS_LENGTH_UNLIMITED);
     g_reader = dds_create_reader(g_subscriber, g_topic, qos, NULL);
-    CU_ASSERT_NEQ (g_reader > 0, 0);
+    CU_ASSERT_GT (g_reader, 0);
 
     /* Create a read condition that only reads not_read samples. */
     g_rcond = dds_create_readcondition(g_reader, DDS_NOT_READ_SAMPLE_STATE | DDS_ANY_VIEW_STATE | DDS_ANY_INSTANCE_STATE);
-    CU_ASSERT_NEQ (g_rcond > 0, 0);
+    CU_ASSERT_GT (g_rcond, 0);
 
     /* Create a query condition that only reads not_read samples of instances mod2. */
     g_qcond = dds_create_querycondition(g_reader, DDS_ANY_SAMPLE_STATE | DDS_ANY_VIEW_STATE | DDS_ANY_INSTANCE_STATE, filter_mod2);
-    CU_ASSERT_NEQ (g_qcond > 0, 0);
+    CU_ASSERT_GT (g_qcond, 0);
 
     /* Sync g_reader to g_writer. */
     ret = dds_set_status_mask(g_reader, DDS_SUBSCRIPTION_MATCHED_STATUS);
@@ -254,7 +254,7 @@ samples_cnt(void)
 {
     dds_return_t ret;
     ret = dds_read(g_reader, g_samples, g_info, MAX_SAMPLES, MAX_SAMPLES);
-    CU_ASSERT_NEQ (ret >= 0, 0);
+    CU_ASSERT_GEQ (ret, 0);
     return ret;
 }
 

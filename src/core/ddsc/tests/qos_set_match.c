@@ -31,7 +31,7 @@ static void durability_check (const enum check_mode check_mode, const dds_qos_t 
   dds_durability_kind_t k = (dds_durability_kind_t) ((int) DDS_DURABILITY_PERSISTENT - v[0]);
   CU_ASSERT_NEQ (dds_qget_durability (q, &k) == (check_mode != CM_UNSET), 0);
   if (check_mode == CM_SET) {
-    CU_ASSERT_NEQ ((int) k == v[0], 0);
+    CU_ASSERT_EQ ((int) k, v[0]);
   }
 }
 static void durability_invalid (dds_qos_t * const q, int const v) {
@@ -51,8 +51,8 @@ static void reliability_check (const enum check_mode check_mode, const dds_qos_t
   dds_duration_t d = -1;
   CU_ASSERT_NEQ (dds_qget_reliability (q, &k, &d) == (check_mode != CM_UNSET), 0);
   if (check_mode == CM_SET) {
-    CU_ASSERT_NEQ ((int) k == v[0], 0);
-    CU_ASSERT_NEQ (d == max_blocking_time_offset, 0);
+    CU_ASSERT_EQ ((int) k, v[0]);
+    CU_ASSERT_EQ (d, max_blocking_time_offset);
   }
 }
 static void reliability_invalid (dds_qos_t * const q, int const v) {
@@ -70,7 +70,7 @@ static void latency_budget_check (const enum check_mode check_mode, const dds_qo
   dds_duration_t d = -1;
   CU_ASSERT_NEQ (dds_qget_latency_budget (q, &d) == (check_mode != CM_UNSET), 0);
   if (check_mode == CM_SET) {
-    CU_ASSERT_NEQ (d == v[0] + latency_budget_offset, 0);
+    CU_ASSERT_EQ (d, v[0] + latency_budget_offset);
   }
 }
 static void latency_budget_invalid (dds_qos_t * const q, int const v) {
@@ -88,7 +88,7 @@ static void deadline_check (const enum check_mode check_mode, const dds_qos_t * 
   dds_duration_t d = -1;
   CU_ASSERT_NEQ (dds_qget_deadline (q, &d) == (check_mode != CM_UNSET), 0);
   if (check_mode == CM_SET) {
-    CU_ASSERT_NEQ (d == v[0] + deadline_offset, 0);
+    CU_ASSERT_EQ (d, v[0] + deadline_offset);
   }
 }
 static void deadline_invalid (dds_qos_t * const q, int const v) {
@@ -106,7 +106,7 @@ static void time_based_filter_check (const enum check_mode check_mode, const dds
   dds_duration_t d = -1;
   CU_ASSERT_NEQ (dds_qget_time_based_filter (q, &d) == (check_mode != CM_UNSET), 0);
   if (check_mode == CM_SET) {
-    CU_ASSERT_NEQ (d == v[0] + time_based_filter_offset, 0);
+    CU_ASSERT_EQ (d, v[0] + time_based_filter_offset);
   }
 }
 static void time_based_filter_invalid (dds_qos_t * const q, int const v) {
@@ -123,7 +123,7 @@ static void ownership_check (const enum check_mode check_mode, const dds_qos_t *
   dds_ownership_kind_t k = (dds_ownership_kind_t) ((int) DDS_OWNERSHIP_EXCLUSIVE - v[0]);
   CU_ASSERT_NEQ (dds_qget_ownership (q, &k) == (check_mode != CM_UNSET), 0);
   if (check_mode == CM_SET) {
-    CU_ASSERT_NEQ ((int) k == v[0], 0);
+    CU_ASSERT_EQ ((int) k, v[0]);
   }
 }
 static void ownership_invalid (dds_qos_t * const q, int const v) {
@@ -138,7 +138,7 @@ static void ownership_strength_check (const enum check_mode check_mode, const dd
   int32_t k = -1;
   CU_ASSERT_NEQ (dds_qget_ownership_strength (q, &k) == (check_mode != CM_UNSET), 0);
   if (check_mode == CM_SET) {
-    CU_ASSERT_NEQ (k == v[0] + ownership_strength_offset, 0);
+    CU_ASSERT_EQ (k, v[0] + ownership_strength_offset);
   }
 }
 // no invalid value for ownership strength exists
@@ -152,7 +152,7 @@ static void destination_order_check (const enum check_mode check_mode, const dds
   dds_destination_order_kind_t k = (dds_destination_order_kind_t) ((int) DDS_DESTINATIONORDER_BY_SOURCE_TIMESTAMP - v[0]);
   CU_ASSERT_NEQ (dds_qget_destination_order (q, &k) == (check_mode != CM_UNSET), 0);
   if (check_mode == CM_SET) {
-    CU_ASSERT_NEQ ((int) k == v[0], 0);
+    CU_ASSERT_EQ ((int) k, v[0]);
   }
 }
 static void destination_order_invalid (dds_qos_t * const q, int const v) {
@@ -168,7 +168,7 @@ static void lifespan_check (const enum check_mode check_mode, const dds_qos_t * 
   dds_duration_t d = -1;
   CU_ASSERT_NEQ (dds_qget_lifespan (q, &d) == (check_mode != CM_UNSET), 0);
   if (check_mode == CM_SET) {
-    CU_ASSERT_NEQ (d == v[0] + lifespan_offset, 0);
+    CU_ASSERT_EQ (d, v[0] + lifespan_offset);
   }
 }
 static void lifespan_invalid (dds_qos_t * const q, int const v) {
@@ -185,7 +185,7 @@ static void transport_priority_check (const enum check_mode check_mode, const dd
   int32_t d = -1;
   CU_ASSERT_NEQ (dds_qget_transport_priority (q, &d) == (check_mode != CM_UNSET), 0);
   if (check_mode == CM_SET) {
-    CU_ASSERT_NEQ (d == v[0] + transport_priority_offset, 0);
+    CU_ASSERT_EQ (d, v[0] + transport_priority_offset);
   }
 }
 // no invalid value for transport priority exists
@@ -201,8 +201,8 @@ static void history_check (const enum check_mode check_mode, const dds_qos_t * c
   int32_t d = -1;
   CU_ASSERT_NEQ (dds_qget_history (q, &k, &d) == (check_mode != CM_UNSET), 0);
   if (check_mode == CM_SET) {
-    CU_ASSERT_NEQ ((int) k == v[0], 0);
-    CU_ASSERT_NEQ (d == history_depth, 0);
+    CU_ASSERT_EQ ((int) k, v[0]);
+    CU_ASSERT_EQ (d, history_depth);
   }
 }
 static void history_invalid (dds_qos_t * const q, int const v) {
@@ -222,8 +222,8 @@ static void liveliness_check (const enum check_mode check_mode, const dds_qos_t 
   dds_duration_t d = -1;
   CU_ASSERT_NEQ (dds_qget_liveliness (q, &k, &d) == (check_mode != CM_UNSET), 0);
   if (check_mode == CM_SET) {
-    CU_ASSERT_NEQ ((int) k == v[0], 0);
-    CU_ASSERT_NEQ (d == DDS_SECS (1) + v[1], 0);
+    CU_ASSERT_EQ ((int) k, v[0]);
+    CU_ASSERT_EQ (d, DDS_SECS (1) + v[1]);
   }
 }
 static void liveliness_invalid (dds_qos_t * const q, int const v) {
@@ -255,9 +255,9 @@ static void resource_limits_check (const enum check_mode check_mode, const dds_q
   int32_t a = 0, b = 0, c = 0;
   CU_ASSERT_NEQ (dds_qget_resource_limits (q, &a, &b, &c) == (check_mode != CM_UNSET), 0);
   if (check_mode == CM_SET) {
-    CU_ASSERT_NEQ (a == resource_limits_cnv (v[0],0,2), 0);
-    CU_ASSERT_NEQ (b == resource_limits_cnv (v[0],1,1), 0);
-    CU_ASSERT_NEQ (c == resource_limits_cnv (v[0],2,0), 0);
+    CU_ASSERT_EQ (a, resource_limits_cnv (v[0],0,2));
+    CU_ASSERT_EQ (b, resource_limits_cnv (v[0],1,1));
+    CU_ASSERT_EQ (c, resource_limits_cnv (v[0],2,0));
   }
 }
 static void resource_limits_invalid (dds_qos_t * const q, int const v) {
@@ -281,9 +281,9 @@ static void presentation_check (const enum check_mode check_mode, const dds_qos_
   bool w = !v[1], x = !v[2];
   CU_ASSERT_NEQ (dds_qget_presentation (q, &k, &w, &x) == (check_mode != CM_UNSET), 0);
   if (check_mode == CM_SET) {
-    CU_ASSERT_NEQ ((int) k == v[0], 0);
-    CU_ASSERT_NEQ (w == v[1], 0);
-    CU_ASSERT_NEQ (x == v[2], 0);
+    CU_ASSERT_EQ ((int) k, v[0]);
+    CU_ASSERT_EQ (w, v[1]);
+    CU_ASSERT_EQ (x, v[2]);
   }
 }
 static void presentation_invalid (dds_qos_t * const q, int const v) {
@@ -334,7 +334,7 @@ static void ignorelocal_check (const enum check_mode check_mode, const dds_qos_t
   dds_ignorelocal_kind_t k = (dds_ignorelocal_kind_t) ((int) DDS_IGNORELOCAL_PROCESS - v[0]);
   CU_ASSERT_NEQ (dds_qget_ignorelocal (q, &k) == (check_mode != CM_UNSET), 0);
   if (check_mode == CM_SET) {
-    CU_ASSERT_NEQ ((int) k == v[0], 0);
+    CU_ASSERT_EQ ((int) k, v[0]);
   }
 }
 static void ignorelocal_invalid (dds_qos_t * const q, int const v) {
@@ -350,7 +350,7 @@ static void writer_batching_check (const enum check_mode check_mode, const dds_q
   bool k = (bool) (1 - v[0]);
   CU_ASSERT_NEQ (dds_qget_writer_batching (q, &k) == (check_mode != CM_UNSET), 0);
   if (check_mode == CM_SET) {
-    CU_ASSERT_NEQ ((int) k == v[0], 0);
+    CU_ASSERT_EQ ((int) k, v[0]);
   }
 }
 // no invalid value for writer batching exists: can't pass in garbage for a bool
@@ -364,7 +364,7 @@ static void writer_data_lifecycle_check (const enum check_mode check_mode, const
   bool k = (bool) (1 - v[0]);
   CU_ASSERT_NEQ (dds_qget_writer_data_lifecycle (q, &k) == (check_mode != CM_UNSET), 0);
   if (check_mode == CM_SET) {
-    CU_ASSERT_NEQ ((int) k == v[0], 0);
+    CU_ASSERT_EQ ((int) k, v[0]);
   }
 }
 // no invalid value for writer data lifecycle exists: can't pass in garbage for a bool
@@ -378,8 +378,8 @@ static void reader_data_lifecycle_check (const enum check_mode check_mode, const
   dds_duration_t k = -1, l = -1;
   CU_ASSERT_NEQ (dds_qget_reader_data_lifecycle (q, &k, &l) == (check_mode != CM_UNSET), 0);
   if (check_mode == CM_SET) {
-    CU_ASSERT_NEQ ((int) k == DDS_MSECS(100) + v[0], 0);
-    CU_ASSERT_NEQ ((int) l == DDS_MSECS(200) + v[1], 0);
+    CU_ASSERT_EQ ((int) k, DDS_MSECS(100) + v[0]);
+    CU_ASSERT_EQ ((int) l, DDS_MSECS(200) + v[1]);
   }
 }
 static void reader_data_lifecycle_invalid (dds_qos_t * const q, int const v) {
@@ -408,12 +408,12 @@ static void durability_service_check (const enum check_mode check_mode, const dd
   int32_t c = 0, d = 0, e = 0, f = 0;
   CU_ASSERT_NEQ (dds_qget_durability_service (q, &a, &b, &c, &d, &e, &f) == (check_mode != CM_UNSET), 0);
   if (check_mode == CM_SET) {
-    CU_ASSERT_NEQ (a == cleanup_service_delay_offset + v[0], 0);
-    CU_ASSERT_NEQ (b == (dds_history_kind_t) v[1], 0);
-    CU_ASSERT_NEQ (c == 2, 0);
-    CU_ASSERT_NEQ (d == resource_limits_cnv (v[2],0,12), 0);
-    CU_ASSERT_NEQ (e == resource_limits_cnv (v[2],1,11), 0);
-    CU_ASSERT_NEQ (f == resource_limits_cnv (v[2],2,10), 0);
+    CU_ASSERT_EQ (a, cleanup_service_delay_offset + v[0]);
+    CU_ASSERT_EQ (b, (dds_history_kind_t) v[1]);
+    CU_ASSERT_EQ (c, 2);
+    CU_ASSERT_EQ (d, resource_limits_cnv (v[2],0,12));
+    CU_ASSERT_EQ (e, resource_limits_cnv (v[2],1,11));
+    CU_ASSERT_EQ (f, resource_limits_cnv (v[2],2,10));
   }
 }
 static void durability_service_invalid (dds_qos_t * const q, int const v) {
@@ -628,7 +628,7 @@ static void check_qos_entity_one (uint32_t check_mask, const dds_entity_t entity
   const int v0[MAX_VALUES] = { 0 };
   dds_qos_t *qos = dds_create_qos ();
   const dds_return_t rc = dds_get_qos (entity, qos);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   for (size_t k = 0; k < sizeof (qostable) / sizeof (qostable[0]); k++)
   {
     if ((qostable[k].appl & check_mask) == 0)
@@ -665,11 +665,11 @@ static void do_entity_one (const uint32_t appl_mask, const uint32_t check_mask, 
           dds_qos_t *qos = dds_create_qos ();
           qostable[i].set (qos, v);
           const dds_entity_t ent = create (base, qos);
-          CU_ASSERT_NEQ (ent > 0, 0);
+          CU_ASSERT_GT (ent, 0);
           dds_delete_qos (qos);
           check_qos_entity_one (check_mask, ent, i, v, sparse_qos);
           const dds_return_t rc = dds_delete (ent);
-          CU_ASSERT_NEQ (rc == 0, 0);
+          CU_ASSERT_EQ (rc, 0);
         }
       }
     }
@@ -681,7 +681,7 @@ static void check_qos_entity_two (uint32_t check_mask, const dds_entity_t entity
   const int v0[MAX_VALUES] = { 0 };
   dds_qos_t *qos = dds_create_qos ();
   const dds_return_t rc = dds_get_qos (entity, qos);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   for (size_t k = 0; k < sizeof (qostable) / sizeof (qostable[0]); k++)
   {
     if ((qostable[k].appl & check_mask) == 0)
@@ -720,11 +720,11 @@ static void do_entity_two (const uint32_t appl_mask, const uint32_t check_mask, 
       qostable[i].set (qos, v0);
       qostable[j].set (qos, qostable[j].max);
       const dds_entity_t ent = create (base, qos);
-      CU_ASSERT_NEQ (ent > 0, 0);
+      CU_ASSERT_GT (ent, 0);
       dds_delete_qos (qos);
       check_qos_entity_two (check_mask, ent, i, j, sparse_qos);
       const dds_return_t rc = dds_delete (ent);
-      CU_ASSERT_NEQ (rc == 0, 0);
+      CU_ASSERT_EQ (rc, 0);
     }
   }
 }
@@ -733,24 +733,24 @@ static void do_nonendpoint (const uint32_t appl_mask, const uint32_t check_mask,
 {
   // Non-endpoint needs no topic
   const dds_entity_t dp = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_NEQ (dp > 0, 0);
+  CU_ASSERT_GT (dp, 0);
   do_entity (appl_mask, check_mask, sparse_qos, dp, create);
   const dds_return_t rc = dds_delete (dp);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 }
 
 static void do_endpoint (const uint32_t appl_mask, const uint32_t check_mask, bool sparse_qos, void (* const do_entity) (const uint32_t appl_mask, const uint32_t check_mask, const bool sparse_qos, dds_entity_t base, dds_entity_t (* const create) (dds_entity_t base, const dds_qos_t *qos)), dds_entity_t (* const create) (dds_entity_t base, const dds_qos_t *qos))
 {
   // Endpoints need a topic, can figure out participant from topic
   const dds_entity_t dp = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_NEQ (dp > 0, 0);
+  CU_ASSERT_GT (dp, 0);
   char topicname[100];
   create_unique_topic_name ("ddsc_qosmatch_endpoint", topicname, sizeof (topicname));
   const dds_entity_t tp = dds_create_topic (dp, &Space_Type1_desc, topicname, NULL, NULL);
-  CU_ASSERT_NEQ (tp > 0, 0);
+  CU_ASSERT_GT (tp, 0);
   do_entity (appl_mask, check_mask, sparse_qos, tp, create);
   const dds_return_t rc = dds_delete (dp);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 }
 
 CU_Test(ddsc_qos_set, topic_one)
@@ -820,7 +820,7 @@ static void do_entity_one_invalid (uint32_t appl_mask, const uint32_t check_mask
       dds_qos_t *qos = dds_create_qos ();
       qostable[i].invalid (qos, v);
       const dds_entity_t ent = create (base, qos);
-      CU_ASSERT_NEQ (ent < 0, 0);
+      CU_ASSERT_LT (ent, 0);
       dds_delete_qos (qos);
     }
   }
@@ -856,7 +856,7 @@ static void check_qos (const bool is_appl, struct qostable_elem const * const te
   dds_qos_t *qos = dds_create_qos ();
   dds_return_t rc;
   rc = dds_get_qos (entity, qos);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   te->check (is_appl ? CM_SET : CM_UNSET, qos, v);
   dds_delete_qos (qos);
 }
@@ -877,7 +877,7 @@ static void do_entity_one_change (uint32_t appl_mask, const uint32_t check_mask,
     dds_qos_t *qos = dds_create_qos ();
     qostable[i].set (qos, v0);
     const dds_entity_t ent = create (base, qos);
-    CU_ASSERT_NEQ (ent > 0, 0);
+    CU_ASSERT_GT (ent, 0);
     qostable[i].set (qos, v1);
     dds_return_t rc = dds_set_qos (ent, qos);
     dds_return_t expected = 0;
@@ -887,11 +887,11 @@ static void do_entity_one_change (uint32_t appl_mask, const uint32_t check_mask,
       case C_NO: expected = DDS_RETCODE_IMMUTABLE_POLICY; break;
       case C_UNSUPP: expected = DDS_RETCODE_UNSUPPORTED; break;
     }
-    CU_ASSERT_NEQ (rc == expected, 0);
+    CU_ASSERT_EQ (rc, expected);
     dds_delete_qos (qos);
     check_qos (true, &qostable[i], ent, (rc == 0) ? v1 : v0);
     rc = dds_delete (ent);
-    CU_ASSERT_NEQ (rc == 0, 0);
+    CU_ASSERT_EQ (rc, 0);
   }
 }
 
@@ -930,50 +930,50 @@ static void sync_on_discovery (const dds_entity_t dprd, const dds_entity_t dpwr)
   dds_return_t rc;
   create_unique_topic_name ("ddsc_qosmatch_endpoint_check", topicname, sizeof (topicname));
   const dds_entity_t tpckrd = dds_create_topic (dprd, &Space_Type1_desc, topicname, NULL, NULL);
-  CU_ASSERT_NEQ (tpckrd > 0, 0);
+  CU_ASSERT_GT (tpckrd, 0);
   const dds_entity_t tpckwr = dds_create_topic (dpwr, &Space_Type1_desc, topicname, NULL, NULL);
-  CU_ASSERT_NEQ (tpckwr > 0, 0);
+  CU_ASSERT_GT (tpckwr, 0);
   const dds_entity_t rd = dds_create_reader (dprd, tpckrd, NULL, NULL);
-  CU_ASSERT_NEQ (rd > 0, 0);
+  CU_ASSERT_GT (rd, 0);
   rc = dds_set_status_mask (rd, DDS_SUBSCRIPTION_MATCHED_STATUS);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   const dds_entity_t wr = dds_create_writer (dpwr, tpckwr, NULL, NULL);
-  CU_ASSERT_NEQ (wr > 0, 0);
+  CU_ASSERT_GT (wr, 0);
   rc = dds_set_status_mask (wr, DDS_PUBLICATION_MATCHED_STATUS);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   const dds_entity_t ws = dds_create_waitset (DDS_CYCLONEDDS_HANDLE);
-  CU_ASSERT_NEQ (ws > 0, 0);
+  CU_ASSERT_GT (ws, 0);
   rc = dds_waitset_attach (ws, rd, 0);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   rc = dds_waitset_wait (ws, NULL, 0, DDS_INFINITY);
-  CU_ASSERT_NEQ (rc == 1, 0);
-  CU_ASSERT_NEQ (dds_get_matched_publications (rd, NULL, 0) == 1, 0);
+  CU_ASSERT_EQ (rc, 1);
+  CU_ASSERT_EQ (dds_get_matched_publications (rd, NULL, 0), 1);
   rc = dds_waitset_detach (ws, rd);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   rc = dds_waitset_attach (ws, wr, 1);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   dds_attach_t xs[1];
   rc = dds_waitset_wait (ws, xs, 1, DDS_INFINITY);
-  CU_ASSERT_NEQ (rc == 1, 0);
-  CU_ASSERT_NEQ (xs[0] == 1, 0);
+  CU_ASSERT_EQ (rc, 1);
+  CU_ASSERT_EQ (xs[0], 1);
   rc = dds_get_matched_subscriptions (wr, NULL, 0);
   dds_publication_matched_status_t st;
-  CU_ASSERT_NEQ (dds_get_publication_matched_status (wr, &st) == 0, 0);
+  CU_ASSERT_EQ (dds_get_publication_matched_status (wr, &st), 0);
   tprintf ("dds_get_matched_subscriptions: %d\n", rc);
   tprintf ("pub matched status = %d,%d,%"PRIx64",%d,%d\n", (int)st.current_count, (int)st.current_count_change, st.last_subscription_handle, (int)st.total_count, (int)st.total_count_change);
-  CU_ASSERT_NEQ (rc == 1, 0);
+  CU_ASSERT_EQ (rc, 1);
   rc = dds_waitset_detach (ws, wr);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   rc = dds_delete (ws);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   rc = dds_delete (rd);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   rc = dds_delete (wr);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   rc = dds_delete (tpckrd);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   rc = dds_delete (tpckwr);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 }
 
 static void do_ddsc_qos_set_endpoints_with_rxo (const dds_entity_t dprd, const dds_entity_t dpwr)
@@ -1023,9 +1023,9 @@ static void do_ddsc_qos_set_endpoints_with_rxo (const dds_entity_t dprd, const d
                 char topicname[100];
                 create_unique_topic_name ("ddsc_qosmatch_endpoint", topicname, sizeof (topicname));
                 const dds_entity_t tprd = dds_create_topic (dprd, &Space_Type1_desc, topicname, NULL, NULL);
-                CU_ASSERT_NEQ (tprd > 0, 0);
+                CU_ASSERT_GT (tprd, 0);
                 const dds_entity_t tpwr = dds_create_topic (dpwr, &Space_Type1_desc, topicname, NULL, NULL);
-                CU_ASSERT_NEQ (tpwr > 0, 0);
+                CU_ASSERT_GT (tpwr, 0);
 
                 dds_qos_t *qos;
                 tprintf ("%s: wr %d %d %d rd %d %d %d", qostable[i].name, vwr[0], vwr[1], vwr[2], vrd[0], vrd[1], vrd[2]);
@@ -1033,9 +1033,9 @@ static void do_ddsc_qos_set_endpoints_with_rxo (const dds_entity_t dprd, const d
                 qos = dds_create_qos ();
                 qostable[i].set (qos, vrd);
                 const dds_entity_t sub = dds_create_subscriber (dprd, is_sub ? qos : NULL, NULL);
-                CU_ASSERT_NEQ (sub > 0, 0);
+                CU_ASSERT_GT (sub, 0);
                 const dds_entity_t rd = dds_create_reader (sub, tprd, is_rd ? qos : NULL, NULL);
-                CU_ASSERT_NEQ (rd > 0, 0);
+                CU_ASSERT_GT (rd, 0);
                 dds_delete_qos (qos);
 
                 check_qos (is_sub, &qostable[i], sub, vrd);
@@ -1046,9 +1046,9 @@ static void do_ddsc_qos_set_endpoints_with_rxo (const dds_entity_t dprd, const d
                 qos = dds_create_qos ();
                 qostable[i].set (qos, vwr);
                 const dds_entity_t pub = dds_create_publisher (dpwr, is_pub ? qos : NULL, NULL);
-                CU_ASSERT_NEQ (pub > 0, 0);
+                CU_ASSERT_GT (pub, 0);
                 const dds_entity_t wr = dds_create_writer (pub, tpwr, is_wr ? qos : NULL, NULL);
-                CU_ASSERT_NEQ (wr > 0, 0);
+                CU_ASSERT_GT (wr, 0);
                 dds_delete_qos (qos);
                 check_qos (is_pub, &qostable[i], pub, vwr);
                 // writer does store local copies of publisher QoS for partition, presentation
@@ -1118,30 +1118,30 @@ static void do_ddsc_qos_set_endpoints_with_rxo (const dds_entity_t dprd, const d
                 rc = dds_get_matched_publications (rd, NULL, 0);
                 printf (" matched-pub %d", (int) rc);
                 fflush (stdout);
-                CU_ASSERT_NEQ (rc == (int) match, 0);
+                CU_ASSERT_EQ (rc, (int) match);
                 rc = dds_get_matched_subscriptions (wr, NULL, 0);
                 printf (" matched-sub %d", (int) rc);
                 fflush (stdout);
-                CU_ASSERT_NEQ (rc == (int) match, 0);
+                CU_ASSERT_EQ (rc, (int) match);
                 if (expect_incompatible_qos)
                 {
                   dds_offered_incompatible_qos_status_t oiq;
                   dds_requested_incompatible_qos_status_t riq;
                   rc = dds_get_offered_incompatible_qos_status (wr, &oiq);
-                  CU_ASSERT_NEQ (rc == 0, 0);
+                  CU_ASSERT_EQ (rc, 0);
                   rc = dds_get_requested_incompatible_qos_status (rd, &riq);
-                  CU_ASSERT_NEQ (rc == 0, 0);
-                  CU_ASSERT_NEQ (oiq.last_policy_id == qostable[i].policy_id, 0);
-                  CU_ASSERT_NEQ (riq.last_policy_id == qostable[i].policy_id, 0);
+                  CU_ASSERT_EQ (rc, 0);
+                  CU_ASSERT_EQ (oiq.last_policy_id, qostable[i].policy_id);
+                  CU_ASSERT_EQ (riq.last_policy_id, qostable[i].policy_id);
                 }
                 rc = dds_delete (wr);
-                CU_ASSERT_NEQ (rc == 0, 0);
+                CU_ASSERT_EQ (rc, 0);
                 rc = dds_delete (rd);
-                CU_ASSERT_NEQ (rc == 0, 0);
+                CU_ASSERT_EQ (rc, 0);
                 rc = dds_delete (tpwr);
-                CU_ASSERT_NEQ (rc == 0, 0);
+                CU_ASSERT_EQ (rc, 0);
                 rc = dds_delete (tprd);
-                CU_ASSERT_NEQ (rc == 0, 0);
+                CU_ASSERT_EQ (rc, 0);
                 printf ("\n");
                 fflush (stdout);
               }
@@ -1158,14 +1158,14 @@ CU_Test(ddsc_qos_set, local_endpoints_with_rxo)
   const char *config = "${CYCLONEDDS_URI},<Discovery><Tag>${CYCLONEDDS_PID}</Tag></Discovery>";
   char *conf = ddsrt_expand_envvars (config, 0);
   const dds_entity_t dom = dds_create_domain (0, conf);
-  CU_ASSERT_NEQ (dom > 0, 0);
+  CU_ASSERT_GT (dom, 0);
   ddsrt_free (conf);
   const dds_entity_t dp = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_NEQ (dp > 0, 0);
+  CU_ASSERT_GT (dp, 0);
   dds_return_t rc;
   do_ddsc_qos_set_endpoints_with_rxo (dp, dp);
   rc = dds_delete (dom);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 }
 
 CU_Test(ddsc_qos_set, semilocal_endpoints_with_rxo)
@@ -1173,15 +1173,15 @@ CU_Test(ddsc_qos_set, semilocal_endpoints_with_rxo)
   const char *config = "${CYCLONEDDS_URI},<Discovery><Tag>${CYCLONEDDS_PID}</Tag></Discovery>";
   char *conf = ddsrt_expand_envvars (config, 0);
   const dds_entity_t dom = dds_create_domain (0, conf);
-  CU_ASSERT_NEQ (dom > 0, 0);
+  CU_ASSERT_GT (dom, 0);
   ddsrt_free (conf);
   const dds_entity_t dprd = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_NEQ (dprd > 0, 0);
+  CU_ASSERT_GT (dprd, 0);
   const dds_entity_t dpwr = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_NEQ (dpwr > 0, 0);
+  CU_ASSERT_GT (dpwr, 0);
   do_ddsc_qos_set_endpoints_with_rxo (dprd, dpwr);
   dds_return_t rc = dds_delete (dom);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 }
 
 CU_Test(ddsc_qos_set, remote_endpoints_with_rxo, .timeout = 20)
@@ -1193,23 +1193,23 @@ CU_Test(ddsc_qos_set, remote_endpoints_with_rxo, .timeout = 20)
   char *confrd = ddsrt_expand_envvars (config, 0);
   char *confwr = ddsrt_expand_envvars (config, 1);
   const dds_entity_t domrd = dds_create_domain (0, confrd);
-  CU_ASSERT_NEQ (domrd > 0, 0);
+  CU_ASSERT_GT (domrd, 0);
   const dds_entity_t domwr = dds_create_domain (1, confwr);
-  CU_ASSERT_NEQ (domwr > 0, 0);
+  CU_ASSERT_GT (domwr, 0);
   ddsrt_free (confwr);
   ddsrt_free (confrd);
 
   const dds_entity_t dprd = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_NEQ (dprd > 0, 0);
+  CU_ASSERT_GT (dprd, 0);
   const dds_entity_t dpwr = dds_create_participant (1, NULL, NULL);
-  CU_ASSERT_NEQ (dpwr > 0, 0);
+  CU_ASSERT_GT (dpwr, 0);
 
   do_ddsc_qos_set_endpoints_with_rxo (dprd, dpwr);
 
   dds_return_t rc = dds_delete (domrd);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   rc = dds_delete (domwr);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 }
 
 CU_Test(ddsc_qos_set, partition_mismatch_no_incompat_qos)
@@ -1217,16 +1217,16 @@ CU_Test(ddsc_qos_set, partition_mismatch_no_incompat_qos)
   const char *config = "${CYCLONEDDS_URI},<Discovery><Tag>${CYCLONEDDS_PID}</Tag></Discovery>";
   char *conf = ddsrt_expand_envvars (config, 0);
   const dds_entity_t dom = dds_create_domain (0, conf);
-  CU_ASSERT_NEQ (dom > 0, 0);
+  CU_ASSERT_GT (dom, 0);
   ddsrt_free (conf);
   const dds_entity_t dp = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_NEQ (dp > 0, 0);
+  CU_ASSERT_GT (dp, 0);
   dds_return_t rc;
 
   char topicname[100];
   create_unique_topic_name ("ddsc_qos_set_partition_mismatch_no_incompat_qos", topicname, sizeof (topicname));
   const dds_entity_t tp = dds_create_topic (dp, &Space_Type1_desc, topicname, NULL, NULL);
-  CU_ASSERT_NEQ (tp > 0, 0);
+  CU_ASSERT_GT (tp, 0);
 
   dds_qos_t *qos = dds_create_qos ();
   dds_qset_partition1 (qos, "R");
@@ -1240,7 +1240,7 @@ CU_Test(ddsc_qos_set, partition_mismatch_no_incompat_qos)
   dds_qset_destination_order (qos, DDS_DESTINATIONORDER_BY_SOURCE_TIMESTAMP);
   dds_qset_data_representation (qos, 1, (dds_data_representation_id_t[]){DDS_DATA_REPRESENTATION_XCDR2});
   const dds_entity_t rd = dds_create_reader (dp, tp, qos, NULL);
-  CU_ASSERT_NEQ (rd > 0, 0);
+  CU_ASSERT_GT (rd, 0);
 
   dds_qset_partition1 (qos, "W");
   dds_qset_reliability (qos, DDS_RELIABILITY_BEST_EFFORT, DDS_INFINITY);
@@ -1253,17 +1253,17 @@ CU_Test(ddsc_qos_set, partition_mismatch_no_incompat_qos)
   dds_qset_destination_order (qos, DDS_DESTINATIONORDER_BY_RECEPTION_TIMESTAMP);
   dds_qset_data_representation (qos, 1, (dds_data_representation_id_t[]){DDS_DATA_REPRESENTATION_XCDR1});
   const dds_entity_t wr = dds_create_writer (dp, tp, qos, NULL);
-  CU_ASSERT_NEQ (wr > 0, 0);
+  CU_ASSERT_GT (wr, 0);
   dds_delete_qos (qos);
 
   uint32_t rdstat, wrstat;
   rc = dds_read_status (rd, &rdstat, DDS_REQUESTED_INCOMPATIBLE_QOS_STATUS);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   rc = dds_read_status (wr, &wrstat, DDS_OFFERED_INCOMPATIBLE_QOS_STATUS);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 
   CU_ASSERT_NEQ (rdstat == 0 && wrstat == 0, 0);
 
   rc = dds_delete (dom);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 }

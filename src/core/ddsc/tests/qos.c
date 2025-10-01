@@ -758,18 +758,18 @@ CU_Test(ddsc_qos, bproperty, .init=qos_init, .fini=qos_fini)
     /* Getting after setting, should yield the original input. */
     dds_qset_bprop (g_qos, c_bproperty_names[0], c_bproperty_values[0], 3);
     CU_ASSERT_NEQ (dds_qget_bprop (g_qos, c_bproperty_names[0], &bvalue, &size), 0);
-    CU_ASSERT_NEQ (bvalue != NULL, 0);
+    CU_ASSERT_NEQ (bvalue, NULL);
     CU_ASSERT_EQ_FATAL (size, 3);
-    CU_ASSERT_NEQ (c_bproperty_values[0] != NULL, 0);
+    CU_ASSERT_NEQ ((void *) c_bproperty_values[0], NULL);
     CU_ASSERT_EQ_FATAL (memcmp (bvalue, c_bproperty_values[0], size), 0);
     dds_free (bvalue);
 
     /* Overwrite value for existing binary property (and reset value) */
     dds_qset_bprop (g_qos, c_bproperty_names[0], c_bproperty_values[1], 3);
     CU_ASSERT_NEQ (dds_qget_bprop (g_qos, c_bproperty_names[0], &bvalue, &size), 0);
-    CU_ASSERT_NEQ (bvalue != NULL, 0);
+    CU_ASSERT_NEQ (bvalue, NULL);
     CU_ASSERT_EQ_FATAL (size, 3);
-    CU_ASSERT_NEQ (c_bproperty_values[1] != NULL, 0);
+    CU_ASSERT_NEQ ((void *) c_bproperty_values[1], NULL);
     CU_ASSERT_EQ_FATAL (memcmp (bvalue, c_bproperty_values[1], size), 0);
     dds_free (bvalue);
     dds_qset_bprop (g_qos, c_bproperty_names[0], &c_bproperty_values[0], 3);
@@ -796,15 +796,15 @@ CU_Test(ddsc_qos, bproperty, .init=qos_init, .fini=qos_fini)
     CU_ASSERT_NEQ (dds_qget_bpropnames (g_qos, &cnt, NULL), 0);
     CU_ASSERT_EQ_FATAL (cnt, 2);
     CU_ASSERT_NEQ (dds_qget_bprop (g_qos, c_bproperty_names[0], &bvalue, &size), 0);
-    CU_ASSERT_NEQ (bvalue != NULL, 0);
+    CU_ASSERT_NEQ (bvalue, NULL);
     CU_ASSERT_EQ_FATAL (size, 3);
-    CU_ASSERT_NEQ (c_bproperty_values[0] != NULL, 0);
+    CU_ASSERT_NEQ ((void *) c_bproperty_values[0], NULL);
     CU_ASSERT_EQ_FATAL (memcmp (bvalue, c_bproperty_values[0], size), 0);
     dds_free (bvalue);
     CU_ASSERT_NEQ (dds_qget_bprop (g_qos, c_bproperty_names[2], &bvalue, &size), 0);
-    CU_ASSERT_NEQ (bvalue != NULL, 0);
+    CU_ASSERT_NEQ (bvalue, NULL);
     CU_ASSERT_EQ_FATAL (size, 3);
-    CU_ASSERT_NEQ (c_bproperty_values[2] != NULL, 0);
+    CU_ASSERT_NEQ ((void *) c_bproperty_values[2], NULL);
     CU_ASSERT_EQ_FATAL (memcmp (bvalue, c_bproperty_values[2], size), 0);
     dds_free (bvalue);
     dds_qunset_bprop (g_qos, c_bproperty_names[0]);
@@ -825,9 +825,9 @@ CU_Test(ddsc_qos, property_mixed, .init=qos_init, .fini=qos_fini)
 
     /* Check property values and count */
     CU_ASSERT_NEQ (dds_qget_bprop (g_qos, c_property_names[0], &bvalue, &size), 0);
-    CU_ASSERT_NEQ (bvalue != NULL, 0);
+    CU_ASSERT_NEQ (bvalue, NULL);
     CU_ASSERT_EQ_FATAL (size, 3);
-    CU_ASSERT_NEQ (c_bproperty_values[0] != NULL, 0);
+    CU_ASSERT_NEQ ((void *) c_bproperty_values[0], NULL);
     CU_ASSERT_EQ_FATAL (memcmp (bvalue, c_bproperty_values[0], size), 0);
     dds_free (bvalue);
     CU_ASSERT_NEQ (dds_qget_prop (g_qos, c_property_names[0], &value), 0);

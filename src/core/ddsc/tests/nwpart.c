@@ -266,11 +266,11 @@ CU_Theory ((struct ddsi_config_networkpartition_listelem ps, bool allow_mc, cons
   setup (&gv, &config, allow_mc, true);
   int rc = ddsi_convert_nwpart_config (&gv, 31415);
   if (uc == NULL) {
-    CU_ASSERT_NEQ (rc < 0, 0);
-    CU_ASSERT_NEQ (errcount > 0, 0);
+    CU_ASSERT_LT (rc, 0);
+    CU_ASSERT_GT (errcount, 0);
   } else {
-    CU_ASSERT_NEQ (rc == 0, 0);
-    CU_ASSERT_NEQ (errcount == 0, 0);
+    CU_ASSERT_EQ (rc, 0);
+    CU_ASSERT_EQ (errcount, 0);
     CU_ASSERT_NEQ (check_address_list (uc, ps.uc_addresses), 0);
     CU_ASSERT_NEQ (check_address_list (mc, ps.asm_addresses), 0);
   }
@@ -295,7 +295,7 @@ CU_Test (ddsc_nwpart, duplicate)
     "  </NetworkPartitions>"
     "</Partitioning>";
   dds_entity_t eh = dds_create_domain (0, config);
-  CU_ASSERT_NEQ (eh < 0, 0);
+  CU_ASSERT_LT (eh, 0);
 #endif
 }
 
@@ -323,7 +323,7 @@ CU_Test (ddsc_nwpart, mapping_undefined)
   char *config1 = ddsrt_expand_envvars (config, 0);
   dds_entity_t eh = dds_create_domain (0, config1);
   ddsrt_free (config1);
-  CU_ASSERT_NEQ (eh < 0, 0);
+  CU_ASSERT_LT (eh, 0);
 #endif
 }
 
@@ -352,7 +352,7 @@ CU_Test (ddsc_nwpart, mapping_multiple)
   char *config1 = ddsrt_expand_envvars (config, 0);
   dds_entity_t eh = dds_create_domain (0, config1);
   ddsrt_free (config1);
-  CU_ASSERT_NEQ (eh > 0, 0);
+  CU_ASSERT_GT (eh, 0);
   struct ddsi_domaingv * const gv = get_domaingv (eh);
   // all of this is order preserving; check that the entries meet that expectation
   struct ddsi_config_partitionmapping_listelem *m0, *m1;
@@ -662,9 +662,9 @@ CU_Theory ((const char *pistr, const char *msmstr), ddsc_nwpart, full_stack_init
   // failures caused by running several tests in parallel (using a unique
   // domain id would help, too, but where to find a unique id?)
   dds_entity_t eh = dds_create_domain (0, NULL);
-  CU_ASSERT_NEQ (eh > 0, 0);
+  CU_ASSERT_GT (eh, 0);
   const struct ddsi_domaingv *gv = get_domaingv (eh);
-  CU_ASSERT_NEQ (gv != NULL, 0);
+  CU_ASSERT_NEQ (gv, NULL);
   // construct a configuration using this interface
   char *config = NULL;
   (void) ddsrt_asprintf (&config,
@@ -690,13 +690,13 @@ CU_Theory ((const char *pistr, const char *msmstr), ddsc_nwpart, full_stack_init
     msmstr,
     gv->interfaces[0].name);
   rc = dds_delete (eh);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   // start up a new domain with this new configuration
   eh = dds_create_domain (0, config);
   ddsrt_free (config);
-  CU_ASSERT_NEQ (eh > 0, 0);
+  CU_ASSERT_GT (eh, 0);
   gv = get_domaingv (eh);
-  CU_ASSERT_NEQ (gv != NULL, 0);
+  CU_ASSERT_NEQ (gv, NULL);
   // verify that the unicast address and port number in the network partition
   // are correct (this is slightly different from the other tests: those mock
   // most of the code, this uses the actual code)
@@ -706,6 +706,6 @@ CU_Theory ((const char *pistr, const char *msmstr), ddsc_nwpart, full_stack_init
   CU_ASSERT_NEQ (memcmp (gv->loc_default_uc.address, nploc->address, sizeof (nploc->address)) == 0, 0);
   CU_ASSERT_NEQ (gv->loc_default_uc.port == nploc->port, 0);
   rc = dds_delete (eh);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 #endif
 }

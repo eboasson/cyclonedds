@@ -77,26 +77,26 @@ reader_init(void)
     g_listener = dds_create_listener(NULL);
 
     g_participant = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_NEQ (g_participant > 0, 0);
+    CU_ASSERT_GT (g_participant, 0);
 
     g_subscriber = dds_create_subscriber(g_participant, NULL, NULL);
-    CU_ASSERT_NEQ (g_subscriber > 0, 0);
+    CU_ASSERT_GT (g_subscriber, 0);
 
     g_waitset = dds_create_waitset(g_participant);
-    CU_ASSERT_NEQ (g_waitset > 0, 0);
+    CU_ASSERT_GT (g_waitset, 0);
 
     g_topic = dds_create_topic(g_participant, &Space_Type1_desc, create_unique_topic_name("ddsc_reader_test", name, sizeof name), NULL, NULL);
-    CU_ASSERT_NEQ (g_topic > 0, 0);
+    CU_ASSERT_GT (g_topic, 0);
 
     /* Create a reader that keeps last sample of all instances. */
     dds_qset_history(g_qos, DDS_HISTORY_KEEP_LAST, 1);
     g_reader = dds_create_reader(g_participant, g_topic, g_qos, NULL);
-    CU_ASSERT_NEQ (g_reader > 0, 0);
+    CU_ASSERT_GT (g_reader, 0);
 
     /* Create a reader that will not automatically dispose unregistered samples. */
     dds_qset_writer_data_lifecycle(g_qos, false);
     g_writer = dds_create_writer(g_participant, g_topic, g_qos, NULL);
-    CU_ASSERT_NEQ (g_writer > 0, 0);
+    CU_ASSERT_GT (g_writer, 0);
 
     /* Sync g_reader to g_writer. */
     ret = dds_set_status_mask(g_reader, DDS_SUBSCRIPTION_MATCHED_STATUS);
@@ -196,7 +196,7 @@ samples_cnt(void)
 {
     dds_return_t ret;
     ret = dds_read(g_reader, g_samples, g_info, MAX_SAMPLES, MAX_SAMPLES);
-    CU_ASSERT_NEQ (ret >= 0, 0);
+    CU_ASSERT_GEQ (ret, 0);
     return ret;
 }
 
@@ -216,7 +216,7 @@ CU_Theory((dds_entity_t *ent, dds_qos_t **qos, dds_listener_t **listener), ddsc_
     dds_entity_t rdr;
     dds_return_t ret;
     rdr = dds_create_reader(*ent, g_topic, *qos, *listener);
-    CU_ASSERT_NEQ (rdr > 0, 0);
+    CU_ASSERT_GT (rdr, 0);
     ret = dds_delete(rdr);
     CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
 }
@@ -272,7 +272,7 @@ CU_Theory((dds_entity_t *par, dds_entity_t *top), ddsc_reader_create, non_partic
 CU_Test(ddsc_reader_create, wrong_participant, .init=reader_init, .fini=reader_fini)
 {
     dds_entity_t participant2 = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_NEQ (participant2 > 0, 0);
+    CU_ASSERT_GT (participant2, 0);
     dds_entity_t reader = dds_create_reader(participant2, g_topic, NULL, NULL);
     CU_ASSERT_EQ_FATAL (reader, DDS_RETCODE_BAD_PARAMETER);
     dds_delete(participant2);
@@ -290,21 +290,21 @@ CU_Test(ddsc_reader_create, participant_mismatch)
     char name[100];
 
     par1 = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_NEQ (par1 > 0, 0);
+    CU_ASSERT_GT (par1, 0);
     par2 = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_NEQ (par2 > 0, 0);
+    CU_ASSERT_GT (par2, 0);
 
     sub1 = dds_create_subscriber(par1, NULL, NULL);
-    CU_ASSERT_NEQ (sub1 > 0, 0);
+    CU_ASSERT_GT (sub1, 0);
 
     top2 = dds_create_topic(par2, &Space_Type1_desc, create_unique_topic_name("ddsc_reader_participant_mismatch", name, sizeof name), NULL, NULL);
-    CU_ASSERT_NEQ (top2 > 0, 0);
+    CU_ASSERT_GT (top2, 0);
 
     /* Create reader with participant mismatch. */
     reader = dds_create_reader(sub1, top2, NULL, NULL);
 
     /* Expect the creation to have failed. */
-    CU_ASSERT_NEQ (reader <= 0, 0);
+    CU_ASSERT_LEQ (reader, 0);
 
     dds_delete(top2);
     dds_delete(sub1);
@@ -317,29 +317,29 @@ CU_Test(ddsc_reader_create, topic_lifespan)
 {
   dds_return_t rc;
   dds_entity_t pp = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_NEQ (pp > 0, 0);
+  CU_ASSERT_GT (pp, 0);
   char name[100];
   dds_qos_t *qos = dds_create_qos ();
-  CU_ASSERT_NEQ (qos != NULL, 0);
+  CU_ASSERT_NEQ (qos, NULL);
   dds_qset_lifespan (qos, DDS_SECS (3)); // value doesn't matter
   create_unique_topic_name ("ddsc_reader_create_topic_lifespan", name, sizeof name);
   dds_entity_t tp = dds_create_topic (pp, &Space_Type1_desc, name, qos, NULL);
   dds_delete_qos (qos);
-  CU_ASSERT_NEQ (tp > 0, 0);
+  CU_ASSERT_GT (tp, 0);
   dds_entity_t rd = dds_create_reader (pp, tp, NULL, NULL);
-  CU_ASSERT_NEQ (rd > 0, 0);
+  CU_ASSERT_GT (rd, 0);
 
   // need to look at the QoS object as it is actually stored: we don't want to
   // overlook the LIFESPAN making it into the reader and then not observing it
   // because get_qos does something funny
   struct dds_entity *x;
   rc = dds_entity_pin (rd, &x);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   CU_ASSERT_NEQ (x->m_qos != NULL, 0);
   CU_ASSERT_NEQ (!dds_qget_lifespan (x->m_qos, NULL), 0);
   dds_entity_unpin (x);
   rc = dds_delete (pp);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 }
 
 
@@ -2529,15 +2529,15 @@ CU_Test(ddsc_take_mask, take_instance_last_sample)
     g_qos = dds_create_qos();
     dds_qset_history(g_qos, DDS_HISTORY_KEEP_ALL, DDS_LENGTH_UNLIMITED);
     g_participant = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_NEQ (g_participant > 0, 0);
+    CU_ASSERT_GT (g_participant, 0);
     g_waitset = dds_create_waitset(g_participant);
-    CU_ASSERT_NEQ (g_waitset > 0, 0);
+    CU_ASSERT_GT (g_waitset, 0);
     g_topic = dds_create_topic(g_participant, &Space_Type1_desc, create_unique_topic_name("ddsc_reader_test", name, 100), NULL, NULL);
-    CU_ASSERT_NEQ (g_topic > 0, 0);
+    CU_ASSERT_GT (g_topic, 0);
     g_reader = dds_create_reader(g_participant, g_topic, g_qos, NULL);
-    CU_ASSERT_NEQ (g_reader > 0, 0);
+    CU_ASSERT_GT (g_reader, 0);
     g_writer = dds_create_writer(g_participant, g_topic, NULL, NULL);
-    CU_ASSERT_NEQ (g_writer > 0, 0);
+    CU_ASSERT_GT (g_writer, 0);
 
     /* Sync g_reader to g_writer. */
     ret = dds_set_status_mask(g_reader, DDS_SUBSCRIPTION_MATCHED_STATUS);
@@ -3231,13 +3231,13 @@ static bool test_long_2_eq_2 (const void *vsample)
 static void do_readtake_sample_rank (const char *opname_past_tense, dds_return_t (*op) (dds_entity_t reader_or_condition, void **buf, dds_sample_info_t *si, size_t bufsz, uint32_t maxs, uint32_t mask))
 {
   const dds_entity_t dp = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_NEQ (dp > 0, 0);
+  CU_ASSERT_GT (dp, 0);
   char topicname[100];
   dds_qos_t *qos = dds_create_qos ();
   dds_qset_history (qos, DDS_HISTORY_KEEP_ALL, 0);
   create_unique_topic_name ("readtake_sample_rank", topicname, sizeof (topicname));
   const dds_entity_t tp = dds_create_topic (dp, &Space_Type1_desc, topicname, qos, NULL);
-  CU_ASSERT_NEQ (tp > 0, 0);
+  CU_ASSERT_GT (tp, 0);
   dds_delete_qos (qos);
 
   dds_return_t rc;
@@ -3273,9 +3273,9 @@ static void do_readtake_sample_rank (const char *opname_past_tense, dds_return_t
       for (int rdlimit = 1; rdlimit < totsamp + 1; rdlimit++)
       {
         const dds_entity_t rd = dds_create_reader (dp, tp, NULL, NULL);
-        CU_ASSERT_NEQ (rd > 0, 0);
+        CU_ASSERT_GT (rd, 0);
         const dds_entity_t wr = dds_create_writer (dp, tp, NULL, NULL);
-        CU_ASSERT_NEQ (wr > 0, 0);
+        CU_ASSERT_GT (wr, 0);
 
         // write as many samples as planned for each instance,
         // add an invalid one iff # == 4
@@ -3291,7 +3291,7 @@ static void do_readtake_sample_rank (const char *opname_past_tense, dds_return_t
             // or for worse, because it doesn't get told whether it is valid).  For the
             // test, use long_3 to not match an invalid sample.
             rc = dds_write (wr, &(Space_Type1){ .long_1 = i, .long_2 = s, .long_3 = 1 });
-            CU_ASSERT_NEQ (rc == 0, 0);
+            CU_ASSERT_EQ (rc, 0);
           }
           if (nsamp[i] > nwrites)
           {
@@ -3301,16 +3301,16 @@ static void do_readtake_sample_rank (const char *opname_past_tense, dds_return_t
             // one ever want to always do things the simple way?
             dds_instance_handle_t ih;
             rc = dds_register_instance (wr, &ih, &(Space_Type1){ .long_1 = i, .long_2 = 0, .long_3 = 0 });
-            CU_ASSERT_NEQ (rc == 0, 0);
+            CU_ASSERT_EQ (rc, 0);
             assert (nwrites == 3);
             const dds_entity_t qc = dds_create_querycondition (rd, 0, test_long_2_eq_2);
             rc = dds_read_instance (qc, buf, si, 1, 1, ih);
-            CU_ASSERT_NEQ (rc == 1, 0);
+            CU_ASSERT_EQ (rc, 1);
             CU_ASSERT_NEQ (xs[0].long_1 == i && xs[0].long_2 == 2 && xs[0].long_3 == 1, 0);
             rc = dds_delete (qc);
-            CU_ASSERT_NEQ (rc == 0, 0);
+            CU_ASSERT_EQ (rc, 0);
             rc = dds_dispose (wr, &(Space_Type1){ .long_1 = i, .long_2 = 0, .long_3 = 0 });
-            CU_ASSERT_NEQ (rc == 0, 0);
+            CU_ASSERT_EQ (rc, 0);
           }
         }
 
@@ -3330,11 +3330,11 @@ static void do_readtake_sample_rank (const char *opname_past_tense, dds_return_t
         {
           const dds_entity_t qc = dds_create_querycondition (rd, 0, test_even_long_2_and_long_3_neq_0);
           rc = dds_read (qc, buf, si, sizeof (xs) / sizeof (xs[0]), (uint32_t) (sizeof (xs) / sizeof (xs[0])));
-          CU_ASSERT_NEQ (rc >= 0, 0);
+          CU_ASSERT_GEQ (rc, 0);
           for (int i = 0; i < rc; i++)
-            CU_ASSERT_NEQ ((xs[i].long_2 % 2) == 0, 0);
+            CU_ASSERT_EQ ((xs[i].long_2 % 2), 0);
           rc = dds_delete (qc);
-          CU_ASSERT_NEQ (rc == 0, 0);
+          CU_ASSERT_EQ (rc, 0);
         }
 
         assert (rdlimit < (int) (sizeof (xs) / sizeof (xs[0])));
@@ -3356,24 +3356,24 @@ static void do_readtake_sample_rank (const char *opname_past_tense, dds_return_t
             const int nsamp_of_inst = (i + nsamp_after_maybe_skipping_even < n) ? nsamp_after_maybe_skipping_even : n - i;
             //tprintf ("i = %d nsamp_of_inst = %d\n", i, nsamp_of_inst);
             assert (nsamp_of_inst > 0);
-            CU_ASSERT_NEQ (si[i].sample_rank == (uint32_t) (nsamp_of_inst - 1), 0);
+            CU_ASSERT_EQ (si[i].sample_rank, (uint32_t) (nsamp_of_inst - 1));
             CU_ASSERT_NEQ ((!si[i].valid_data && xs[i].long_3 == 0) || (si[i].valid_data && xs[i].long_3 == 1), 0);
-            CU_ASSERT_NEQ ((int) si[i].sample_rank < nsamp_of_inst, 0);
+            CU_ASSERT_LT ((int) si[i].sample_rank, nsamp_of_inst);
             const int first_of_inst = i;
             for (int j = 0; j < nsamp_of_inst; j++)
             {
-              CU_ASSERT_NEQ (si[i + j].instance_handle == si[first_of_inst].instance_handle, 0);
-              CU_ASSERT_NEQ (si[i + j].sample_rank == (uint32_t) (nsamp_of_inst - j - 1), 0);
-              CU_ASSERT_NEQ (xs[i + j].long_2 == (skip_even_long_2) ? 2*j+1 : j, 0);
+              CU_ASSERT_EQ (si[i + j].instance_handle, si[first_of_inst].instance_handle);
+              CU_ASSERT_EQ (si[i + j].sample_rank, (uint32_t) (nsamp_of_inst - j - 1));
+              CU_ASSERT_EQ (xs[i + j].long_2, (skip_even_long_2) ? 2*j+1 : j);
             }
             i += nsamp_of_inst;
           }
         }
 
         rc = dds_delete (rd);
-        CU_ASSERT_NEQ (rc == 0, 0);
+        CU_ASSERT_EQ (rc, 0);
         rc = dds_delete (wr);
-        CU_ASSERT_NEQ (rc == 0, 0);
+        CU_ASSERT_EQ (rc, 0);
       }
     }
 
@@ -3382,7 +3382,7 @@ static void do_readtake_sample_rank (const char *opname_past_tense, dds_return_t
   }
 
   rc = dds_delete (dp);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 }
 
 CU_Test (ddsc_read, sample_rank)
@@ -3398,24 +3398,24 @@ CU_Test (ddsc_take, sample_rank)
 static void ddsc_peek_setup (dds_entity_t *dp, dds_entity_t *rd, dds_instance_handle_t *ih)
 {
   *dp = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_NEQ (*dp > 0, 0);
+  CU_ASSERT_GT (*dp, 0);
   char topicname[100];
   create_unique_topic_name ("ddsc_peek", topicname, sizeof (topicname));
   const dds_entity_t tp = dds_create_topic (*dp, &Space_Type1_desc, topicname, NULL, NULL);
-  CU_ASSERT_NEQ (tp > 0, 0);
+  CU_ASSERT_GT (tp, 0);
   *rd = dds_create_reader (*dp, tp, NULL, NULL);
-  CU_ASSERT_NEQ (*rd > 0, 0);
+  CU_ASSERT_GT (*rd, 0);
   const dds_entity_t wr = dds_create_writer (*dp, tp, NULL, NULL);
-  CU_ASSERT_NEQ (wr > 0, 0);
+  CU_ASSERT_GT (wr, 0);
   dds_return_t rc;
   rc = dds_write (wr, &(Space_Type1){ 2,2,2 });
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   rc = dds_write (wr, &(Space_Type1){ 3,3,3 });
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   rc = dds_write (wr, &(Space_Type1){ 5,5,5 });
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   *ih = dds_lookup_instance (*rd, &(Space_Type1){ 3,3,3 });
-  CU_ASSERT_NEQ (*ih != 0, 0);
+  CU_ASSERT_NEQ (*ih, 0);
 }
 
 CU_Test (ddsc_peek, plain)
@@ -3431,19 +3431,19 @@ CU_Test (ddsc_peek, plain)
   {
     uint32_t seen = 0;
     rc = dds_peek (rd, ptrs, si, 3, 3);
-    CU_ASSERT_NEQ (rc == 3, 0);
+    CU_ASSERT_EQ (rc, 3);
     for (int32_t i = 0; i < rc; i++)
     {
       CU_ASSERT_NEQ (xs[i].long_1 == xs[i].long_2 && xs[i].long_2 == xs[i].long_3, 0);
-      CU_ASSERT_NEQ (xs[i].long_1 <= 31, 0);
+      CU_ASSERT_LEQ (xs[i].long_1, 31);
       seen |= 1u << xs[i].long_1;
-      CU_ASSERT_NEQ (si[i].view_state == DDS_NEW_VIEW_STATE, 0);
-      CU_ASSERT_NEQ (si[i].sample_state == DDS_NOT_READ_SAMPLE_STATE, 0);
+      CU_ASSERT_EQ (si[i].view_state, DDS_NEW_VIEW_STATE);
+      CU_ASSERT_EQ (si[i].sample_state, DDS_NOT_READ_SAMPLE_STATE);
     }
-    CU_ASSERT_NEQ (seen == 44u, 0);
+    CU_ASSERT_EQ (seen, 44u);
   }
   rc = dds_delete (dp);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 }
 
 CU_Test (ddsc_peek, mask)
@@ -3463,19 +3463,19 @@ CU_Test (ddsc_peek, mask)
   {
     uint32_t seen = 0;
     rc = dds_peek_mask (rd, ptrs, si, 3, 3, DDS_NOT_READ_SAMPLE_STATE);
-    CU_ASSERT_NEQ (rc == 2, 0);
+    CU_ASSERT_EQ (rc, 2);
     for (int32_t i = 0; i < rc; i++)
     {
       CU_ASSERT_NEQ (xs[i].long_1 == xs[i].long_2 && xs[i].long_2 == xs[i].long_3, 0);
-      CU_ASSERT_NEQ (xs[i].long_1 <= 31, 0);
+      CU_ASSERT_LEQ (xs[i].long_1, 31);
       seen |= 1u << xs[i].long_1;
-      CU_ASSERT_NEQ (si[i].view_state == DDS_NEW_VIEW_STATE, 0);
-      CU_ASSERT_NEQ (si[i].sample_state == DDS_NOT_READ_SAMPLE_STATE, 0);
+      CU_ASSERT_EQ (si[i].view_state, DDS_NEW_VIEW_STATE);
+      CU_ASSERT_EQ (si[i].sample_state, DDS_NOT_READ_SAMPLE_STATE);
     }
-    CU_ASSERT_NEQ (seen == (44u & ~not_visible), 0);
+    CU_ASSERT_EQ (seen, (44u & ~not_visible));
   }
   rc = dds_delete (dp);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 }
 
 CU_Test (ddsc_peek, instance)
@@ -3488,20 +3488,20 @@ CU_Test (ddsc_peek, instance)
   Space_Type1 xs[3];
   void *ptrs[] = { &xs[0], &xs[1], &xs[2] };
   rc = dds_peek_instance (rd, ptrs, si, 3, 3, ih);
-  CU_ASSERT_NEQ (rc == 1, 0);
+  CU_ASSERT_EQ (rc, 1);
   CU_ASSERT_NEQ (xs[0].long_1 == xs[0].long_2 && xs[0].long_2 == xs[0].long_3, 0);
-  CU_ASSERT_NEQ (xs[0].long_1 <= 31, 0);
+  CU_ASSERT_LEQ (xs[0].long_1, 31);
   const int32_t expect = xs[0].long_1;
-  CU_ASSERT_NEQ (si[0].view_state == DDS_NEW_VIEW_STATE, 0);
-  CU_ASSERT_NEQ (si[0].sample_state == DDS_NOT_READ_SAMPLE_STATE, 0);
+  CU_ASSERT_EQ (si[0].view_state, DDS_NEW_VIEW_STATE);
+  CU_ASSERT_EQ (si[0].sample_state, DDS_NOT_READ_SAMPLE_STATE);
   rc = dds_peek_instance (rd, ptrs, si, 3, 3, ih);
-  CU_ASSERT_NEQ (rc == 1, 0);
+  CU_ASSERT_EQ (rc, 1);
   CU_ASSERT_NEQ (xs[0].long_1 == xs[0].long_2 && xs[0].long_2 == xs[0].long_3, 0);
-  CU_ASSERT_NEQ (xs[0].long_1 == expect, 0);
-  CU_ASSERT_NEQ (si[0].view_state == DDS_NEW_VIEW_STATE, 0);
-  CU_ASSERT_NEQ (si[0].sample_state == DDS_NOT_READ_SAMPLE_STATE, 0);
+  CU_ASSERT_EQ (xs[0].long_1, expect);
+  CU_ASSERT_EQ (si[0].view_state, DDS_NEW_VIEW_STATE);
+  CU_ASSERT_EQ (si[0].sample_state, DDS_NOT_READ_SAMPLE_STATE);
   rc = dds_delete (dp);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 }
 
 CU_Test (ddsc_peek, instance_mask)
@@ -3517,15 +3517,15 @@ CU_Test (ddsc_peek, instance_mask)
   CU_ASSERT_NEQ (rc == 1 && xs[0].long_1 <= 31, 0);
   const int32_t expect = xs[0].long_1;
   rc = dds_peek_instance_mask (rd, ptrs, si, 3, 3, ih, DDS_NOT_READ_SAMPLE_STATE);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   rc = dds_peek_instance_mask (rd, ptrs, si, 3, 3, ih, DDS_READ_SAMPLE_STATE);
-  CU_ASSERT_NEQ (rc == 1, 0);
+  CU_ASSERT_EQ (rc, 1);
   CU_ASSERT_NEQ (xs[0].long_1 == xs[0].long_2 && xs[0].long_2 == xs[0].long_3, 0);
-  CU_ASSERT_NEQ (xs[0].long_1 == expect, 0);
-  CU_ASSERT_NEQ (si[0].view_state == DDS_NOT_NEW_VIEW_STATE, 0);
-  CU_ASSERT_NEQ (si[0].sample_state == DDS_READ_SAMPLE_STATE, 0);
+  CU_ASSERT_EQ (xs[0].long_1, expect);
+  CU_ASSERT_EQ (si[0].view_state, DDS_NOT_NEW_VIEW_STATE);
+  CU_ASSERT_EQ (si[0].sample_state, DDS_READ_SAMPLE_STATE);
   rc = dds_delete (dp);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 }
 
 CU_Test (ddsc_peek, next)
@@ -3542,11 +3542,11 @@ CU_Test (ddsc_peek, next)
   for (int i = 0; i < 4; i++)
   {
     rc = dds_peek_next (rd, ptrs, si);
-    CU_ASSERT_NEQ (rc == 1, 0);
+    CU_ASSERT_EQ (rc, 1);
     CU_ASSERT_NEQ (xs[0].long_1 == xs[0].long_2 && xs[0].long_2 == xs[0].long_3, 0);
-    CU_ASSERT_NEQ (si[0].view_state == DDS_NEW_VIEW_STATE, 0);
-    CU_ASSERT_NEQ (si[0].sample_state == DDS_NOT_READ_SAMPLE_STATE, 0);
+    CU_ASSERT_EQ (si[0].view_state, DDS_NEW_VIEW_STATE);
+    CU_ASSERT_EQ (si[0].sample_state, DDS_NOT_READ_SAMPLE_STATE);
   }
   rc = dds_delete (dp);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 }

@@ -51,24 +51,24 @@ unregistering_init(void)
     dds_qset_destination_order(qos, DDS_DESTINATIONORDER_BY_SOURCE_TIMESTAMP);
 
     g_participant = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_NEQ (g_participant > 0, 0);
+    CU_ASSERT_GT (g_participant, 0);
 
     g_waitset = dds_create_waitset(g_participant);
-    CU_ASSERT_NEQ (g_waitset > 0, 0);
+    CU_ASSERT_GT (g_waitset, 0);
 
     g_topic = dds_create_topic(g_participant, &Space_Type1_desc, create_unique_topic_name("ddsc_unregistering_test", name, 100), qos, NULL);
-    CU_ASSERT_NEQ (g_topic > 0, 0);
+    CU_ASSERT_GT (g_topic, 0);
 
     /* Create a reader that keeps one sample on three instances. */
     dds_qset_reliability(qos, DDS_RELIABILITY_RELIABLE, DDS_MSECS(100));
     dds_qset_resource_limits(qos, DDS_LENGTH_UNLIMITED, 3, 1);
     g_reader = dds_create_reader(g_participant, g_topic, qos, NULL);
-    CU_ASSERT_NEQ (g_reader > 0, 0);
+    CU_ASSERT_GT (g_reader, 0);
 
     /* Create a writer that will not automatically dispose unregistered samples. */
     dds_qset_writer_data_lifecycle(qos, false);
     g_writer = dds_create_writer(g_participant, g_topic, qos, NULL);
-    CU_ASSERT_NEQ (g_writer > 0, 0);
+    CU_ASSERT_GT (g_writer, 0);
 
     /* Sync g_writer to g_reader. */
     ret = dds_set_status_mask(g_writer, DDS_PUBLICATION_MATCHED_STATUS);
@@ -602,11 +602,11 @@ CU_Test(ddsc_unregister_instance_ih_ts, unregistering_instance)
 
     /* Create a writer that WILL automatically dispose unregistered samples. */
     g_participant = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_NEQ (g_participant > 0, 0);
+    CU_ASSERT_GT (g_participant, 0);
     g_topic = dds_create_topic(g_participant, &Space_Type1_desc, create_unique_topic_name("ddsc_unregistering_instance_test", name, 100), NULL, NULL);
-    CU_ASSERT_NEQ (g_topic > 0, 0);
+    CU_ASSERT_GT (g_topic, 0);
     g_writer = dds_create_writer(g_participant, g_topic, NULL, NULL);
-    CU_ASSERT_NEQ (g_writer > 0, 0);
+    CU_ASSERT_GT (g_writer, 0);
 
     /* Register the instance. */
     ret = dds_register_instance(g_writer, &ih, &testData);
@@ -628,7 +628,7 @@ CU_Test(ddsc_unregister_instance, dispose_unregistered_sample, .init=unregisteri
 {
     dds_entity_t writer;
     writer = dds_create_writer(g_participant, g_topic, NULL, NULL);
-    CU_ASSERT_NEQ (g_writer > 0, 0);
+    CU_ASSERT_GT (g_writer, 0);
 
     Space_Type1 newInstance = { INITIAL_SAMPLES, 0, 0 };
     dds_return_t ret;
@@ -677,7 +677,7 @@ CU_Test(ddsc_unregister_instance_ts, dispose_unregistered_sample, .init=unregist
 {
     dds_entity_t writer;
     writer = dds_create_writer(g_participant, g_topic, NULL, NULL);
-    CU_ASSERT_NEQ (g_writer > 0, 0);
+    CU_ASSERT_GT (g_writer, 0);
 
     Space_Type1 newInstance = { INITIAL_SAMPLES, 0, 0 };
     dds_return_t ret;

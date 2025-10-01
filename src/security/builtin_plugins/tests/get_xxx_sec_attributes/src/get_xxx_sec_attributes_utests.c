@@ -491,7 +491,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_happy_day, .init = su
 
   result = plugins_init();
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ (access_control->get_participant_sec_attributes != NULL, 0);
   assert(access_control->get_participant_sec_attributes != 0);
@@ -518,18 +518,18 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_happy_day, .init = su
      *    <liveliness_protection_kind>ENCRYPT</liveliness_protection_kind>
      *    <rtps_protection_kind>ENCRYPT_WITH_ORIGIN_AUTHENTICATION</rtps_protection_kind>
      */
-  CU_ASSERT_NEQ (attributes.allow_unauthenticated_participants == false, 0);
-  CU_ASSERT_NEQ (attributes.is_access_protected == true, 0);
-  CU_ASSERT_NEQ (attributes.is_discovery_protected == true, 0);
-  CU_ASSERT_NEQ (attributes.is_liveliness_protected == true, 0);
-  CU_ASSERT_NEQ (attributes.is_rtps_protected == true, 0);
-  CU_ASSERT_NEQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_ENCRYPTED) == DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_ENCRYPTED, 0);
-  CU_ASSERT_NEQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_DISCOVERY_ENCRYPTED) == 0, 0);
-  CU_ASSERT_NEQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_LIVELINESS_ENCRYPTED) == DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_LIVELINESS_ENCRYPTED, 0);
-  CU_ASSERT_NEQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_AUTHENTICATED) == DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_AUTHENTICATED, 0);
-  CU_ASSERT_NEQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_DISCOVERY_AUTHENTICATED) == DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_DISCOVERY_AUTHENTICATED, 0);
-  CU_ASSERT_NEQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_LIVELINESS_AUTHENTICATED) == 0, 0);
-  CU_ASSERT_NEQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PARTICIPANT_ATTRIBUTES_FLAG_IS_VALID) != 0, 0);
+  CU_ASSERT_EQ (attributes.allow_unauthenticated_participants, false);
+  CU_ASSERT_EQ (attributes.is_access_protected, true);
+  CU_ASSERT_EQ (attributes.is_discovery_protected, true);
+  CU_ASSERT_EQ (attributes.is_liveliness_protected, true);
+  CU_ASSERT_EQ (attributes.is_rtps_protected, true);
+  CU_ASSERT_EQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_ENCRYPTED), DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_ENCRYPTED);
+  CU_ASSERT_EQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_DISCOVERY_ENCRYPTED), 0);
+  CU_ASSERT_EQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_LIVELINESS_ENCRYPTED), DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_LIVELINESS_ENCRYPTED);
+  CU_ASSERT_EQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_AUTHENTICATED), DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_AUTHENTICATED);
+  CU_ASSERT_EQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_DISCOVERY_AUTHENTICATED), DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_DISCOVERY_AUTHENTICATED);
+  CU_ASSERT_EQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_LIVELINESS_AUTHENTICATED), 0);
+  CU_ASSERT_NEQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PARTICIPANT_ATTRIBUTES_FLAG_IS_VALID), 0);
 
   result = access_control->return_participant_sec_attributes(
       access_control,
@@ -552,7 +552,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datawriter_happy_day, .init = sui
 
   result = plugins_init();
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ (access_control->get_datawriter_sec_attributes != NULL, 0);
   assert(access_control->get_datawriter_sec_attributes != 0);
@@ -582,7 +582,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datawriter_happy_day, .init = sui
 
     CU_ASSERT_NEQ (result, 0);
 
-    CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_OK_CODE, 0);
+    CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_OK_CODE);
     CU_ASSERT_NEQ (verify_endpoint_attributes(i, &attributes), 0);
 
     //reset control values
@@ -603,7 +603,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datawriter_non_existing_topic, .i
 
   result = plugins_init();
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ (access_control->get_datawriter_sec_attributes != NULL, 0);
   assert(access_control->get_datawriter_sec_attributes != 0);
@@ -626,7 +626,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datawriter_non_existing_topic, .i
 
   CU_ASSERT_NEQ (!result, 0);
 
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_CAN_NOT_FIND_TOPIC_IN_DOMAIN_CODE, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_CAN_NOT_FIND_TOPIC_IN_DOMAIN_CODE);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -646,7 +646,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datareader_happy_day, .init = sui
 
   result = plugins_init();
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ (access_control->get_datareader_sec_attributes != NULL, 0);
   assert(access_control->get_datareader_sec_attributes != 0);
@@ -676,8 +676,8 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datareader_happy_day, .init = sui
 
     CU_ASSERT_NEQ (result, 0);
 
-    CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_OK_CODE, 0);
-    CU_ASSERT_NEQ (verify_endpoint_attributes(i, &attributes) == true, 0);
+    CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_OK_CODE);
+    CU_ASSERT_EQ (verify_endpoint_attributes(i, &attributes), true);
 
     //reset control values
     memset(&attributes, 0, sizeof(attributes));
@@ -697,7 +697,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datareader_non_existing_topic, .i
 
   result = plugins_init();
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ (access_control->get_datawriter_sec_attributes != NULL, 0);
   assert(access_control->get_datawriter_sec_attributes != 0);
@@ -719,7 +719,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datareader_non_existing_topic, .i
 
   CU_ASSERT_NEQ (!result, 0);
 
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_CAN_NOT_FIND_TOPIC_IN_DOMAIN_CODE, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_CAN_NOT_FIND_TOPIC_IN_DOMAIN_CODE);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -738,7 +738,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_invalid_param, .init 
 
   result = plugins_init();
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ (access_control->get_participant_sec_attributes != NULL, 0);
   assert(access_control->get_participant_sec_attributes != 0);
@@ -749,7 +749,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_invalid_param, .init 
       &attributes,
       &exception);
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
   memset(&attributes, 0, sizeof(attributes));
   reset_exception(&exception);
 
@@ -759,7 +759,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_invalid_param, .init 
       &attributes,
       &exception);
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
   memset(&attributes, 0, sizeof(attributes));
   reset_exception(&exception);
 
@@ -769,7 +769,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_invalid_param, .init 
       NULL,
       &exception);
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
   memset(&attributes, 0, sizeof(attributes));
   reset_exception(&exception);
 
@@ -779,7 +779,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_invalid_param, .init 
       &attributes,
       &exception);
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
   memset(&attributes, 0, sizeof(attributes));
   reset_exception(&exception);
 
@@ -796,7 +796,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datareader_invalid_param, .init =
 
   result = plugins_init();
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ (access_control->get_datareader_sec_attributes != NULL, 0);
   assert(access_control->get_datareader_sec_attributes != 0);
@@ -815,7 +815,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datareader_invalid_param, .init =
       &exception);
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -831,7 +831,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datareader_invalid_param, .init =
       &exception);
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -847,7 +847,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datareader_invalid_param, .init =
       &exception);
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -863,7 +863,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datareader_invalid_param, .init =
       &exception);
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -882,7 +882,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datawriter_invalid_param, .init =
 
   result = plugins_init();
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ (access_control->get_datawriter_sec_attributes != NULL, 0);
   assert(access_control->get_datawriter_sec_attributes != 0);
@@ -901,7 +901,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datawriter_invalid_param, .init =
       &exception);
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -917,7 +917,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datawriter_invalid_param, .init =
       &exception);
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -933,7 +933,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datawriter_invalid_param, .init =
       &exception);
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -949,7 +949,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datawriter_invalid_param, .init =
       &exception);
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -967,7 +967,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, topic_happy_day, .init = suite_ge
 
   result = plugins_init();
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ (access_control->get_topic_sec_attributes != NULL, 0);
   assert(access_control->get_topic_sec_attributes != 0);
@@ -995,7 +995,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, topic_happy_day, .init = suite_ge
 
     CU_ASSERT_NEQ (result, 0);
 
-    CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_OK_CODE, 0);
+    CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_OK_CODE);
     CU_ASSERT_NEQ (verify_topic_attributes(i, &attributes), 0);
 
     //reset control values
@@ -1014,7 +1014,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, topic_non_existing_topic, .init =
 
   result = plugins_init();
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ (access_control->get_topic_sec_attributes != NULL, 0);
   assert(access_control->get_topic_sec_attributes != 0);
@@ -1039,7 +1039,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, topic_non_existing_topic, .init =
 
   CU_ASSERT_NEQ (!result, 0);
 
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_CAN_NOT_FIND_TOPIC_IN_DOMAIN_CODE, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_CAN_NOT_FIND_TOPIC_IN_DOMAIN_CODE);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -1056,7 +1056,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, topic_invalid_param, .init = suit
 
   result = plugins_init();
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ (access_control->get_topic_sec_attributes != NULL, 0);
   assert(access_control->get_topic_sec_attributes != 0);
@@ -1076,7 +1076,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, topic_invalid_param, .init = suit
       &exception);
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -1090,7 +1090,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, topic_invalid_param, .init = suit
       &exception);
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -1104,7 +1104,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, topic_invalid_param, .init = suit
       &exception);
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -1118,7 +1118,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, topic_invalid_param, .init = suit
       &exception);
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_PARAMETER_CODE, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
 
   //reset control values
   memset(&attributes, 0, sizeof(attributes));
@@ -1135,7 +1135,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_2nd_rule, .init = sui
 
   result = plugins_init();
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ (access_control->get_participant_sec_attributes != NULL, 0);
   assert(access_control->get_participant_sec_attributes != 0);
@@ -1162,11 +1162,11 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_2nd_rule, .init = sui
      *    <liveliness_protection_kind>ENCRYPT</liveliness_protection_kind>
      *    <rtps_protection_kind>NONE</rtps_protection_kind>
      */
-  CU_ASSERT_NEQ (attributes.allow_unauthenticated_participants == true, 0);
-  CU_ASSERT_NEQ (attributes.is_access_protected == false, 0);
-  CU_ASSERT_NEQ (attributes.is_discovery_protected == true, 0);
-  CU_ASSERT_NEQ (attributes.is_liveliness_protected == true, 0);
-  CU_ASSERT_NEQ (attributes.is_rtps_protected == false, 0);
+  CU_ASSERT_EQ (attributes.allow_unauthenticated_participants, true);
+  CU_ASSERT_EQ (attributes.is_access_protected, false);
+  CU_ASSERT_EQ (attributes.is_discovery_protected, true);
+  CU_ASSERT_EQ (attributes.is_liveliness_protected, true);
+  CU_ASSERT_EQ (attributes.is_rtps_protected, false);
   CU_ASSERT_EQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_RTPS_ENCRYPTED), 0);
   CU_ASSERT_EQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_DISCOVERY_ENCRYPTED), 0);
   CU_ASSERT_EQ ((attributes.plugin_participant_attributes & DDS_SECURITY_PLUGIN_PARTICIPANT_ATTRIBUTES_FLAG_IS_LIVELINESS_ENCRYPTED),
@@ -1214,12 +1214,12 @@ static void test_liveliness_discovery_participant_attr(
       &exception);
   CU_ASSERT_NEQ (result, 0);
 
-  CU_ASSERT_NEQ (attr.allow_unauthenticated_participants == false, 0);
-  CU_ASSERT_NEQ (attr.is_access_protected == true, 0);
-  CU_ASSERT_NEQ (attr.is_discovery_protected == discovery_protected, 0);
-  CU_ASSERT_NEQ (attr.is_liveliness_protected == liveliness_protected, 0);
-  CU_ASSERT_NEQ (attr.is_rtps_protected == false, 0);
-  CU_ASSERT_NEQ (attr.plugin_participant_attributes == mask, 0);
+  CU_ASSERT_EQ (attr.allow_unauthenticated_participants, false);
+  CU_ASSERT_EQ (attr.is_access_protected, true);
+  CU_ASSERT_EQ (attr.is_discovery_protected, discovery_protected);
+  CU_ASSERT_EQ (attr.is_liveliness_protected, liveliness_protected);
+  CU_ASSERT_EQ (attr.is_rtps_protected, false);
+  CU_ASSERT_EQ (attr.plugin_participant_attributes, mask);
 
   result = access_control->return_participant_sec_attributes(
       access_control,
@@ -1258,14 +1258,14 @@ static void test_liveliness_discovery_writer_attr(
       &exception);
   CU_ASSERT_NEQ (result, 0);
 
-  CU_ASSERT_NEQ (attr.is_read_protected == false, 0);
-  CU_ASSERT_NEQ (attr.is_write_protected == false, 0);
-  CU_ASSERT_NEQ (attr.is_submessage_protected == submsg_protected, 0);
-  CU_ASSERT_NEQ (attr.is_payload_protected == false, 0);
-  CU_ASSERT_NEQ (attr.is_key_protected == false, 0);
-  CU_ASSERT_NEQ (attr.is_discovery_protected == discovery_protected, 0);
-  CU_ASSERT_NEQ (attr.is_liveliness_protected == liveliness_protected, 0);
-  CU_ASSERT_NEQ (attr.plugin_endpoint_attributes == mask, 0);
+  CU_ASSERT_EQ (attr.is_read_protected, false);
+  CU_ASSERT_EQ (attr.is_write_protected, false);
+  CU_ASSERT_EQ (attr.is_submessage_protected, submsg_protected);
+  CU_ASSERT_EQ (attr.is_payload_protected, false);
+  CU_ASSERT_EQ (attr.is_key_protected, false);
+  CU_ASSERT_EQ (attr.is_discovery_protected, discovery_protected);
+  CU_ASSERT_EQ (attr.is_liveliness_protected, liveliness_protected);
+  CU_ASSERT_EQ (attr.plugin_endpoint_attributes, mask);
 
   result = access_control->return_datawriter_sec_attributes(
       access_control,
@@ -1304,14 +1304,14 @@ static void test_liveliness_discovery_reader_attr(
       &exception);
   CU_ASSERT_NEQ (result, 0);
 
-  CU_ASSERT_NEQ (attr.is_read_protected == false, 0);
-  CU_ASSERT_NEQ (attr.is_write_protected == false, 0);
-  CU_ASSERT_NEQ (attr.is_submessage_protected == submsg_protected, 0);
-  CU_ASSERT_NEQ (attr.is_payload_protected == false, 0);
-  CU_ASSERT_NEQ (attr.is_key_protected == false, 0);
-  CU_ASSERT_NEQ (attr.is_discovery_protected == discovery_protected, 0);
-  CU_ASSERT_NEQ (attr.is_liveliness_protected == liveliness_protected, 0);
-  CU_ASSERT_NEQ (attr.plugin_endpoint_attributes == mask, 0);
+  CU_ASSERT_EQ (attr.is_read_protected, false);
+  CU_ASSERT_EQ (attr.is_write_protected, false);
+  CU_ASSERT_EQ (attr.is_submessage_protected, submsg_protected);
+  CU_ASSERT_EQ (attr.is_payload_protected, false);
+  CU_ASSERT_EQ (attr.is_key_protected, false);
+  CU_ASSERT_EQ (attr.is_discovery_protected, discovery_protected);
+  CU_ASSERT_EQ (attr.is_liveliness_protected, liveliness_protected);
+  CU_ASSERT_EQ (attr.plugin_endpoint_attributes, mask);
 
   result = access_control->return_datareader_sec_attributes(
       access_control,
@@ -1333,7 +1333,7 @@ static void test_liveliness_discovery_attr(
 
   result = plugins_init();
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
 
   result = create_local_identity(0, governance);
   CU_ASSERT_NEQ (result, 0);

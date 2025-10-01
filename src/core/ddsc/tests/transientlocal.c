@@ -42,15 +42,15 @@ CU_Test(ddsc_transient_local, late_joiner)
 
     /* Create participant and topic. */
     par = dds_create_participant(DDS_DOMAIN_DEFAULT, qos, NULL);
-    CU_ASSERT_NEQ (par > 0, 0);
+    CU_ASSERT_GT (par, 0);
     top = dds_create_topic(par, &Space_Type1_desc, "ddsc_transient_local_happy_days", qos, NULL);
-    CU_ASSERT_NEQ (par > 0, 0);
+    CU_ASSERT_GT (par, 0);
 
     /* Create publishing entities. */
     pub = dds_create_publisher(par, qos, NULL);
-    CU_ASSERT_NEQ (pub > 0, 0);
+    CU_ASSERT_GT (pub, 0);
     wrt = dds_create_writer(pub, top, qos, NULL);
-    CU_ASSERT_NEQ (wrt > 0, 0);
+    CU_ASSERT_GT (wrt, 0);
 
     /* Write first set of samples. */
     sample.long_1 = 1;
@@ -66,9 +66,9 @@ CU_Test(ddsc_transient_local, late_joiner)
 
     /* Create subscribing entities. */
     sub = dds_create_subscriber(par, qos, NULL);
-    CU_ASSERT_NEQ (sub > 0, 0);
+    CU_ASSERT_GT (sub, 0);
     rdr = dds_create_reader(sub, top, qos, NULL);
-    CU_ASSERT_NEQ (rdr > 0, 0);
+    CU_ASSERT_GT (rdr, 0);
 
     /* Write second set of samples. */
     sample.long_1 = 3;

@@ -149,7 +149,7 @@ CU_Test (ddsi_plist_leasedur, deser, .init = setup, .fini = teardown)
       {
         CU_ASSERT_NEQ (plist.present == 0 && plist.aliased == 0, 0);
         CU_ASSERT_NEQ (((plist.qos.present & DDSI_QP_LIVELINESS) != 0) == exp->present, 0);
-        CU_ASSERT_NEQ (plist.qos.aliased == 0, 0);
+        CU_ASSERT_EQ (plist.qos.aliased, 0);
         if (exp->present)
         {
           CU_ASSERT_NEQ (plist.qos.liveliness.kind == exp->kind, 0);
@@ -166,7 +166,7 @@ CU_Test (ddsi_plist_leasedur, ser_spdp, .init = setup, .fini = teardown)
   ddsi_guid_t guid;
   memset (&guid, 0, sizeof (guid));
   struct ddsi_xmsg *m = ddsi_xmsg_new (gv.xmsgpool, &guid, NULL, 64, DDSI_XMSG_KIND_DATA);
-  CU_ASSERT_NEQ (m != NULL, 0);
+  CU_ASSERT_NEQ (m, NULL);
   struct ddsi_xmsg_marker marker;
   void *x = ddsi_xmsg_append (m, &marker, 0);
   (void) x;
@@ -181,7 +181,7 @@ CU_Test (ddsi_plist_leasedur, ser_spdp, .init = setup, .fini = teardown)
 
   const uint8_t expected[] = { LD(3,0x12345679), SENTINEL };
   const unsigned char *cdr = ddsi_xmsg_submsg_from_marker (m, marker);
-  CU_ASSERT_NEQ (memcmp (expected, cdr, sizeof (expected)) == 0, 0);
+  CU_ASSERT_EQ (memcmp (expected, cdr, sizeof (expected)), 0);
 
   ddsi_plist_fini (&plist);
   ddsi_xmsg_free (m);
@@ -198,7 +198,7 @@ CU_Test (ddsi_plist_leasedur, ser_others, .init = setup, .fini = teardown)
     ddsi_guid_t guid;
     memset (&guid, 0, sizeof (guid));
     struct ddsi_xmsg *m = ddsi_xmsg_new (gv.xmsgpool, &guid, NULL, 64, DDSI_XMSG_KIND_DATA);
-    CU_ASSERT_NEQ (m != NULL, 0);
+    CU_ASSERT_NEQ (m, NULL);
     struct ddsi_xmsg_marker marker;
     void *x = ddsi_xmsg_append (m, &marker, 0);
     (void) x;
@@ -213,7 +213,7 @@ CU_Test (ddsi_plist_leasedur, ser_others, .init = setup, .fini = teardown)
 
     const uint8_t expected[] = { LL(1, 2,0x0abcdefb), SENTINEL };
     const unsigned char *cdr = ddsi_xmsg_submsg_from_marker (m, marker);
-    CU_ASSERT_NEQ (memcmp (expected, cdr, sizeof (expected)) == 0, 0);
+    CU_ASSERT_EQ (memcmp (expected, cdr, sizeof (expected)), 0);
 
     ddsi_plist_fini (&plist);
     ddsi_xmsg_free (m);
@@ -337,7 +337,7 @@ static void ddsi_plist_leasedur_new_proxypp_impl (bool include_lease_duration)
 
   // After waiting for a reasonable amount of time, the (fake) proxy participant
   // should exist and have picked up the lease duration from the message
-  CU_ASSERT_NEQ (proxypp != NULL, 0);
+  CU_ASSERT_NEQ (proxypp, NULL);
   CU_ASSERT_NEQ (proxypp->plist->qos.present & DDSI_QP_LIVELINESS, 0);
   CU_ASSERT_NEQ (proxypp->plist->qos.liveliness.kind == DDS_LIVELINESS_AUTOMATIC, 0);
   if (include_lease_duration) {
@@ -373,7 +373,7 @@ static void ddsi_plist_leasedur_new_proxyrd_impl (bool include_lease_duration)
   ddsi_generate_participant_guid (&ppguid, &gv);
   dds_return_t ret = ddsi_new_participant (&ppguid, &gv, 0, &plist);
   ddsi_thread_state_asleep (thrst);
-  CU_ASSERT_NEQ (ret >= 0, 0);
+  CU_ASSERT_GEQ (ret, 0);
   ddsi_plist_fini (&plist);
 
   // not static nor const: we need to patch in the port number
@@ -471,7 +471,7 @@ static void ddsi_plist_leasedur_new_proxyrd_impl (bool include_lease_duration)
 
   // After waiting for a reasonable amount of time, the (fake) proxy participant
   // should exist and have picked up the lease duration from the message
-  CU_ASSERT_NEQ (prd != NULL, 0);
+  CU_ASSERT_NEQ (prd, NULL);
   CU_ASSERT_NEQ (prd->c.xqos->present & DDSI_QP_LIVELINESS, 0);
   if (include_lease_duration) {
     CU_ASSERT_NEQ (prd->c.xqos->liveliness.kind == DDS_LIVELINESS_MANUAL_BY_PARTICIPANT, 0);

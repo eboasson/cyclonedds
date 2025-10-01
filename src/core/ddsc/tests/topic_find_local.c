@@ -39,17 +39,17 @@ static void topic_find_local_init (void)
   const char *cyclonedds_uri = "";
   (void) ddsrt_getenv ("CYCLONEDDS_URI", &cyclonedds_uri);
   g_domain1 = dds_create_domain (DDS_DOMAINID1, cyclonedds_uri);
-  CU_ASSERT_NEQ (g_domain1 > 0, 0);
+  CU_ASSERT_GT (g_domain1, 0);
 
   g_participant1 = dds_create_participant (DDS_DOMAINID1, NULL, NULL);
-  CU_ASSERT_NEQ (g_participant1 > 0, 0);
+  CU_ASSERT_GT (g_participant1, 0);
 
   g_participant2 = dds_create_participant (DDS_DOMAINID1, NULL, NULL);
-  CU_ASSERT_NEQ (g_participant2 > 0, 0);
+  CU_ASSERT_GT (g_participant2, 0);
 
   create_unique_topic_name("ddsc_topic_find_test1", g_topic_name_local, MAX_NAME_SIZE);
   g_topic1 = dds_create_topic (g_participant1, &Space_Type1_desc, g_topic_name_local, NULL, NULL);
-  CU_ASSERT_NEQ (g_topic1 > 0, 0);
+  CU_ASSERT_GT (g_topic1, 0);
 
 #ifdef DDS_HAS_TOPIC_DISCOVERY
   dds_return_t ret = dds_get_typeinfo (g_topic1, &g_type_info);
@@ -76,11 +76,11 @@ static void topic_find_local_domain_impl (enum topic_find_local_domain_impl_dele
   dds_return_t ret;
   dds_entity_t topic[2];
   topic[0] = dds_find_topic (DDS_FIND_SCOPE_LOCAL_DOMAIN, g_participant1, g_topic_name_local, g_type_info, 0);
-  CU_ASSERT_NEQ (topic[0] > 0, 0);
+  CU_ASSERT_GT (topic[0], 0);
   CU_ASSERT_NEQ_FATAL (topic[0], g_topic1);
   CU_ASSERT_EQ_FATAL (dds_get_participant (topic[0]), g_participant1);
   topic[1] = dds_find_topic (DDS_FIND_SCOPE_LOCAL_DOMAIN, g_participant2, g_topic_name_local, g_type_info, 0);
-  CU_ASSERT_NEQ (topic[1] > 0, 0);
+  CU_ASSERT_GT (topic[1], 0);
   CU_ASSERT_NEQ_FATAL (topic[1], topic[0]);
   CU_ASSERT_NEQ_FATAL (topic[1], g_topic1);
   CU_ASSERT_EQ_FATAL (dds_get_participant (topic[1]), g_participant2);
@@ -124,7 +124,7 @@ CU_Test(ddsc_topic_find_local, domain_delete_pp_reversed, .init = topic_find_loc
 CU_Test(ddsc_topic_find_local, participant, .init = topic_find_local_init, .fini = topic_find_local_fini)
 {
   dds_entity_t topic = dds_find_topic (DDS_FIND_SCOPE_PARTICIPANT, g_participant1, g_topic_name_local, g_type_info, 0);
-  CU_ASSERT_NEQ (topic > 0, 0);
+  CU_ASSERT_GT (topic, 0);
   CU_ASSERT_NEQ_FATAL (topic, g_topic1);
 }
 

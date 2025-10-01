@@ -317,7 +317,7 @@ CU_Test(idl_union, default_discriminator_bool)
       CU_ASSERT_NEQ (idl_is_case_label(cl), 0);
       CU_ASSERT_NEQ (idl_is_literal(cl->const_expr), 0);
       l = cl->const_expr;
-      CU_ASSERT_NEQ (idl_type(l) == IDL_BOOL, 0);
+      CU_ASSERT_EQ (idl_type(l), IDL_BOOL);
       if (tests[i].condition == DEFAULT_CASE) {
         static const idl_mask_t mask = IDL_DEFAULT_CASE_LABEL;
         CU_ASSERT_EQ (l->value.bln, !tests[i].discriminant);
@@ -338,7 +338,7 @@ CU_Test(idl_union, default_discriminator_bool)
         CU_ASSERT_EQ (idl_parent(u->default_case), c);
       }
       l = u->default_case ? u->default_case->const_expr : NULL;
-      CU_ASSERT_NEQ (idl_type(l) == IDL_BOOL, 0);
+      CU_ASSERT_EQ (idl_type(l), IDL_BOOL);
       assert(l);
       CU_ASSERT_EQ (l->value.bln, tests[i].discriminant);
     }
@@ -391,7 +391,7 @@ CU_Test(idl_union, default_discriminator_signed_int)
     CU_ASSERT_NEQ (idl_is_case_label(cl), 0);
     CU_ASSERT_NEQ (idl_is_literal(cl->const_expr), 0);
     l = cl->const_expr;
-    CU_ASSERT_NEQ (idl_type(l) == IDL_INT8, 0);
+    CU_ASSERT_EQ (idl_type(l), IDL_INT8);
     CU_ASSERT_EQ (l->value.int8, tests[i].label);
     if (tests[i].branch) {
       CU_ASSERT_NEQ (idl_mask(u->default_case) == IDL_DEFAULT_CASE_LABEL, 0);
@@ -402,7 +402,7 @@ CU_Test(idl_union, default_discriminator_signed_int)
     }
     CU_ASSERT_NEQ (idl_is_literal(u->default_case->const_expr), 0);
     l = u->default_case->const_expr;
-    CU_ASSERT_NEQ (idl_type(l) == IDL_INT8, 0);
+    CU_ASSERT_EQ (idl_type(l), IDL_INT8);
     CU_ASSERT_EQ (l->value.int8, tests[i].discriminant);
     idl_delete_pstate(pstate);
   }
@@ -456,7 +456,7 @@ CU_Test(idl_union, default_discriminator_unsigned_int)
     CU_ASSERT_NEQ (idl_is_case_label(cl), 0);
     CU_ASSERT_NEQ (idl_is_literal(cl->const_expr), 0);
     l = cl->const_expr;
-    CU_ASSERT_NEQ (idl_type(l) == IDL_UINT8, 0);
+    CU_ASSERT_EQ (idl_type(l), IDL_UINT8);
     CU_ASSERT_EQ (l->value.uint8, tests[i].label);
     if (tests[i].branch) {
       CU_ASSERT_NEQ (u->default_case && u->default_case->const_expr, 0);
@@ -470,7 +470,7 @@ CU_Test(idl_union, default_discriminator_unsigned_int)
     CU_ASSERT_NEQ (u->default_case->const_expr, NULL);
     CU_ASSERT_NEQ (idl_is_literal(u->default_case->const_expr), 0);
     l = u->default_case->const_expr;
-    CU_ASSERT_NEQ (idl_type(l) == IDL_UINT8, 0);
+    CU_ASSERT_EQ (idl_type(l), IDL_UINT8);
     CU_ASSERT_EQ (l->value.uint8, tests[i].discriminant);
     idl_delete_pstate(pstate);
   }

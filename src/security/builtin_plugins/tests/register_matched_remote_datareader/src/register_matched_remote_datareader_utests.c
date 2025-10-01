@@ -123,7 +123,7 @@ static void suite_register_matched_remote_datareader_init(void)
       &participant_security_attributes,
       &exception);
 
-  CU_ASSERT_NEQ (local_participant_crypto_handle != DDS_SECURITY_HANDLE_NIL, 0);
+  CU_ASSERT_NEQ (local_participant_crypto_handle, DDS_SECURITY_HANDLE_NIL);
 
   /* Now call the function. */
   remote_participant_crypto_handle = crypto->crypto_key_factory->register_matched_remote_participant(
@@ -134,7 +134,7 @@ static void suite_register_matched_remote_datareader_init(void)
       shared_secret_handle,
       &exception);
 
-  CU_ASSERT_NEQ (remote_participant_crypto_handle != DDS_SECURITY_HANDLE_NIL, 0);
+  CU_ASSERT_NEQ (remote_participant_crypto_handle, DDS_SECURITY_HANDLE_NIL);
   ddsrt_free(shared_secret_handle_impl->shared_secret);
   ddsrt_free(shared_secret_handle_impl);
 }
@@ -175,7 +175,7 @@ CU_Test(ddssec_builtin_register_remote_datareader, happy_day, .init = suite_regi
   remote_datareader_crypto *reader_crypto;
 
   /* Check if we actually have the function. */
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
   CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
   assert(crypto->crypto_key_factory != NULL);
@@ -198,8 +198,8 @@ CU_Test(ddssec_builtin_register_remote_datareader, happy_day, .init = suite_regi
     printf("register_remote_datareader: %s\n", exception.message ? exception.message : "Error message missing");
 
   /* A valid handle to be returned */
-  CU_ASSERT_NEQ (result != 0, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_OK_CODE, 0);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_OK_CODE);
 
   /* NOTE: It would be better to check if the keys have been generated but there is no interface to get them from handle */
   reader_crypto = (remote_datareader_crypto *)result;
@@ -239,7 +239,7 @@ CU_Test(ddssec_builtin_register_remote_datareader, volatile_secure, .init = suit
   datawriter_properties._buffer[0].propagate = false;
 
   /* Check if we actually have the function. */
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
   CU_ASSERT_NEQ (crypto->crypto_key_factory->register_local_datawriter != NULL, 0);
   CU_ASSERT_NEQ (crypto->crypto_key_factory->register_matched_remote_datareader != NULL, 0);
@@ -262,9 +262,9 @@ CU_Test(ddssec_builtin_register_remote_datareader, volatile_secure, .init = suit
       &exception);
 
   /* A valid handle to be returned */
-  CU_ASSERT_NEQ (result != 0, 0);
+  CU_ASSERT_NEQ (result, 0);
   CU_ASSERT_NEQ (((remote_datareader_crypto *)result)->is_builtin_participant_volatile_message_secure_reader, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_OK_CODE, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_OK_CODE);
   reset_exception(&exception);
 
   crypto->crypto_key_factory->unregister_datareader(crypto->crypto_key_factory, result, &exception);
@@ -283,7 +283,7 @@ CU_Test(ddssec_builtin_register_remote_datareader, with_origin_authentication, .
   remote_datareader_crypto *reader_crypto;
 
   /* Check if we actually have the function. */
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
   CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
   assert(crypto->crypto_key_factory != NULL);
@@ -308,8 +308,8 @@ CU_Test(ddssec_builtin_register_remote_datareader, with_origin_authentication, .
     printf("register_remote_datareader: %s\n", exception.message ? exception.message : "Error message missing");
 
   /* A valid handle to be returned */
-  CU_ASSERT_NEQ (result != 0, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_OK_CODE, 0);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_OK_CODE);
 
   /* NOTE: It would be better to check if the keys have been generated but there is no interface to get them from handle */
   reader_crypto = (remote_datareader_crypto *)result;
@@ -341,7 +341,7 @@ CU_Test(ddssec_builtin_register_remote_datareader, invalid_participant, .init = 
   DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
 
   /* Check if we actually have the function. */
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
   CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
   assert(crypto->crypto_key_factory != NULL);
@@ -360,8 +360,8 @@ CU_Test(ddssec_builtin_register_remote_datareader, invalid_participant, .init = 
       &exception);
 
   /* A valid handle to be returned */
-  CU_ASSERT_NEQ (result == 0, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_CRYPTO_HANDLE_CODE, 0);
+  CU_ASSERT_EQ (result, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_CRYPTO_HANDLE_CODE);
   reset_exception(&exception);
 }
 
@@ -374,7 +374,7 @@ CU_Test(ddssec_builtin_register_remote_datareader, invalid_writer_properties, .i
   DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
 
   /* Check if we actually have the function. */
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
   CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
   assert(crypto->crypto_key_factory != NULL);
@@ -392,7 +392,7 @@ CU_Test(ddssec_builtin_register_remote_datareader, invalid_writer_properties, .i
       &exception);
 
   /* A valid handle to be returned */
-  CU_ASSERT_NEQ (result == 0, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_CRYPTO_HANDLE_CODE, 0);
+  CU_ASSERT_EQ (result, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_CRYPTO_HANDLE_CODE);
   reset_exception(&exception);
 }

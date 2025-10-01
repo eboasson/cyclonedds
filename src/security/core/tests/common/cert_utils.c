@@ -24,7 +24,7 @@
 static X509 * get_x509(int not_valid_before, int not_valid_after, const char * cn, const char * email)
 {
   X509 * cert = X509_new ();
-  CU_ASSERT_NEQ (cert != NULL, 0);
+  CU_ASSERT_NEQ (cert, NULL);
   ASN1_INTEGER_set (X509_get_serialNumber (cert), 1);
   X509_gmtime_adj (X509_getm_notBefore (cert), not_valid_before);
   X509_gmtime_adj (X509_getm_notAfter (cert), not_valid_after);
@@ -62,7 +62,7 @@ static EVP_PKEY * get_priv_key(const char * priv_key_str)
 {
   BIO *pkey_bio = BIO_new_mem_buf (priv_key_str, -1);
   EVP_PKEY *priv_key = PEM_read_bio_PrivateKey (pkey_bio, NULL, NULL, 0);
-  CU_ASSERT_NEQ (priv_key != NULL, 0);
+  CU_ASSERT_NEQ (priv_key, NULL);
   BIO_free (pkey_bio);
   return priv_key;
 }
@@ -71,7 +71,7 @@ static X509 * get_cert(const char * cert_str)
 {
   BIO *cert_bio = BIO_new_mem_buf (cert_str, -1);
   X509 *cert = PEM_read_bio_X509 (cert_bio, NULL, NULL, 0);
-  CU_ASSERT_NEQ (cert != NULL, 0);
+  CU_ASSERT_NEQ (cert, NULL);
   BIO_free (cert_bio);
   return cert;
 }
@@ -167,7 +167,7 @@ char * generate_pkcs11_private_key(const char *token, const char *name, uint32_t
 
   /* Create keygen context using PKCS#11 URI */
   EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", "provider=pkcs11");
-  CU_ASSERT_NEQ (ctx != NULL, 0);
+  CU_ASSERT_NEQ (ctx, NULL);
 
   if (EVP_PKEY_keygen_init(ctx) <= 0)
   {

@@ -456,7 +456,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, writer_happy_day, .init = suite
     DDS_Security_SecureSubmessageCategory_t category;
     DDS_Security_OctetSeq message;
 
-    CU_ASSERT_NEQ (crypto != NULL, 0);
+    CU_ASSERT_NEQ (crypto, NULL);
     assert(crypto != NULL);
     CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
     assert(crypto->crypto_transform != NULL);
@@ -479,11 +479,11 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, writer_happy_day, .init = suite
         printf("preprocess_secure_submsg: %s\n", exception.message ? exception.message : "Error message missing");
 
     CU_ASSERT_NEQ (result, 0);
-    CU_ASSERT_NEQ (exception.code == 0, 0);
-    CU_ASSERT_NEQ (exception.message == NULL, 0);
-    CU_ASSERT_NEQ (writer_crypto == remote_writer_crypto, 0);
-    CU_ASSERT_NEQ (reader_crypto == local_reader_crypto, 0);
-    CU_ASSERT_NEQ (category == DDS_SECURITY_DATAWRITER_SUBMESSAGE, 0);
+    CU_ASSERT_EQ (exception.code, 0);
+    CU_ASSERT_EQ (exception.message, NULL);
+    CU_ASSERT_EQ (writer_crypto, remote_writer_crypto);
+    CU_ASSERT_EQ (reader_crypto, local_reader_crypto);
+    CU_ASSERT_EQ (category, DDS_SECURITY_DATAWRITER_SUBMESSAGE);
 
     reset_exception(&exception);
 
@@ -505,11 +505,11 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, writer_happy_day, .init = suite
         printf("preprocess_secure_submsg: %s\n", exception.message ? exception.message : "Error message missing");
 
     CU_ASSERT_NEQ (result, 0);
-    CU_ASSERT_NEQ (exception.code == 0, 0);
-    CU_ASSERT_NEQ (exception.message == NULL, 0);
-    CU_ASSERT_NEQ (writer_crypto == remote_writer_crypto, 0);
-    CU_ASSERT_NEQ (reader_crypto == local_reader_crypto, 0);
-    CU_ASSERT_NEQ (category == DDS_SECURITY_DATAWRITER_SUBMESSAGE, 0);
+    CU_ASSERT_EQ (exception.code, 0);
+    CU_ASSERT_EQ (exception.message, NULL);
+    CU_ASSERT_EQ (writer_crypto, remote_writer_crypto);
+    CU_ASSERT_EQ (reader_crypto, local_reader_crypto);
+    CU_ASSERT_EQ (category, DDS_SECURITY_DATAWRITER_SUBMESSAGE);
 
     reset_exception(&exception);
 
@@ -525,7 +525,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, reader_happy_day, .init = suite
     DDS_Security_SecureSubmessageCategory_t category;
     DDS_Security_OctetSeq message;
 
-    CU_ASSERT_NEQ (crypto != NULL, 0);
+    CU_ASSERT_NEQ (crypto, NULL);
     assert(crypto != NULL);
     CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
     assert(crypto->crypto_transform != NULL);
@@ -548,11 +548,11 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, reader_happy_day, .init = suite
         printf("preprocess_secure_submsg: %s\n", exception.message ? exception.message : "Error message missing");
 
     CU_ASSERT_NEQ (result, 0);
-    CU_ASSERT_NEQ (exception.code == 0, 0);
-    CU_ASSERT_NEQ (exception.message == NULL, 0);
-    CU_ASSERT_NEQ (writer_crypto == local_writer_crypto, 0);
-    CU_ASSERT_NEQ (reader_crypto == remote_reader_crypto, 0);
-    CU_ASSERT_NEQ (category == DDS_SECURITY_DATAREADER_SUBMESSAGE, 0);
+    CU_ASSERT_EQ (exception.code, 0);
+    CU_ASSERT_EQ (exception.message, NULL);
+    CU_ASSERT_EQ (writer_crypto, local_writer_crypto);
+    CU_ASSERT_EQ (reader_crypto, remote_reader_crypto);
+    CU_ASSERT_EQ (category, DDS_SECURITY_DATAREADER_SUBMESSAGE);
 
     reset_exception(&exception);
     clear_encoded_submsg(&message);
@@ -571,11 +571,11 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, reader_happy_day, .init = suite
         printf("preprocess_secure_submsg: %s\n", exception.message ? exception.message : "Error message missing");
 
     CU_ASSERT_NEQ (result, 0);
-    CU_ASSERT_NEQ (exception.code == 0, 0);
-    CU_ASSERT_NEQ (exception.message == NULL, 0);
-    CU_ASSERT_NEQ (writer_crypto == local_writer_crypto, 0);
-    CU_ASSERT_NEQ (reader_crypto == remote_reader_crypto, 0);
-    CU_ASSERT_NEQ (category == DDS_SECURITY_DATAREADER_SUBMESSAGE, 0);
+    CU_ASSERT_EQ (exception.code, 0);
+    CU_ASSERT_EQ (exception.message, NULL);
+    CU_ASSERT_EQ (writer_crypto, local_writer_crypto);
+    CU_ASSERT_EQ (reader_crypto, remote_reader_crypto);
+    CU_ASSERT_EQ (category, DDS_SECURITY_DATAREADER_SUBMESSAGE);
 
     reset_exception(&exception);
     clear_encoded_submsg(&message);
@@ -591,7 +591,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, invalid_args, .init = suite_pre
     DDS_Security_SecureSubmessageCategory_t category;
     DDS_Security_OctetSeq message;
 
-    CU_ASSERT_NEQ (crypto != NULL, 0);
+    CU_ASSERT_NEQ (crypto, NULL);
     assert(crypto != NULL);
     CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
     assert(crypto->crypto_transform != NULL);
@@ -615,8 +615,8 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, invalid_args, .init = suite_pre
         printf("preprocess_secure_submsg: %s\n", exception.message ? exception.message : "Error message missing");
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
 
     /* unknown remote_participant_handle  */
@@ -634,8 +634,8 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, invalid_args, .init = suite_pre
         printf("preprocess_secure_submsg: %s\n", exception.message ? exception.message : "Error message missing");
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
     clear_encoded_submsg(&message);
 }
@@ -650,7 +650,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, invalid_message, .init = suite_
     DDS_Security_SecureSubmessageCategory_t category;
     DDS_Security_OctetSeq message;
 
-    CU_ASSERT_NEQ (crypto != NULL, 0);
+    CU_ASSERT_NEQ (crypto, NULL);
     assert(crypto != NULL);
     CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
     assert(crypto->crypto_transform != NULL);
@@ -673,8 +673,8 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, invalid_message, .init = suite_
         printf("preprocess_secure_submsg: %s\n", exception.message ? exception.message : "Error message missing");
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
     clear_encoded_submsg(&message);
 
@@ -698,8 +698,8 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, invalid_message, .init = suite_
             printf("preprocess_secure_submsg: %s\n", exception.message ? exception.message : "Error message missing");
 
         CU_ASSERT_NEQ (!result, 0);
-        CU_ASSERT_NEQ (exception.code != 0, 0);
-        CU_ASSERT_NEQ (exception.message != NULL, 0);
+        CU_ASSERT_NEQ (exception.code, 0);
+        CU_ASSERT_NEQ (exception.message, NULL);
         reset_exception(&exception);
         clear_encoded_submsg(&message);
     }
@@ -722,8 +722,8 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, invalid_message, .init = suite_
             printf("preprocess_secure_submsg: %s\n", exception.message ? exception.message : "Error message missing");
 
         CU_ASSERT_NEQ (!result, 0);
-        CU_ASSERT_NEQ (exception.code != 0, 0);
-        CU_ASSERT_NEQ (exception.message != NULL, 0);
+        CU_ASSERT_NEQ (exception.code, 0);
+        CU_ASSERT_NEQ (exception.message, NULL);
         reset_exception(&exception);
         clear_encoded_submsg(&message);
     }
@@ -748,7 +748,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, volatile_secure, .init = suite_
     DDS_Security_CryptoTransformKeyId key_id = {0, 0, 0, 0};
     DDS_Security_OctetSeq message;
 
-    CU_ASSERT_NEQ (crypto != NULL, 0);
+    CU_ASSERT_NEQ (crypto, NULL);
     assert(crypto != NULL);
     CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
     assert(crypto->crypto_transform != NULL);
@@ -777,7 +777,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, volatile_secure, .init = suite_
                     &datawriter_properties,
                     &datawriter_security_attributes,
                     &exception);
-    CU_ASSERT_NEQ (local_writer_crypto_vol != 0, 0);
+    CU_ASSERT_NEQ (local_writer_crypto_vol, 0);
 
     local_reader_crypto_vol =
             crypto->crypto_key_factory->register_local_datareader(
@@ -786,7 +786,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, volatile_secure, .init = suite_
                     &datareader_properties,
                     &datareader_security_attributes,
                     &exception);
-    CU_ASSERT_NEQ (local_reader_crypto_vol != 0, 0);
+    CU_ASSERT_NEQ (local_reader_crypto_vol, 0);
 
     remote_writer_crypto_vol =
             crypto->crypto_key_factory->register_matched_remote_datawriter(
@@ -795,7 +795,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, volatile_secure, .init = suite_
                     remote_participant_handle,
                     shared_secret_handle,
                     &exception);
-    CU_ASSERT_NEQ (remote_writer_crypto_vol != 0, 0);
+    CU_ASSERT_NEQ (remote_writer_crypto_vol, 0);
 
     remote_reader_crypto_vol =
             crypto->crypto_key_factory->register_matched_remote_datareader(
@@ -805,7 +805,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, volatile_secure, .init = suite_
                     shared_secret_handle,
                     true,
                     &exception);
-    CU_ASSERT_NEQ (remote_reader_crypto_vol != 0, 0);
+    CU_ASSERT_NEQ (remote_reader_crypto_vol, 0);
 
     create_encoded_submsg(&message, key_id, reader_key_message.transformation_kind, VALID_DDSI_RTPS_SMID_SEC_PREFIX, DDSRT_BOSEL_NATIVE);
 
@@ -823,11 +823,11 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, volatile_secure, .init = suite_
         printf("preprocess_secure_submsg: %s\n", exception.message ? exception.message : "Error message missing");
 
     CU_ASSERT_NEQ (result, 0);
-    CU_ASSERT_NEQ (exception.code == 0, 0);
-    CU_ASSERT_NEQ (exception.message == NULL, 0);
+    CU_ASSERT_EQ (exception.code, 0);
+    CU_ASSERT_EQ (exception.message, NULL);
     CU_ASSERT_NEQ (((remote_datawriter_crypto *)writer_crypto)->is_builtin_participant_volatile_message_secure_writer, 0);
     CU_ASSERT_NEQ (((local_datareader_crypto *)reader_crypto)->is_builtin_participant_volatile_message_secure_reader, 0);
-    CU_ASSERT_NEQ (category == DDS_SECURITY_DATAWRITER_SUBMESSAGE, 0);
+    CU_ASSERT_EQ (category, DDS_SECURITY_DATAWRITER_SUBMESSAGE);
 
     reset_exception(&exception);
 

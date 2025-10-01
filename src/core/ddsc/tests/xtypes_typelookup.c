@@ -61,14 +61,14 @@ static void typelookup_init (void)
   dds_free (conf2);
 
   g_participant1 = dds_create_participant (DDS_DOMAINID_PUB, NULL, NULL);
-  CU_ASSERT_NEQ (g_participant1 > 0, 0);
+  CU_ASSERT_GT (g_participant1, 0);
   g_participant2 = dds_create_participant (DDS_DOMAINID_SUB, NULL, NULL);
-  CU_ASSERT_NEQ (g_participant2 > 0, 0);
+  CU_ASSERT_GT (g_participant2, 0);
 
   g_publisher1 = dds_create_publisher (g_participant1, NULL, NULL);
-  CU_ASSERT_NEQ (g_publisher1 > 0, 0);
+  CU_ASSERT_GT (g_publisher1, 0);
   g_subscriber2 = dds_create_subscriber (g_participant2, NULL, NULL);
-  CU_ASSERT_NEQ (g_subscriber2 > 0, 0);
+  CU_ASSERT_GT (g_subscriber2, 0);
 }
 
 static void typelookup_fini (void)
@@ -87,11 +87,11 @@ static void get_type (dds_entity_t entity, ddsi_typeid_t **type_id, char **type_
   CU_ASSERT_EQ_FATAL (dds_entity_pin (entity, &e), 0);
   ddsi_thread_state_awake (ddsi_lookup_thread_state (), &e->m_domain->gv);
   struct ddsi_entity_common *ec = ddsi_entidx_lookup_guid_untyped (e->m_domain->gv.entity_index, &e->m_guid);
-  CU_ASSERT_NEQ (ec != NULL, 0);
+  CU_ASSERT_NEQ (ec, NULL);
   if (ec->kind == DDSI_EK_PROXY_READER || ec->kind == DDSI_EK_PROXY_WRITER)
   {
     struct ddsi_generic_proxy_endpoint *gpe = (struct ddsi_generic_proxy_endpoint *)ec;
-    CU_ASSERT_NEQ (gpe != NULL, 0);
+    CU_ASSERT_NEQ (gpe, NULL);
     CU_ASSERT_NEQ (gpe->c.type_pair != NULL, 0);
     if (kind == DDSI_TYPEID_KIND_COMPLETE)
     {
@@ -162,7 +162,7 @@ static endpoint_info_t * find_typeid_match (dds_entity_t participant, dds_entity
   dds_time_t t_start = dds_time ();
   dds_duration_t timeout = DDS_SECS (5);
   dds_entity_t reader = dds_create_reader (participant, topic, NULL, NULL);
-  CU_ASSERT_NEQ (reader > 0, 0);
+  CU_ASSERT_GT (reader, 0);
   do
   {
     void *ptrs[100] = { 0 };
@@ -231,7 +231,7 @@ static bool reader_wait_for_data (dds_entity_t pp, dds_entity_t rd, dds_duration
 {
   dds_attach_t triggered;
   dds_entity_t ws = dds_create_waitset (pp);
-  CU_ASSERT_NEQ (ws > 0, 0);
+  CU_ASSERT_GT (ws, 0);
   dds_return_t ret = dds_waitset_attach (ws, rd, rd);
   CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
   ret = dds_waitset_wait (ws, &triggered, 1, dur);
@@ -248,25 +248,25 @@ CU_Test(ddsc_typelookup, get_typeobj, .init = typelookup_init, .fini = typelooku
 
   create_unique_topic_name ("ddsc_typelookup", topic_name_wr, sizeof (topic_name_wr));
   dds_entity_t topic_wr = dds_create_topic (g_participant1, &XSpace_XType3a_desc, topic_name_wr, NULL, NULL);
-  CU_ASSERT_NEQ (topic_wr > 0, 0);
+  CU_ASSERT_GT (topic_wr, 0);
   create_unique_topic_name ("ddsc_typelookup", topic_name_rd, sizeof (topic_name_rd));
   dds_entity_t topic_rd = dds_create_topic (g_participant1, &Space_Type3_desc, topic_name_rd, NULL, NULL);
-  CU_ASSERT_NEQ (topic_rd > 0, 0);
+  CU_ASSERT_GT (topic_rd, 0);
 
   /* Topic in domain 2 with topic same name, different (incompatible) type */
   dds_entity_t topic_rd2 = dds_create_topic (g_participant2, &Space_Type1_desc, topic_name_wr, NULL, NULL);
-  CU_ASSERT_NEQ (topic_rd2 > 0, 0);
+  CU_ASSERT_GT (topic_rd2, 0);
 
   /* create a writer and reader on domain 1 */
   dds_qos_t *qos = dds_create_qos ();
-  CU_ASSERT_NEQ (qos != NULL, 0);
+  CU_ASSERT_NEQ (qos, NULL);
   dds_entity_t writer = dds_create_writer (g_participant1, topic_wr, qos, NULL);
-  CU_ASSERT_NEQ (writer > 0, 0);
+  CU_ASSERT_GT (writer, 0);
   dds_entity_t reader = dds_create_reader (g_participant1, topic_rd, qos, NULL);
-  CU_ASSERT_NEQ (reader > 0, 0);
+  CU_ASSERT_GT (reader, 0);
   /* create reader on domain 2 (used to force typelookup) */
   dds_entity_t reader2 = dds_create_reader (g_participant2, topic_rd2, qos, NULL);
-  CU_ASSERT_NEQ (reader2 > 0, 0);
+  CU_ASSERT_GT (reader2, 0);
   dds_delete_qos (qos);
   ddsi_typeid_t *wr_type_id, *rd_type_id;
   char *wr_type_name, *rd_type_name;
@@ -276,8 +276,8 @@ CU_Test(ddsc_typelookup, get_typeobj, .init = typelookup_init, .fini = typelooku
   /* check that reader and writer (with correct type id) are discovered in domain 2 */
   endpoint_info_t *writer_ep = find_typeid_match (g_participant2, DDS_BUILTIN_TOPIC_DCPSPUBLICATION, wr_type_id, topic_name_wr, DDSI_TYPEID_KIND_MINIMAL);
   endpoint_info_t *reader_ep = find_typeid_match (g_participant2, DDS_BUILTIN_TOPIC_DCPSSUBSCRIPTION, rd_type_id, topic_name_rd, DDSI_TYPEID_KIND_MINIMAL);
-  CU_ASSERT_NEQ (writer_ep != NULL, 0);
-  CU_ASSERT_NEQ (reader_ep != NULL, 0);
+  CU_ASSERT_NEQ (writer_ep, NULL);
+  CU_ASSERT_NEQ (reader_ep, NULL);
   endpoint_info_free (writer_ep);
   endpoint_info_free (reader_ep);
 
@@ -285,8 +285,8 @@ CU_Test(ddsc_typelookup, get_typeobj, .init = typelookup_init, .fini = typelooku
   dds_typeobj_t *to_wr = NULL, *to_rd = NULL;
   dds_get_typeobj (g_participant2, wr_type_id, DDS_SECS (3), &to_wr);
   dds_get_typeobj (g_participant2, rd_type_id, DDS_SECS (3), &to_rd);
-  CU_ASSERT_NEQ (to_wr != NULL, 0);
-  CU_ASSERT_NEQ (to_rd != NULL, 0);
+  CU_ASSERT_NEQ (to_wr, NULL);
+  CU_ASSERT_NEQ (to_rd, NULL);
   ret = dds_free_typeobj (to_wr);
   CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
   ret = dds_free_typeobj (to_rd);
@@ -313,23 +313,23 @@ CU_Test(ddsc_typelookup, api_resolve, .init = typelookup_init, .fini = typelooku
 
   create_unique_topic_name ("ddsc_typelookup", name, sizeof name);
   dds_entity_t topic = dds_create_topic (g_participant1, &Space_Type3_desc, name, NULL, NULL);
-  CU_ASSERT_NEQ (topic > 0, 0);
+  CU_ASSERT_GT (topic, 0);
 
   dds_qos_t *qos = dds_create_qos ();
   dds_qset_reliability (qos, DDS_RELIABILITY_RELIABLE, DDS_SECS (10));
   dds_qset_history (qos, DDS_HISTORY_KEEP_ALL, 0);
-  CU_ASSERT_NEQ (qos != NULL, 0);
+  CU_ASSERT_NEQ (qos, NULL);
 
   /* create a writer and reader on domain 1 */
   dds_entity_t writer = dds_create_writer (g_participant1, topic, qos, NULL);
-  CU_ASSERT_NEQ (writer > 0, 0);
+  CU_ASSERT_GT (writer, 0);
   ddsi_typeid_t *type_id;
   char *type_name;
   get_type (writer, &type_id, &type_name, true);
 
   /* wait for DCPSPublication to be received */
   endpoint_info_t *writer_ep = find_typeid_match (g_participant2, DDS_BUILTIN_TOPIC_DCPSPUBLICATION, type_id, name, DDSI_TYPEID_KIND_COMPLETE);
-  CU_ASSERT_NEQ (writer_ep != NULL, 0);
+  CU_ASSERT_NEQ (writer_ep, NULL);
 
   /* check if type can be resolved */
   dds_topic_descriptor_t *desc;
@@ -338,9 +338,9 @@ CU_Test(ddsc_typelookup, api_resolve, .init = typelookup_init, .fini = typelooku
 
   /* create a topic in domain 2 with this sertype and create a reader */
   dds_entity_t pp2_topic = dds_create_topic (g_participant2, desc, writer_ep->topic_name, NULL, NULL);
-  CU_ASSERT_NEQ (pp2_topic > 0, 0);
+  CU_ASSERT_GT (pp2_topic, 0);
   dds_entity_t reader = dds_create_reader (g_participant2, pp2_topic, qos, NULL);
-  CU_ASSERT_NEQ (reader > 0, 0);
+  CU_ASSERT_GT (reader, 0);
   sync_reader_writer (g_participant2, reader, g_participant1, writer);
   dds_delete_topic_descriptor (desc);
 
@@ -371,22 +371,22 @@ CU_Test(ddsc_typelookup, api_resolve_invalid, .init = typelookup_init, .fini = t
 
   create_unique_topic_name ("ddsc_typelookup", name, sizeof name);
   dds_entity_t topic = dds_create_topic (g_participant1, &Space_Type1_desc, name, NULL, NULL);
-  CU_ASSERT_NEQ (topic > 0, 0);
+  CU_ASSERT_GT (topic, 0);
 
   dds_qos_t *qos = dds_create_qos ();
   dds_qset_reliability (qos, DDS_RELIABILITY_RELIABLE, DDS_SECS (10));
   dds_qset_history (qos, DDS_HISTORY_KEEP_ALL, 0);
-  CU_ASSERT_NEQ (qos != NULL, 0);
+  CU_ASSERT_NEQ (qos, NULL);
 
   dds_entity_t writer = dds_create_writer (g_participant1, topic, qos, NULL);
-  CU_ASSERT_NEQ (writer > 0, 0);
+  CU_ASSERT_GT (writer, 0);
   ddsi_typeid_t *type_id;
   char *type_name;
   get_type (writer, &type_id, &type_name, true);
 
   /* wait for DCPSPublication to be received */
   endpoint_info_t *writer_ep = find_typeid_match (g_participant2, DDS_BUILTIN_TOPIC_DCPSPUBLICATION, type_id, name, DDSI_TYPEID_KIND_COMPLETE);
-  CU_ASSERT_NEQ (writer_ep != NULL, 0);
+  CU_ASSERT_NEQ (writer_ep, NULL);
 
   /* confirm that invalid type id cannot be resolved */
   struct dds_entity *e;
@@ -458,9 +458,9 @@ CU_Test (ddsc_typelookup, resolve_dep_type, .init = typelookup_init, .fini = typ
 
   // local writer
   dds_entity_t topic = dds_create_topic (g_participant1, &XSpace_dep_test_desc, topic_name, NULL, NULL);
-  CU_ASSERT_NEQ (topic > 0, 0);
+  CU_ASSERT_GT (topic, 0);
   dds_entity_t wr = dds_create_writer (g_participant1, topic, NULL, NULL);
-  CU_ASSERT_NEQ (wr > 0, 0);
+  CU_ASSERT_GT (wr, 0);
 
   dds_topic_descriptor_t desc;
   xtypes_util_modify_type_meta (&desc, &XSpace_dep_test_desc, mod_dep_test, true, DDS_XTypes_EK_BOTH);

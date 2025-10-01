@@ -507,7 +507,7 @@ static void decode_rtps_message_not_authenticated(DDS_Security_CryptoTransformKi
   DDS_Security_ParticipantSecurityAttributes attributes;
   DDS_Security_PropertySeq properties;
 
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
   CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
   assert(crypto->crypto_transform != NULL);
@@ -555,8 +555,8 @@ static void decode_rtps_message_not_authenticated(DDS_Security_CryptoTransformKi
   }
 
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (exception.code == 0, 0);
-  CU_ASSERT_NEQ (exception.message == NULL, 0);
+  CU_ASSERT_EQ (exception.code, 0);
+  CU_ASSERT_EQ (exception.message, NULL);
 
   reset_exception(&exception);
 
@@ -575,8 +575,8 @@ static void decode_rtps_message_not_authenticated(DDS_Security_CryptoTransformKi
   }
 
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (exception.code == 0, 0);
-  CU_ASSERT_NEQ (exception.message == NULL, 0);
+  CU_ASSERT_EQ (exception.code, 0);
+  CU_ASSERT_EQ (exception.message, NULL);
   reset_exception(&exception);
 
   (void)check_decoded_rtps_message(&decoded_buffer, &plain_buffer);
@@ -628,7 +628,7 @@ static void decode_rtps_message_authenticated(DDS_Security_CryptoTransformKind_E
   DDS_Security_PropertySeq properties;
   int i, index;
 
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
   CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
   assert(crypto->crypto_transform != NULL);
@@ -686,8 +686,8 @@ static void decode_rtps_message_authenticated(DDS_Security_CryptoTransformKind_E
     }
 
     CU_ASSERT_NEQ (result, 0);
-    CU_ASSERT_NEQ (exception.code == 0, 0);
-    CU_ASSERT_NEQ (exception.message == NULL, 0);
+    CU_ASSERT_EQ (exception.code, 0);
+    CU_ASSERT_EQ (exception.message, NULL);
 
     reset_exception(&exception);
     buffer = NULL;
@@ -711,8 +711,8 @@ static void decode_rtps_message_authenticated(DDS_Security_CryptoTransformKind_E
     }
 
     CU_ASSERT_NEQ (result, 0);
-    CU_ASSERT_NEQ (exception.code == 0, 0);
-    CU_ASSERT_NEQ (exception.message == NULL, 0);
+    CU_ASSERT_EQ (exception.code, 0);
+    CU_ASSERT_EQ (exception.message, NULL);
 
     (void)check_decoded_rtps_message(&decoded_buffer, &plain_buffer);
 
@@ -763,7 +763,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_args, .init = suite_decode_r
   DDS_Security_ParticipantSecurityAttributes attributes;
   DDS_Security_PropertySeq properties;
 
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
   CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
   assert(crypto->crypto_transform != NULL);
@@ -807,8 +807,8 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_args, .init = suite_decode_r
   }
 
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (exception.code == 0, 0);
-  CU_ASSERT_NEQ (exception.message == NULL, 0);
+  CU_ASSERT_EQ (exception.code, 0);
+  CU_ASSERT_EQ (exception.message, NULL);
 
   reset_exception(&exception);
 
@@ -827,8 +827,8 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_args, .init = suite_decode_r
   }
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code != 0, 0);
-  CU_ASSERT_NEQ (exception.message != NULL, 0);
+  CU_ASSERT_NEQ (exception.code, 0);
+  CU_ASSERT_NEQ (exception.message, NULL);
 
   reset_exception(&exception);
 
@@ -847,8 +847,8 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_args, .init = suite_decode_r
   }
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code != 0, 0);
-  CU_ASSERT_NEQ (exception.message != NULL, 0);
+  CU_ASSERT_NEQ (exception.code, 0);
+  CU_ASSERT_NEQ (exception.message, NULL);
 
   reset_exception(&exception);
 
@@ -867,8 +867,8 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_args, .init = suite_decode_r
   }
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code != 0, 0);
-  CU_ASSERT_NEQ (exception.message != NULL, 0);
+  CU_ASSERT_NEQ (exception.code, 0);
+  CU_ASSERT_NEQ (exception.message, NULL);
 
   reset_exception(&exception);
 
@@ -887,8 +887,8 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_args, .init = suite_decode_r
   }
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code != 0, 0);
-  CU_ASSERT_NEQ (exception.message != NULL, 0);
+  CU_ASSERT_NEQ (exception.code, 0);
+  CU_ASSERT_NEQ (exception.message, NULL);
 
   unregister_remote_participant_of_participantB(remote_particpantA_crypto);
   unregister_remote_participants();
@@ -915,7 +915,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
   DDS_Security_ParticipantSecurityAttributes attributes;
   DDS_Security_PropertySeq properties;
 
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
   CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
   assert(crypto->crypto_transform != NULL);
@@ -964,8 +964,8 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
   }
 
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (exception.code == 0, 0);
-  CU_ASSERT_NEQ (exception.message == NULL, 0);
+  CU_ASSERT_EQ (exception.code, 0);
+  CU_ASSERT_EQ (exception.message, NULL);
 
   reset_exception(&exception);
 
@@ -994,8 +994,8 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
     }
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1027,8 +1027,8 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
     }
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1060,8 +1060,8 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
     }
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1093,8 +1093,8 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
     }
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1126,8 +1126,8 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
     }
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1159,8 +1159,8 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
     }
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1192,8 +1192,8 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
     }
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1224,8 +1224,8 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
     }
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1256,8 +1256,8 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
     }
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1288,8 +1288,8 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
     }
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1322,8 +1322,8 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
     }
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1354,8 +1354,8 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
     }
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1372,7 +1372,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
 
     footer = get_crypto_footer(corrupt_buffer._buffer);
     len = ddsrt_bswap4u(*(uint32_t *)footer->length);
-    CU_ASSERT_NEQ (len == 1, 0);
+    CU_ASSERT_EQ (len, 1);
     memset(footer->length, 0, 4);
 
     result = crypto->crypto_transform->decode_rtps_message (
@@ -1389,8 +1389,8 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
     }
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1409,7 +1409,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
 
         footer = get_crypto_footer(corrupt_buffer._buffer);
         len = ddsrt_bswap4u(*(uint32_t *)footer->length);
-        CU_ASSERT_NEQ (len == 1, 0);
+        CU_ASSERT_EQ (len, 1);
 
         rmac = (struct receiver_specific_mac *)(footer + 1);
         rmac->receiver_mac_key_id[0] += 1;
@@ -1427,8 +1427,8 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
         }
 
         CU_ASSERT_NEQ (!result, 0);
-        CU_ASSERT_NEQ (exception.code != 0, 0);
-        CU_ASSERT_NEQ (exception.message != NULL, 0);
+        CU_ASSERT_NEQ (exception.code, 0);
+        CU_ASSERT_NEQ (exception.message, NULL);
 
         reset_exception(&exception);
 
@@ -1446,7 +1446,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
 
         footer = get_crypto_footer(corrupt_buffer._buffer);
         len = ddsrt_bswap4u(*(uint32_t *)footer->length);
-        CU_ASSERT_NEQ (len == 1, 0);
+        CU_ASSERT_EQ (len, 1);
 
         rmac = (struct receiver_specific_mac *)(footer + 1);
         rmac->receiver_mac[0] += 1;
@@ -1464,8 +1464,8 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
         }
 
         CU_ASSERT_NEQ (!result, 0);
-        CU_ASSERT_NEQ (exception.code != 0, 0);
-        CU_ASSERT_NEQ (exception.message != NULL, 0);
+        CU_ASSERT_NEQ (exception.code, 0);
+        CU_ASSERT_NEQ (exception.message, NULL);
 
         reset_exception(&exception);
 

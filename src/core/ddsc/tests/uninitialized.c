@@ -47,12 +47,12 @@ static void check (dds_return_t res)
 
 static void check_0 (void *ptr)
 {
-  CU_ASSERT_NEQ (ptr == 0, 0);
+  CU_ASSERT_EQ (ptr, NULL);
 }
 
 static void check_ih (dds_instance_handle_t ih)
 {
-  CU_ASSERT_NEQ (ih == 0, 0);
+  CU_ASSERT_EQ (ih, 0);
 }
 
 static bool filter_fn (const void *sample) { (void) sample; return true; }

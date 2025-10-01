@@ -371,7 +371,7 @@ char * get_permissions_grant (const char * grant_name, const char * subject_name
     { NULL, NULL, 0 }
   };
   char * res = ddsrt_expand_vars (permissions_xml_grant, &expand_lookup_vars, vars);
-  CU_ASSERT_NEQ (expand_lookup_unmatched (vars) == 0, 0);
+  CU_ASSERT_EQ (expand_lookup_unmatched (vars), 0);
   return res;
 }
 

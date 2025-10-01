@@ -381,7 +381,7 @@ static uint32_t get_transformation_kind(uint32_t key_size, bool encoded)
   {
     kind = encoded ? CRYPTO_TRANSFORMATION_KIND_AES256_GCM : CRYPTO_TRANSFORMATION_KIND_AES256_GMAC;
   }
-  CU_ASSERT_NEQ (kind != CRYPTO_TRANSFORMATION_KIND_INVALID, 0);
+  CU_ASSERT_NEQ (kind, CRYPTO_TRANSFORMATION_KIND_INVALID);
   return kind;
 }
 
@@ -451,7 +451,7 @@ static void decode_serialized_payload_check(uint32_t key_size, bool encrypted)
   session_key_material *session_keys;
   size_t length;
 
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
   CU_ASSERT_NEQ (crypto->crypto_transform->encode_serialized_payload != NULL, 0);
   CU_ASSERT_NEQ (crypto->crypto_transform->decode_serialized_payload != NULL, 0);
@@ -464,7 +464,7 @@ static void decode_serialized_payload_check(uint32_t key_size, bool encrypted)
   memcpy((char *)plain_buffer._buffer, sample_test_data, length);
 
   local_writer_crypto = register_local_datawriter(encrypted);
-  CU_ASSERT_NEQ (local_writer_crypto != 0, 0);
+  CU_ASSERT_NEQ (local_writer_crypto, 0);
   CU_ASSERT_NEQ (check_writer_protection_kind(local_writer_crypto, encrypted ? DDS_SECURITY_BASICPROTECTION_KIND_ENCRYPT : DDS_SECURITY_BASICPROTECTION_KIND_SIGN), 0);
 
   session_keys = get_datawriter_session(local_writer_crypto);
@@ -472,13 +472,13 @@ static void decode_serialized_payload_check(uint32_t key_size, bool encrypted)
   session_keys->key_size = key_size;
 
   local_reader_crypto = register_local_datareader(encrypted);
-  CU_ASSERT_NEQ (local_reader_crypto != 0, 0);
+  CU_ASSERT_NEQ (local_reader_crypto, 0);
 
   remote_reader_crypto = register_remote_datareader(local_writer_crypto);
-  CU_ASSERT_NEQ (remote_reader_crypto != 0, 0);
+  CU_ASSERT_NEQ (remote_reader_crypto, 0);
 
   remote_writer_crypto = register_remote_datawriter(local_reader_crypto);
-  CU_ASSERT_NEQ (remote_writer_crypto != 0, 0);
+  CU_ASSERT_NEQ (remote_writer_crypto, 0);
 
   result = set_remote_datawriter_tokens(local_writer_crypto, remote_reader_crypto, local_reader_crypto, remote_writer_crypto);
   CU_ASSERT_NEQ (result, 0);
@@ -498,8 +498,8 @@ static void decode_serialized_payload_check(uint32_t key_size, bool encrypted)
   }
 
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (exception.code == 0, 0);
-  CU_ASSERT_NEQ (exception.message == NULL, 0);
+  CU_ASSERT_EQ (exception.code, 0);
+  CU_ASSERT_EQ (exception.message, NULL);
 
   reset_exception(&exception);
 
@@ -519,8 +519,8 @@ static void decode_serialized_payload_check(uint32_t key_size, bool encrypted)
   }
 
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (exception.code == 0, 0);
-  CU_ASSERT_NEQ (exception.message == NULL, 0);
+  CU_ASSERT_EQ (exception.code, 0);
+  CU_ASSERT_EQ (exception.message, NULL);
 
   unregister_datareader(remote_reader_crypto);
   unregister_datawriter(remote_writer_crypto);
@@ -570,7 +570,7 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_args, .init = suite_de
   session_key_material *session_keys;
   size_t length;
 
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
   CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
   assert(crypto->crypto_transform != NULL);
@@ -586,20 +586,20 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_args, .init = suite_de
   memcpy((char *)plain_buffer._buffer, sample_test_data, length);
 
   local_writer_crypto = register_local_datawriter(true);
-  CU_ASSERT_NEQ (local_writer_crypto != 0, 0);
+  CU_ASSERT_NEQ (local_writer_crypto, 0);
 
   session_keys = get_datawriter_session(local_writer_crypto);
   session_keys->master_key_material->transformation_kind = CRYPTO_TRANSFORMATION_KIND_AES256_GCM;
   session_keys->key_size = 256;
 
   local_reader_crypto = register_local_datareader(true);
-  CU_ASSERT_NEQ (local_reader_crypto != 0, 0);
+  CU_ASSERT_NEQ (local_reader_crypto, 0);
 
   remote_reader_crypto = register_remote_datareader(local_writer_crypto);
-  CU_ASSERT_NEQ (remote_reader_crypto != 0, 0);
+  CU_ASSERT_NEQ (remote_reader_crypto, 0);
 
   remote_writer_crypto = register_remote_datawriter(local_reader_crypto);
-  CU_ASSERT_NEQ (remote_writer_crypto != 0, 0);
+  CU_ASSERT_NEQ (remote_writer_crypto, 0);
 
   result = set_remote_datawriter_tokens(local_writer_crypto, remote_reader_crypto, local_reader_crypto, remote_writer_crypto);
   CU_ASSERT_NEQ (result, 0);
@@ -619,8 +619,8 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_args, .init = suite_de
   }
 
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (exception.code == 0, 0);
-  CU_ASSERT_NEQ (exception.message == NULL, 0);
+  CU_ASSERT_EQ (exception.code, 0);
+  CU_ASSERT_EQ (exception.message, NULL);
 
   reset_exception(&exception);
 
@@ -640,8 +640,8 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_args, .init = suite_de
   }
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code != 0, 0);
-  CU_ASSERT_NEQ (exception.message != NULL, 0);
+  CU_ASSERT_NEQ (exception.code, 0);
+  CU_ASSERT_NEQ (exception.message, NULL);
 
   reset_exception(&exception);
 
@@ -661,8 +661,8 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_args, .init = suite_de
   }
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code != 0, 0);
-  CU_ASSERT_NEQ (exception.message != NULL, 0);
+  CU_ASSERT_NEQ (exception.code, 0);
+  CU_ASSERT_NEQ (exception.message, NULL);
 
   reset_exception(&exception);
 
@@ -682,8 +682,8 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_args, .init = suite_de
   }
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code != 0, 0);
-  CU_ASSERT_NEQ (exception.message != NULL, 0);
+  CU_ASSERT_NEQ (exception.code, 0);
+  CU_ASSERT_NEQ (exception.message, NULL);
 
   reset_exception(&exception);
 
@@ -703,8 +703,8 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_args, .init = suite_de
   }
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code != 0, 0);
-  CU_ASSERT_NEQ (exception.message != NULL, 0);
+  CU_ASSERT_NEQ (exception.code, 0);
+  CU_ASSERT_NEQ (exception.message, NULL);
 
   unregister_datareader(remote_reader_crypto);
   unregister_datawriter(remote_writer_crypto);
@@ -735,7 +735,7 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
   struct crypto_footer *footer = NULL;
   unsigned char *contents = NULL;
 
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
   CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
   assert(crypto->crypto_transform != NULL);
@@ -750,20 +750,20 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
   memcpy((char *)plain_buffer._buffer, sample_test_data, length);
 
   local_writer_crypto = register_local_datawriter(true);
-  CU_ASSERT_NEQ (local_writer_crypto != 0, 0);
+  CU_ASSERT_NEQ (local_writer_crypto, 0);
 
   session_keys = get_datawriter_session(local_writer_crypto);
   session_keys->master_key_material->transformation_kind = CRYPTO_TRANSFORMATION_KIND_AES256_GCM;
   session_keys->key_size = 256;
 
   local_reader_crypto = register_local_datareader(true);
-  CU_ASSERT_NEQ (local_reader_crypto != 0, 0);
+  CU_ASSERT_NEQ (local_reader_crypto, 0);
 
   remote_reader_crypto = register_remote_datareader(local_writer_crypto);
-  CU_ASSERT_NEQ (remote_reader_crypto != 0, 0);
+  CU_ASSERT_NEQ (remote_reader_crypto, 0);
 
   remote_writer_crypto = register_remote_datawriter(local_reader_crypto);
-  CU_ASSERT_NEQ (remote_writer_crypto != 0, 0);
+  CU_ASSERT_NEQ (remote_writer_crypto, 0);
 
   result = set_remote_datawriter_tokens(local_writer_crypto, remote_reader_crypto, local_reader_crypto, remote_writer_crypto);
   CU_ASSERT_NEQ (result, 0);
@@ -783,8 +783,8 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
   }
 
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (exception.code == 0, 0);
-  CU_ASSERT_NEQ (exception.message == NULL, 0);
+  CU_ASSERT_EQ (exception.code, 0);
+  CU_ASSERT_EQ (exception.message, NULL);
 
   reset_exception(&exception);
 
@@ -811,8 +811,8 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
     }
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -842,8 +842,8 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
     }
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -873,8 +873,8 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
     }
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -911,8 +911,8 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
     }
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -949,8 +949,8 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
     }
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -982,8 +982,8 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
     }
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1018,8 +1018,8 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
     }
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1045,8 +1045,8 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
     }
 
     CU_ASSERT_NEQ (!result, 0);
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 

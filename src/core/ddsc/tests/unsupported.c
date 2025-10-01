@@ -36,19 +36,19 @@ static void
 setup(void)
 {
     e[PAR] = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_NEQ (e[PAR] > 0, 0);
+    CU_ASSERT_GT (e[PAR], 0);
     e[TOP] = dds_create_topic(e[PAR], &RoundTripModule_DataType_desc, "RoundTrip", NULL, NULL);
-    CU_ASSERT_NEQ (e[TOP] > 0, 0);
+    CU_ASSERT_GT (e[TOP], 0);
     e[PUB] = dds_create_publisher(e[PAR], NULL, NULL);
-    CU_ASSERT_NEQ (e[PUB] > 0, 0);
+    CU_ASSERT_GT (e[PUB], 0);
     e[WRI] = dds_create_writer(e[PUB], e[TOP], NULL, NULL);
-    CU_ASSERT_NEQ (e[WRI] > 0, 0);
+    CU_ASSERT_GT (e[WRI], 0);
     e[SUB] = dds_create_subscriber(e[PAR], NULL, NULL);
-    CU_ASSERT_NEQ (e[SUB] > 0, 0);
+    CU_ASSERT_GT (e[SUB], 0);
     e[REA] = dds_create_reader(e[SUB], e[TOP], NULL, NULL);
-    CU_ASSERT_NEQ (e[REA] > 0, 0);
+    CU_ASSERT_GT (e[REA], 0);
     e[RCD] = dds_create_readcondition(e[REA], DDS_ANY_STATE);
-    CU_ASSERT_NEQ (e[RCD] > 0, 0);
+    CU_ASSERT_GT (e[RCD], 0);
     e[BAD] = 314159265;
 }
 
@@ -116,7 +116,7 @@ CU_Test(ddsc_unsupported, dds_get_instance_handle, .init = setup, .fini = teardo
         result = dds_get_instance_handle(e[pars[i].index], &ih);
         CU_ASSERT_EQ (result, pars[i].exp_res);
         if (pars[i].exp_res == DDS_RETCODE_OK) {
-          CU_ASSERT_NEQ (ih > 0, 0);
+          CU_ASSERT_GT (ih, 0);
         }
     }
 }

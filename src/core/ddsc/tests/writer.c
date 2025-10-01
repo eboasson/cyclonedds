@@ -24,11 +24,11 @@ static void
 setup(void)
 {
     participant = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_NEQ (participant > 0, 0);
+    CU_ASSERT_GT (participant, 0);
     topic = dds_create_topic(participant, &RoundTripModule_DataType_desc, "RoundTrip", NULL, NULL);
-    CU_ASSERT_NEQ (topic > 0, 0);
+    CU_ASSERT_GT (topic, 0);
     publisher = dds_create_publisher(participant, NULL, NULL);
-    CU_ASSERT_NEQ (publisher > 0, 0);
+    CU_ASSERT_GT (publisher, 0);
 }
 
 static void
@@ -45,7 +45,7 @@ CU_Test(ddsc_create_writer, basic, .init = setup, .fini = teardown)
     dds_return_t result;
 
     writer = dds_create_writer(participant, topic, NULL, NULL);
-    CU_ASSERT_NEQ (writer > 0, 0);
+    CU_ASSERT_GT (writer, 0);
     result = dds_delete(writer);
     CU_ASSERT_EQ_FATAL (result, DDS_RETCODE_OK);
 
@@ -68,13 +68,13 @@ CU_Test(ddsc_create_writer, bad_parent, .init = setup, .fini = teardown)
 CU_Test(ddsc_create_writer, participant, .init = setup, .fini = teardown)
 {
     writer = dds_create_writer(participant, topic, NULL, NULL);
-    CU_ASSERT_NEQ (writer > 0, 0);
+    CU_ASSERT_GT (writer, 0);
 }
 
 CU_Test(ddsc_create_writer, wrong_participant, .init = setup, .fini = teardown)
 {
     dds_entity_t participant2 = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_NEQ (participant2 > 0, 0);
+    CU_ASSERT_GT (participant2, 0);
     writer = dds_create_writer(participant2, topic, NULL, NULL);
     CU_ASSERT_EQ_FATAL (writer, DDS_RETCODE_BAD_PARAMETER);
     dds_delete(participant2);
@@ -83,7 +83,7 @@ CU_Test(ddsc_create_writer, wrong_participant, .init = setup, .fini = teardown)
 CU_Test(ddsc_create_writer, publisher, .init = setup, .fini = teardown)
 {
     writer = dds_create_writer(publisher, topic, NULL, NULL);
-    CU_ASSERT_NEQ (writer > 0, 0);
+    CU_ASSERT_GT (writer, 0);
 }
 
 CU_Test(ddsc_create_writer, deleted_publisher, .init = setup, .fini = teardown)
@@ -126,15 +126,15 @@ CU_Test(ddsc_create_writer, participant_mismatch, .init = setup, .fini = teardow
 
     /* Create publisher on local participant. */
     l_par = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_NEQ (l_par > 0, 0);
+    CU_ASSERT_GT (l_par, 0);
     l_pub = dds_create_publisher(l_par, NULL, NULL);
-    CU_ASSERT_NEQ (l_pub > 0, 0);
+    CU_ASSERT_GT (l_pub, 0);
 
     /* Create writer with local publisher and global topic. */
     writer = dds_create_writer(l_pub, topic, NULL, NULL);
 
     /* Expect the creation to have failed. */
-    CU_ASSERT_NEQ (writer <= 0, 0);
+    CU_ASSERT_LEQ (writer, 0);
 
     dds_delete(l_pub);
     dds_delete(l_par);

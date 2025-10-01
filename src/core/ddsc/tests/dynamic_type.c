@@ -24,9 +24,9 @@ static dds_entity_t domain = 0, participant = 0;
 static void dynamic_type_init(void)
 {
   domain = dds_create_domain (0, NULL);
-  CU_ASSERT_NEQ (domain >= 0, 0);
+  CU_ASSERT_GEQ (domain, 0);
   participant = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_NEQ (participant >= 0, 0);
+  CU_ASSERT_GEQ (participant, 0);
 }
 
 static void dynamic_type_fini(void)
@@ -49,7 +49,7 @@ static void do_test (dds_dynamic_type_t *dtype)
   char topic_name[100];
   create_unique_topic_name ("ddsc_dynamic_type", topic_name, sizeof (topic_name));
   dds_entity_t topic = dds_create_topic (participant, descriptor, topic_name, NULL, NULL);
-  CU_ASSERT_NEQ (topic >= 0, 0);
+  CU_ASSERT_GEQ (topic, 0);
 
   dds_free_typeinfo (type_info);
   dds_delete_topic_descriptor (descriptor);
@@ -103,7 +103,7 @@ static struct ddsi_type * get_ddsi_type (dds_dynamic_type_t *dtype)
 
   const ddsi_typeid_t *type_id = ddsi_typeinfo_complete_typeid (type_info);
   struct ddsi_type *type = ddsi_type_lookup (gv, type_id);
-  CU_ASSERT_NEQ (type != NULL, 0);
+  CU_ASSERT_NEQ (type, NULL);
   dds_free_typeinfo (type_info);
   return type;
 }
@@ -648,9 +648,9 @@ static void create_type_topic_wr (dds_entity_t pp, const char *topic_name, ddsi_
   ret = dds_create_topic_descriptor (DDS_FIND_SCOPE_LOCAL_DOMAIN, pp, type_info, 0, &descriptor);
   CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
   dds_entity_t topic = dds_create_topic (pp, descriptor, topic_name, NULL, NULL);
-  CU_ASSERT_NEQ (topic >= 0, 0);
+  CU_ASSERT_GEQ (topic, 0);
   dds_entity_t writer = dds_create_writer (pp, topic, NULL, NULL);
-  CU_ASSERT_NEQ (writer >= 0, 0);
+  CU_ASSERT_GEQ (writer, 0);
 
   *type_id = ddsi_typeid_dup (ddsi_typeinfo_complete_typeid (type_info));
   dds_free_typeinfo (type_info);
@@ -668,28 +668,28 @@ CU_Test (ddsc_dynamic_type, existing, .init = dynamic_type_init, .fini = dynamic
 
   // Create participant2 with writer
   dds_entity_t domain2 = dds_create_domain (1, "<Discovery><ExternalDomainId>0</ExternalDomainId></Discovery>");
-  CU_ASSERT_NEQ (domain2 >= 0, 0);
+  CU_ASSERT_GEQ (domain2, 0);
   dds_entity_t participant2 = dds_create_participant (1, NULL, NULL);
-  CU_ASSERT_NEQ (participant2 >= 0, 0);
+  CU_ASSERT_GEQ (participant2, 0);
 
   ddsi_typeid_t *type_id, *type_id2;
   create_type_topic_wr (participant2, topic_name, &type_id2);
 
   // Read DCPS Publication and find participant2 writer
   dds_entity_t pub_rd = dds_create_reader (participant, DDS_BUILTIN_TOPIC_DCPSPUBLICATION, NULL, NULL);
-  CU_ASSERT_NEQ (pub_rd >= 0, 0);
+  CU_ASSERT_GEQ (pub_rd, 0);
   ret = dds_set_status_mask (pub_rd, DDS_DATA_AVAILABLE_STATUS);
-  CU_ASSERT_NEQ (ret == 0, 0);
+  CU_ASSERT_EQ (ret, 0);
   dds_entity_t ws = dds_create_waitset (participant);
-  CU_ASSERT_NEQ (ws >= 0, 0);
+  CU_ASSERT_GEQ (ws, 0);
   ret = dds_waitset_attach (ws, pub_rd, 0);
-  CU_ASSERT_NEQ (ret == 0, 0);
+  CU_ASSERT_EQ (ret, 0);
 
   bool done = false;
   while (!done)
   {
     ret = dds_waitset_wait (ws, NULL, 0, DDS_INFINITY);
-    CU_ASSERT_NEQ (ret >= 0, 0);
+    CU_ASSERT_GEQ (ret, 0);
 
     void *samples[1];
     dds_sample_info_t si;
@@ -707,16 +707,16 @@ CU_Test (ddsc_dynamic_type, existing, .init = dynamic_type_init, .fini = dynamic
   struct ddsi_type *type, *type2;
   struct ddsi_domaingv *gv = get_domaingv (participant);
   type2 = ddsi_type_lookup_locked (gv, type_id2);
-  CU_ASSERT_NEQ (type2 != NULL, 0);
+  CU_ASSERT_NEQ (type2, NULL);
   bool resolved = ddsi_type_resolved_locked (gv, type2, DDSI_TYPE_IGNORE_DEPS);
   CU_ASSERT_NEQ (!resolved, 0);
 
   /* Create the same type for a local writer and confirm that the type
      id is the same and the type is resolved. */
   create_type_topic_wr (participant, topic_name, &type_id);
-  CU_ASSERT_NEQ (ddsi_typeid_compare (type_id, type_id2) == 0, 0);
+  CU_ASSERT_EQ (ddsi_typeid_compare (type_id, type_id2), 0);
   type = ddsi_type_lookup_locked (gv, type_id);
-  CU_ASSERT_NEQ (type != NULL, 0);
+  CU_ASSERT_NEQ (type, NULL);
   resolved = ddsi_type_resolved_locked (gv, type, DDSI_TYPE_IGNORE_DEPS);
   CU_ASSERT_NEQ (resolved, 0);
 
@@ -749,7 +749,7 @@ CU_Test (ddsc_dynamic_type, existing_constructing, .init = dynamic_type_init, .f
   ddsi_typeid_t *type_id1, *type_id2;
   type_id1 = ddsi_typeid_dup (ddsi_typeinfo_complete_typeid (type_info1));
   type_id2 = ddsi_typeid_dup (ddsi_typeinfo_complete_typeid (type_info2));
-  CU_ASSERT_NEQ (ddsi_typeid_compare (type_id1, type_id2) == 0, 0);
+  CU_ASSERT_EQ (ddsi_typeid_compare (type_id1, type_id2), 0);
 
   ddsi_typeid_fini (type_id1);
   ddsrt_free (type_id1);
@@ -889,7 +889,7 @@ CU_Test (ddsc_dynamic_type, struct_member_key, .init = dynamic_type_init, .fini 
     char topic_name[100];
     create_unique_topic_name ("ddsc_dynamic_type", topic_name, sizeof (topic_name));
     dds_entity_t topic = dds_create_topic (participant, descriptor, topic_name, NULL, NULL);
-    CU_ASSERT_NEQ (topic >= 0, 0);
+    CU_ASSERT_GEQ (topic, 0);
 
     dds_delete_topic_descriptor (descriptor);
     dds_free_typeinfo (type_info);

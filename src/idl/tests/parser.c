@@ -28,7 +28,7 @@ test_base_type(const char *str, uint32_t flags, int32_t retcode, idl_mask_t mask
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
   CU_ASSERT_NEQ_FATAL (pstate, NULL);
   ret = idl_parse_string(pstate, str);
-  CU_ASSERT_NEQ (ret == retcode, 0);
+  CU_ASSERT_EQ (ret, retcode);
   if (ret != IDL_RETCODE_OK)
     goto bail;
   assert(pstate);

@@ -787,7 +787,7 @@ static void encode_rtps_message_not_authenticated(DDS_Security_CryptoTransformKi
   DDS_Security_ParticipantSecurityAttributes attributes;
   DDS_Security_PropertySeq properties;
 
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
   CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
   assert(crypto->crypto_transform != NULL);
@@ -826,8 +826,8 @@ static void encode_rtps_message_not_authenticated(DDS_Security_CryptoTransformKi
   }
 
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (exception.code == 0, 0);
-  CU_ASSERT_NEQ (exception.message == NULL, 0);
+  CU_ASSERT_EQ (exception.code, 0);
+  CU_ASSERT_EQ (exception.message, NULL);
 
   reset_exception(&exception);
 
@@ -857,7 +857,7 @@ static void encode_rtps_message_not_authenticated(DDS_Security_CryptoTransformKi
     //print_octets( "PLAIN RTPS:",plain_buffer._buffer+4, plain_buffer._length-4);
     //print_octets( "DECODED RTPS:",decoded_buffer._buffer+8, decoded_buffer._length-8);
 
-    CU_ASSERT_NEQ (memcmp(plain_buffer._buffer + 4, decoded_buffer._buffer + 8, plain_buffer._length - 4) == 0, 0);
+    CU_ASSERT_EQ (memcmp(plain_buffer._buffer + 4, decoded_buffer._buffer + 8, plain_buffer._length - 4), 0);
 
     DDS_Security_OctetSeq_deinit((&decoded_buffer));
   }
@@ -872,7 +872,7 @@ static void encode_rtps_message_not_authenticated(DDS_Security_CryptoTransformKi
 
     CU_ASSERT_NEQ (result, 0);
 
-    CU_ASSERT_NEQ (memcmp(plain_buffer._buffer + 4, data._buffer + 8, plain_buffer._length - 4) == 0, 0);
+    CU_ASSERT_EQ (memcmp(plain_buffer._buffer + 4, data._buffer + 8, plain_buffer._length - 4), 0);
   }
 
   DDS_Security_OctetSeq_deinit((&plain_buffer));
@@ -925,7 +925,7 @@ static void encode_rtps_message_sign(DDS_Security_CryptoTransformKind_Enum trans
   uint32_t session_id;
   size_t i;
 
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
   CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
   assert(crypto->crypto_transform != NULL);
@@ -938,7 +938,7 @@ static void encode_rtps_message_sign(DDS_Security_CryptoTransformKind_Enum trans
 
   initialize_rtps_message(&plain_buffer, DDSRT_BOSEL_NATIVE);
 
-  CU_ASSERT_NEQ (local_particpant_crypto != 0, 0);
+  CU_ASSERT_NEQ (local_particpant_crypto, 0);
 
   session_keys = get_local_participant_session(local_particpant_crypto);
   session_keys->master_key_material->transformation_kind = transformation_kind;
@@ -978,8 +978,8 @@ static void encode_rtps_message_sign(DDS_Security_CryptoTransformKind_Enum trans
 
     CU_ASSERT_NEQ (result, 0);
     assert(result);
-    CU_ASSERT_NEQ (exception.code == 0, 0);
-    CU_ASSERT_NEQ (exception.message == NULL, 0);
+    CU_ASSERT_EQ (exception.code, 0);
+    CU_ASSERT_EQ (exception.message, NULL);
 
     if (index == 0)
       assert (encoded_buffer._buffer != NULL);
@@ -1013,7 +1013,7 @@ static void encode_rtps_message_sign(DDS_Security_CryptoTransformKind_Enum trans
     CU_ASSERT_NEQ (result, 0);
 
     /*TODO: this should consider INFO_SRC */
-    CU_ASSERT_NEQ (memcmp(plain_buffer._buffer + 4, decoded_buffer._buffer + 8, plain_buffer._length - 4) == 0, 0);
+    CU_ASSERT_EQ (memcmp(plain_buffer._buffer + 4, decoded_buffer._buffer + 8, plain_buffer._length - 4), 0);
 
     DDS_Security_OctetSeq_deinit((&decoded_buffer));
   }
@@ -1028,7 +1028,7 @@ static void encode_rtps_message_sign(DDS_Security_CryptoTransformKind_Enum trans
     }
 
     CU_ASSERT_NEQ (result, 0);
-    CU_ASSERT_NEQ (memcmp(plain_buffer._buffer + 4, data._buffer + 8, plain_buffer._length - 4) == 0, 0);
+    CU_ASSERT_EQ (memcmp(plain_buffer._buffer + 4, data._buffer + 8, plain_buffer._length - 4), 0);
   }
 
   printf("num hmacs = %u\n", footer->length);
@@ -1081,7 +1081,7 @@ CU_Test(ddssec_builtin_encode_rtps_message, invalid_args, .init = suite_encode_r
   DDS_Security_PropertySeq properties;
   unsigned i;
 
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
   CU_ASSERT_NEQ (crypto->crypto_transform->encode_rtps_message != NULL, 0);
 
@@ -1092,7 +1092,7 @@ CU_Test(ddssec_builtin_encode_rtps_message, invalid_args, .init = suite_encode_r
   initialize_rtps_message(&plain_buffer, DDSRT_BOSEL_NATIVE);
   memset(&empty_reader_list, 0, sizeof(empty_reader_list));
 
-  CU_ASSERT_NEQ (local_particpant_crypto != 0, 0);
+  CU_ASSERT_NEQ (local_particpant_crypto, 0);
 
   register_remote_participants();
   for (i = 0; i < sizeof (remote_particpant_cryptos) / sizeof (remote_particpant_cryptos[0]); i++)
@@ -1101,7 +1101,7 @@ CU_Test(ddssec_builtin_encode_rtps_message, invalid_args, .init = suite_encode_r
     set_remote_participant_protection_kind(remote_particpant_cryptos[i], DDS_SECURITY_PROTECTION_KIND_ENCRYPT_WITH_ORIGIN_AUTHENTICATION);
   }
 
-  CU_ASSERT_NEQ (remote_particpant_cryptos[0] != 0, 0);
+  CU_ASSERT_NEQ (remote_particpant_cryptos[0], 0);
 
   reader_list._length = reader_list._maximum = 1;
   reader_list._buffer = DDS_Security_ParticipantCryptoHandleSeq_allocbuf(1);
@@ -1124,8 +1124,8 @@ CU_Test(ddssec_builtin_encode_rtps_message, invalid_args, .init = suite_encode_r
   }
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code != 0, 0);
-  CU_ASSERT_NEQ (exception.message != NULL, 0);
+  CU_ASSERT_NEQ (exception.code, 0);
+  CU_ASSERT_NEQ (exception.message, NULL);
 
   reset_exception(&exception);
 
@@ -1145,8 +1145,8 @@ CU_Test(ddssec_builtin_encode_rtps_message, invalid_args, .init = suite_encode_r
   }
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code != 0, 0);
-  CU_ASSERT_NEQ (exception.message != NULL, 0);
+  CU_ASSERT_NEQ (exception.code, 0);
+  CU_ASSERT_NEQ (exception.message, NULL);
 
   reset_exception(&exception);
 
@@ -1167,8 +1167,8 @@ CU_Test(ddssec_builtin_encode_rtps_message, invalid_args, .init = suite_encode_r
   }
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code != 0, 0);
-  CU_ASSERT_NEQ (exception.message != NULL, 0);
+  CU_ASSERT_NEQ (exception.code, 0);
+  CU_ASSERT_NEQ (exception.message, NULL);
 
   reset_exception(&exception);
 
@@ -1189,8 +1189,8 @@ CU_Test(ddssec_builtin_encode_rtps_message, invalid_args, .init = suite_encode_r
   }
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code != 0, 0);
-  CU_ASSERT_NEQ (exception.message != NULL, 0);
+  CU_ASSERT_NEQ (exception.code, 0);
+  CU_ASSERT_NEQ (exception.message, NULL);
 
   reset_exception(&exception);
 

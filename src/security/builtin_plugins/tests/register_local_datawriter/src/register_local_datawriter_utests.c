@@ -97,7 +97,7 @@ static void suite_register_local_datawriter_init(void)
       &participant_properties,
       &participant_security_attributes,
       &exception);
-  CU_ASSERT_NEQ (local_participant_crypto_handle != DDS_SECURITY_HANDLE_NIL, 0);
+  CU_ASSERT_NEQ (local_participant_crypto_handle, DDS_SECURITY_HANDLE_NIL);
 
   /* Now call the function. */
   remote_participant_crypto_handle = crypto->crypto_key_factory->register_matched_remote_participant(
@@ -107,7 +107,7 @@ static void suite_register_local_datawriter_init(void)
       remote_participant_permissions,
       shared_secret_handle,
       &exception);
-  CU_ASSERT_NEQ (remote_participant_crypto_handle != DDS_SECURITY_HANDLE_NIL, 0);
+  CU_ASSERT_NEQ (remote_participant_crypto_handle, DDS_SECURITY_HANDLE_NIL);
   ddsrt_free(shared_secret_handle_impl->shared_secret);
   ddsrt_free(shared_secret_handle_impl);
 }
@@ -149,7 +149,7 @@ CU_Test(ddssec_builtin_register_local_datawriter, happy_day, .init = suite_regis
   local_datawriter_crypto *writer_crypto;
 
   /* Check if we actually have the function. */
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
   CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
   assert(crypto->crypto_key_factory != NULL);
@@ -175,8 +175,8 @@ CU_Test(ddssec_builtin_register_local_datawriter, happy_day, .init = suite_regis
     printf("register_local_datawriter: %s\n", exception.message ? exception.message : "Error message missing");
 
   /* A valid handle to be returned */
-  CU_ASSERT_NEQ (result != 0, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_OK_CODE, 0);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_OK_CODE);
 
   /* NOTE: It would be better to check if the keys have been generated but there is no interface to get them from handle */
   writer_crypto = (local_datawriter_crypto *)result;
@@ -214,7 +214,7 @@ CU_Test(ddssec_builtin_register_local_datawriter, builtin_endpoint, .init = suit
   datawriter_security_attributes.plugin_endpoint_attributes |= DDS_SECURITY_PLUGIN_ENDPOINT_ATTRIBUTES_FLAG_IS_PAYLOAD_ENCRYPTED;
 
   /* Check if we actually have the function. */
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
   CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
   assert(crypto->crypto_key_factory != NULL);
@@ -238,8 +238,8 @@ CU_Test(ddssec_builtin_register_local_datawriter, builtin_endpoint, .init = suit
     printf("register_local_datawriter: %s\n", exception.message ? exception.message : "Error message missing");
 
   /* A valid handle to be returned */
-  CU_ASSERT_NEQ (result != 0, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_OK_CODE, 0);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_OK_CODE);
 
   /* NOTE: It would be better to check if the keys have been generated but there is no interface to get them from handle */
   writer_crypto = (local_datawriter_crypto *)result;
@@ -275,7 +275,7 @@ CU_Test(ddssec_builtin_register_local_datawriter, special_endpoint_name, .init =
   prepare_endpoint_security_attributes(&datawriter_security_attributes);
 
   /* Check if we actually have the function. */
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
   CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
   assert(crypto->crypto_key_factory != NULL);
@@ -300,8 +300,8 @@ CU_Test(ddssec_builtin_register_local_datawriter, special_endpoint_name, .init =
     printf("register_local_datawriter: %s\n", exception.message ? exception.message : "Error message missing");
 
   /* A valid handle to be returned */
-  CU_ASSERT_NEQ (result != 0, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_OK_CODE, 0);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_OK_CODE);
   CU_ASSERT_NEQ (((local_datawriter_crypto *)result)->is_builtin_participant_volatile_message_secure_writer, 0);
 
   reset_exception(&exception);
@@ -318,7 +318,7 @@ CU_Test(ddssec_builtin_register_local_datawriter, invalid_participant, .init = s
   DDS_Security_EndpointSecurityAttributes datawriter_security_attributes;
 
   /* Check if we actually have the function. */
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
   CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
   assert(crypto->crypto_key_factory != NULL);
@@ -338,9 +338,9 @@ CU_Test(ddssec_builtin_register_local_datawriter, invalid_participant, .init = s
       &exception);
 
   /* Invalid handle should be returned */
-  CU_ASSERT_NEQ (result == 0, 0);
+  CU_ASSERT_EQ (result, 0);
 
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_CRYPTO_HANDLE_CODE, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_CRYPTO_HANDLE_CODE);
   CU_ASSERT_STREQ_FATAL (exception.message, DDS_SECURITY_ERR_INVALID_CRYPTO_HANDLE_MESSAGE);
 
   reset_exception(&exception);

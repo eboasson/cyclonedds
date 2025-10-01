@@ -34,12 +34,12 @@ static Space_Type1 msg = { 123, 0, 0};
 static void setup(dds_duration_t sep, dds_destination_order_kind_t dok)
 {
     pp = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_NEQ (pp > 0, 0);
+    CU_ASSERT_GT (pp, 0);
 
     char name[100];
     create_unique_topic_name("ddsc_time_based_filter", name, sizeof name);
     tp = dds_create_topic(pp, &Space_Type1_desc, name, NULL, NULL);
-    CU_ASSERT_NEQ (tp > 0, 0);
+    CU_ASSERT_GT (tp, 0);
 
     //qos
     dds_qos_t *qos = dds_create_qos();
@@ -55,8 +55,8 @@ static void setup(dds_duration_t sep, dds_destination_order_kind_t dok)
 
     dds_delete_qos(qos);
 
-    CU_ASSERT_NEQ (rd > 0, 0);
-    CU_ASSERT_NEQ (wr > 0, 0);
+    CU_ASSERT_GT (rd, 0);
+    CU_ASSERT_GT (wr, 0);
 
     dds_return_t rc = dds_set_status_mask(wr, DDS_PUBLICATION_MATCHED_STATUS);
     CU_ASSERT_EQ_FATAL (rc, DDS_RETCODE_OK);

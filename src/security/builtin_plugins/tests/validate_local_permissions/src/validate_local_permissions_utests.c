@@ -250,7 +250,7 @@ static DDS_Security_IdentityHandle create_local_identity(DDS_Security_Qos *parti
   DDS_Security_GuidPrefix_t prefix = {0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, 0xb8, 0xb9, 0xba, 0xbb};
   DDS_Security_EntityId_t entityId = {{0xb0, 0xb1, 0xb2}, 0x1};
 
-  CU_ASSERT_NEQ (g_auth != NULL, 0);
+  CU_ASSERT_NEQ (g_auth, NULL);
   assert(g_auth != NULL);
   CU_ASSERT_NEQ (g_auth->validate_local_identity != NULL, 0);
   assert(g_auth->validate_local_identity != 0);
@@ -339,9 +339,9 @@ static void qos_init_data(DDS_Security_Qos *participant_qos, const char *certifi
   permission_ca = create_uri_data(certificate_filename);
   permission_uri = create_uri_data(permission_filename);
   governance_uri = create_uri_data(governance_filename);
-  CU_ASSERT_NEQ (permission_ca != NULL, 0);
-  CU_ASSERT_NEQ (permission_uri != NULL, 0);
-  CU_ASSERT_NEQ (governance_uri != NULL, 0);
+  CU_ASSERT_NEQ (permission_ca, NULL);
+  CU_ASSERT_NEQ (permission_uri, NULL);
+  CU_ASSERT_NEQ (governance_uri, NULL);
 
   memset(participant_qos, 0, sizeof(*participant_qos));
   fill_property_policy(&(participant_qos->property),
@@ -430,9 +430,9 @@ static DDS_Security_IdentityHandle test_setup(DDS_Security_Qos *participant_qos)
                            NULL);
   if (g_plugins)
   {
-    CU_ASSERT_NEQ (g_auth != NULL, 0);
+    CU_ASSERT_NEQ (g_auth, NULL);
     assert(g_auth != NULL);
-    CU_ASSERT_NEQ (g_access_control != NULL, 0);
+    CU_ASSERT_NEQ (g_access_control, NULL);
     assert(g_access_control != NULL);
     CU_ASSERT_NEQ (g_access_control->validate_local_permissions != NULL, 0);
     assert(g_access_control->validate_local_permissions != 0);
@@ -469,7 +469,7 @@ static DDS_Security_long test_failure_scenario(DDS_Security_Qos *participant_qos
 
   /* Prepare testing environment. */
   local_id_hdl = test_setup(participant_qos);
-  CU_ASSERT_NEQ (local_id_hdl != DDS_SECURITY_HANDLE_NIL, 0);
+  CU_ASSERT_NEQ (local_id_hdl, DDS_SECURITY_HANDLE_NIL);
 
   /* Call the plugin with the invalid property. */
   result = g_access_control->validate_local_permissions(
@@ -481,11 +481,11 @@ static DDS_Security_long test_failure_scenario(DDS_Security_Qos *participant_qos
       &exception);
 
   /* Be sure the plugin returned a failure. */
-  CU_ASSERT_NEQ (result == 0, 0);
+  CU_ASSERT_EQ (result, 0);
   if (result == 0)
   {
     code = exception.code;
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
     printf("validate_local_permissions failed: (%d) %s\n", (int)exception.code, exception.message ? exception.message : "Error message missing");
   }
   else
@@ -591,7 +591,7 @@ static DDS_Security_long test_corrupted_signature(bool corrupt_permissions, bool
                 "Test_Governance_full.p7s");
 
   /* Only allow one signature to be corrupted. */
-  CU_ASSERT_NEQ (corrupt_permissions != corrupt_governance, 0);
+  CU_ASSERT_NEQ (corrupt_permissions, corrupt_governance);
 
   /* Corrupt the signature. */
   if (corrupt_permissions)
@@ -600,10 +600,10 @@ static DDS_Security_long test_corrupted_signature(bool corrupt_permissions, bool
     prop = dds_security_property_find(&(participant_qos.property.value), DDS_SEC_PROP_ACCESS_GOVERNANCE);
 
   /* Just some (hardcoded) sanity checks. */
-  CU_ASSERT_NEQ (prop != NULL, 0);
+  CU_ASSERT_NEQ (prop, NULL);
   CU_ASSERT_NEQ (prop->value != NULL, 0);
   len = strlen(prop->value);
-  CU_ASSERT_NEQ (len > 2250, 0);
+  CU_ASSERT_GT (len, 2250);
 
   /* Corrupt a byte somewhere in the signature. */
   prop->value[len - 75]--;
@@ -636,7 +636,7 @@ CU_Test(ddssec_builtin_validate_local_permissions, valid_file, .init = suite_val
                 "Test_Permissions_full.p7s",
                 "Test_Governance_full.p7s");
   local_id_hdl = test_setup(&participant_qos);
-  CU_ASSERT_NEQ (local_id_hdl != DDS_SECURITY_HANDLE_NIL, 0);
+  CU_ASSERT_NEQ (local_id_hdl, DDS_SECURITY_HANDLE_NIL);
 
   result = g_access_control->validate_local_permissions(
       g_access_control,
@@ -646,7 +646,7 @@ CU_Test(ddssec_builtin_validate_local_permissions, valid_file, .init = suite_val
       &participant_qos,
       &exception);
 
-  CU_ASSERT_NEQ (result != 0, 0);
+  CU_ASSERT_NEQ (result, 0);
   if (result == 0)
   {
     printf("validate_local_permissions_failed: %s\n", exception.message ? exception.message : "Error message missing");
@@ -674,7 +674,7 @@ CU_Test(ddssec_builtin_validate_local_permissions, valid_data, .init = suite_val
                 "Test_Permissions_full.p7s",
                 "Test_Governance_full.p7s");
   local_id_hdl = test_setup(&participant_qos);
-  CU_ASSERT_NEQ (local_id_hdl != DDS_SECURITY_HANDLE_NIL, 0);
+  CU_ASSERT_NEQ (local_id_hdl, DDS_SECURITY_HANDLE_NIL);
 
   result = g_access_control->validate_local_permissions(
       g_access_control,
@@ -684,7 +684,7 @@ CU_Test(ddssec_builtin_validate_local_permissions, valid_data, .init = suite_val
       &participant_qos,
       &exception);
 
-  CU_ASSERT_NEQ (result != 0, 0);
+  CU_ASSERT_NEQ (result, 0);
   if (result == 0)
   {
     printf("validate_local_permissions_failed: %s\n", exception.message ? exception.message : "Error message missing");
@@ -708,19 +708,19 @@ CU_Test(ddssec_builtin_validate_local_permissions, uri_directories, .init = suit
   code = test_invalid_file_uri("",
                                "Test_Permissions_full.p7s",
                                "Test_Governance_full.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE);
 
   /* Permission points to a valid directory. */
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "",
                                "Test_Governance_full.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE);
 
   /* Governance points to a valid directory.*/
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "Test_Permissions_full.p7s",
                                "");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE);
 }
 
 /* Supplying empty files should fail the local permissions check. */
@@ -732,19 +732,19 @@ CU_Test(ddssec_builtin_validate_local_permissions, uri_empty_files, .init = suit
   code = test_invalid_file_uri("Test_File_empty.txt",
                                "Test_Permissions_full.p7s",
                                "Test_Governance_full.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE);
 
   /* Permission points to an empty file. */
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "Test_File_empty.txt",
                                "Test_Governance_full.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE);
 
   /* Governance points to an empty file. */
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "Test_Permissions_full.p7s",
                                "Test_File_empty.txt");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE);
 }
 
 /* Supplying text files should fail the local permissions check. */
@@ -756,19 +756,19 @@ CU_Test(ddssec_builtin_validate_local_permissions, uri_text_files, .init = suite
   code = test_invalid_file_uri("Test_File_text.txt",
                                "Test_Permissions_full.p7s",
                                "Test_Governance_full.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_CERTIFICATE_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_CERTIFICATE_CODE);
 
   /* Permission points to a file with only text. */
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "Test_File_text.txt",
                                "Test_Governance_full.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_CODE);
 
   /* Governance points to a file with only text. */
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "Test_Permissions_full.p7s",
                                "Test_File_text.txt");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_CODE);
 }
 
 /* Not supplying files should fail the local permissions check. */
@@ -780,19 +780,19 @@ CU_Test(ddssec_builtin_validate_local_permissions, uri_absent_files, .init = sui
   code = test_invalid_file_uri("Test_File_absent.txt",
                                "Test_Permissions_full.p7s",
                                "Test_Governance_full.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE);
 
   /* Permission points to a non-existing file.*/
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "Test_File_absent.txt",
                                "Test_Governance_full.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE);
 
   /* Governance points to a non-existing file.*/
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "Test_Permissions_full.p7s",
                                "Test_File_absent.txt");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE);
 }
 
 /* Not supplying file uris should fail the local permissions check. */
@@ -804,19 +804,19 @@ CU_Test(ddssec_builtin_validate_local_permissions, uri_no_files, .init = suite_v
   code = test_invalid_file_uri(NULL,
                                "Test_Permissions_full.p7s",
                                "Test_Governance_full.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE);
 
   /* Permission file uri doesn't point to anything.*/
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                NULL,
                                "Test_Governance_full.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE);
 
   /* Governance file uri doesn't point to anything.*/
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "Test_Permissions_full.p7s",
                                NULL);
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_FILE_PATH_CODE);
 }
 
 /* Supplying empty data should fail the local permissions check. */
@@ -828,19 +828,19 @@ CU_Test(ddssec_builtin_validate_local_permissions, uri_empty_data, .init = suite
   code = test_invalid_data_uri(NULL,
                                "Test_Permissions_full.p7s",
                                "Test_Governance_full.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_CERTIFICATE_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_CERTIFICATE_CODE);
 
   /* Permission is empty data.*/
   code = test_invalid_data_uri("Test_Permissions_ca.pem",
                                NULL,
                                "Test_Governance_full.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_PERMISSION_DOCUMENT_PROPERTY_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_PERMISSION_DOCUMENT_PROPERTY_CODE);
 
   /* Governance is empty data.*/
   code = test_invalid_data_uri("Test_Permissions_ca.pem",
                                "Test_Permissions_full.p7s",
                                NULL);
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_GOVERNANCE_DOCUMENT_PROPERTY_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_GOVERNANCE_DOCUMENT_PROPERTY_CODE);
 }
 
 /* Supplying uris with invalid types should fail the local permissions check. */
@@ -852,19 +852,19 @@ CU_Test(ddssec_builtin_validate_local_permissions, uri_invalid_types, .init = su
   code = test_invalid_type_uri(NULL,
                                "Test_Permissions_full.p7s",
                                "Test_Governance_full.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_CERTIFICATE_TYPE_NOT_SUPPORTED_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_CERTIFICATE_TYPE_NOT_SUPPORTED_CODE);
 
   /* Permission doesn't point to anything: results in invalid type.*/
   code = test_invalid_type_uri("Test_Permissions_ca.pem",
                                NULL,
                                "Test_Governance_full.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_URI_TYPE_NOT_SUPPORTED_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_URI_TYPE_NOT_SUPPORTED_CODE);
 
   /* Governance doesn't point to anything: results in invalid type*/
   code = test_invalid_type_uri("Test_Permissions_ca.pem",
                                "Test_Permissions_full.p7s",
                                NULL);
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_URI_TYPE_NOT_SUPPORTED_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_URI_TYPE_NOT_SUPPORTED_CODE);
 }
 
 /* Not supplying actual uris should fail the local permissions check. */
@@ -876,19 +876,19 @@ CU_Test(ddssec_builtin_validate_local_permissions, uri_null, .init = suite_valid
   code = test_null_uri(NULL,
                        "Test_Permissions_full.p7s",
                        "Test_Governance_full.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_MISSING_PROPERTY_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_MISSING_PROPERTY_CODE);
 
   /* Permission doesn't point to anything.*/
   code = test_null_uri("Test_Permissions_ca.pem",
                        NULL,
                        "Test_Governance_full.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_MISSING_PROPERTY_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_MISSING_PROPERTY_CODE);
 
   /* Governance doesn't point to anything.*/
   code = test_null_uri("Test_Permissions_ca.pem",
                        "Test_Permissions_full.p7s",
                        NULL);
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_MISSING_PROPERTY_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_MISSING_PROPERTY_CODE);
 }
 
 /* Corrupted signatures should fail the local permissions check. */
@@ -899,12 +899,12 @@ CU_Test(ddssec_builtin_validate_local_permissions, corrupted_signatures, .init =
   /* Corrupt permission signature.*/
   code = test_corrupted_signature(true /* Corrupt permissions? Yes. */,
                                   false /* Corrupt governance?  No.  */);
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_CODE);
 
   /* Corrupt governance signature.*/
   code = test_corrupted_signature(false /* Corrupt permissions? No.  */,
                                   true /* Corrupt governance?  Yes. */);
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_CODE);
 }
 
 /* Unknown signatures should fail the local permissions check. */
@@ -916,13 +916,13 @@ CU_Test(ddssec_builtin_validate_local_permissions, unknown_ca, .init = suite_val
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "Test_Permissions_unknown_ca.p7s",
                                "Test_Governance_full.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_CODE);
 
   /* Governance with unknown CA.*/
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "Test_Permissions_full.p7s",
                                "Test_Governance_unknown_ca.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_CODE);
 }
 
 /* Un-available signatures should fail the local permissions check. */
@@ -934,13 +934,13 @@ CU_Test(ddssec_builtin_validate_local_permissions, not_signed, .init = suite_val
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "Test_Permissions_not_signed.p7s",
                                "Test_Governance_full.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_CODE);
 
   /* Governance not signed.*/
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "Test_Permissions_full.p7s",
                                "Test_Governance_not_signed.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_CODE);
 }
 
 /* Permissions outside the validity data should fail the local */
@@ -952,13 +952,13 @@ CU_Test(ddssec_builtin_validate_local_permissions, validity, .init = suite_valid
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "Test_Permissions_expired.p7s",
                                "Test_Governance_full.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_VALIDITY_PERIOD_EXPIRED_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_VALIDITY_PERIOD_EXPIRED_CODE);
 
   /* Permission not yet valid.*/
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "Test_Permissions_notyet.p7s",
                                "Test_Governance_full.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_VALIDITY_PERIOD_NOT_STARTED_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_VALIDITY_PERIOD_NOT_STARTED_CODE);
 }
 
 /* Permissions document does not contain a proper subject_name,
@@ -971,7 +971,7 @@ CU_Test(ddssec_builtin_validate_local_permissions, subject_name, .init = suite_v
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "Test_Permissions_unknown_subject.p7s",
                                "Test_Governance_check_create_participant.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_INVALID_SUBJECT_NAME_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_INVALID_SUBJECT_NAME_CODE);
 }
 
 /* Documents with invalid xml should fail the local permissions check. */
@@ -983,35 +983,35 @@ CU_Test(ddssec_builtin_validate_local_permissions, xml_invalid, .init = suite_va
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "Test_Permissions_invalid_data.p7s",
                                "Test_Governance_ok.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE);
 
   /* Permission XML contains invalid domain id. */
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "Test_Permissions_invalid_element.p7s",
                                "Test_Governance_ok.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE);
 
   /* Permission XML is missing the 'not before' validity tag.*/
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "Test_Permissions_lack_of_not_before.p7s",
                                "Test_Governance_ok.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE);
 
   /* Permission XML is missing the 'not after' validity tag.*/
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "Test_Permissions_lack_of_not_after.p7s",
                                "Test_Governance_ok.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE);
 
   /* Governance XML contains invalid encryption kind.*/
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "Test_Permissions_ok.p7s",
                                "Test_Governance_invalid_data.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_CAN_NOT_PARSE_GOVERNANCE_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_CAN_NOT_PARSE_GOVERNANCE_CODE);
 
   /* Governance XML contains unknown element.*/
   code = test_invalid_file_uri("Test_Permissions_ca.pem",
                                "Test_Permissions_ok.p7s",
                                "Test_Governance_invalid_element.p7s");
-  CU_ASSERT_NEQ (code == DDS_SECURITY_ERR_CAN_NOT_PARSE_GOVERNANCE_CODE, 0);
+  CU_ASSERT_EQ (code, DDS_SECURITY_ERR_CAN_NOT_PARSE_GOVERNANCE_CODE);
 }

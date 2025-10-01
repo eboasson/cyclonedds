@@ -166,10 +166,10 @@ CU_Test(idlc_descriptor, default_extensibility)
         CU_ASSERT_NEQ (instr1 != DDS_OP_DLC && instr1 != DDS_OP_PLC, 0);
         break;
       case IDL_APPENDABLE:
-        CU_ASSERT_NEQ (instr1 == DDS_OP_DLC, 0);
+        CU_ASSERT_EQ (instr1, DDS_OP_DLC);
         break;
       case IDL_MUTABLE:
-        CU_ASSERT_NEQ (instr1 == DDS_OP_PLC, 0);
+        CU_ASSERT_EQ (instr1, DDS_OP_PLC);
         break;
     }
     descriptor_fini (&descriptor);

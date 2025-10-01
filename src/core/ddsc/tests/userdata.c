@@ -49,17 +49,17 @@ static uint32_t pp_thread (void *varg)
   dds_qset_history (qos, DDS_HISTORY_KEEP_ALL, 0);
   dds_qset_userdata (qos, expud, expusz);
   dp = dds_create_participant (arg->domainid, qos, NULL);
-  CU_ASSERT_NEQ (dp > 0, 0);
+  CU_ASSERT_GT (dp, 0);
   rc = dds_get_instance_handle (dp, &dpih);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   rd = dds_create_reader (dp, DDS_BUILTIN_TOPIC_DCPSPARTICIPANT, qos, NULL);
-  CU_ASSERT_NEQ (rd > 0, 0);
+  CU_ASSERT_GT (rd, 0);
   rc = dds_set_status_mask (rd, DDS_DATA_AVAILABLE_STATUS);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   ws = dds_create_waitset (dp);
-  CU_ASSERT_NEQ (ws > 0, 0);
+  CU_ASSERT_GT (ws, 0);
   rc = dds_waitset_attach (ws, rd, 0);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 
   bool done = false;
   bool synced = !arg->master;
@@ -68,7 +68,7 @@ static uint32_t pp_thread (void *varg)
   while (!done)
   {
     rc = dds_waitset_wait (ws, NULL, 0, DDS_INFINITY);
-    CU_ASSERT_NEQ (rc >= 0, 0);
+    CU_ASSERT_GEQ (rc, 0);
 
     void *raw = NULL;
     dds_sample_info_t si;
@@ -133,11 +133,11 @@ static uint32_t pp_thread (void *varg)
           fflush (stdout);
           dds_qset_userdata (qos, expud, expusz);
           rc = dds_set_qos (dp, qos);
-          CU_ASSERT_NEQ (rc == 0, 0);
+          CU_ASSERT_EQ (rc, 0);
 
           dds_qos_t *chk = dds_create_qos ();
           rc = dds_get_qos (dp, chk);
-          CU_ASSERT_NEQ (rc == 0, 0);
+          CU_ASSERT_EQ (rc, 0);
 
           void *chkud = NULL;
           size_t chkusz = 0;
@@ -150,13 +150,13 @@ static uint32_t pp_thread (void *varg)
         dds_free (ud);
       }
     }
-    CU_ASSERT_NEQ (n == 0, 0);
+    CU_ASSERT_EQ (n, 0);
     dds_return_loan (rd, &raw, 1);
     fflush (stdout);
   }
   dds_delete_qos (qos);
   rc = dds_delete (dp);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   return 0;
 #undef prefix
 }
@@ -175,9 +175,9 @@ ${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}\
   char *master_conf = ddsrt_expand_envvars (config, 0);
   char *slave_conf = ddsrt_expand_envvars (config, 1);
   const dds_entity_t master_dom = dds_create_domain (0, master_conf);
-  CU_ASSERT_NEQ (master_dom > 0, 0);
+  CU_ASSERT_GT (master_dom, 0);
   const dds_entity_t slave_dom = dds_create_domain (1, slave_conf);
-  CU_ASSERT_NEQ (slave_dom > 0, 0);
+  CU_ASSERT_GT (slave_dom, 0);
   ddsrt_free (master_conf);
   ddsrt_free (slave_conf);
 
@@ -194,7 +194,7 @@ ${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}\
     .ncycles = ncycles
   };
   rc = ddsrt_thread_create (&master_tid, "master_thread", &tattr, pp_thread, &master_arg);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 
   struct pp_thread_arg slave_arg = {
     .domainid = 0,
@@ -202,15 +202,15 @@ ${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}\
     .ncycles = ncycles
   };
   rc = ddsrt_thread_create (&slave_tid, "slave_thread", &tattr, pp_thread, &slave_arg);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 
   ddsrt_thread_join (master_tid, NULL);
   ddsrt_thread_join (slave_tid, NULL);
 
   rc = dds_delete (master_dom);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   rc = dds_delete (slave_dom);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 }
 
 enum rwud {
@@ -244,36 +244,36 @@ static uint32_t rw_thread (void *varg)
   size_t expusz = strlen (expud);
 
   qos = dds_create_qos ();
-  CU_ASSERT_NEQ (qos != NULL, 0);
+  CU_ASSERT_NEQ (qos, NULL);
   dds_qset_history (qos, DDS_HISTORY_KEEP_ALL, 0);
   dp = dds_create_participant (arg->domainid, NULL, NULL);
-  CU_ASSERT_NEQ (dp > 0, 0);
+  CU_ASSERT_GT (dp, 0);
   tp = dds_create_topic (dp, &RWData_Msg_desc, arg->topicname, qos, NULL);
-  CU_ASSERT_NEQ (tp > 0, 0);
+  CU_ASSERT_GT (tp, 0);
   if (arg->master)
   {
     rdep = dds_create_reader (dp, DDS_BUILTIN_TOPIC_DCPSSUBSCRIPTION, qos, NULL);
-    CU_ASSERT_NEQ (rdep > 0, 0);
+    CU_ASSERT_GT (rdep, 0);
     grp = dds_create_publisher (dp, qos, NULL);
-    CU_ASSERT_NEQ (grp > 0, 0);
+    CU_ASSERT_GT (grp, 0);
     ep = dds_create_writer (grp, tp, qos, NULL);
-    CU_ASSERT_NEQ (ep > 0, 0);
+    CU_ASSERT_GT (ep, 0);
   }
   else
   {
     rdep = dds_create_reader (dp, DDS_BUILTIN_TOPIC_DCPSPUBLICATION, qos, NULL);
-    CU_ASSERT_NEQ (rdep > 0, 0);
+    CU_ASSERT_GT (rdep, 0);
     grp = dds_create_subscriber (dp, qos, NULL);
-    CU_ASSERT_NEQ (grp > 0, 0);
+    CU_ASSERT_GT (grp, 0);
     ep = dds_create_reader (grp, tp, qos, NULL);
-    CU_ASSERT_NEQ (ep > 0, 0);
+    CU_ASSERT_GT (ep, 0);
   }
   rc = dds_set_status_mask (rdep, DDS_DATA_AVAILABLE_STATUS);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   ws = dds_create_waitset (dp);
-  CU_ASSERT_NEQ (ws > 0, 0);
+  CU_ASSERT_GT (ws, 0);
   rc = dds_waitset_attach (ws, rdep, 0);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 
   switch (arg->which)
   {
@@ -286,7 +286,7 @@ static uint32_t rw_thread (void *varg)
       qget = dds_qget_groupdata;
       qset = dds_qset_groupdata;
       qent = grp;
-      CU_ASSERT_NEQ (qent > 0, 0);
+      CU_ASSERT_GT (qent, 0);
       break;
     case RWUD_TOPICDATA:
       qget = dds_qget_topicdata;
@@ -299,7 +299,7 @@ static uint32_t rw_thread (void *varg)
   {
     qset (qos, expud, expusz);
     rc = dds_set_qos (qent, qos);
-    CU_ASSERT_NEQ (rc == 0, 0);
+    CU_ASSERT_EQ (rc, 0);
   }
 
   bool done = false;
@@ -310,7 +310,7 @@ static uint32_t rw_thread (void *varg)
   while (!done)
   {
     rc = dds_waitset_wait (ws, NULL, 0, DDS_INFINITY);
-    CU_ASSERT_NEQ (rc >= 0, 0);
+    CU_ASSERT_GEQ (rc, 0);
 
     void *raw = NULL;
     dds_sample_info_t si;
@@ -366,11 +366,11 @@ static uint32_t rw_thread (void *varg)
 
           qset (qos, expud, expusz);
           rc = dds_set_qos (qent, qos);
-          CU_ASSERT_NEQ (rc == 0, 0);
+          CU_ASSERT_EQ (rc, 0);
 
           dds_qos_t *chk = dds_create_qos ();
           rc = dds_get_qos (ep, chk);
-          CU_ASSERT_NEQ (rc == 0, 0);
+          CU_ASSERT_EQ (rc, 0);
 
           void *chkud = NULL;
           size_t chkusz = 0;
@@ -383,14 +383,14 @@ static uint32_t rw_thread (void *varg)
         dds_free (ud);
       }
     }
-    CU_ASSERT_NEQ (n == 0, 0);
+    CU_ASSERT_EQ (n, 0);
     dds_return_loan (rdep, &raw, 1);
     fflush (stdout);
   }
   dds_delete_qos (qos);
 
   rc = dds_delete (dp);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   return 0;
 }
 
@@ -403,9 +403,9 @@ static void rw_test (enum rwud which)
   char *master_conf = ddsrt_expand_envvars (config, 0);
   char *slave_conf = ddsrt_expand_envvars (config, 1);
   const dds_entity_t master_dom = dds_create_domain (0, master_conf);
-  CU_ASSERT_NEQ (master_dom > 0, 0);
+  CU_ASSERT_GT (master_dom, 0);
   const dds_entity_t slave_dom = dds_create_domain (1, slave_conf);
-  CU_ASSERT_NEQ (slave_dom > 0, 0);
+  CU_ASSERT_GT (slave_dom, 0);
   ddsrt_free (master_conf);
   ddsrt_free (slave_conf);
 
@@ -427,7 +427,7 @@ static void rw_test (enum rwud which)
     .which = which
   };
   rc = ddsrt_thread_create (&master_tid, "master_thread", &tattr, rw_thread, &master_arg);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 
   struct rw_thread_arg slave_arg = {
     .domainid = 1,
@@ -437,15 +437,15 @@ static void rw_test (enum rwud which)
     .which = which
   };
   rc = ddsrt_thread_create (&slave_tid, "slave_thread", &tattr, rw_thread, &slave_arg);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 
   ddsrt_thread_join (master_tid, NULL);
   ddsrt_thread_join (slave_tid, NULL);
 
   rc = dds_delete (master_dom);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
   rc = dds_delete (slave_dom);
-  CU_ASSERT_NEQ (rc == 0, 0);
+  CU_ASSERT_EQ (rc, 0);
 }
 
 CU_Test(ddsc_userdata, endpoint)

@@ -437,8 +437,8 @@ CU_Test(ddssec_builtin_validate_remote_identity,happy_day_nil_auth_req )
     DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
 
     /* Check if we actually have validate_local_identity function. */
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
     CU_ASSERT_NEQ (auth->validate_remote_identity != NULL, 0);
     assert (auth->validate_remote_identity != NULL);
@@ -464,9 +464,9 @@ CU_Test(ddssec_builtin_validate_remote_identity,happy_day_nil_auth_req )
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_REQUEST, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_REQUEST);
     if (result == DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_REQUEST) {
-        CU_ASSERT_NEQ (remote_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
+        CU_ASSERT_NEQ (remote_identity_handle, DDS_SECURITY_HANDLE_NIL);
         CU_ASSERT_NEQ (check_auth_request_token(&local_auth_request_token, 1), 0);
     }
 
@@ -498,10 +498,10 @@ CU_Test(ddssec_builtin_validate_remote_identity,happy_day_with_auth_req )
     DDS_Security_boolean success;
 
     /* Check if we actually have validate_local_identity function. */
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (auth, NULL);
     CU_ASSERT_NEQ (auth->validate_remote_identity != NULL, 0);
     assert (auth->validate_remote_identity != 0);
 
@@ -523,8 +523,8 @@ CU_Test(ddssec_builtin_validate_remote_identity,happy_day_with_auth_req )
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE, 0);
-    CU_ASSERT_NEQ (remote_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
+    CU_ASSERT_NEQ (remote_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (check_auth_request_token(&local_auth_request_token, 0), 0);
 
     reset_exception(&exception);
@@ -553,10 +553,10 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_parameters )
     DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
 
     /* Check if we actually have validate_local_identity function. */
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (auth, NULL);
     CU_ASSERT_NEQ (auth->validate_remote_identity != NULL, 0);
     assert (auth->validate_remote_identity != 0);
 
@@ -570,9 +570,9 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_parameters )
     if (result != DDS_SECURITY_VALIDATION_OK) {
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
 
     result = auth->validate_remote_identity(
@@ -581,9 +581,9 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_parameters )
     if (result != DDS_SECURITY_VALIDATION_OK) {
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
 
     result = auth->validate_remote_identity(
@@ -592,9 +592,9 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_parameters )
     if (result != DDS_SECURITY_VALIDATION_OK) {
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
 
     result = auth->validate_remote_identity(
@@ -603,9 +603,9 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_parameters )
     if (result != DDS_SECURITY_VALIDATION_OK) {
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
 
     result = auth->validate_remote_identity(
@@ -614,9 +614,9 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_parameters )
     if (result != DDS_SECURITY_VALIDATION_OK) {
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
 
     DDS_Security_DataHolder_deinit(&remote_auth_request_token);
@@ -635,10 +635,10 @@ CU_Test(ddssec_builtin_validate_remote_identity,unknown_local_identity )
     DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
 
     /* Check if we actually have validate_local_identity function. */
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (auth, NULL);
     CU_ASSERT_NEQ (auth->validate_remote_identity != NULL, 0);
     assert (auth->validate_remote_identity != 0);
 
@@ -660,9 +660,9 @@ CU_Test(ddssec_builtin_validate_remote_identity,unknown_local_identity )
         printf("validate_remote_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
     deinitialize_identity_token(&remote_identity_token);
@@ -681,10 +681,10 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_remote_identity_token )
     DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
 
     /* Check if we actually have validate_local_identity function. */
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (auth, NULL);
     CU_ASSERT_NEQ (auth->validate_remote_identity != NULL, 0);
     assert (auth->validate_remote_identity != 0);
 
@@ -709,9 +709,9 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_remote_identity_token )
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -732,9 +732,9 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_remote_identity_token )
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -755,10 +755,10 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_auth_req_token )
     unsigned char *futureChallenge;
 
     /* Check if we actually have validate_local_identity function. */
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (auth, NULL);
     CU_ASSERT_NEQ (auth->validate_remote_identity != NULL, 0);
     assert (auth->validate_remote_identity != 0);
 
@@ -784,9 +784,9 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_auth_req_token )
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -808,9 +808,9 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_auth_req_token )
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -831,9 +831,9 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_auth_req_token )
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -857,9 +857,9 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_auth_req_token )
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -881,9 +881,9 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_auth_req_token )
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -905,9 +905,9 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_auth_req_token )
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -933,9 +933,9 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_auth_req_token )
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -958,9 +958,9 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_auth_req_token )
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -983,9 +983,9 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_auth_req_token )
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 
@@ -1008,10 +1008,10 @@ CU_Test(ddssec_builtin_validate_remote_identity,already_validated_same_token )
     DDS_Security_boolean success;
 
     /* Check if we actually have validate_local_identity function. */
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ (auth, NULL);
     CU_ASSERT_NEQ (auth->validate_remote_identity != NULL, 0);
     assert (auth->validate_remote_identity != 0);
 
@@ -1033,8 +1033,8 @@ CU_Test(ddssec_builtin_validate_remote_identity,already_validated_same_token )
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE, 0);
-    CU_ASSERT_NEQ (remote_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
+    CU_ASSERT_NEQ (remote_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (check_auth_request_token(&local_auth_request_token, 0), 0);
 
     reset_exception(&exception);
@@ -1053,8 +1053,8 @@ CU_Test(ddssec_builtin_validate_remote_identity,already_validated_same_token )
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE, 0);
-    CU_ASSERT_NEQ (remote_identity_handle == remote_identity_handle2, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
+    CU_ASSERT_EQ (remote_identity_handle, remote_identity_handle2);
     CU_ASSERT_NEQ (check_auth_request_token(&local_auth_request_token, 0), 0);
 
     reset_exception(&exception);
@@ -1087,9 +1087,9 @@ CU_Test(ddssec_builtin_validate_remote_identity,already_validated_different_toke
     DDS_Security_boolean success;
 
     /* Check if we actually have validate_local_identity function. */
-    CU_ASSERT_NEQ (auth != NULL, 0);
+    CU_ASSERT_NEQ (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (auth->validate_remote_identity != NULL, 0);
     assert (auth->validate_remote_identity != 0);
 
@@ -1111,8 +1111,8 @@ CU_Test(ddssec_builtin_validate_remote_identity,already_validated_different_toke
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE, 0);
-    CU_ASSERT_NEQ (remote_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
+    CU_ASSERT_NEQ (remote_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (check_auth_request_token(&local_auth_request_token, 0), 0);
 
     reset_exception(&exception);
@@ -1136,9 +1136,9 @@ CU_Test(ddssec_builtin_validate_remote_identity,already_validated_different_toke
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result == DDS_SECURITY_VALIDATION_FAILED, 0);
-    CU_ASSERT_NEQ (exception.minor_code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_FAILED);
+    CU_ASSERT_NEQ (exception.minor_code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
 
     reset_exception(&exception);
 

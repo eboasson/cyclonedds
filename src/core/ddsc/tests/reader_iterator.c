@@ -119,37 +119,37 @@ reader_iterator_init(void)
     CU_ASSERT_NEQ_FATAL (qos, NULL);
 
     g_participant = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_NEQ (g_participant > 0, 0);
+    CU_ASSERT_GT (g_participant, 0);
 
     g_subscriber = dds_create_subscriber(g_participant, NULL, NULL);
-    CU_ASSERT_NEQ (g_subscriber > 0, 0);
+    CU_ASSERT_GT (g_subscriber, 0);
 
     g_publisher = dds_create_publisher(g_participant, NULL, NULL);
-    CU_ASSERT_NEQ (g_publisher > 0, 0);
+    CU_ASSERT_GT (g_publisher, 0);
 
     g_waitset = dds_create_waitset(g_participant);
-    CU_ASSERT_NEQ (g_waitset > 0, 0);
+    CU_ASSERT_GT (g_waitset, 0);
 
     g_topic = dds_create_topic(g_participant, &Space_Type1_desc, create_unique_topic_name("ddsc_read_iterator_test", name, sizeof name), NULL, NULL);
-    CU_ASSERT_NEQ (g_topic > 0, 0);
+    CU_ASSERT_GT (g_topic, 0);
 
     /* Create a writer that will not automatically dispose unregistered samples. */
     dds_qset_writer_data_lifecycle(qos, false);
     g_writer = dds_create_writer(g_publisher, g_topic, qos, NULL);
-    CU_ASSERT_NEQ (g_writer > 0, 0);
+    CU_ASSERT_GT (g_writer, 0);
 
     /* Create a reader that keeps all samples when not taken. */
     dds_qset_history(qos, DDS_HISTORY_KEEP_ALL, DDS_LENGTH_UNLIMITED);
     g_reader = dds_create_reader(g_subscriber, g_topic, qos, NULL);
-    CU_ASSERT_NEQ (g_reader > 0, 0);
+    CU_ASSERT_GT (g_reader, 0);
 
     /* Create a read condition that only reads old samples. */
     g_rcond = dds_create_readcondition(g_reader, DDS_NOT_READ_SAMPLE_STATE | DDS_NOT_NEW_VIEW_STATE | DDS_ANY_INSTANCE_STATE);
-    CU_ASSERT_NEQ (g_rcond > 0, 0);
+    CU_ASSERT_GT (g_rcond, 0);
 
     /* Create a query condition that only reads of instances mod2. */
     g_qcond = dds_create_querycondition(g_reader, DDS_NOT_READ_SAMPLE_STATE | DDS_ANY_VIEW_STATE | DDS_ANY_INSTANCE_STATE, filter_mod2);
-    CU_ASSERT_NEQ (g_qcond > 0, 0);
+    CU_ASSERT_GT (g_qcond, 0);
 
     /* Sync g_reader to g_writer. */
     ret = dds_set_status_mask(g_reader, DDS_SUBSCRIPTION_MATCHED_STATUS);
@@ -223,10 +223,10 @@ reader_iterator_init(void)
 
         /* Create a query condition that reads the specific sample to get a set of 'read' samples after init. */
         qcond = dds_create_querycondition(g_reader, DDS_ANY_SAMPLE_STATE | DDS_ANY_VIEW_STATE | DDS_ANY_INSTANCE_STATE, filter_init);
-        CU_ASSERT_NEQ (g_qcond > 0, 0);
+        CU_ASSERT_GT (g_qcond, 0);
 
         ret = dds_read(qcond, g_samples, g_info, MAX_SAMPLES, MAX_SAMPLES);
-        CU_ASSERT_NEQ (ret > 0, 0);
+        CU_ASSERT_GT (ret, 0);
 
         dds_delete(qcond);
     }
@@ -289,7 +289,7 @@ samples_cnt(void)
 {
     dds_return_t ret;
     ret = dds_read(g_reader, g_samples, g_info, MAX_SAMPLES, MAX_SAMPLES);
-    CU_ASSERT_NEQ (ret >= 0, 0);
+    CU_ASSERT_GEQ (ret, 0);
     return ret;
 }
 
@@ -306,7 +306,7 @@ CU_Test(ddsc_read_next, reader, .init=reader_iterator_init, .fini=reader_iterato
 
     while (ret == 1){
       ret = dds_read_next(g_reader, g_samples, g_info);
-      CU_ASSERT_NEQ (ret >= 0 , 0);
+      CU_ASSERT_GEQ (ret, 0 );
       if(ret == 1 && g_info[0].valid_data){
         Space_Type1 *sample = (Space_Type1*)g_samples[0];
 
@@ -418,7 +418,7 @@ CU_Test(ddsc_read_next_wl, reader, .init=reader_iterator_init, .fini=reader_iter
 
     while (ret == 1){
       ret = dds_read_next_wl(g_reader, g_loans, g_info);
-      CU_ASSERT_NEQ (ret >= 0 , 0);
+      CU_ASSERT_GEQ (ret, 0 );
       if(ret == 1 && g_info[0].valid_data){
         Space_Type1 *sample = (Space_Type1*)g_loans[0];
 
@@ -534,7 +534,7 @@ CU_Test(ddsc_take_next, reader, .init=reader_iterator_init, .fini=reader_iterato
 
     while (ret == 1){
       ret = dds_take_next(g_reader, g_samples, g_info);
-      CU_ASSERT_NEQ (ret >= 0 , 0);
+      CU_ASSERT_GEQ (ret, 0 );
       if(ret == 1 && g_info[0].valid_data){
         Space_Type1 *sample = (Space_Type1*)g_samples[0];
 
@@ -643,7 +643,7 @@ CU_Test(ddsc_take_next_wl, reader, .init=reader_iterator_init, .fini=reader_iter
 
     while (ret == 1){
       ret = dds_take_next_wl(g_reader, g_loans, g_info);
-      CU_ASSERT_NEQ (ret >= 0, 0);
+      CU_ASSERT_GEQ (ret, 0);
       if(ret == 1 && g_info[0].valid_data){
         Space_Type1 *sample = (Space_Type1*)g_loans[0];
 

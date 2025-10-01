@@ -258,7 +258,7 @@ static void corrupt_permission_signature(DDS_Security_AuthenticatedPeerCredentia
   size_t len;
 
   /* It is expected that the permissions are available in a fixed location. */
-  CU_ASSERT_NEQ (token != NULL, 0);
+  CU_ASSERT_NEQ (token, NULL);
   CU_ASSERT_NEQ (token->properties._buffer != NULL, 0);
   CU_ASSERT_NEQ (token->properties._length == 2, 0);
   CU_ASSERT_NEQ (token->properties._buffer[1].name != NULL, 0);
@@ -267,9 +267,9 @@ static void corrupt_permission_signature(DDS_Security_AuthenticatedPeerCredentia
 
   /* Corrupt a byte somewhere in the signature. */
   permissions = token->properties._buffer[1].value;
-  CU_ASSERT_NEQ (permissions != NULL, 0);
+  CU_ASSERT_NEQ (permissions, NULL);
   len = strlen(permissions);
-  CU_ASSERT_NEQ (len > 100, 0);
+  CU_ASSERT_GT (len, 100);
   permissions[len - 75]--;
 }
 
@@ -360,7 +360,7 @@ static void set_path_to_etc_dir(void)
 static void suite_validate_remote_permissions_init(void)
 {
   plugins = load_plugins(&access_control, &auth, NULL /* Cryptograpy */, NULL);
-  CU_ASSERT_NEQ (plugins != NULL, 0);
+  CU_ASSERT_NEQ (plugins, NULL);
   set_path_to_etc_dir();
   validate_local_identity_and_permissions();
 }
@@ -381,9 +381,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, valid_permissions, .init = s
   int r;
 
   /* Check if we actually have validate_remote_permissions function. */
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
-  CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
+  CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
   CU_ASSERT_NEQ (access_control->validate_remote_permissions != NULL, 0);
   assert(access_control->validate_remote_permissions != 0);
   CU_ASSERT_NEQ (access_control->return_permissions_handle != NULL, 0);
@@ -407,7 +407,7 @@ CU_Test(ddssec_builtin_validate_remote_permissions, valid_permissions, .init = s
   if (result == 0)
     printf("validate_remote_permissions_failed: %s\n", exception.message ? exception.message : "Error message missing");
   reset_exception(&exception);
-  CU_ASSERT_NEQ (result != 0, 0);
+  CU_ASSERT_NEQ (result, 0);
   access_control->return_permissions_handle(access_control, result, &exception);
   reset_exception(&exception);
   DDS_Security_DataHolder_deinit((DDS_Security_DataHolder *)&permissions_token);
@@ -423,9 +423,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_unknown_ca, .ini
   int r;
 
   /* Check if we actually have validate_remote_permissions function. */
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
-  CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
+  CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
   CU_ASSERT_NEQ (access_control->validate_remote_permissions != NULL, 0);
   assert(access_control->validate_remote_permissions != 0);
   CU_ASSERT_NEQ (access_control->return_permissions_handle != NULL, 0);
@@ -451,11 +451,11 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_unknown_ca, .ini
     printf("validate_remote_permissions_failed: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (result == 0, 0);
+  CU_ASSERT_EQ (result, 0);
   if (result == 0)
   {
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
   }
   else
   {
@@ -478,9 +478,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_not_signed, .ini
   int r;
 
   /* Check if we actually have validate_remote_permissions function. */
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
-  CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
+  CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
   CU_ASSERT_NEQ (access_control->validate_remote_permissions != NULL, 0);
   assert(access_control->validate_remote_permissions != 0);
   CU_ASSERT_NEQ (access_control->return_permissions_handle != NULL, 0);
@@ -506,11 +506,11 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_not_signed, .ini
     printf("validate_remote_permissions_failed: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (result == 0, 0);
+  CU_ASSERT_EQ (result, 0);
   if (result == 0)
   {
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
   }
   else
   {
@@ -532,9 +532,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, invalid_credential_token, .i
   DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
 
   /* Check if we actually have validate_remote_permissions function. */
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
-  CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
+  CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
   CU_ASSERT_NEQ (access_control->validate_remote_permissions != NULL, 0);
   assert(access_control->validate_remote_permissions != 0);
   CU_ASSERT_NEQ (access_control->return_permissions_handle != NULL, 0);
@@ -561,11 +561,11 @@ CU_Test(ddssec_builtin_validate_remote_permissions, invalid_credential_token, .i
     printf("validate_remote_permissions_failed: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (result == 0, 0);
+  CU_ASSERT_EQ (result, 0);
   if (result == 0)
   {
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
   }
   else
   {
@@ -592,11 +592,11 @@ CU_Test(ddssec_builtin_validate_remote_permissions, invalid_credential_token, .i
     printf("validate_remote_permissions_failed: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (result == 0, 0);
+  CU_ASSERT_EQ (result, 0);
   if (result == 0)
   {
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
   }
   else
   {
@@ -623,11 +623,11 @@ CU_Test(ddssec_builtin_validate_remote_permissions, invalid_credential_token, .i
     printf("validate_remote_permissions_failed: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (result == 0, 0);
+  CU_ASSERT_EQ (result, 0);
   if (result == 0)
   {
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
   }
   else
   {
@@ -655,11 +655,11 @@ CU_Test(ddssec_builtin_validate_remote_permissions, invalid_credential_token, .i
     printf("validate_remote_permissions_failed: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (result == 0, 0);
+  CU_ASSERT_EQ (result, 0);
   if (result == 0)
   {
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
   }
   else
   {
@@ -686,11 +686,11 @@ CU_Test(ddssec_builtin_validate_remote_permissions, invalid_credential_token, .i
     printf("validate_remote_permissions_failed: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (result == 0, 0);
+  CU_ASSERT_EQ (result, 0);
   if (result == 0)
   {
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
   }
   else
   {
@@ -717,11 +717,11 @@ CU_Test(ddssec_builtin_validate_remote_permissions, invalid_credential_token, .i
     printf("validate_remote_permissions_failed: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (result == 0, 0);
+  CU_ASSERT_EQ (result, 0);
   if (result == 0)
   {
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
   }
   else
   {
@@ -748,11 +748,11 @@ CU_Test(ddssec_builtin_validate_remote_permissions, invalid_credential_token, .i
     printf("validate_remote_permissions_failed: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (result == 0, 0);
+  CU_ASSERT_EQ (result, 0);
   if (result == 0)
   {
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
   }
   else
   {
@@ -779,11 +779,11 @@ CU_Test(ddssec_builtin_validate_remote_permissions, invalid_credential_token, .i
     printf("validate_remote_permissions_failed: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (result == 0, 0);
+  CU_ASSERT_EQ (result, 0);
   if (result == 0)
   {
-    CU_ASSERT_NEQ (exception.code != 0, 0);
-    CU_ASSERT_NEQ (exception.message != NULL, 0);
+    CU_ASSERT_NEQ (exception.code, 0);
+    CU_ASSERT_NEQ (exception.message, NULL);
   }
   else
   {
@@ -806,9 +806,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, invalid_xml, .init = suite_v
   int r;
 
   /* Check if we actually have validate_remote_permissions function. */
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
-  CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
+  CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
   CU_ASSERT_NEQ (access_control->validate_remote_permissions != NULL, 0);
   assert(access_control->validate_remote_permissions != 0);
   CU_ASSERT_NEQ (access_control->return_permissions_handle != NULL, 0);
@@ -830,9 +830,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, invalid_xml, .init = suite_v
       &credential_token,
       &exception);
 
-  CU_ASSERT_NEQ (result == 0, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE, 0);
-  CU_ASSERT_NEQ (exception.message != NULL, 0);
+  CU_ASSERT_EQ (result, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_CAN_NOT_PARSE_PERMISSIONS_CODE);
+  CU_ASSERT_NEQ (exception.message, NULL);
   if (exception.message)
   {
     printf("(%d) %s\n", (int)exception.code, exception.message);
@@ -852,9 +852,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_expired, .init =
   int r;
 
   /* Check if we actually have validate_remote_permissions function. */
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
-  CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
+  CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
   CU_ASSERT_NEQ (access_control->validate_remote_permissions != NULL, 0);
   assert(access_control->validate_remote_permissions != 0);
   CU_ASSERT_NEQ (access_control->return_permissions_handle != NULL, 0);
@@ -875,8 +875,8 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_expired, .init =
       &credential_token,
       &exception);
 
-  CU_ASSERT_NEQ (result == 0, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_VALIDITY_PERIOD_EXPIRED_CODE, 0);
+  CU_ASSERT_EQ (result, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_VALIDITY_PERIOD_EXPIRED_CODE);
   CU_ASSERT_EQ_FATAL (strncmp (DDS_SECURITY_ERR_VALIDITY_PERIOD_EXPIRED_MESSAGE, exception.message, strlen (DDS_SECURITY_ERR_VALIDITY_PERIOD_EXPIRED_MESSAGE) - 16), 0);
   reset_exception(&exception);
 
@@ -893,9 +893,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_not_yet, .init =
   int r;
 
   /* Check if we actually have validate_remote_permissions function. */
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
-  CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
+  CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
   CU_ASSERT_NEQ (access_control->validate_remote_permissions != NULL, 0);
   assert(access_control->validate_remote_permissions != 0);
   CU_ASSERT_NEQ (access_control->return_permissions_handle != NULL, 0);
@@ -916,8 +916,8 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_not_yet, .init =
       &credential_token,
       &exception);
 
-  CU_ASSERT_NEQ (result == 0, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_VALIDITY_PERIOD_NOT_STARTED_CODE, 0);
+  CU_ASSERT_EQ (result, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_VALIDITY_PERIOD_NOT_STARTED_CODE);
   CU_ASSERT_STRNEQ_FATAL(DDS_SECURITY_ERR_VALIDITY_PERIOD_NOT_STARTED_MESSAGE, exception.message);
   reset_exception(&exception);
 
@@ -934,9 +934,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_unknown_subject_
   int r;
 
   /* Check if we actually have validate_remote_permissions function. */
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
-  CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
+  CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
   CU_ASSERT_NEQ (access_control->validate_remote_permissions != NULL, 0);
   assert(access_control->validate_remote_permissions != 0);
   CU_ASSERT_NEQ (access_control->return_permissions_handle != NULL, 0);
@@ -957,8 +957,8 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_unknown_subject_
       &credential_token,
       &exception);
 
-  CU_ASSERT_NEQ (result == 0, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_SUBJECT_NAME_CODE, 0);
+  CU_ASSERT_EQ (result, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_SUBJECT_NAME_CODE);
   CU_ASSERT_STREQ_FATAL (DDS_SECURITY_ERR_INVALID_SUBJECT_NAME_MESSAGE, exception.message);
   reset_exception(&exception);
 
@@ -982,8 +982,8 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_unknown_subject_
       &credential_token,
       &exception);
 
-  CU_ASSERT_NEQ (result == 0, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_SUBJECT_NAME_CODE, 0);
+  CU_ASSERT_EQ (result, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_SUBJECT_NAME_CODE);
   CU_ASSERT_STREQ_FATAL (DDS_SECURITY_ERR_INVALID_SUBJECT_NAME_MESSAGE, exception.message);
   reset_exception(&exception);
 
@@ -1000,9 +1000,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_different_subjec
   int r;
 
   /* Check if we actually have validate_remote_permissions function. */
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
-  CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
+  CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
   CU_ASSERT_NEQ (access_control->validate_remote_permissions != NULL, 0);
   assert(access_control->validate_remote_permissions != 0);
   CU_ASSERT_NEQ (access_control->return_permissions_handle != NULL, 0);
@@ -1023,8 +1023,8 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_different_subjec
       &credential_token,
       &exception);
 
-  CU_ASSERT_NEQ (result != 0, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_OK_CODE, 0);
+  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_OK_CODE);
 
   reset_exception(&exception);
 
@@ -1041,9 +1041,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, corrupted_signature, .init =
   int r;
 
   /* Check if we actually have validate_remote_permissions function. */
-  CU_ASSERT_NEQ (access_control != NULL, 0);
+  CU_ASSERT_NEQ (access_control, NULL);
   assert(access_control != NULL);
-  CU_ASSERT_NEQ (local_identity_handle != DDS_SECURITY_HANDLE_NIL, 0);
+  CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
   CU_ASSERT_NEQ (access_control->validate_remote_permissions != NULL, 0);
   assert(access_control->validate_remote_permissions != 0);
   CU_ASSERT_NEQ (access_control->return_permissions_handle != NULL, 0);
@@ -1067,9 +1067,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, corrupted_signature, .init =
       &credential_token,
       &exception);
 
-  CU_ASSERT_NEQ (result == 0, 0);
-  CU_ASSERT_NEQ (exception.code == DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_CODE, 0);
-  CU_ASSERT_NEQ (exception.message != NULL, 0);
+  CU_ASSERT_EQ (result, 0);
+  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_SMIME_DOCUMENT_CODE);
+  CU_ASSERT_NEQ (exception.message, NULL);
   if (exception.message)
   {
     printf("(%d) %s\n", (int)exception.code, exception.message);

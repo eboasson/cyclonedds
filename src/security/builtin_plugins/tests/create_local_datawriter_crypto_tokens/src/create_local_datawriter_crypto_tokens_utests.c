@@ -347,7 +347,7 @@ CU_Test(ddssec_builtin_create_local_datawriter_crypto_tokens, happy_day, .init =
   DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
   DDS_Security_DatawriterCryptoTokenSeq tokens;
 
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
   CU_ASSERT_NEQ (crypto->crypto_key_exchange != NULL, 0);
   assert(crypto->crypto_key_exchange != NULL);
@@ -370,8 +370,8 @@ CU_Test(ddssec_builtin_create_local_datawriter_crypto_tokens, happy_day, .init =
   }
 
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (exception.code == 0, 0);
-  CU_ASSERT_NEQ (exception.message == NULL, 0);
+  CU_ASSERT_EQ (exception.code, 0);
+  CU_ASSERT_EQ (exception.message, NULL);
 
   reset_exception(&exception);
 
@@ -385,8 +385,8 @@ CU_Test(ddssec_builtin_create_local_datawriter_crypto_tokens, happy_day, .init =
   }
 
   CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_NEQ (exception.code == 0, 0);
-  CU_ASSERT_NEQ (exception.message == NULL, 0);
+  CU_ASSERT_EQ (exception.code, 0);
+  CU_ASSERT_EQ (exception.message, NULL);
 
   reset_exception(&exception);
 }
@@ -398,7 +398,7 @@ CU_Test(ddssec_builtin_create_local_datawriter_crypto_tokens, invalid_args, .ini
   DDS_Security_DatawriterCryptoTokenSeq tokens;
 
   /* Check if we actually have the validate_local_identity() function. */
-  CU_ASSERT_NEQ (crypto != NULL, 0);
+  CU_ASSERT_NEQ (crypto, NULL);
   assert(crypto != NULL);
   CU_ASSERT_NEQ (crypto->crypto_key_exchange != NULL, 0);
   assert(crypto->crypto_key_exchange != NULL);
@@ -421,8 +421,8 @@ CU_Test(ddssec_builtin_create_local_datawriter_crypto_tokens, invalid_args, .ini
   }
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code != 0, 0);
-  CU_ASSERT_NEQ (exception.message != NULL, 0);
+  CU_ASSERT_NEQ (exception.code, 0);
+  CU_ASSERT_NEQ (exception.message, NULL);
 
   reset_exception(&exception);
 
@@ -440,8 +440,8 @@ CU_Test(ddssec_builtin_create_local_datawriter_crypto_tokens, invalid_args, .ini
   }
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code != 0, 0);
-  CU_ASSERT_NEQ (exception.message != NULL, 0);
+  CU_ASSERT_NEQ (exception.code, 0);
+  CU_ASSERT_NEQ (exception.message, NULL);
 
   reset_exception(&exception);
 
@@ -459,8 +459,8 @@ CU_Test(ddssec_builtin_create_local_datawriter_crypto_tokens, invalid_args, .ini
   }
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code != 0, 0);
-  CU_ASSERT_NEQ (exception.message != NULL, 0);
+  CU_ASSERT_NEQ (exception.code, 0);
+  CU_ASSERT_NEQ (exception.message, NULL);
 
   reset_exception(&exception);
 
@@ -478,8 +478,8 @@ CU_Test(ddssec_builtin_create_local_datawriter_crypto_tokens, invalid_args, .ini
   }
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code != 0, 0);
-  CU_ASSERT_NEQ (exception.message != NULL, 0);
+  CU_ASSERT_NEQ (exception.code, 0);
+  CU_ASSERT_NEQ (exception.message, NULL);
 
   reset_exception(&exception);
 
@@ -497,8 +497,8 @@ CU_Test(ddssec_builtin_create_local_datawriter_crypto_tokens, invalid_args, .ini
   }
 
   CU_ASSERT_NEQ (!result, 0);
-  CU_ASSERT_NEQ (exception.code != 0, 0);
-  CU_ASSERT_NEQ (exception.message != NULL, 0);
+  CU_ASSERT_NEQ (exception.code, 0);
+  CU_ASSERT_NEQ (exception.message, NULL);
 
   reset_exception(&exception);
 }

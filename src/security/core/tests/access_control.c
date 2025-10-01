@@ -81,7 +81,7 @@ static void access_control_init(
   bool incl_perm[], const char * perm[],
   bool incl_ca[], const char * ca[])
 {
-  CU_ASSERT_NEQ (n_nodes <= MAX_DOMAINS, 0);
+  CU_ASSERT_LEQ (n_nodes, MAX_DOMAINS);
   for (size_t i = 0; i < n_nodes; i++)
   {
     print_test_msg ("init domain %"PRIuSIZE"\n", i);
@@ -320,11 +320,11 @@ CU_Test(ddssec_access_control, permissions_expiry_multiple, .timeout=20)
   // create 1 reader
   dds_qos_t * rdqos = get_default_test_qos ();
   dds_entity_t sub = dds_create_subscriber (g_participant[0], NULL, NULL);
-  CU_ASSERT_NEQ (sub > 0, 0);
+  CU_ASSERT_GT (sub, 0);
   dds_entity_t sub_tp = dds_create_topic (g_participant[0], &SecurityCoreTests_Type1_desc, topic_name, NULL, NULL);
-  CU_ASSERT_NEQ (sub_tp > 0, 0);
+  CU_ASSERT_GT (sub_tp, 0);
   dds_entity_t rd = dds_create_reader (sub, sub_tp, rdqos, NULL);
-  CU_ASSERT_NEQ (rd > 0, 0);
+  CU_ASSERT_GT (rd, 0);
   dds_set_status_mask (rd, DDS_SUBSCRIPTION_MATCHED_STATUS);
   dds_delete_qos (rdqos);
 
@@ -334,11 +334,11 @@ CU_Test(ddssec_access_control, permissions_expiry_multiple, .timeout=20)
   for (int i = 0; i < N_WR; i++)
   {
     dds_entity_t pub = dds_create_publisher (g_participant[i + 1], NULL, NULL);
-    CU_ASSERT_NEQ (pub > 0, 0);
+    CU_ASSERT_GT (pub, 0);
     dds_entity_t pub_tp = dds_create_topic (g_participant[i + 1], &SecurityCoreTests_Type1_desc, topic_name, NULL, NULL);
-    CU_ASSERT_NEQ (pub_tp > 0, 0);
+    CU_ASSERT_GT (pub_tp, 0);
     wr[i] = dds_create_writer (pub, pub_tp, wrqos, NULL);
-    CU_ASSERT_NEQ (wr[i] > 0, 0);
+    CU_ASSERT_GT (wr[i], 0);
     dds_set_status_mask (wr[i], DDS_PUBLICATION_MATCHED_STATUS);
   }
   dds_delete_qos (wrqos);
@@ -637,7 +637,7 @@ static void test_discovery_liveliness_protection(enum test_discovery_liveliness 
   CU_ASSERT_EQ_FATAL (exp_secure_pub_wr_handle, secure_pub_wr_handle != 0);
 
   struct dds_security_cryptography_impl * crypto_context_pub = get_cryptography_context (g_participant[0]);
-  CU_ASSERT_NEQ (crypto_context_pub != NULL, 0);
+  CU_ASSERT_NEQ (crypto_context_pub, NULL);
 
   struct crypto_encode_decode_data *log = get_encode_decode_log (crypto_context_pub, ENCODE_DATAWRITER_SUBMESSAGE, secure_pub_wr_handle);
   CU_ASSERT_EQ_FATAL (exp_secure_pub_wr_handle && exp_secure_pub_wr_encode_decode, log != NULL);
@@ -889,14 +889,14 @@ CU_Test(ddssec_access_control, denied_topic)
 
   /* Create a topic that is denied in the subscriber pp security config */
   dds_entity_t denied_pub_tp = dds_create_topic (g_participant[0], &SecurityCoreTests_Type1_desc, denied_topic_name, NULL, NULL);
-  CU_ASSERT_NEQ (denied_pub_tp > 0, 0);
+  CU_ASSERT_GT (denied_pub_tp, 0);
   dds_qos_t * qos = get_default_test_qos ();
   dds_entity_t denied_tp_wr = dds_create_writer (pub, denied_pub_tp, qos, NULL);
-  CU_ASSERT_NEQ (denied_tp_wr > 0, 0);
+  CU_ASSERT_GT (denied_tp_wr, 0);
 
   /* Check that creating denied topic for subscriber fails */
   dds_entity_t denied_sub_tp = dds_create_topic (g_participant[1], &SecurityCoreTests_Type1_desc, denied_topic_name, NULL, NULL);
-  CU_ASSERT_NEQ (denied_sub_tp == DDS_RETCODE_NOT_ALLOWED_BY_SECURITY, 0);
+  CU_ASSERT_EQ (denied_sub_tp, DDS_RETCODE_NOT_ALLOWED_BY_SECURITY);
 
   /* Check if communication for allowed topic is still working */
   write_read_for (wr, g_participant[1], rd, DDS_MSECS (10), false, false);
