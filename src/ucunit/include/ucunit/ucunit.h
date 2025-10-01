@@ -30,6 +30,95 @@ extern "C" {
 #define CU_UNREACHABLE ((void)0)
 #endif
 
+#if __STDC__ && __STDC_VERSION__ >= 201100L
+
+#define CU_ASSERT_PRINTF_FORMAT(T_)             \
+  _Generic ((T_),                               \
+    _Bool             : "%d",                   \
+    char              : "%c",                   \
+    signed char       : "%hhd",                 \
+    unsigned char     : "%hhu",                 \
+    short             : "%hd",                  \
+    int               : "%d",                   \
+    long              : "%ld",                  \
+    long long         : "%lld",                 \
+    unsigned short    : "%hu",                  \
+    unsigned int      : "%u",                   \
+    unsigned long     : "%lu",                  \
+    unsigned long long: "%llu",                 \
+    float             : "%f",                   \
+    double            : "%f",                   \
+    long double       : "%Lf",                  \
+    default           : "%p"                    \
+  )
+
+#define CU_PASS(msg) \
+  CU_assertImplementation (true, __LINE__, ("CU_PASS(" #msg ")"), __FILE__, "", false)
+#define CU_FAIL(msg) \
+  CU_assertImplementation (false, __LINE__, ("CU_PASS(" #msg ")"), __FILE__, "", false)
+#define CU_FAIL_FATAL(msg) do { \
+    CU_assertImplementation (false, __LINE__, ("CU_PASS(" #msg ")"), __FILE__, "", true); \
+    CU_UNREACHABLE; \
+  } while (0)
+
+#define CU_ASSERT_OP_MAYBE_FATAL(x_, op_, y_, fatal_) do {              \
+  typeof (x_) xv__ = (x_);                                              \
+  typeof (y_) yv__ = (y_);                                              \
+  const bool fatal__ = (fatal_);                                        \
+  const bool satisfied__ = (xv__) op_ (yv__);                           \
+  if (!satisfied__) {                                                   \
+    char fmt[100];                                                      \
+    snprintf (fmt, sizeof (fmt), "%%s:%%d: not satisfied: %%s (%s) %%s %%s (%s)\n", CU_ASSERT_PRINTF_FORMAT (xv__), CU_ASSERT_PRINTF_FORMAT (yv__)); \
+    fprintf (stderr, fmt, __FILE__, __LINE__, #x_, xv__, #op_, #y_, yv__); \
+    CU_assertImplementation (false, __LINE__, #x_ #op_ #y_, __FILE__, "", fatal__); \
+    if (!satisfied__ && fatal__)                                         \
+      CU_UNREACHABLE;                                                   \
+  } else {                                                              \
+    CU_assertImplementation (true, __LINE__, #x_ #op_ #y_, __FILE__, "", fatal__); \
+  }                                                                     \
+} while(0)
+
+#define CU_ASSERT_STRING_OP_MAYBE_FATAL(x_, op_, y_, fatal_) do {       \
+  const char *xv__ = (const char *) (x_);                               \
+  const char *yv__ = (const char *) (y_);                               \
+  const bool fatal__ = (fatal_);                                        \
+  const bool satisfied__ = strcmp (xv__, yv__) op_ 0;                   \
+  if (!satisfied__) {                                                   \
+    fprintf (stderr, "%s:%d: not satisfied: %s (%s) %s %s (%s)\n", __FILE__, __LINE__, #x_, xv__, #op_, #y_, yv__); \
+    CU_assertImplementation (false, __LINE__, #x_ #op_ #y_, __FILE__, "", fatal_); \
+    if (!satisfied__ && fatal__)                                         \
+      CU_UNREACHABLE;                                                   \
+  } else {                                                              \
+    CU_assertImplementation (true, __LINE__, #x_ #op_ #y_, __FILE__, "", fatal_); \
+  }                                                                     \
+} while(0)
+
+#define CU_ASSERT_EQ(x_, y_) CU_ASSERT_OP_MAYBE_FATAL (x_, ==, y_, false)
+#define CU_ASSERT_EQ_FATAL(x_, y_) CU_ASSERT_OP_MAYBE_FATAL (x_, ==, y_, true)
+
+#define CU_ASSERT_NEQ(x_, y_) CU_ASSERT_OP_MAYBE_FATAL (x_, !=, y_, false)
+#define CU_ASSERT_NEQ_FATAL(x_, y_) CU_ASSERT_OP_MAYBE_FATAL (x_, !=, y_, true)
+
+#define CU_ASSERT_GT(x_, y_) CU_ASSERT_OP_MAYBE_FATAL (x_, >, y_, false)
+#define CU_ASSERT_GT_FATAL(x_, y_) CU_ASSERT_OP_MAYBE_FATAL (x_, >, y_, true)
+
+#define CU_ASSERT_LT(x_, y_) CU_ASSERT_OP_MAYBE_FATAL (x_, <, y_, false)
+#define CU_ASSERT_LT_FATAL(x_, y_) CU_ASSERT_OP_MAYBE_FATAL (x_, <, y_, true)
+
+#define CU_ASSERT_GEQ(x_, y_) CU_ASSERT_OP_MAYBE_FATAL (x_, >=, y_, false)
+#define CU_ASSERT_GEQ_FATAL(x_, y_) CU_ASSERT_OP_MAYBE_FATAL (x_, >=, y_, true)
+
+#define CU_ASSERT_LEQ(x_, y_) CU_ASSERT_OP_MAYBE_FATAL (x_, <=, y_, false)
+#define CU_ASSERT_LEQ_FATAL(x_, y_) CU_ASSERT_OP_MAYBE_FATAL (x_, <=, y_, true)
+
+#define CU_ASSERT_STREQ(x_, y_) CU_ASSERT_STRING_OP_MAYBE_FATAL (x_, ==, y_, false)
+#define CU_ASSERT_STREQ_FATAL(x_, y_) CU_ASSERT_STRING_OP_MAYBE_FATAL (x_, ==, y_, true)
+
+#define CU_ASSERT_STRNEQ(x_, y_) CU_ASSERT_STRING_OP_MAYBE_FATAL (x_, !=, y_, false)
+#define CU_ASSERT_STRNEQ_FATAL(x_, y_) CU_ASSERT_STRING_OP_MAYBE_FATAL (x_, !=, y_, true)
+
+#endif
+
 #define CU_ASSERT_IMPLEMENTATION(value_, line, expr, file, something, fatal_) do { \
   const bool cu_assert_impl_value = (value_); \
   const bool cu_assert_impl_fatal = (fatal_); \
@@ -37,10 +126,6 @@ extern "C" {
   if (!cu_assert_impl_value && cu_assert_impl_fatal) \
     CU_UNREACHABLE; \
 } while (0)
-
-/** Record a pass condition without performing a logical test. */
-#define CU_PASS(msg) \
-  CU_ASSERT_IMPLEMENTATION(true, __LINE__, ("CU_PASS(" #msg ")"), __FILE__, "", false)
 
 /** Simple assertion.
  *  Reports failure with no other action.
@@ -65,14 +150,6 @@ extern "C" {
  */
 #define CU_TEST_FATAL(value) \
   CU_ASSERT_IMPLEMENTATION((value), __LINE__, #value, __FILE__, "", true)
-
-/** Record a failure without performing a logical test. */
-#define CU_FAIL(msg) \
-  CU_ASSERT_IMPLEMENTATION(false, __LINE__, ("CU_FAIL(" #msg ")"), __FILE__, "", false)
-
-/** Record a failure without performing a logical test, and abort test. */
-#define CU_FAIL_FATAL(msg) \
-  CU_ASSERT_IMPLEMENTATION(false, __LINE__, ("CU_FAIL_FATAL(" #msg ")"), __FILE__, "", true)
 
 /** Asserts that value is true.
  *  Reports failure with no other action.
