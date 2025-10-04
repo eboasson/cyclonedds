@@ -190,8 +190,8 @@ CU_Test(ddssec_builtin_register_local_datawriter, happy_day, .init = suite_regis
   CU_ASSERT_NEQ (master_salt_not_empty(writer_crypto->writer_key_material_payload), 0);
   CU_ASSERT_NEQ (master_key_not_empty(writer_crypto->writer_key_material_payload), 0);
 
-  CU_ASSERT_NEQ (writer_crypto->metadata_protectionKind == DDS_SECURITY_PROTECTION_KIND_ENCRYPT, 0);
-  CU_ASSERT_NEQ (writer_crypto->data_protectionKind == DDS_SECURITY_BASICPROTECTION_KIND_ENCRYPT, 0);
+  CU_ASSERT_EQ (writer_crypto->metadata_protectionKind, DDS_SECURITY_PROTECTION_KIND_ENCRYPT);
+  CU_ASSERT_EQ (writer_crypto->data_protectionKind, DDS_SECURITY_BASICPROTECTION_KIND_ENCRYPT);
 
   reset_exception(&exception);
 }

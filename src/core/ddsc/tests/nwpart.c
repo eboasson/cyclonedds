@@ -702,8 +702,8 @@ CU_Theory ((const char *pistr, const char *msmstr), ddsc_nwpart, full_stack_init
   // most of the code, this uses the actual code)
   struct ddsi_config_networkpartition_listelem const * const np = gv->config.networkPartitions;
   struct ddsi_locator const * const nploc = &np->uc_addresses->loc;
-  CU_ASSERT_NEQ (memcmp (gv->interfaces[0].loc.address, nploc->address, sizeof (nploc->address)) == 0, 0);
-  CU_ASSERT_NEQ (memcmp (gv->loc_default_uc.address, nploc->address, sizeof (nploc->address)) == 0, 0);
+  CU_ASSERT_EQ (memcmp (gv->interfaces[0].loc.address, nploc->address, sizeof (nploc->address)), 0);
+  CU_ASSERT_EQ (memcmp (gv->loc_default_uc.address, nploc->address, sizeof (nploc->address)), 0);
   CU_ASSERT_NEQ_FATAL (gv->loc_default_uc.port == nploc->port, 0);
   rc = dds_delete (eh);
   CU_ASSERT_EQ_FATAL (rc, 0);

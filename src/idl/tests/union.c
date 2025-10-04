@@ -71,7 +71,7 @@ CU_Test(idl_union, single_case)
   CU_ASSERT_NEQ_FATAL (idl_is_case(c), 0);
   CU_ASSERT_EQ (idl_parent(c), u);
   CU_ASSERT_NEQ_FATAL (idl_is_case_label(c->labels), 0);
-  CU_ASSERT_NEQ (idl_type(c->type_spec) == IDL_CHAR, 0);
+  CU_ASSERT_EQ (idl_type(c->type_spec), IDL_CHAR);
   CU_ASSERT_NEQ_FATAL (idl_is_declarator(c->declarator), 0);
   CU_ASSERT_STREQ (idl_identifier(c->declarator), "c");
   c = idl_next(c);
@@ -100,7 +100,7 @@ CU_Test(idl_union, single_default_case)
   CU_ASSERT_NEQ_FATAL (idl_is_case(c), 0);
   CU_ASSERT_EQ (idl_parent(c), u);
   CU_ASSERT_NEQ_FATAL (idl_is_default_case(c), 0);
-  CU_ASSERT_NEQ (idl_type(c->type_spec) == IDL_CHAR, 0);
+  CU_ASSERT_EQ (idl_type(c->type_spec), IDL_CHAR);
   CU_ASSERT_NEQ_FATAL (idl_is_declarator(c->declarator), 0);
   CU_ASSERT_STREQ (idl_identifier(c->declarator), "c");
   c = idl_next(c);
@@ -156,7 +156,7 @@ CU_Test(idl_union, enumerator_switch_type)
   CU_ASSERT_NEQ_FATAL (idl_is_union(u), 0);
   c = u->cases;
   CU_ASSERT_NEQ_FATAL (idl_is_case(c), 0);
-  CU_ASSERT_NEQ ((uintptr_t)c->labels->const_expr == (uintptr_t)e->enumerators, 0);
+  CU_ASSERT_EQ ((uintptr_t)c->labels->const_expr, (uintptr_t)e->enumerators);
   idl_delete_pstate(pstate);
 }
 
@@ -322,19 +322,19 @@ CU_Test(idl_union, default_discriminator_bool)
         static const idl_mask_t mask = IDL_DEFAULT_CASE_LABEL;
         CU_ASSERT_EQ (l->value.bln, !tests[i].discriminant);
         CU_ASSERT_NEQ (u->unused_labels, 0);
-        CU_ASSERT_NEQ (idl_mask(u->default_case) == mask, 0);
+        CU_ASSERT_EQ (idl_mask(u->default_case), mask);
         CU_ASSERT_EQ (idl_parent(u->default_case), idl_next(c));
       } else if (tests[i].condition == IMPLICIT_DEFAULT_CASE) {
         static const idl_mask_t mask = IDL_IMPLICIT_DEFAULT_CASE_LABEL;
         CU_ASSERT_EQ (l->value.bln, !tests[i].discriminant);
         CU_ASSERT_NEQ (u->unused_labels, 0);
-        CU_ASSERT_NEQ (idl_mask(u->default_case) == mask, 0);
+        CU_ASSERT_EQ (idl_mask(u->default_case), mask);
         CU_ASSERT_EQ (idl_parent(u->default_case), u);
       } else {
         static const idl_mask_t mask = IDL_CASE_LABEL;
         CU_ASSERT_EQ (l->value.bln, tests[i].discriminant);
         CU_ASSERT_EQ (u->unused_labels, 0);
-        CU_ASSERT_NEQ (idl_mask(u->default_case) == mask, 0);
+        CU_ASSERT_EQ (idl_mask(u->default_case), mask);
         CU_ASSERT_EQ (idl_parent(u->default_case), c);
       }
       l = u->default_case ? u->default_case->const_expr : NULL;
@@ -394,10 +394,10 @@ CU_Test(idl_union, default_discriminator_signed_int)
     CU_ASSERT_EQ_FATAL (idl_type(l), IDL_INT8);
     CU_ASSERT_EQ (l->value.int8, tests[i].label);
     if (tests[i].branch) {
-      CU_ASSERT_NEQ (idl_mask(u->default_case) == IDL_DEFAULT_CASE_LABEL, 0);
+      CU_ASSERT_EQ (idl_mask(u->default_case), IDL_DEFAULT_CASE_LABEL);
       CU_ASSERT_EQ (idl_parent(u->default_case), idl_next(c));
     } else {
-      CU_ASSERT_NEQ (idl_mask(u->default_case) == IDL_IMPLICIT_DEFAULT_CASE_LABEL, 0);
+      CU_ASSERT_EQ (idl_mask(u->default_case), IDL_IMPLICIT_DEFAULT_CASE_LABEL);
       CU_ASSERT_EQ (idl_parent(u->default_case), u);
     }
     CU_ASSERT_NEQ_FATAL (idl_is_literal(u->default_case->const_expr), 0);
@@ -460,10 +460,10 @@ CU_Test(idl_union, default_discriminator_unsigned_int)
     CU_ASSERT_EQ (l->value.uint8, tests[i].label);
     if (tests[i].branch) {
       CU_ASSERT_NEQ (u->default_case && u->default_case->const_expr, 0);
-      CU_ASSERT_NEQ (idl_mask(u->default_case) == IDL_DEFAULT_CASE_LABEL, 0);
+      CU_ASSERT_EQ (idl_mask(u->default_case), IDL_DEFAULT_CASE_LABEL);
       CU_ASSERT_EQ (idl_parent(u->default_case), idl_next(c));
     } else {
-      CU_ASSERT_NEQ (idl_mask(u->default_case) == IDL_IMPLICIT_DEFAULT_CASE_LABEL, 0);
+      CU_ASSERT_EQ (idl_mask(u->default_case), IDL_IMPLICIT_DEFAULT_CASE_LABEL);
       CU_ASSERT_NEQ (u->default_case && u->default_case->const_expr, 0);
       CU_ASSERT_EQ (idl_parent(u->default_case), u);
     }
@@ -566,7 +566,7 @@ CU_Test(idl_union, default_discriminator_enum)
   cl = c->labels;
   CU_ASSERT_NEQ_FATAL (idl_is_case_label(cl), 0);
   CU_ASSERT_EQ (cl->const_expr, e1x);
-  CU_ASSERT_NEQ (idl_mask(u1->default_case) == IDL_CASE_LABEL, 0);
+  CU_ASSERT_EQ (idl_mask(u1->default_case), IDL_CASE_LABEL);
   CU_ASSERT_EQ (u1->default_case, cl);
   idl_delete_pstate(pstate);
 

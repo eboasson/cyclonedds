@@ -474,11 +474,11 @@ static void ddsi_plist_leasedur_new_proxyrd_impl (bool include_lease_duration)
   CU_ASSERT_NEQ_FATAL (prd, NULL);
   CU_ASSERT_NEQ_FATAL (prd->c.xqos->present & DDSI_QP_LIVELINESS, 0);
   if (include_lease_duration) {
-    CU_ASSERT_NEQ (prd->c.xqos->liveliness.kind == DDS_LIVELINESS_MANUAL_BY_PARTICIPANT, 0);
-    CU_ASSERT_NEQ (prd->c.xqos->liveliness.lease_duration == 2041944443, 0);
+    CU_ASSERT_EQ (prd->c.xqos->liveliness.kind, DDS_LIVELINESS_MANUAL_BY_PARTICIPANT);
+    CU_ASSERT_EQ (prd->c.xqos->liveliness.lease_duration, 2041944443);
   } else {
-    CU_ASSERT_NEQ (prd->c.xqos->liveliness.kind == DDS_LIVELINESS_AUTOMATIC, 0);
-    CU_ASSERT_NEQ (prd->c.xqos->liveliness.lease_duration == DDS_INFINITY, 0);
+    CU_ASSERT_EQ (prd->c.xqos->liveliness.kind, DDS_LIVELINESS_AUTOMATIC);
+    CU_ASSERT_EQ (prd->c.xqos->liveliness.lease_duration, DDS_INFINITY);
   }
   ddsi_thread_state_asleep (thrst);
 }

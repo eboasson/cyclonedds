@@ -156,7 +156,7 @@ CU_Test(idl_parser, embedded_module)
   CU_ASSERT_EQ (idl_previous(sm), NULL);
   CU_ASSERT_NEQ_FATAL (idl_next(sm), NULL);
   CU_ASSERT_NEQ_FATAL (idl_is_member(sm), 0);
-  CU_ASSERT_NEQ (idl_type(sm->type_spec) == IDL_LLONG, 0);
+  CU_ASSERT_EQ (idl_type(sm->type_spec), IDL_LLONG);
   CU_ASSERT_NEQ (idl_is_declarator(sm->declarators), 0);
   CU_ASSERT_STREQ (idl_identifier(sm->declarators), "foobar");
   CU_ASSERT_EQ (sm, idl_previous(idl_next(sm)));
@@ -164,7 +164,7 @@ CU_Test(idl_parser, embedded_module)
   CU_ASSERT_EQ (idl_parent(sm), p);
   CU_ASSERT_EQ (idl_next(sm), NULL);
   CU_ASSERT_NEQ_FATAL (idl_is_member(sm), 0);
-  CU_ASSERT_NEQ (idl_type(sm->type_spec) == IDL_LDOUBLE, 0);
+  CU_ASSERT_EQ (idl_type(sm->type_spec), IDL_LDOUBLE);
   CU_ASSERT_NEQ (idl_is_declarator(sm->declarators), 0);
   CU_ASSERT_STREQ (idl_identifier(sm->declarators), "foobaz");
   idl_delete_pstate(pstate);

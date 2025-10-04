@@ -484,9 +484,9 @@ CU_Test (ddsi_plist, locator_lists_accept)
               lcmp = l1; l1 = l1->next;
             }
             CU_ASSERT_NEQ_FATAL (lcmp, NULL);
-            CU_ASSERT_NEQ ((uint32_t) lcmp->loc.kind == pi_kind, 0);
-            CU_ASSERT_NEQ (lcmp->loc.port == pi_port, 0);
-            CU_ASSERT_NEQ (memcmp (lcmp->loc.address, plist_ok + pi + 12, sizeof (lcmp->loc.address)) == 0, 0);
+            CU_ASSERT_EQ ((uint32_t) lcmp->loc.kind, pi_kind);
+            CU_ASSERT_EQ (lcmp->loc.port, pi_port);
+            CU_ASSERT_EQ (memcmp (lcmp->loc.address, plist_ok + pi + 12, sizeof (lcmp->loc.address)), 0);
           }
         }
         CU_ASSERT_EQ (l, NULL);

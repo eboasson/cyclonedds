@@ -180,7 +180,7 @@ CU_Test(ddssec_builtin_register_local_datareader, happy_day, .init = suite_regis
   CU_ASSERT_NEQ_FATAL (reader_crypto->reader_key_material != NULL, 0);
   CU_ASSERT_NEQ (master_salt_not_empty(reader_crypto->reader_key_material), 0);
   CU_ASSERT_NEQ (master_key_not_empty(reader_crypto->reader_key_material), 0);
-  CU_ASSERT_NEQ (reader_crypto->metadata_protectionKind == DDS_SECURITY_PROTECTION_KIND_ENCRYPT, 0);
+  CU_ASSERT_EQ (reader_crypto->metadata_protectionKind, DDS_SECURITY_PROTECTION_KIND_ENCRYPT);
 
   reset_exception(&exception);
 }
@@ -234,8 +234,8 @@ CU_Test(ddssec_builtin_register_local_datareader, builtin_endpoint, .init = suit
   CU_ASSERT_NEQ_FATAL (reader_crypto->reader_key_material != NULL, 0);
   CU_ASSERT_NEQ (master_salt_not_empty(reader_crypto->reader_key_material), 0);
   CU_ASSERT_NEQ (master_key_not_empty(reader_crypto->reader_key_material), 0);
-  CU_ASSERT_NEQ (reader_crypto->metadata_protectionKind == DDS_SECURITY_PROTECTION_KIND_ENCRYPT, 0);
-  CU_ASSERT_NEQ (reader_crypto->is_builtin_participant_volatile_message_secure_reader == false, 0);
+  CU_ASSERT_EQ (reader_crypto->metadata_protectionKind, DDS_SECURITY_PROTECTION_KIND_ENCRYPT);
+  CU_ASSERT_EQ (reader_crypto->is_builtin_participant_volatile_message_secure_reader, false);
 
   DDS_Security_PropertySeq_deinit(&datareader_properties);
   reset_exception(&exception);

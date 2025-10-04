@@ -834,7 +834,7 @@ static void encode_datawriter_submessage_not_signed(DDS_Security_CryptoTransform
   result = check_encoded_data(&encoded_buffer, is_encrypted, &header, &footer, &data);
   CU_ASSERT_NEQ_FATAL (result, 0);
 
-  CU_ASSERT_NEQ (header->transform_identifier.transformation_kind[3] == transformation_kind, 0);
+  CU_ASSERT_EQ (header->transform_identifier.transformation_kind[3], transformation_kind);
 
   session_id = ddsrt_bswap4u(*(uint32_t *)header->session_id);
 
@@ -996,7 +996,7 @@ static void encode_datawriter_submessage_sign(DDS_Security_CryptoTransformKind_E
   result = check_encoded_data(&encoded_buffer, is_encrypted, &header, &footer, &data);
   CU_ASSERT_NEQ_FATAL (result, 0);
 
-  CU_ASSERT_NEQ (header->transform_identifier.transformation_kind[3] == transformation_kind, 0);
+  CU_ASSERT_EQ (header->transform_identifier.transformation_kind[3], transformation_kind);
 
   session_id = ddsrt_bswap4u(*(uint32_t *)header->session_id);
 

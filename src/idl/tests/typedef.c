@@ -52,7 +52,7 @@ CU_Test(idl_typedef, simple_declarator)
   CU_ASSERT_EQ (idl_next(t), NULL);
   CU_ASSERT_EQ (idl_parent(t), NULL);
   CU_ASSERT_NEQ (t->type_spec, NULL);
-  CU_ASSERT_NEQ (idl_type(t->type_spec) == IDL_CHAR, 0);
+  CU_ASSERT_EQ (idl_type(t->type_spec), IDL_CHAR);
   d = t->declarators;
   CU_ASSERT_NEQ_FATAL (d, NULL);
   CU_ASSERT_NEQ_FATAL (idl_is_declarator(d), 0);
@@ -84,7 +84,7 @@ CU_Test(idl_typedef, simple_declarators)
   CU_ASSERT_NEQ_FATAL (idl_is_typedef(t), 0);
   assert(t);
   CU_ASSERT_NEQ (t->type_spec, NULL);
-  CU_ASSERT_NEQ (idl_type(t->type_spec) == IDL_CHAR, 0);
+  CU_ASSERT_EQ (idl_type(t->type_spec), IDL_CHAR);
   d = t->declarators;
   CU_ASSERT_NEQ_FATAL (d, NULL);
   CU_ASSERT_NEQ_FATAL (idl_is_declarator(d), 0);

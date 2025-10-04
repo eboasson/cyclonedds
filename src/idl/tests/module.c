@@ -54,7 +54,7 @@ CU_Test(idl_module, reopen)
   CU_ASSERT_NEQ_FATAL (mem1, NULL);
   assert(mem1);
   CU_ASSERT_EQ ((void *) s1, mem1->node.parent);
-  CU_ASSERT_NEQ ((idl_mask(mem1->type_spec) & IDL_LONG) == IDL_LONG, 0);
+  CU_ASSERT_EQ ((idl_mask(mem1->type_spec) & IDL_LONG), IDL_LONG);
   CU_ASSERT_NEQ (!mem1->key.value, 0);
 
   idl_declarator_t* decl1 = mem1->declarators;
