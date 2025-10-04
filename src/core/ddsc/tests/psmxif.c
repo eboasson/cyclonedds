@@ -315,12 +315,12 @@ static void do_psmxif_shared_memory (const char *dummylib)
     );
     dds_entity_t domain = dds_get_parent(participant);
     dummy_mockstats_t* dmock = is_v0 ? dummy_v0_mockstats_get_ptr() : dummy_mockstats_get_ptr();
-    CU_ASSERT_NEQ_FATAL (dmock->cnt_create_psmx == 1, 0); // Confirm the dummy psmx has been loaded.
+    CU_ASSERT_EQ_FATAL (dmock->cnt_create_psmx, 1); // Confirm the dummy psmx has been loaded.
     {
       // Assert that there is exactly one psmx instance.
       dds_entity* x = NULL;
       CU_ASSERT_NEQ_FATAL (dds_entity_pin(domain, &x) == DDS_RETCODE_OK && dds_entity_kind(x) == DDS_KIND_DOMAIN, 0);
-      CU_ASSERT_NEQ_FATAL (((dds_domain*)x)->psmx_instances.length == psmx_interface_counts[i], 0);
+      CU_ASSERT_EQ_FATAL (((dds_domain*)x)->psmx_instances.length, psmx_interface_counts[i]);
       dds_entity_unpin(x);
     }
 
@@ -355,20 +355,20 @@ static void do_psmxif_shared_memory (const char *dummylib)
     delete_endpoint_expected[delete_endpoint_idx++] = psmx_endpt_expected;
     writer1 = dds_create_writer(participant, topic1, NULL, NULL);
     CU_ASSERT_GT_FATAL (writer1, 0);
-    CU_ASSERT_NEQ_FATAL (dmock->create_endpoint_rcv_topic == psmx_topic_expected, 0);
+    CU_ASSERT_EQ_FATAL (dmock->create_endpoint_rcv_topic, psmx_topic_expected);
     CU_ASSERT_EQ_FATAL (dds_request_loan(writer1, &sample), DDS_RETCODE_OK);
-    CU_ASSERT_NEQ_FATAL (dmock->request_loan_rcv_endpt == psmx_endpt_expected, 0);
+    CU_ASSERT_EQ_FATAL (dmock->request_loan_rcv_endpt, psmx_endpt_expected);
     dmock->write_rcv_loan = NULL;
     dmock->request_loan_rcv_endpt = NULL;
     CU_ASSERT_EQ_FATAL (dds_write(writer1, sample), DDS_RETCODE_OK);
-    CU_ASSERT_NEQ_FATAL (dmock->write_rcv_endpt == psmx_endpt_expected, 0);
-    CU_ASSERT_NEQ_FATAL (dmock->write_rcv_loan == &dmock->loan, 0);
+    CU_ASSERT_EQ_FATAL (dmock->write_rcv_endpt, psmx_endpt_expected);
+    CU_ASSERT_EQ_FATAL (dmock->write_rcv_loan, &dmock->loan);
 
     psmx_endpt_expected = (dds_psmx_endpoint_t*)dmock->endpoints._buffer + dmock->endpoints._length;
     delete_endpoint_expected[delete_endpoint_idx++] = psmx_endpt_expected;
     reader1 = dds_create_reader(participant, topic1, NULL, NULL);
     CU_ASSERT_GT_FATAL (reader1, 0);
-    CU_ASSERT_NEQ_FATAL (dmock->create_endpoint_rcv_topic == psmx_topic_expected, 0);
+    CU_ASSERT_EQ_FATAL (dmock->create_endpoint_rcv_topic, psmx_topic_expected);
 
     create_unique_topic_name("shared_memory", topicname, sizeof(topicname));
     psmx_topic_expected = (dds_psmx_topic_t*)dmock->topics._buffer + dmock->topics._length;
@@ -379,20 +379,20 @@ static void do_psmxif_shared_memory (const char *dummylib)
     delete_endpoint_expected[delete_endpoint_idx++] = psmx_endpt_expected;
     writer2 = dds_create_writer(participant, topic2, NULL, NULL);
     CU_ASSERT_GT_FATAL (writer2, 0);
-    CU_ASSERT_NEQ_FATAL (dmock->create_endpoint_rcv_topic == psmx_topic_expected, 0);
+    CU_ASSERT_EQ_FATAL (dmock->create_endpoint_rcv_topic, psmx_topic_expected);
     CU_ASSERT_EQ_FATAL (dds_request_loan(writer2, &sample), DDS_RETCODE_OK);
-    CU_ASSERT_NEQ_FATAL (dmock->request_loan_rcv_endpt == psmx_endpt_expected, 0);
+    CU_ASSERT_EQ_FATAL (dmock->request_loan_rcv_endpt, psmx_endpt_expected);
     dmock->write_rcv_loan = NULL;
     dmock->request_loan_rcv_endpt = NULL;
     CU_ASSERT_EQ_FATAL (dds_write(writer2, sample), DDS_RETCODE_OK);
-    CU_ASSERT_NEQ_FATAL (dmock->write_rcv_endpt == psmx_endpt_expected, 0);
-    CU_ASSERT_NEQ_FATAL (dmock->write_rcv_loan == &dmock->loan, 0);
+    CU_ASSERT_EQ_FATAL (dmock->write_rcv_endpt, psmx_endpt_expected);
+    CU_ASSERT_EQ_FATAL (dmock->write_rcv_loan, &dmock->loan);
 
     psmx_endpt_expected = (dds_psmx_endpoint_t*)dmock->endpoints._buffer + dmock->endpoints._length;
     delete_endpoint_expected[delete_endpoint_idx++] = psmx_endpt_expected;
     reader2 = dds_create_reader(participant, topic2, NULL, NULL);
     CU_ASSERT_GT_FATAL (reader2, 0);
-    CU_ASSERT_NEQ_FATAL (dmock->create_endpoint_rcv_topic == psmx_topic_expected, 0);
+    CU_ASSERT_EQ_FATAL (dmock->create_endpoint_rcv_topic, psmx_topic_expected);
 
     // Check that shared memory is available when it should, and not available when it shouldn't.
     CU_ASSERT_EQ_FATAL (dds_is_shared_memory_available(writer1), supports_shared_memory_expected);
@@ -403,35 +403,35 @@ static void do_psmxif_shared_memory (const char *dummylib)
     // Check that psmx_endpoint pointers originally from `dummy_psmx_create_endpoint()`, end up in `dummy_psmx_delete_endpoint()`.
     CU_ASSERT_EQ_FATAL (delete_endpoint_idx, endpt_cnt);
     dds_delete(reader2);
-    CU_ASSERT_NEQ_FATAL (dmock->delete_endpoint_rcv_endpt == delete_endpoint_expected[--delete_endpoint_idx], 0);
+    CU_ASSERT_EQ_FATAL (dmock->delete_endpoint_rcv_endpt, delete_endpoint_expected[--delete_endpoint_idx]);
     dds_delete(writer2);
-    CU_ASSERT_NEQ_FATAL (dmock->delete_endpoint_rcv_endpt == delete_endpoint_expected[--delete_endpoint_idx], 0);
+    CU_ASSERT_EQ_FATAL (dmock->delete_endpoint_rcv_endpt, delete_endpoint_expected[--delete_endpoint_idx]);
     dds_delete(reader1);
-    CU_ASSERT_NEQ_FATAL (dmock->delete_endpoint_rcv_endpt == delete_endpoint_expected[--delete_endpoint_idx], 0);
+    CU_ASSERT_EQ_FATAL (dmock->delete_endpoint_rcv_endpt, delete_endpoint_expected[--delete_endpoint_idx]);
     dds_delete(writer1);
-    CU_ASSERT_NEQ_FATAL (dmock->delete_endpoint_rcv_endpt == delete_endpoint_expected[--delete_endpoint_idx], 0);
+    CU_ASSERT_EQ_FATAL (dmock->delete_endpoint_rcv_endpt, delete_endpoint_expected[--delete_endpoint_idx]);
     dds_delete(domain);
 
     // Check number of calls against expected counts.
     dummy_mockstats_tostring(dmock, strbuf, strbuf_size);
     tprintf("ddsc_psmxif_shared_memory calls counts:\n%s\n", strbuf);
 
-    CU_ASSERT_NEQ_FATAL (dmock->cnt_create_psmx == 1, 0);
+    CU_ASSERT_EQ_FATAL (dmock->cnt_create_psmx, 1);
 
-    CU_ASSERT_NEQ_FATAL (dmock->cnt_type_qos_supported == 10, 0);
-    CU_ASSERT_NEQ_FATAL (dmock->cnt_create_topic == 2, 0);
-    CU_ASSERT_NEQ_FATAL (dmock->cnt_delete_topic == 2, 0);
-    CU_ASSERT_NEQ_FATAL (dmock->cnt_deinit == 1, 0);
-    CU_ASSERT_NEQ_FATAL (dmock->cnt_get_node_id == 1, 0);
-    CU_ASSERT_NEQ_FATAL (dmock->cnt_supported_features == 4, 0);
+    CU_ASSERT_EQ_FATAL (dmock->cnt_type_qos_supported, 10);
+    CU_ASSERT_EQ_FATAL (dmock->cnt_create_topic, 2);
+    CU_ASSERT_EQ_FATAL (dmock->cnt_delete_topic, 2);
+    CU_ASSERT_EQ_FATAL (dmock->cnt_deinit, 1);
+    CU_ASSERT_EQ_FATAL (dmock->cnt_get_node_id, 1);
+    CU_ASSERT_EQ_FATAL (dmock->cnt_supported_features, 4);
 
-    CU_ASSERT_NEQ_FATAL (dmock->cnt_create_endpoint == 4, 0);
-    CU_ASSERT_NEQ_FATAL (dmock->cnt_delete_endpoint == 4, 0);
+    CU_ASSERT_EQ_FATAL (dmock->cnt_create_endpoint, 4);
+    CU_ASSERT_EQ_FATAL (dmock->cnt_delete_endpoint, 4);
 
-    CU_ASSERT_NEQ_FATAL (dmock->cnt_request_loan == 2, 0);
-    CU_ASSERT_NEQ_FATAL (dmock->cnt_write == 2, 0);
-    CU_ASSERT_NEQ_FATAL (dmock->cnt_take == 0, 0);
-    CU_ASSERT_NEQ_FATAL (dmock->cnt_on_data_available == 2, 0);
+    CU_ASSERT_EQ_FATAL (dmock->cnt_request_loan, 2);
+    CU_ASSERT_EQ_FATAL (dmock->cnt_write, 2);
+    CU_ASSERT_EQ_FATAL (dmock->cnt_take, 0);
+    CU_ASSERT_EQ_FATAL (dmock->cnt_on_data_available, 2);
   }
 }
 

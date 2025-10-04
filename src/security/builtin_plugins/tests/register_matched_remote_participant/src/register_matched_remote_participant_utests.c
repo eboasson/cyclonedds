@@ -93,8 +93,8 @@ CU_Test(ddssec_builtin_register_remote_participant, happy_day, .init = suite_reg
 
   /* Check if we actually have the validate_local_identity() function. */
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory != NULL, 0);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_participant != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_participant, NULL);
 
   memset(&exception, 0, sizeof(DDS_Security_SecurityException));
   memset(&participant_properties, 0, sizeof(participant_properties));
@@ -176,8 +176,8 @@ CU_Test(ddssec_builtin_register_remote_participant, empty_identity, .init = suit
 
   /* Check if we actually have the validate_local_identity() function. */
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory != NULL, 0);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_participant != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_participant, NULL);
 
   memset(&exception, 0, sizeof(DDS_Security_SecurityException));
   memset(&participant_properties, 0, sizeof(participant_properties));

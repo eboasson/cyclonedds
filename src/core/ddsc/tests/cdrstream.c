@@ -1769,8 +1769,8 @@ static void test_cdr (const struct test_cdr_params *test)
   {
     const bool wok = dds_stream_write_sample (&os, &dds_cdrstream_default_allocator, test->data, &desc);
     CU_ASSERT_NEQ_FATAL (wok, 0);
-    CU_ASSERT_NEQ_FATAL (os.m_index == test->cdrsize, 0);
-    CU_ASSERT_NEQ_FATAL (memcmp (os.m_buffer, test->cdr, test->cdrsize) == 0, 0);
+    CU_ASSERT_EQ_FATAL (os.m_index, test->cdrsize);
+    CU_ASSERT_EQ_FATAL (memcmp (os.m_buffer, test->cdr, test->cdrsize), 0);
   }
   else
   {
@@ -1780,11 +1780,11 @@ static void test_cdr (const struct test_cdr_params *test)
 
   uint32_t act_size;
   const bool nok = dds_stream_normalize (os.m_buffer, test->cdrsize, false, test->xcdr_version, &desc, false, &act_size);
-  CU_ASSERT_NEQ_FATAL (test->xcdr_valid == nok, 0);
+  CU_ASSERT_EQ_FATAL (test->xcdr_valid, nok);
   if (!nok)
     goto done;
-  CU_ASSERT_NEQ_FATAL (act_size == test->cdrsize, 0);
-  CU_ASSERT_NEQ_FATAL (memcmp (os.m_buffer, test->cdr, test->cdrsize) == 0, 0); // nothing should've changed
+  CU_ASSERT_EQ_FATAL (act_size, test->cdrsize);
+  CU_ASSERT_EQ_FATAL (memcmp (os.m_buffer, test->cdr, test->cdrsize), 0); // nothing should've changed
 
   dds_istream_t is;
   if (desc.keys.nkeys > 0)

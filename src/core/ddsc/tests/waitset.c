@@ -410,7 +410,7 @@ CU_Test(ddsc_waitset_attach_detach, combinations, .init=ddsc_waitset_init, .fini
       CU_ASSERT_LT_FATAL (k, count);
       // must not be seen yet, must be expected to be seen
       CU_ASSERT_NEQ_FATAL (!(actset & (1u << k)), 0);
-      CU_ASSERT_NEQ_FATAL ((set & (1u << k)) != 0, 0);
+      CU_ASSERT_NEQ_FATAL ((set & (1u << k)), 0);
       actset |= 1u << k;
     }
 
@@ -737,7 +737,7 @@ static uint32_t waiting_thread (void *a)
   /* This should block until the main test released all claims. */
   ret = dds_waitset_wait (waitset, &triggered, 1, DDS_SECS (1000));
   CU_ASSERT_EQ_FATAL (ret, 1);
-  CU_ASSERT_NEQ_FATAL (arg->expected == (dds_entity_t) (intptr_t) triggered, 0);
+  CU_ASSERT_EQ_FATAL (arg->expected, (dds_entity_t) (intptr_t) triggered);
   ddsrt_atomic_st32 (&arg->state, STOPPED);
   return 0;
 }

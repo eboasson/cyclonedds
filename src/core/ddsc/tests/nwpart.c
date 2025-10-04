@@ -360,7 +360,7 @@ CU_Test (ddsc_nwpart, mapping_multiple)
   m1 = m0->next;
   CU_ASSERT_STREQ_FATAL (m0->networkPartition, "P0");
   CU_ASSERT_STREQ_FATAL (m1->networkPartition, "p2");
-  CU_ASSERT_NEQ_FATAL (m1->next == NULL, 0);
+  CU_ASSERT_EQ_FATAL (m1->next, NULL);
   struct ddsi_config_networkpartition_listelem *p0, *p1, *p2;
   p2 = gv->config.networkPartitions; // this order matches the names
   p1 = p2->next;
@@ -368,10 +368,10 @@ CU_Test (ddsc_nwpart, mapping_multiple)
   CU_ASSERT_STREQ_FATAL (p2->name, "p2");
   CU_ASSERT_STREQ_FATAL (p1->name, "p1");
   CU_ASSERT_STREQ_FATAL (p0->name, "p0");
-  CU_ASSERT_NEQ_FATAL (p0->next == NULL, 0);
+  CU_ASSERT_EQ_FATAL (p0->next, NULL);
   // given that:
-  CU_ASSERT_NEQ_FATAL (m0->partition == p0, 0);
-  CU_ASSERT_NEQ_FATAL (m1->partition == p2, 0);
+  CU_ASSERT_EQ_FATAL (m0->partition, p0);
+  CU_ASSERT_EQ_FATAL (m1->partition, p2);
   dds_delete (eh);
 #endif
 }
@@ -704,7 +704,7 @@ CU_Theory ((const char *pistr, const char *msmstr), ddsc_nwpart, full_stack_init
   struct ddsi_locator const * const nploc = &np->uc_addresses->loc;
   CU_ASSERT_EQ (memcmp (gv->interfaces[0].loc.address, nploc->address, sizeof (nploc->address)), 0);
   CU_ASSERT_EQ (memcmp (gv->loc_default_uc.address, nploc->address, sizeof (nploc->address)), 0);
-  CU_ASSERT_NEQ_FATAL (gv->loc_default_uc.port == nploc->port, 0);
+  CU_ASSERT_EQ_FATAL (gv->loc_default_uc.port, nploc->port);
   rc = dds_delete (eh);
   CU_ASSERT_EQ_FATAL (rc, 0);
 #endif

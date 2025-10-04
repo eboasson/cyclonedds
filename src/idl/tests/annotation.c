@@ -474,7 +474,7 @@ CU_Test(idl_annotation, default_nested)
       s = m->definitions;
       CU_ASSERT_NEQ_FATAL (idl_is_struct(s), 0);
       CU_ASSERT_EQ (!tests[i].n[0].a, !s->nested.annotation);
-      CU_ASSERT_NEQ_FATAL (s->nested.value == tests[i].n[0].v, 0);
+      CU_ASSERT_EQ_FATAL (s->nested.value, tests[i].n[0].v);
       m = idl_next(m);
       CU_ASSERT_NEQ_FATAL (idl_is_module(m), 0);
       CU_ASSERT_EQ (!tests[i].dn[2].a, !m->default_nested.annotation);
@@ -1555,7 +1555,7 @@ CU_Test(idl_annotation, idl_is_string_fix)
   const idl_member_t *_member = _struct->members;
   CU_ASSERT_NEQ_FATAL (idl_is_member(_member), 0);
 
-  CU_ASSERT_NEQ_FATAL (_member->value.annotation != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (_member->value.annotation, NULL);
   CU_ASSERT_NEQ (idl_is_string(_member->value.value), 0);
 
   idl_delete_pstate(pstate);

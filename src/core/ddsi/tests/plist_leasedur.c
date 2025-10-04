@@ -152,8 +152,8 @@ CU_Test (ddsi_plist_leasedur, deser, .init = setup, .fini = teardown)
         CU_ASSERT_EQ_FATAL (plist.qos.aliased, 0);
         if (exp->present)
         {
-          CU_ASSERT_NEQ_FATAL (plist.qos.liveliness.kind == exp->kind, 0);
-          CU_ASSERT_NEQ_FATAL (plist.qos.liveliness.lease_duration == exp->lease_duration, 0);
+          CU_ASSERT_EQ_FATAL (plist.qos.liveliness.kind, exp->kind);
+          CU_ASSERT_EQ_FATAL (plist.qos.liveliness.lease_duration, exp->lease_duration);
         }
         ddsi_plist_fini (&plist);
       }
@@ -339,13 +339,13 @@ static void ddsi_plist_leasedur_new_proxypp_impl (bool include_lease_duration)
   // should exist and have picked up the lease duration from the message
   CU_ASSERT_NEQ_FATAL (proxypp, NULL);
   CU_ASSERT_NEQ_FATAL (proxypp->plist->qos.present & DDSI_QP_LIVELINESS, 0);
-  CU_ASSERT_NEQ_FATAL (proxypp->plist->qos.liveliness.kind == DDS_LIVELINESS_AUTOMATIC, 0);
+  CU_ASSERT_EQ_FATAL (proxypp->plist->qos.liveliness.kind, DDS_LIVELINESS_AUTOMATIC);
   if (include_lease_duration) {
-    CU_ASSERT_NEQ_FATAL (proxypp->plist->qos.liveliness.lease_duration == 3071111111, 0);
+    CU_ASSERT_EQ_FATAL (proxypp->plist->qos.liveliness.lease_duration, 3071111111);
   } else {
-    CU_ASSERT_NEQ_FATAL (proxypp->plist->qos.liveliness.lease_duration == DDS_SECS (100), 0);
+    CU_ASSERT_EQ_FATAL (proxypp->plist->qos.liveliness.lease_duration, DDS_SECS (100));
   }
-  CU_ASSERT_NEQ_FATAL (proxypp->lease->tdur == proxypp->plist->qos.liveliness.lease_duration, 0);
+  CU_ASSERT_EQ_FATAL (proxypp->lease->tdur, proxypp->plist->qos.liveliness.lease_duration);
   ddsi_thread_state_asleep (thrst);
 }
 

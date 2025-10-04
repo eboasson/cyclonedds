@@ -170,8 +170,8 @@ static void check_writer_addrset_helper (const ddsi_xlocator_t *loc, void *varg)
 {
   struct check_writer_addrset_helper_arg * const arg = varg;
   // PSMX locators are not allowed in writer's address set because that causes it to go through the transmit path
-  CU_ASSERT_NEQ_FATAL (loc->c.kind != DDSI_LOCATOR_KIND_PSMX, 0);
-  CU_ASSERT_NEQ_FATAL (loc->c.port != 0, 0);
+  CU_ASSERT_NEQ_FATAL (loc->c.kind, DDSI_LOCATOR_KIND_PSMX);
+  CU_ASSERT_NEQ_FATAL (loc->c.port, 0);
   int i;
   if (arg->tb)
     print (arg->tb, "[%"PRIu32"]", loc->c.port);
@@ -179,7 +179,7 @@ static void check_writer_addrset_helper (const ddsi_xlocator_t *loc, void *varg)
   {
     if (arg->ports[i] == loc->c.port)
     {
-      CU_ASSERT_NEQ_FATAL ((arg->ports_seen & (1u << i)) == 0, 0);
+      CU_ASSERT_EQ_FATAL ((arg->ports_seen & (1u << i)), 0);
       arg->ports_seen |= 1u << i;
       break;
     }

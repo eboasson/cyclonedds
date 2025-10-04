@@ -789,9 +789,9 @@ static void encode_rtps_message_not_authenticated(DDS_Security_CryptoTransformKi
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
   assert(crypto->crypto_transform != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_rtps_message != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_rtps_message, NULL);
   assert(crypto->crypto_transform->encode_rtps_message != 0);
 
   prepare_participant_security_attributes_and_properties(&attributes, &properties, transformation_kind, false);
@@ -927,9 +927,9 @@ static void encode_rtps_message_sign(DDS_Security_CryptoTransformKind_Enum trans
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
   assert(crypto->crypto_transform != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_rtps_message != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_rtps_message, NULL);
   assert(crypto->crypto_transform->encode_rtps_message != 0);
 
   prepare_participant_security_attributes_and_properties(&attributes, &properties, transformation_kind, true);
@@ -1082,8 +1082,8 @@ CU_Test(ddssec_builtin_encode_rtps_message, invalid_args, .init = suite_encode_r
   unsigned i;
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform != NULL, 0);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_rtps_message != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_rtps_message, NULL);
 
   prepare_participant_security_attributes_and_properties(&attributes, &properties, CRYPTO_TRANSFORMATION_KIND_AES256_GCM, true);
 

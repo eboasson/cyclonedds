@@ -567,7 +567,7 @@ static void cdr_basic (struct ops const * const ops)
       CU_ASSERT_STREQ_FATAL (s.value, xs[j].value);
       seen |= (uint32_t)1 << j;
     }
-    CU_ASSERT_NEQ_FATAL (seen == ((uint32_t)1 << (sizeof (xs) / sizeof (xs[0]))) - 1, 0);
+    CU_ASSERT_EQ_FATAL (seen, ((uint32_t)1 << (sizeof (xs) / sizeof (xs[0]))) - 1);
     rc = dds_read_mask (rd, &raw, &si, 1, 1, DDS_NOT_READ_SAMPLE_STATE);
     CU_ASSERT_EQ_FATAL (rc, 0);
     dds_free (s.key);
@@ -600,7 +600,7 @@ static void cdr_basic (struct ops const * const ops)
       CU_ASSERT_STREQ_FATAL (s->value, xs[j].value);
       seen |= (uint32_t)1 << j;
     }
-    CU_ASSERT_NEQ_FATAL (seen == ((uint32_t)1 << (sizeof (xs) / sizeof (xs[0]))) - 1, 0);
+    CU_ASSERT_EQ_FATAL (seen, ((uint32_t)1 << (sizeof (xs) / sizeof (xs[0]))) - 1);
     rc = dds_return_loan (rd, raw, rc);
     CU_ASSERT_EQ_FATAL (rc, 0);
   }
@@ -659,7 +659,7 @@ static void cdr_basic (struct ops const * const ops)
       rc = dds_writecdr (wr, serdata[i]);
       CU_ASSERT_EQ_FATAL (rc, 0);
     }
-    CU_ASSERT_NEQ_FATAL (seen == ((uint32_t)1 << (sizeof (xs) / sizeof (xs[0]))) - 1, 0);
+    CU_ASSERT_EQ_FATAL (seen, ((uint32_t)1 << (sizeof (xs) / sizeof (xs[0]))) - 1);
     rc = dds_wait_for_acks (wr, DDS_SECS (5));
     CU_ASSERT_EQ_FATAL (rc, 0);
   }
@@ -688,7 +688,7 @@ static void cdr_basic (struct ops const * const ops)
       CU_ASSERT_STREQ_FATAL (s->value, xs[j].value);
       seen |= (uint32_t)1 << j;
     }
-    CU_ASSERT_NEQ_FATAL (seen == ((uint32_t)1 << (sizeof (xs) / sizeof (xs[0]))) - 1, 0);
+    CU_ASSERT_EQ_FATAL (seen, ((uint32_t)1 << (sizeof (xs) / sizeof (xs[0]))) - 1);
     rc = dds_return_loan (rd, raw, rc);
     CU_ASSERT_EQ_FATAL (rc, 0);
   }
@@ -988,7 +988,7 @@ CU_Test(ddsc_cdr, forward_conv_serdata)
   CU_ASSERT_EQ_FATAL (rc, 0);
 
   // forwardcdr drops the refcount, but we held on to one
-  CU_ASSERT_NEQ_FATAL (ddsrt_atomic_ld32 (&sd1->refc) == 1, 0);
+  CU_ASSERT_EQ_FATAL (ddsrt_atomic_ld32 (&sd1->refc), 1);
   ddsi_serdata_unref (sd1);
 
   // given that we have a reader, we can take out the sample
@@ -999,8 +999,8 @@ CU_Test(ddsc_cdr, forward_conv_serdata)
   CU_ASSERT_EQ_FATAL (rc, 1);
   CU_ASSERT_NEQ_FATAL (si.valid_data, 0);
   CU_ASSERT_EQ_FATAL (si.instance_state, DDS_ALIVE_INSTANCE_STATE);
-  CU_ASSERT_NEQ_FATAL (ddsrt_atomic_ld32 (&sd0->refc) == 1, 0);
-  CU_ASSERT_NEQ_FATAL (sd0->type == tw.st, 0);
+  CU_ASSERT_EQ_FATAL (ddsrt_atomic_ld32 (&sd0->refc), 1);
+  CU_ASSERT_EQ_FATAL (sd0->type, tw.st);
 
   struct sampletype ys = { 0 };
   bool ok = ddsi_serdata_to_sample (sd0, &ys, NULL, NULL);

@@ -172,7 +172,7 @@ static void checkdata (dds_entity_t rd, const struct exp *exp, const char *heade
   }
   printf ("\n");
   fflush (stdout);
-  CU_ASSERT_NEQ_FATAL (ret == exp->n, 0);
+  CU_ASSERT_EQ_FATAL (ret, exp->n);
   // sort because there's no ordering between instances
   qsort (data, (size_t) ret, sizeof (data[0]), cmpdata);
   for (int k = 0; k < exp->n; k++)

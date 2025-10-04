@@ -551,8 +551,8 @@ static void encode_serialized_payload_check(uint32_t key_size, bool encrypted)
   size_t length;
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform != NULL, 0);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_serialized_payload != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_serialized_payload, NULL);
 
   length = strlen(SAMPLE_TEST_DATA) + 1;
   plain_buffer._length = plain_buffer._maximum = (uint32_t) length;
@@ -657,9 +657,9 @@ CU_Test(ddssec_builtin_encode_serialized_payload, invalid_args, .init = suite_en
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
   assert(crypto->crypto_transform != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_serialized_payload != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_serialized_payload, NULL);
   assert(crypto->crypto_transform->encode_serialized_payload != 0);
 
   writer_crypto = register_local_datawriter(true);

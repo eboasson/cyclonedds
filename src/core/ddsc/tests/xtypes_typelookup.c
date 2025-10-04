@@ -92,15 +92,15 @@ static void get_type (dds_entity_t entity, ddsi_typeid_t **type_id, char **type_
   {
     struct ddsi_generic_proxy_endpoint *gpe = (struct ddsi_generic_proxy_endpoint *)ec;
     CU_ASSERT_NEQ_FATAL (gpe, NULL);
-    CU_ASSERT_NEQ_FATAL (gpe->c.type_pair != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (gpe->c.type_pair, NULL);
     if (kind == DDSI_TYPEID_KIND_COMPLETE)
     {
-      CU_ASSERT_NEQ_FATAL (gpe->c.type_pair->complete != NULL, 0);
+      CU_ASSERT_NEQ_FATAL (gpe->c.type_pair->complete, NULL);
       *type_id = ddsi_typeid_dup (ddsi_type_pair_complete_id (gpe->c.type_pair));
     }
     else
     {
-      CU_ASSERT_NEQ_FATAL (gpe->c.type_pair->minimal != NULL, 0);
+      CU_ASSERT_NEQ_FATAL (gpe->c.type_pair->minimal, NULL);
       *type_id = ddsi_typeid_dup (ddsi_type_pair_minimal_id (gpe->c.type_pair));
     }
     *type_name = ddsrt_strdup (gpe->c.xqos->type_name);
@@ -108,15 +108,15 @@ static void get_type (dds_entity_t entity, ddsi_typeid_t **type_id, char **type_
   else if (ec->kind == DDSI_EK_READER)
   {
     struct ddsi_reader *rd = (struct ddsi_reader *) ec;
-    CU_ASSERT_NEQ_FATAL (rd->c.type_pair != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (rd->c.type_pair, NULL);
     if (kind == DDSI_TYPEID_KIND_COMPLETE)
     {
-      CU_ASSERT_NEQ_FATAL (rd->c.type_pair->complete != NULL, 0);
+      CU_ASSERT_NEQ_FATAL (rd->c.type_pair->complete, NULL);
       *type_id = ddsi_typeid_dup (ddsi_type_pair_complete_id (rd->c.type_pair));
     }
     else
     {
-      CU_ASSERT_NEQ_FATAL (rd->c.type_pair->minimal != NULL, 0);
+      CU_ASSERT_NEQ_FATAL (rd->c.type_pair->minimal, NULL);
       *type_id = ddsi_typeid_dup (ddsi_type_pair_minimal_id (rd->c.type_pair));
     }
     *type_name = ddsrt_strdup (rd->xqos->type_name);
@@ -124,15 +124,15 @@ static void get_type (dds_entity_t entity, ddsi_typeid_t **type_id, char **type_
   else if (ec->kind == DDSI_EK_WRITER)
   {
     struct ddsi_writer *wr = (struct ddsi_writer *) ec;
-    CU_ASSERT_NEQ_FATAL (wr->c.type_pair != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (wr->c.type_pair, NULL);
     if (kind == DDSI_TYPEID_KIND_COMPLETE)
     {
-      CU_ASSERT_NEQ_FATAL (wr->c.type_pair->complete != NULL, 0);
+      CU_ASSERT_NEQ_FATAL (wr->c.type_pair->complete, NULL);
       *type_id = ddsi_typeid_dup (ddsi_type_pair_complete_id (wr->c.type_pair));
     }
     else
     {
-      CU_ASSERT_NEQ_FATAL (wr->c.type_pair->minimal != NULL, 0);
+      CU_ASSERT_NEQ_FATAL (wr->c.type_pair->minimal, NULL);
       *type_id = ddsi_typeid_dup (ddsi_type_pair_minimal_id (wr->c.type_pair));
     }
     *type_name = ddsrt_strdup (wr->xqos->type_name);

@@ -203,9 +203,9 @@ CU_Test(ddssec_builtin_set_remote_participant_crypto_tokens, happy_day, .init = 
   /* Check if we actually have the validate_local_identity() function. */
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange, NULL);
   assert(crypto->crypto_key_exchange != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange->set_remote_participant_crypto_tokens != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange->set_remote_participant_crypto_tokens, NULL);
   assert(crypto->crypto_key_exchange->set_remote_participant_crypto_tokens != 0);
 
   memset(&exception, 0, sizeof(DDS_Security_SecurityException));
@@ -237,9 +237,9 @@ CU_Test(ddssec_builtin_set_remote_participant_crypto_tokens, invalid_args, .init
   /* Check if we actually have the validate_local_identity() function. */
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange, NULL);
   assert(crypto->crypto_key_exchange != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange->create_local_participant_crypto_tokens != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange->create_local_participant_crypto_tokens, NULL);
   assert(crypto->crypto_key_exchange->create_local_participant_crypto_tokens != 0);
 
   memset(&exception, 0, sizeof(DDS_Security_SecurityException));
@@ -334,9 +334,9 @@ CU_Test(ddssec_builtin_set_remote_participant_crypto_tokens, invalid_tokens, .in
   /* Check if we actually have the validate_local_identity() function. */
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange, NULL);
   assert(crypto->crypto_key_exchange != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange->create_local_participant_crypto_tokens != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange->create_local_participant_crypto_tokens, NULL);
   assert(crypto->crypto_key_exchange->create_local_participant_crypto_tokens != 0);
 
   memset(&exception, 0, sizeof(DDS_Security_SecurityException));

@@ -75,9 +75,9 @@ CU_Test(ddssec_builtin_register_local_participant, happy_day, .init = suite_regi
   /* Check if we actually have the validate_local_identity() function. */
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory, NULL);
   assert(crypto->crypto_key_factory != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_participant != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_participant, NULL);
   assert(crypto->crypto_key_factory->register_local_participant != 0);
 
   memset(&exception, 0, sizeof(DDS_Security_SecurityException));
@@ -125,9 +125,9 @@ CU_Test(ddssec_builtin_register_local_participant, empty_identity, .init = suite
   /* Check if we actually have the validate_local_identity() function. */
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory, NULL);
   assert(crypto->crypto_key_factory != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_participant != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_participant, NULL);
   assert(crypto->crypto_key_factory->register_local_participant != 0);
 
   memset(&exception, 0, sizeof(DDS_Security_SecurityException));

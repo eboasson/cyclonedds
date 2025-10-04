@@ -149,7 +149,7 @@ CU_Theory ((enum ddsi_transport_selector tr, int32_t loc_kind), ddsi_locator_fro
       exp = AFSR_UNKNOWN;
     else
     {
-      CU_ASSERT_NEQ_FATAL (hent->addrs[0].ss_family == AF_INET, 0);
+      CU_ASSERT_EQ_FATAL (hent->addrs[0].ss_family, AF_INET);
       memcpy (&localhost, &hent->addrs[0], sizeof (localhost));
       ddsrt_free (hent);
       exp = AFSR_OK;
@@ -329,7 +329,7 @@ CU_Theory ((enum ddsi_transport_selector tr, int32_t loc_kind), ddsi_locator_fro
       exp = AFSR_UNKNOWN;
     else
     {
-      CU_ASSERT_NEQ_FATAL (hent->addrs[0].ss_family == AF_INET6, 0);
+      CU_ASSERT_EQ_FATAL (hent->addrs[0].ss_family, AF_INET6);
       memcpy (&localhost, &hent->addrs[0], sizeof (localhost));
       ddsrt_free (hent);
       exp = AFSR_OK;

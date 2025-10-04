@@ -1130,8 +1130,8 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_request )
     CU_ASSERT_NEQ_FATAL (g_auth, NULL);
     CU_ASSERT_NEQ_FATAL (g_local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (g_remote_identity_handle, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (g_auth->begin_handshake_request != NULL, 0);
-    CU_ASSERT_NEQ_FATAL (g_auth->process_handshake != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (g_auth->begin_handshake_request, NULL);
+    CU_ASSERT_NEQ_FATAL (g_auth->process_handshake, NULL);
 
     /* simulate request */
     result = g_auth->begin_handshake_request(
@@ -1195,13 +1195,13 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_request )
 
     c_id = find_property(&credential_token, DDS_AUTHTOKEN_PROP_C_ID);
     CU_ASSERT_NEQ_FATAL (c_id, NULL);
-    CU_ASSERT_NEQ_FATAL (c_id->value != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (c_id->value, NULL);
     //printf("c_id->value: %s\n", c_id->value);
     CU_ASSERT_STREQ (c_id->value, REMOTE_IDENTITY_CERTIFICATE);
 
     c_perm = find_property(&credential_token, DDS_AUTHTOKEN_PROP_C_PERM);
     CU_ASSERT_NEQ_FATAL (c_perm, NULL);
-    CU_ASSERT_NEQ_FATAL (c_perm->value != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (c_perm->value, NULL);
     //printf("c_perm->value: %s\n", c_perm->value);
     CU_ASSERT_STREQ (c_perm->value, PERMISSIONS_DOCUMENT);
 
@@ -1243,12 +1243,12 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_reply )
     const DDS_Security_Property_t *c_perm;
     struct octet_seq dh2_pub_key;
 
-    CU_ASSERT_NEQ_FATAL (g_auth->process_handshake != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (g_auth->process_handshake, NULL);
 
     CU_ASSERT_NEQ_FATAL (g_auth, NULL);
     CU_ASSERT_NEQ_FATAL (g_local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (g_remote_identity_handle, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (g_auth->begin_handshake_reply != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (g_auth->begin_handshake_reply, NULL);
 
     /* simulate reply */
     fill_handshake_message_token_default(
@@ -1320,13 +1320,13 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_reply )
 
     c_id = find_property(&credential_token, DDS_AUTHTOKEN_PROP_C_ID);
     CU_ASSERT_NEQ_FATAL (c_id, NULL);
-    CU_ASSERT_NEQ_FATAL (c_id->value != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (c_id->value, NULL);
     //printf("c_id->value: %s\n", c_id->value);
     CU_ASSERT_STREQ (c_id->value, REMOTE_IDENTITY_CERTIFICATE);
 
     c_perm = find_property(&credential_token, DDS_AUTHTOKEN_PROP_C_PERM);
     CU_ASSERT_NEQ_FATAL (c_perm, NULL);
-    CU_ASSERT_NEQ_FATAL (c_perm->value != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (c_perm->value, NULL);
     //printf("c_perm->value: %s\n", c_perm->value);
     CU_ASSERT_STREQ (c_perm->value, PERMISSIONS_DOCUMENT);
 

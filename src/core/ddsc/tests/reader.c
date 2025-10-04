@@ -335,7 +335,7 @@ CU_Test(ddsc_reader_create, topic_lifespan)
   struct dds_entity *x;
   rc = dds_entity_pin (rd, &x);
   CU_ASSERT_EQ_FATAL (rc, 0);
-  CU_ASSERT_NEQ_FATAL (x->m_qos != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (x->m_qos, NULL);
   CU_ASSERT_NEQ (!dds_qget_lifespan (x->m_qos, NULL), 0);
   dds_entity_unpin (x);
   rc = dds_delete (pp);

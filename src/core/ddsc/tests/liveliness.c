@@ -166,7 +166,7 @@ static void test_pmd_count(dds_liveliness_kind_t kind, uint32_t ldur, double mul
     CU_ASSERT_NEQ_FATAL ((sub_topic = dds_create_topic(g_sub_participant, &Space_Type1_desc, name, NULL, NULL)) > 0, 0);
 
   /* reader */
-  CU_ASSERT_NEQ_FATAL ((rqos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ_FATAL ((rqos = dds_create_qos()), NULL);
   dds_qset_liveliness(rqos, DDS_LIVELINESS_AUTOMATIC, DDS_INFINITY);
   CU_ASSERT_NEQ_FATAL ((reader = dds_create_reader(remote_reader ? g_sub_participant : g_pub_participant, remote_reader ? sub_topic : pub_topic, rqos, NULL)) > 0, 0);
   dds_delete_qos(rqos);
@@ -177,7 +177,7 @@ static void test_pmd_count(dds_liveliness_kind_t kind, uint32_t ldur, double mul
   CU_ASSERT_EQ_FATAL (dds_waitset_attach(waitset, reader, reader), DDS_RETCODE_OK);
 
   /* writer */
-  CU_ASSERT_NEQ_FATAL ((wqos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ_FATAL ((wqos = dds_create_qos()), NULL);
   dds_qset_liveliness(wqos, kind, DDS_MSECS(ldur));
   CU_ASSERT_NEQ_FATAL ((writer = dds_create_writer(g_pub_participant, pub_topic, wqos, NULL)) > 0, 0);
   dds_delete_qos(wqos);
@@ -255,18 +255,18 @@ static void test_expire_liveliness_kinds(uint32_t ldur, double mult, uint32_t wr
       CU_ASSERT_NEQ_FATAL ((sub_topic = dds_create_topic(g_sub_participant, &Space_Type1_desc, name, NULL, NULL)) > 0, 0);
 
     /* reader */
-    CU_ASSERT_NEQ_FATAL ((rqos = dds_create_qos()) != NULL, 0);
+    CU_ASSERT_NEQ_FATAL ((rqos = dds_create_qos()), NULL);
     dds_qset_liveliness(rqos, DDS_LIVELINESS_AUTOMATIC, DDS_INFINITY);
     CU_ASSERT_NEQ_FATAL ((reader = dds_create_reader(remote_reader ? g_sub_participant : g_pub_participant, remote_reader ? sub_topic : pub_topic, rqos, NULL)) > 0, 0);
     dds_delete_qos(rqos);
     CU_ASSERT_EQ_FATAL (dds_set_status_mask(reader, DDS_LIVELINESS_CHANGED_STATUS), DDS_RETCODE_OK);
 
     /* writers */
-    CU_ASSERT_NEQ_FATAL ((wqos_auto = dds_create_qos()) != NULL, 0);
+    CU_ASSERT_NEQ_FATAL ((wqos_auto = dds_create_qos()), NULL);
     dds_qset_liveliness(wqos_auto, DDS_LIVELINESS_AUTOMATIC, DDS_MSECS(ldur));
-    CU_ASSERT_NEQ_FATAL ((wqos_man_pp = dds_create_qos()) != NULL, 0);
+    CU_ASSERT_NEQ_FATAL ((wqos_man_pp = dds_create_qos()), NULL);
     dds_qset_liveliness(wqos_man_pp, DDS_LIVELINESS_MANUAL_BY_PARTICIPANT, DDS_MSECS(ldur));
-    CU_ASSERT_NEQ_FATAL ((wqos_man_tp = dds_create_qos()) != NULL, 0);
+    CU_ASSERT_NEQ_FATAL ((wqos_man_tp = dds_create_qos()), NULL);
     dds_qset_liveliness(wqos_man_tp, DDS_LIVELINESS_MANUAL_BY_TOPIC, DDS_MSECS(ldur));
 
     CU_ASSERT_NEQ_FATAL ((waitset = dds_create_waitset(remote_reader ? g_sub_participant : g_pub_participant)) > 0, 0);
@@ -303,7 +303,7 @@ static void test_expire_liveliness_kinds(uint32_t ldur, double mult, uint32_t wr
       do
       {
         dds_duration_t w = tstop - dds_time();
-        CU_ASSERT_NEQ_FATAL ((dds_waitset_wait(waitset, &triggered, 1, w > 0 ? w : 0)) >= 0, 0);
+        CU_ASSERT_GEQ_FATAL ((dds_waitset_wait(waitset, &triggered, 1, w > 0 ? w : 0)), 0);
         CU_ASSERT_EQ_FATAL (dds_get_liveliness_changed_status(reader, &lstatus), DDS_RETCODE_OK);
         stopped += (uint32_t)lstatus.not_alive_count_change;
       } while (dds_time() < tstop);
@@ -370,7 +370,7 @@ static void add_and_check_writer(dds_liveliness_kind_t kind, dds_duration_t ldur
   CU_ASSERT_NEQ_FATAL ((waitset = dds_create_waitset(remote_reader ? g_sub_participant : g_pub_participant)) > 0, 0);
   CU_ASSERT_EQ_FATAL (dds_waitset_attach(waitset, reader, reader), DDS_RETCODE_OK);
 
-  CU_ASSERT_NEQ_FATAL ((wqos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ_FATAL ((wqos = dds_create_qos()), NULL);
   dds_qset_liveliness(wqos, kind, ldur);
   CU_ASSERT_NEQ_FATAL ((*writer = dds_create_writer(g_pub_participant, topic, wqos, NULL)) > 0, 0);
   dds_delete_qos(wqos);
@@ -405,7 +405,7 @@ CU_Test(ddsc_liveliness, lease_duration, .init = liveliness_init, .fini = liveli
   CU_ASSERT_NEQ_FATAL ((sub_topic = dds_create_topic(g_sub_participant, &Space_Type1_desc, name, NULL, NULL)) > 0, 0);
 
   /* reader and waitset */
-  CU_ASSERT_NEQ_FATAL ((rqos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ_FATAL ((rqos = dds_create_qos()), NULL);
   dds_qset_liveliness(rqos, DDS_LIVELINESS_AUTOMATIC, DDS_INFINITY);
   CU_ASSERT_NEQ_FATAL ((reader = dds_create_reader(g_sub_participant, sub_topic, rqos, NULL)) > 0, 0);
   dds_delete_qos(rqos);
@@ -467,7 +467,7 @@ static void test_lease_duration_pwr(bool remote_reader)
     CU_ASSERT_NEQ_FATAL ((sub_topic = dds_create_topic(g_sub_participant, &Space_Type1_desc, name, NULL, NULL)) > 0, 0);
 
   /* reader */
-  CU_ASSERT_NEQ_FATAL ((rqos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ_FATAL ((rqos = dds_create_qos()), NULL);
   dds_qset_liveliness(rqos, DDS_LIVELINESS_AUTOMATIC, DDS_INFINITY);
   CU_ASSERT_NEQ_FATAL ((reader = dds_create_reader(remote_reader ? g_sub_participant : g_pub_participant, remote_reader ? sub_topic : pub_topic, rqos, NULL)) > 0, 0);
   dds_delete_qos(rqos);
@@ -475,7 +475,7 @@ static void test_lease_duration_pwr(bool remote_reader)
 
   /* writer */
   ldur = 1000;
-  CU_ASSERT_NEQ_FATAL ((wqos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ_FATAL ((wqos = dds_create_qos()), NULL);
   dds_qset_liveliness(wqos, DDS_LIVELINESS_AUTOMATIC, DDS_MSECS(ldur));
   CU_ASSERT_NEQ_FATAL ((writer = dds_create_writer(g_pub_participant, pub_topic, wqos, NULL)) > 0, 0);
 
@@ -545,7 +545,7 @@ static void test_create_delete_writer_stress(bool remote_reader)
     CU_ASSERT_NEQ_FATAL ((sub_topic = dds_create_topic(g_sub_participant, &Space_Type1_desc, name, NULL, NULL)) > 0, 0);
 
   /* reader and waitset */
-  CU_ASSERT_NEQ_FATAL ((rqos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ_FATAL ((rqos = dds_create_qos()), NULL);
   dds_qset_liveliness(rqos, DDS_LIVELINESS_AUTOMATIC, DDS_INFINITY);
   CU_ASSERT_NEQ_FATAL ((reader = dds_create_reader(remote_reader ? g_sub_participant : g_pub_participant, remote_reader ? sub_topic : pub_topic, rqos, NULL)) > 0, 0);
   dds_delete_qos(rqos);
@@ -554,7 +554,7 @@ static void test_create_delete_writer_stress(bool remote_reader)
   CU_ASSERT_EQ_FATAL (dds_waitset_attach(waitset, reader, reader), DDS_RETCODE_OK);
 
   /* create 1st writer and wait for it to become alive */
-  CU_ASSERT_NEQ_FATAL ((wqos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ_FATAL ((wqos = dds_create_qos()), NULL);
   dds_qset_liveliness(wqos, DDS_LIVELINESS_MANUAL_BY_PARTICIPANT, DDS_MSECS(ldur));
   CU_ASSERT_NEQ_FATAL ((writers[0] = dds_create_writer(g_pub_participant, pub_topic, wqos, NULL)) > 0, 0);
   CU_ASSERT_EQ_FATAL (dds_waitset_wait(waitset, &triggered, 1, DDS_MSECS(1000)), 1);
@@ -648,7 +648,7 @@ static void test_status_counts(bool remote_reader)
     CU_ASSERT_NEQ_FATAL ((sub_topic = dds_create_topic(g_sub_participant, &Space_Type1_desc, name, NULL, NULL)) > 0, 0);
 
   /* reader */
-  CU_ASSERT_NEQ_FATAL ((rqos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ_FATAL ((rqos = dds_create_qos()), NULL);
   dds_qset_liveliness(rqos, DDS_LIVELINESS_AUTOMATIC, DDS_INFINITY);
   CU_ASSERT_NEQ_FATAL ((reader = dds_create_reader(remote_reader ? g_sub_participant : g_pub_participant, remote_reader ? sub_topic : pub_topic, rqos, NULL)) > 0, 0);
   dds_delete_qos(rqos);
@@ -657,7 +657,7 @@ static void test_status_counts(bool remote_reader)
   CU_ASSERT_EQ_FATAL (dds_waitset_attach(waitset, reader, reader), DDS_RETCODE_OK);
 
   /* writer */
-  CU_ASSERT_NEQ_FATAL ((wqos = dds_create_qos()) != NULL, 0);
+  CU_ASSERT_NEQ_FATAL ((wqos = dds_create_qos()), NULL);
   dds_qset_liveliness(wqos, DDS_LIVELINESS_MANUAL_BY_PARTICIPANT, ldur);
   CU_ASSERT_NEQ_FATAL ((writer = dds_create_writer(g_pub_participant, pub_topic, wqos, NULL)) > 0, 0);
   dds_delete_qos(wqos);
@@ -748,7 +748,7 @@ static void test_assert_liveliness(uint32_t wr_cnt_auto, uint32_t wr_cnt_man_pp,
       CU_ASSERT_NEQ_FATAL ((sub_topic = dds_create_topic(g_sub_participant, &Space_Type1_desc, name, NULL, NULL)) > 0, 0);
 
     /* reader */
-    CU_ASSERT_NEQ_FATAL ((rqos = dds_create_qos()) != NULL, 0);
+    CU_ASSERT_NEQ_FATAL ((rqos = dds_create_qos()), NULL);
     dds_qset_liveliness(rqos, DDS_LIVELINESS_AUTOMATIC, DDS_INFINITY);
     CU_ASSERT_NEQ_FATAL ((reader = dds_create_reader(remote_reader ? g_sub_participant : g_pub_participant, remote_reader ? sub_topic : pub_topic, rqos, NULL)) > 0, 0);
     dds_delete_qos(rqos);
@@ -1052,7 +1052,7 @@ static void wait_for_notalive (dds_entity_t reader, struct liveliness_changed_st
   ddsrt_mutex_lock (&listener_state->lock);
   tprintf("early w0 %"PRIx64" alive %"PRIu32" not-alive %"PRIu32"\n", listener_state->w0_handle, listener_state->w0_alive, listener_state->w0_not_alive);
   CU_ASSERT_NEQ_FATAL (!listener_state->weirdness, 0);
-  CU_ASSERT_NEQ_FATAL (listener_state->w0_handle != 0, 0);
+  CU_ASSERT_NEQ_FATAL (listener_state->w0_handle, 0);
   while (listener_state->w0_not_alive < listener_state->w0_alive && retries-- > 0)
   {
     ddsrt_mutex_unlock(&listener_state->lock);
@@ -1064,7 +1064,7 @@ static void wait_for_notalive (dds_entity_t reader, struct liveliness_changed_st
 
   tprintf("late liveliness changed status: alive %"PRIu32" not-alive %"PRIu32"\n", lstatus.alive_count, lstatus.not_alive_count);
   tprintf("final w0 %"PRIx64" alive %"PRIu32" not-alive %"PRIu32"\n", listener_state->w0_handle, listener_state->w0_alive, listener_state->w0_not_alive);
-  CU_ASSERT_NEQ_FATAL (listener_state->w0_alive == listener_state->w0_not_alive, 0);
+  CU_ASSERT_EQ_FATAL (listener_state->w0_alive, listener_state->w0_not_alive);
   ddsrt_mutex_unlock(&listener_state->lock);
 }
 

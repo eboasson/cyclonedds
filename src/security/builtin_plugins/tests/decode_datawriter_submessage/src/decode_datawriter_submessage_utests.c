@@ -505,11 +505,11 @@ static void decode_datawriter_submessage_not_signed(DDS_Security_CryptoTransform
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
   assert(crypto->crypto_transform != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_datawriter_submessage != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_datawriter_submessage, NULL);
   assert(crypto->crypto_transform->encode_datawriter_submessage != 0);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->decode_datawriter_submessage != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->decode_datawriter_submessage, NULL);
   assert(crypto->crypto_transform->decode_datawriter_submessage != 0);
 
   prepare_endpoint_security_attributes_and_properties(&datareader_security_attributes, &datareader_properties, transformation_kind, false);
@@ -642,11 +642,11 @@ static void decode_datawriter_submessage_signed(DDS_Security_CryptoTransformKind
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
   assert(crypto->crypto_transform != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_datawriter_submessage != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_datawriter_submessage, NULL);
   assert(crypto->crypto_transform->encode_datawriter_submessage != 0);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->decode_datawriter_submessage != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->decode_datawriter_submessage, NULL);
   assert(crypto->crypto_transform->decode_datawriter_submessage != 0);
 
   prepare_endpoint_security_attributes_and_properties(&datareader_security_attributes, &datareader_properties, transformation_kind, true);
@@ -811,11 +811,11 @@ CU_Test(ddssec_builtin_decode_datawriter_submessage, invalid_args, .init = suite
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
   assert(crypto->crypto_transform != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_datawriter_submessage != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_datawriter_submessage, NULL);
   assert(crypto->crypto_transform->encode_datawriter_submessage != 0);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->decode_datawriter_submessage != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->decode_datawriter_submessage, NULL);
   assert(crypto->crypto_transform->decode_datawriter_submessage != 0);
 
   prepare_endpoint_security_attributes_and_properties(&datareader_security_attributes, &datareader_properties, CRYPTO_TRANSFORMATION_KIND_AES256_GCM, true);
@@ -984,11 +984,11 @@ CU_Test(ddssec_builtin_decode_datawriter_submessage, invalid_data, .init = suite
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
   assert(crypto->crypto_transform != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_datawriter_submessage != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_datawriter_submessage, NULL);
   assert(crypto->crypto_transform->encode_datawriter_submessage != 0);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->decode_datawriter_submessage != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->decode_datawriter_submessage, NULL);
   assert(crypto->crypto_transform->decode_datawriter_submessage != 0);
 
   prepare_endpoint_security_attributes_and_properties(&datareader_security_attributes, &datareader_properties, CRYPTO_TRANSFORMATION_KIND_AES256_GCM, true);
@@ -1580,11 +1580,11 @@ CU_Test(ddssec_builtin_decode_datawriter_submessage, volatile_sec, .init = suite
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
   assert(crypto->crypto_transform != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_datawriter_submessage != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_datawriter_submessage, NULL);
   assert(crypto->crypto_transform->encode_datawriter_submessage != 0);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->decode_datawriter_submessage != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->decode_datawriter_submessage, NULL);
   assert(crypto->crypto_transform->decode_datawriter_submessage != 0);
 
   prepare_endpoint_security_attributes_and_properties(&datareader_security_attributes, NULL, CRYPTO_TRANSFORMATION_KIND_AES256_GCM, false);

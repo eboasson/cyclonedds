@@ -599,7 +599,7 @@ static void ddsc_multi_sertype_impl (dds_entity_t pp_pub, dds_entity_t pp_sub, e
         if (!si.valid_data)
           continue;
         tprintf ("recv: reader %zu %"PRId64"\n", i, si.source_timestamp);
-        CU_ASSERT_NEQ_FATAL (sample->type == get_sertype_from_reader (readers[i]), 0);
+        CU_ASSERT_EQ_FATAL (sample->type, get_sertype_from_reader (readers[i]));
         ddsi_serdata_unref (sample);
         nseen++;
       }

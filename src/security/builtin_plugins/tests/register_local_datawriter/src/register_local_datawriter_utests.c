@@ -151,9 +151,9 @@ CU_Test(ddssec_builtin_register_local_datawriter, happy_day, .init = suite_regis
   /* Check if we actually have the function. */
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory, NULL);
   assert(crypto->crypto_key_factory != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_datawriter != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_datawriter, NULL);
   assert(crypto->crypto_key_factory->register_local_datawriter != 0);
 
   memset(&exception, 0, sizeof(DDS_Security_SecurityException));
@@ -181,8 +181,8 @@ CU_Test(ddssec_builtin_register_local_datawriter, happy_day, .init = suite_regis
   /* NOTE: It would be better to check if the keys have been generated but there is no interface to get them from handle */
   writer_crypto = (local_datawriter_crypto *)result;
 
-  CU_ASSERT_NEQ_FATAL (writer_crypto->writer_key_material_message != NULL, 0);
-  CU_ASSERT_NEQ_FATAL (writer_crypto->writer_key_material_payload != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (writer_crypto->writer_key_material_message, NULL);
+  CU_ASSERT_NEQ_FATAL (writer_crypto->writer_key_material_payload, NULL);
 
   CU_ASSERT_NEQ (master_salt_not_empty(writer_crypto->writer_key_material_message), 0);
   CU_ASSERT_NEQ (master_key_not_empty(writer_crypto->writer_key_material_message), 0);
@@ -216,9 +216,9 @@ CU_Test(ddssec_builtin_register_local_datawriter, builtin_endpoint, .init = suit
   /* Check if we actually have the function. */
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory, NULL);
   assert(crypto->crypto_key_factory != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_datawriter != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_datawriter, NULL);
   assert(crypto->crypto_key_factory->register_local_datawriter != 0);
 
   datawriter_properties._buffer = DDS_Security_PropertySeq_allocbuf(1);
@@ -244,8 +244,8 @@ CU_Test(ddssec_builtin_register_local_datawriter, builtin_endpoint, .init = suit
   /* NOTE: It would be better to check if the keys have been generated but there is no interface to get them from handle */
   writer_crypto = (local_datawriter_crypto *)result;
 
-  CU_ASSERT_NEQ_FATAL (writer_crypto->writer_key_material_message != NULL, 0);
-  CU_ASSERT_NEQ_FATAL (writer_crypto->writer_key_material_payload != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (writer_crypto->writer_key_material_message, NULL);
+  CU_ASSERT_NEQ_FATAL (writer_crypto->writer_key_material_payload, NULL);
 
   CU_ASSERT_NEQ (master_salt_not_empty(writer_crypto->writer_key_material_message), 0);
   CU_ASSERT_NEQ (master_key_not_empty(writer_crypto->writer_key_material_message), 0);
@@ -253,8 +253,8 @@ CU_Test(ddssec_builtin_register_local_datawriter, builtin_endpoint, .init = suit
   CU_ASSERT_NEQ (master_salt_not_empty(writer_crypto->writer_key_material_payload), 0);
   CU_ASSERT_NEQ_FATAL (master_key_not_empty(writer_crypto->writer_key_material_payload), 0);
 
-  CU_ASSERT_NEQ_FATAL (writer_crypto->metadata_protectionKind == DDS_SECURITY_PROTECTION_KIND_ENCRYPT, 0);
-  CU_ASSERT_NEQ_FATAL (writer_crypto->data_protectionKind == DDS_SECURITY_BASICPROTECTION_KIND_ENCRYPT, 0);
+  CU_ASSERT_EQ_FATAL (writer_crypto->metadata_protectionKind, DDS_SECURITY_PROTECTION_KIND_ENCRYPT);
+  CU_ASSERT_EQ_FATAL (writer_crypto->data_protectionKind, DDS_SECURITY_BASICPROTECTION_KIND_ENCRYPT);
   CU_ASSERT_EQ_FATAL (writer_crypto->is_builtin_participant_volatile_message_secure_writer, false);
 
   reset_exception(&exception);
@@ -277,9 +277,9 @@ CU_Test(ddssec_builtin_register_local_datawriter, special_endpoint_name, .init =
   /* Check if we actually have the function. */
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory, NULL);
   assert(crypto->crypto_key_factory != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_datawriter != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_datawriter, NULL);
   assert(crypto->crypto_key_factory->register_local_datawriter != 0);
 
   /*set special endpoint name*/
@@ -320,9 +320,9 @@ CU_Test(ddssec_builtin_register_local_datawriter, invalid_participant, .init = s
   /* Check if we actually have the function. */
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory, NULL);
   assert(crypto->crypto_key_factory != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_datawriter != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_datawriter, NULL);
   assert(crypto->crypto_key_factory->register_local_datawriter != 0);
 
   memset(&exception, 0, sizeof(DDS_Security_SecurityException));

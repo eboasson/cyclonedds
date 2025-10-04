@@ -376,7 +376,7 @@ CU_Test(ddssec_builtin_get_permissions_credential_token, happy_day, .init = suit
   /* Pre-requisites. */
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
   assert(access_control != NULL);
-  CU_ASSERT_NEQ_FATAL (access_control->get_permissions_credential_token != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->get_permissions_credential_token, NULL);
   assert(access_control->get_permissions_credential_token != 0);
   memset(&exception, 0, sizeof(DDS_Security_SecurityException));
   memset(&token, 0, sizeof(token));
@@ -412,7 +412,7 @@ CU_Test(ddssec_builtin_get_permissions_credential_token, invalid_args, .init = s
   /* Pre-requisites. */
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
   assert(access_control != NULL);
-  CU_ASSERT_NEQ_FATAL (access_control->get_permissions_credential_token != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->get_permissions_credential_token, NULL);
   assert(access_control->get_permissions_credential_token != 0);
   memset(&exception, 0, sizeof(DDS_Security_SecurityException));
   memset(&token, 0, sizeof(token));

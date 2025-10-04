@@ -1583,9 +1583,9 @@ CU_Test(ddssec_builtin_listeners_auth, local_remote_set_before_validation)
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (access_control, NULL);
     assert(access_control != NULL);
-    CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions, NULL);
     assert(access_control->validate_remote_permissions != 0);
-    CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle, NULL);
     assert(access_control->return_permissions_handle != 0);
 
     fill_permissions_token(&permissions_token);
@@ -1618,7 +1618,7 @@ CU_Test(ddssec_builtin_listeners_auth, local_remote_set_before_validation)
 
     CU_ASSERT_NEQ_FATAL (dh1, NULL);
     CU_ASSERT_NEQ_FATAL (dh1->value._length > 0, 0);
-    CU_ASSERT_NEQ_FATAL (dh1->value._buffer != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (dh1->value._buffer, NULL);
 
     dh1_pub_key.data = dh1->value._buffer;
     dh1_pub_key.length = dh1->value._length;

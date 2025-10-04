@@ -1230,7 +1230,7 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply, happy_day,  .init = init_
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply, NULL);
     assert (auth->begin_handshake_reply != 0);
 
     fill_handshake_message_token_default(&handshake_token_in, remote_participant_data1, challenge2->value._buffer, challenge2->value._length);
@@ -1282,7 +1282,7 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,future_challenge,  .init =
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply, NULL);
     assert (auth->begin_handshake_reply != NULL);
 
     fill_handshake_message_token_default(&handshake_token_in, remote_participant_data2, challenge2->value._buffer, challenge2->value._length);
@@ -1336,7 +1336,7 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_arguments,  .init 
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply, NULL);
     assert (auth->begin_handshake_reply != 0);
 
     fill_handshake_message_token_default(&handshake_token_in, remote_participant_data1, challenge1->value._buffer, challenge1->value._length);
@@ -1484,7 +1484,7 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_certificate,  .ini
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply, NULL);
     assert (auth->begin_handshake_reply != 0);
 
     fill_handshake_message_token(
@@ -1555,7 +1555,7 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_participant_data ,
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply, NULL);
     assert (auth->begin_handshake_reply != 0);
 
     fill_handshake_message_token(
@@ -1633,7 +1633,7 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_dsign_algo ,  .ini
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply, NULL);
     assert (auth->begin_handshake_reply != 0);
 
     fill_handshake_message_token(
@@ -1704,7 +1704,7 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_kagree_algo ,  .in
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply, NULL);
     assert (auth->begin_handshake_reply != 0);
 
     fill_handshake_message_token(
@@ -1775,7 +1775,7 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_diffie_hellman ,  
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply, NULL);
     assert (auth->begin_handshake_reply != 0);
 
     fill_handshake_message_token(
@@ -1846,7 +1846,7 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,invalid_challenge ,  .init
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply, NULL);
     assert (auth->begin_handshake_reply != 0);
 
     fill_handshake_message_token_default(&handshake_token_in, remote_participant_data2, challenge2->value._buffer, challenge2->value._length);
@@ -1937,7 +1937,7 @@ CU_Test(ddssec_builtin_validate_begin_handshake_reply,return_handle,  .init = in
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply, NULL);
     assert (auth->begin_handshake_reply != 0);
 
     fill_handshake_message_token_default(&handshake_token_in, remote_participant_data1, challenge2->value._buffer, challenge2->value._length);
@@ -2004,7 +2004,7 @@ CU_Test(validate_begin_handshake_reply,extended_certificate_check,  .init = init
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply, NULL);
     assert (auth->begin_handshake_reply != 0);
 
     fill_handshake_message_token(
@@ -2054,7 +2054,7 @@ CU_Test(validate_begin_handshake_reply,extended_certificate_check,  .init = init
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply, NULL);
     assert (auth->begin_handshake_reply != 0);
 
     fill_handshake_message_token(
@@ -2073,7 +2073,7 @@ CU_Test(validate_begin_handshake_reply,extended_certificate_check,  .init = init
                     &exception);
 
     CU_ASSERT_EQ_FATAL (result, DDS_SECURITY_VALIDATION_FAILED);
-    CU_ASSERT_NEQ_FATAL (exception.code, 0 );
+    CU_ASSERT_NEQ_FATAL (exception.code, 0);
 
     reset_exception(&exception);
 
@@ -2094,7 +2094,7 @@ CU_Test(validate_begin_handshake_reply,extended_certificate_check,  .init = init
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply, NULL);
     assert (auth->begin_handshake_reply != 0);
 
     fill_handshake_message_token(
@@ -2113,7 +2113,7 @@ CU_Test(validate_begin_handshake_reply,extended_certificate_check,  .init = init
                     &exception);
 
     CU_ASSERT_EQ_FATAL (result, DDS_SECURITY_VALIDATION_FAILED);
-    CU_ASSERT_NEQ_FATAL (exception.code, 0 );
+    CU_ASSERT_NEQ_FATAL (exception.code, 0);
 
     reset_exception(&exception);
 
@@ -2143,7 +2143,7 @@ CU_Test(validate_begin_handshake_reply,crl,  .init = init_testcase, .fini = fini
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply, NULL);
     assert (auth->begin_handshake_reply != 0);
 
     fill_handshake_message_token(

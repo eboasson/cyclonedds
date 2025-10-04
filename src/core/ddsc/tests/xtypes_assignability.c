@@ -360,15 +360,15 @@ static void sample_check_TBT_n2 (void *ptr1, void *ptr2)
 {
   TypeBuilderTypes_t45 *s_wr = ptr1;
   TypeBuilderTypes_t45_n2 *s_rd = ptr2;
-  CU_ASSERT_NEQ_FATAL (s_wr->parent.parent.n2_1 == s_rd->n2_1, 0);
-  CU_ASSERT_NEQ_FATAL (s_wr->parent.parent.n2_2 == s_rd->n2_2, 0);
+  CU_ASSERT_EQ_FATAL (s_wr->parent.parent.n2_1, s_rd->n2_1);
+  CU_ASSERT_EQ_FATAL (s_wr->parent.parent.n2_2, s_rd->n2_2);
 }
 static void sample_check_TBT_n1 (void *ptr1, void *ptr2)
 {
   TypeBuilderTypes_t45 *s_wr = ptr1;
   TypeBuilderTypes_t45_n1 *s_rd = ptr2;
   sample_check_TBT_n2 (ptr1, ptr2);
-  CU_ASSERT_NEQ_FATAL (s_wr->parent.n1_1 == s_rd->n1_1, 0);
+  CU_ASSERT_EQ_FATAL (s_wr->parent.n1_1, s_rd->n1_1);
 }
 
 #define D(n) TypeBuilderTypes_ ## n ## _desc

@@ -778,9 +778,9 @@ static void encode_datawriter_submessage_not_signed(DDS_Security_CryptoTransform
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
   assert(crypto->crypto_transform != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_datawriter_submessage != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_datawriter_submessage, NULL);
   assert(crypto->crypto_transform->encode_datawriter_submessage != 0);
 
   if (transformation_kind == CRYPTO_TRANSFORMATION_KIND_AES128_GCM || transformation_kind == CRYPTO_TRANSFORMATION_KIND_AES256_GCM)
@@ -933,9 +933,9 @@ static void encode_datawriter_submessage_sign(DDS_Security_CryptoTransformKind_E
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
   assert(crypto->crypto_transform != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_datawriter_submessage != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_datawriter_submessage, NULL);
   assert(crypto->crypto_transform->encode_datawriter_submessage != 0);
 
   if (transformation_kind == CRYPTO_TRANSFORMATION_KIND_AES128_GCM || transformation_kind == CRYPTO_TRANSFORMATION_KIND_AES256_GCM)
@@ -1092,9 +1092,9 @@ CU_Test(ddssec_builtin_encode_datawriter_submessage, invalid_args, .init = suite
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
   assert(crypto->crypto_transform != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_datawriter_submessage != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_datawriter_submessage, NULL);
   assert(crypto->crypto_transform->encode_datawriter_submessage != 0);
 
   prepare_endpoint_security_attributes_and_properties(&datawriter_security_attributes, &datawriter_properties, CRYPTO_TRANSFORMATION_KIND_AES256_GCM, true);

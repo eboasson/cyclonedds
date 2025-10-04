@@ -452,9 +452,9 @@ static void decode_serialized_payload_check(uint32_t key_size, bool encrypted)
   size_t length;
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform != NULL, 0);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_serialized_payload != NULL, 0);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->decode_serialized_payload != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_serialized_payload, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->decode_serialized_payload, NULL);
 
   memset(&extra_inline_qos, 0, sizeof(extra_inline_qos));
 
@@ -572,9 +572,9 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_args, .init = suite_de
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
   assert(crypto->crypto_transform != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_serialized_payload != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_serialized_payload, NULL);
   assert(crypto->crypto_transform->encode_serialized_payload != 0);
 
   memset(&extra_inline_qos, 0, sizeof(extra_inline_qos));
@@ -737,9 +737,9 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
   assert(crypto->crypto_transform != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_serialized_payload != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_serialized_payload, NULL);
   assert(crypto->crypto_transform->encode_serialized_payload != 0);
 
   memset(&extra_inline_qos, 0, sizeof(extra_inline_qos));

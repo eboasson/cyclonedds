@@ -135,9 +135,9 @@ CU_Test (ddsc_loan, success, .init = create_entities, .fini = delete_entities)
   {
     const struct RoundTripModule_DataType *a = ptrs[0];
     const struct RoundTripModule_DataType *b = ptrs2[0];
-    CU_ASSERT_NEQ_FATAL (a->payload._length == b->payload._length, 0);
-    CU_ASSERT_NEQ_FATAL (a->payload._buffer != b->payload._buffer, 0);
-    CU_ASSERT_NEQ_FATAL (a->payload._buffer[0] == b->payload._buffer[0], 0);
+    CU_ASSERT_EQ_FATAL (a->payload._length, b->payload._length);
+    CU_ASSERT_NEQ_FATAL (a->payload._buffer, b->payload._buffer);
+    CU_ASSERT_EQ_FATAL (a->payload._buffer[0], b->payload._buffer[0]);
   }
 
   /* return loan -- to be freed when we delete the reader */

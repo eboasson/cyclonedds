@@ -177,9 +177,9 @@ CU_Test(ddssec_builtin_register_remote_datareader, happy_day, .init = suite_regi
   /* Check if we actually have the function. */
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory, NULL);
   assert(crypto->crypto_key_factory != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_matched_remote_datareader != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_matched_remote_datareader, NULL);
   assert(crypto->crypto_key_factory->register_matched_remote_datareader != 0);
 
   register_local_regular();
@@ -203,13 +203,13 @@ CU_Test(ddssec_builtin_register_remote_datareader, happy_day, .init = suite_regi
 
   /* NOTE: It would be better to check if the keys have been generated but there is no interface to get them from handle */
   reader_crypto = (remote_datareader_crypto *)result;
-  CU_ASSERT_NEQ_FATAL (reader_crypto->writer2reader_key_material_message != NULL, 0);
-  CU_ASSERT_NEQ_FATAL (reader_crypto->writer2reader_key_material_payload != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (reader_crypto->writer2reader_key_material_message, NULL);
+  CU_ASSERT_NEQ_FATAL (reader_crypto->writer2reader_key_material_payload, NULL);
   CU_ASSERT_NEQ (master_salt_not_empty(reader_crypto->writer2reader_key_material_message), 0);
   CU_ASSERT_NEQ (master_key_not_empty(reader_crypto->writer2reader_key_material_message), 0);
   CU_ASSERT_NEQ_FATAL (master_salt_not_empty(reader_crypto->writer2reader_key_material_payload), 0);
   CU_ASSERT_NEQ (master_key_not_empty(reader_crypto->writer2reader_key_material_payload), 0);
-  CU_ASSERT_NEQ_FATAL (reader_crypto->metadata_protectionKind == DDS_SECURITY_PROTECTION_KIND_ENCRYPT, 0);
+  CU_ASSERT_EQ_FATAL (reader_crypto->metadata_protectionKind, DDS_SECURITY_PROTECTION_KIND_ENCRYPT);
   reset_exception(&exception);
 
   unregister_result = crypto->crypto_key_factory->unregister_datareader(crypto->crypto_key_factory, result, &exception);
@@ -240,9 +240,9 @@ CU_Test(ddssec_builtin_register_remote_datareader, volatile_secure, .init = suit
 
   /* Check if we actually have the function. */
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory != NULL, 0);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_datawriter != NULL, 0);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_matched_remote_datareader != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_datawriter, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_matched_remote_datareader, NULL);
 
   local_volatile_secure_writer =
       crypto->crypto_key_factory->register_local_datawriter(
@@ -285,9 +285,9 @@ CU_Test(ddssec_builtin_register_remote_datareader, with_origin_authentication, .
   /* Check if we actually have the function. */
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory, NULL);
   assert(crypto->crypto_key_factory != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_matched_remote_datareader != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_matched_remote_datareader, NULL);
   assert(crypto->crypto_key_factory->register_matched_remote_datareader != 0);
   register_local_regular();
 
@@ -313,13 +313,13 @@ CU_Test(ddssec_builtin_register_remote_datareader, with_origin_authentication, .
 
   /* NOTE: It would be better to check if the keys have been generated but there is no interface to get them from handle */
   reader_crypto = (remote_datareader_crypto *)result;
-  CU_ASSERT_NEQ_FATAL (reader_crypto->writer2reader_key_material_message != NULL, 0);
-  CU_ASSERT_NEQ_FATAL (reader_crypto->writer2reader_key_material_payload != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (reader_crypto->writer2reader_key_material_message, NULL);
+  CU_ASSERT_NEQ_FATAL (reader_crypto->writer2reader_key_material_payload, NULL);
   CU_ASSERT_NEQ (master_salt_not_empty(reader_crypto->writer2reader_key_material_message), 0);
   CU_ASSERT_NEQ (master_key_not_empty(reader_crypto->writer2reader_key_material_message), 0);
   CU_ASSERT_NEQ_FATAL (master_salt_not_empty(reader_crypto->writer2reader_key_material_payload), 0);
   CU_ASSERT_NEQ (master_key_not_empty(reader_crypto->writer2reader_key_material_payload), 0);
-  CU_ASSERT_NEQ_FATAL (reader_crypto->metadata_protectionKind == DDS_SECURITY_PROTECTION_KIND_ENCRYPT_WITH_ORIGIN_AUTHENTICATION, 0);
+  CU_ASSERT_EQ_FATAL (reader_crypto->metadata_protectionKind, DDS_SECURITY_PROTECTION_KIND_ENCRYPT_WITH_ORIGIN_AUTHENTICATION);
   reset_exception(&exception);
 
   /* test to unregister with local writer*/
@@ -343,9 +343,9 @@ CU_Test(ddssec_builtin_register_remote_datareader, invalid_participant, .init = 
   /* Check if we actually have the function. */
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory, NULL);
   assert(crypto->crypto_key_factory != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_matched_remote_datareader != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_matched_remote_datareader, NULL);
   assert(crypto->crypto_key_factory->register_matched_remote_datareader != 0);
 
   register_local_regular();
@@ -376,9 +376,9 @@ CU_Test(ddssec_builtin_register_remote_datareader, invalid_writer_properties, .i
   /* Check if we actually have the function. */
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory, NULL);
   assert(crypto->crypto_key_factory != NULL);
-  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_matched_remote_datareader != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_matched_remote_datareader, NULL);
   assert(crypto->crypto_key_factory->register_matched_remote_datareader != 0);
   register_local_regular();
 

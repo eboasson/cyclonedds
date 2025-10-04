@@ -1472,9 +1472,9 @@ CU_Test(ddssec_builtin_process_handshake,happy_day_after_request)
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request, NULL);
     assert(auth->begin_handshake_request != 0);
-    CU_ASSERT_NEQ_FATAL (auth->process_handshake != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->process_handshake, NULL);
     assert(auth->process_handshake != 0);
 
     result = auth->begin_handshake_request(
@@ -1500,7 +1500,7 @@ CU_Test(ddssec_builtin_process_handshake,happy_day_after_request)
 
     CU_ASSERT_NEQ_FATAL (dh1, NULL);
     CU_ASSERT_NEQ_FATAL (dh1->value._length > 0, 0);
-    CU_ASSERT_NEQ_FATAL (dh1->value._buffer != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (dh1->value._buffer, NULL);
 
     dh1_pub_key.data = dh1->value._buffer;
     dh1_pub_key.length = dh1->value._length;
@@ -1555,13 +1555,13 @@ CU_Test(ddssec_builtin_process_handshake,happy_day_after_reply)
     const DDS_Security_BinaryProperty_t *dh2;
     struct octet_seq dh2_pub_key;
 
-    CU_ASSERT_NEQ_FATAL (auth->process_handshake != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->process_handshake, NULL);
 
     CU_ASSERT_NEQ_FATAL (auth, NULL);
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply, NULL);
 
     fill_handshake_message_token_default(&handshake_token_in, remote_participant_data1, challenge1_predefined_glb->value._buffer, challenge1_predefined_glb->value._length);
 
@@ -1646,13 +1646,13 @@ CU_Test(ddssec_builtin_process_handshake,invalid_arguments)
     struct octet_seq dh2_pub_key;
     DDS_Security_boolean success;
 
-    CU_ASSERT_NEQ_FATAL (auth->process_handshake != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->process_handshake, NULL);
 
     CU_ASSERT_NEQ_FATAL (auth, NULL);
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply, NULL);
 
     fill_handshake_message_token_default(&handshake_token_in, remote_participant_data1, challenge1_predefined_glb->value._buffer, challenge1_predefined_glb->value._length);
 
@@ -1762,9 +1762,9 @@ CU_Test(ddssec_builtin_process_handshake,invalid_certificate)
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request, NULL);
     assert(auth->begin_handshake_request != 0);
-    CU_ASSERT_NEQ_FATAL (auth->process_handshake != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->process_handshake, NULL);
     assert(auth->process_handshake != 0);
 
     result = auth->begin_handshake_request(
@@ -1792,7 +1792,7 @@ CU_Test(ddssec_builtin_process_handshake,invalid_certificate)
 
     CU_ASSERT_NEQ_FATAL (dh1, NULL);
     CU_ASSERT_NEQ_FATAL (dh1->value._length > 0, 0);
-    CU_ASSERT_NEQ_FATAL (dh1->value._buffer != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (dh1->value._buffer, NULL);
 
     /* prepare reply */
     dh1_pub_key.data = dh1->value._buffer;
@@ -1850,9 +1850,9 @@ CU_Test(ddssec_builtin_process_handshake,invalid_dsign_algo)
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request, NULL);
     assert(auth->begin_handshake_request != 0);
-    CU_ASSERT_NEQ_FATAL (auth->process_handshake != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->process_handshake, NULL);
     assert(auth->process_handshake != 0);
 
     result = auth->begin_handshake_request(
@@ -1880,7 +1880,7 @@ CU_Test(ddssec_builtin_process_handshake,invalid_dsign_algo)
 
     CU_ASSERT_NEQ_FATAL (dh1, NULL);
     CU_ASSERT_NEQ_FATAL (dh1->value._length > 0, 0);
-    CU_ASSERT_NEQ_FATAL (dh1->value._buffer != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (dh1->value._buffer, NULL);
 
     /* prepare reply */
     dh1_pub_key.data = dh1->value._buffer;
@@ -1932,9 +1932,9 @@ CU_Test(ddssec_builtin_process_handshake,invalid_kagree_algo)
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request, NULL);
     assert(auth->begin_handshake_request != 0);
-    CU_ASSERT_NEQ_FATAL (auth->process_handshake != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->process_handshake, NULL);
     assert(auth->process_handshake != 0);
 
     result = auth->begin_handshake_request(
@@ -1962,7 +1962,7 @@ CU_Test(ddssec_builtin_process_handshake,invalid_kagree_algo)
 
     CU_ASSERT_NEQ_FATAL (dh1, NULL);
     CU_ASSERT_NEQ_FATAL (dh1->value._length > 0, 0);
-    CU_ASSERT_NEQ_FATAL (dh1->value._buffer != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (dh1->value._buffer, NULL);
 
     /* prepare reply */
     dh1_pub_key.data = dh1->value._buffer;
@@ -2013,9 +2013,9 @@ CU_Test(ddssec_builtin_process_handshake,invalid_diffie_hellman)
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request, NULL);
     assert(auth->begin_handshake_request != 0);
-    CU_ASSERT_NEQ_FATAL (auth->process_handshake != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->process_handshake, NULL);
     assert(auth->process_handshake != 0);
 
     result = auth->begin_handshake_request(
@@ -2043,7 +2043,7 @@ CU_Test(ddssec_builtin_process_handshake,invalid_diffie_hellman)
 
     CU_ASSERT_NEQ_FATAL (dh1, NULL);
     CU_ASSERT_NEQ_FATAL (dh1->value._length > 0, 0);
-    CU_ASSERT_NEQ_FATAL (dh1->value._buffer != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (dh1->value._buffer, NULL);
 
     /* prepare reply */
     fill_handshake_message_token(
@@ -2087,7 +2087,7 @@ CU_Test(ddssec_builtin_process_handshake,return_handle)
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_reply, NULL);
     assert(auth->begin_handshake_reply != 0);
 
     fill_handshake_message_token_default(&handshake_token_in, remote_participant_data1, challenge1_predefined_glb->value._buffer, challenge1_predefined_glb->value._length);
@@ -2160,9 +2160,9 @@ CU_Test(ddssec_builtin_process_handshake,extended_certificate_check)
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request, NULL);
     assert(auth->begin_handshake_request != 0);
-    CU_ASSERT_NEQ_FATAL (auth->process_handshake != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->process_handshake, NULL);
     assert(auth->process_handshake != 0);
 
     result = auth->begin_handshake_request(
@@ -2189,7 +2189,7 @@ CU_Test(ddssec_builtin_process_handshake,extended_certificate_check)
 
     CU_ASSERT_NEQ_FATAL (dh1, NULL);
     CU_ASSERT_NEQ_FATAL (dh1->value._length > 0, 0);
-    CU_ASSERT_NEQ_FATAL (dh1->value._buffer != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (dh1->value._buffer, NULL);
 
     dh1_pub_key.data = dh1->value._buffer;
     dh1_pub_key.length = dh1->value._length;
@@ -2238,9 +2238,9 @@ CU_Test(ddssec_builtin_process_handshake,extended_certificate_check)
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request, NULL);
     assert(auth->begin_handshake_request != 0);
-    CU_ASSERT_NEQ_FATAL (auth->process_handshake != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->process_handshake, NULL);
     assert(auth->process_handshake != 0);
 
     result = auth->begin_handshake_request(
@@ -2266,7 +2266,7 @@ CU_Test(ddssec_builtin_process_handshake,extended_certificate_check)
 
     CU_ASSERT_NEQ_FATAL (dh1, NULL);
     CU_ASSERT_NEQ_FATAL (dh1->value._length > 0, 0);
-    CU_ASSERT_NEQ_FATAL (dh1->value._buffer != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (dh1->value._buffer, NULL);
 
     dh1_pub_key.data = dh1->value._buffer;
     dh1_pub_key.length = dh1->value._length;
@@ -2310,9 +2310,9 @@ CU_Test(ddssec_builtin_process_handshake,extended_certificate_check)
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request, NULL);
     assert (auth->begin_handshake_request != 0);
-    CU_ASSERT_NEQ_FATAL (auth->process_handshake != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->process_handshake, NULL);
     assert (auth->process_handshake != 0);
 
     result = auth->begin_handshake_request(
@@ -2338,7 +2338,7 @@ CU_Test(ddssec_builtin_process_handshake,extended_certificate_check)
 
     CU_ASSERT_NEQ_FATAL (dh1, NULL);
     CU_ASSERT_NEQ_FATAL (dh1->value._length > 0, 0);
-    CU_ASSERT_NEQ_FATAL (dh1->value._buffer != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (dh1->value._buffer, NULL);
 
     dh1_pub_key.data = dh1->value._buffer;
     dh1_pub_key.length = dh1->value._length;
@@ -2398,9 +2398,9 @@ CU_Test(ddssec_builtin_process_handshake,crl)
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request, NULL);
     assert(auth->begin_handshake_request != 0);
-    CU_ASSERT_NEQ_FATAL (auth->process_handshake != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->process_handshake, NULL);
     assert(auth->process_handshake != 0);
 
     result = auth->begin_handshake_request(
@@ -2427,7 +2427,7 @@ CU_Test(ddssec_builtin_process_handshake,crl)
 
     CU_ASSERT_NEQ_FATAL (dh1, NULL);
     CU_ASSERT_NEQ_FATAL (dh1->value._length > 0, 0);
-    CU_ASSERT_NEQ_FATAL (dh1->value._buffer != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (dh1->value._buffer, NULL);
 
     dh1_pub_key.data = dh1->value._buffer;
     dh1_pub_key.length = dh1->value._length;

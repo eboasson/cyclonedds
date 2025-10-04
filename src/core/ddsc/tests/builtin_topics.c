@@ -624,8 +624,8 @@ CU_Test(ddsc_builtin_topics, get_matched_publication)
     CU_ASSERT_EQ_FATAL (rc, 1);
     dds_builtintopic_endpoint_t *ep = dds_get_matched_publication_data (rd, wrih);
     CU_ASSERT_NEQ_FATAL (ep, NULL);
-    CU_ASSERT_NEQ_FATAL (memcmp (&ep->participant_key, &zguid, sizeof (ep->participant_key)) == 0, 0);
-    CU_ASSERT_NEQ_FATAL (ep->participant_instance_handle == 0, 0);
+    CU_ASSERT_EQ_FATAL (memcmp (&ep->participant_key, &zguid, sizeof (ep->participant_key)), 0);
+    CU_ASSERT_EQ_FATAL (ep->participant_instance_handle, 0);
     dds_builtintopic_free_endpoint (ep);
     rc = dds_delete (rd);
     CU_ASSERT_EQ_FATAL (rc, 0);

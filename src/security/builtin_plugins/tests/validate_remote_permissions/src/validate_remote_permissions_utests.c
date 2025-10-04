@@ -259,10 +259,10 @@ static void corrupt_permission_signature(DDS_Security_AuthenticatedPeerCredentia
 
   /* It is expected that the permissions are available in a fixed location. */
   CU_ASSERT_NEQ_FATAL (token, NULL);
-  CU_ASSERT_NEQ_FATAL (token->properties._buffer != NULL, 0);
-  CU_ASSERT_NEQ_FATAL (token->properties._length == 2, 0);
-  CU_ASSERT_NEQ_FATAL (token->properties._buffer[1].name != NULL, 0);
-  CU_ASSERT_NEQ_FATAL (token->properties._buffer[1].value != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (token->properties._buffer, NULL);
+  CU_ASSERT_EQ_FATAL (token->properties._length, 2);
+  CU_ASSERT_NEQ_FATAL (token->properties._buffer[1].name, NULL);
+  CU_ASSERT_NEQ_FATAL (token->properties._buffer[1].value, NULL);
   CU_ASSERT_STREQ_FATAL (token->properties._buffer[1].name, DDS_ACTOKEN_PROP_C_PERM);
 
   /* Corrupt a byte somewhere in the signature. */
@@ -384,9 +384,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, valid_permissions, .init = s
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-  CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions, NULL);
   assert(access_control->validate_remote_permissions != 0);
-  CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle, NULL);
   assert(access_control->return_permissions_handle != 0);
 
   fill_permissions_token(&permissions_token);
@@ -426,9 +426,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_unknown_ca, .ini
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-  CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions, NULL);
   assert(access_control->validate_remote_permissions != 0);
-  CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle, NULL);
   assert(access_control->return_permissions_handle != 0);
 
   fill_permissions_token(&permissions_token);
@@ -481,9 +481,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_not_signed, .ini
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-  CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions, NULL);
   assert(access_control->validate_remote_permissions != 0);
-  CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle, NULL);
   assert(access_control->return_permissions_handle != 0);
 
   fill_permissions_token(&permissions_token);
@@ -535,9 +535,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, invalid_credential_token, .i
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-  CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions, NULL);
   assert(access_control->validate_remote_permissions != 0);
-  CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle, NULL);
   assert(access_control->return_permissions_handle != 0);
 
   remote_identity_handle++;
@@ -809,9 +809,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, invalid_xml, .init = suite_v
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-  CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions, NULL);
   assert(access_control->validate_remote_permissions != 0);
-  CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle, NULL);
   assert(access_control->return_permissions_handle != 0);
 
   fill_permissions_token(&permissions_token);
@@ -855,9 +855,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_expired, .init =
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-  CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions, NULL);
   assert(access_control->validate_remote_permissions != 0);
-  CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle, NULL);
   assert(access_control->return_permissions_handle != 0);
 
   fill_permissions_token(&permissions_token);
@@ -896,9 +896,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_not_yet, .init =
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-  CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions, NULL);
   assert(access_control->validate_remote_permissions != 0);
-  CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle, NULL);
   assert(access_control->return_permissions_handle != 0);
 
   fill_permissions_token(&permissions_token);
@@ -937,9 +937,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_unknown_subject_
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-  CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions, NULL);
   assert(access_control->validate_remote_permissions != 0);
-  CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle, NULL);
   assert(access_control->return_permissions_handle != 0);
 
   fill_permissions_token(&permissions_token);
@@ -1003,9 +1003,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_different_subjec
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-  CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions, NULL);
   assert(access_control->validate_remote_permissions != 0);
-  CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle, NULL);
   assert(access_control->return_permissions_handle != 0);
 
   fill_permissions_token(&permissions_token);
@@ -1044,9 +1044,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, corrupted_signature, .init =
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
   assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-  CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions, NULL);
   assert(access_control->validate_remote_permissions != 0);
-  CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle, NULL);
   assert(access_control->return_permissions_handle != 0);
 
   fill_permissions_token(&permissions_token);
