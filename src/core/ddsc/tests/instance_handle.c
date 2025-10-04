@@ -198,7 +198,7 @@ CU_Test (ddsc_instance_handle, md5)
   int32_t n = dds_read (rd[0], xs, si, N, N);
   CU_ASSERT_EQ_FATAL (n, (int32_t) N);
   for (int i = 0; i < n; i++)
-    CU_ASSERT_EQ (memcmp (xs[i], &md5xs[i], sizeof (md5xs[i])), 0);
+    CU_ASSERT_MEMEQ (xs[i], sizeof (md5xs[i]), &md5xs[i], sizeof (md5xs[i]));
   qsort (si, (size_t) n, sizeof (*si), cmp_si_ih);
   for (int i = 1; i < n; i++)
     CU_ASSERT_NEQ_FATAL (si[i].instance_handle, si[i-1].instance_handle);
@@ -212,7 +212,7 @@ CU_Test (ddsc_instance_handle, md5)
   {
     ddsi_keyhash_t kh;
     ddsi_serdata_get_keyhash (sds[i], &kh, false);
-    CU_ASSERT_EQ (memcmp (md5, kh.value, sizeof (md5)), 0);
+    CU_ASSERT_MEMEQ (md5, sizeof (md5), kh.value, sizeof (md5));
     ddsi_serdata_unref (sds[i]);
   }
 

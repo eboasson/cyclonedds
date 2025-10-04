@@ -160,7 +160,8 @@ CU_Theory ((enum ddsi_transport_selector tr, int32_t loc_kind), ddsi_locator_fro
     {
       CU_ASSERT_EQ_FATAL (loc.kind, loc_kind);
       CU_ASSERT_EQ_FATAL (loc.port, DDSI_LOCATOR_PORT_INVALID);
-      CU_ASSERT_NEQ_FATAL (prefix_zero (&loc, 12) && memcmp (loc.address + 12, &localhost.sin_addr.s_addr, 4) == 0, 0);
+      CU_ASSERT_NEQ_FATAL (prefix_zero (&loc, 12), 0);
+      CU_ASSERT_MEMEQ_FATAL (loc.address + 12, 4, &localhost.sin_addr.s_addr, 4);
     }
     res = ddsi_locator_from_string (&gv, &loc, "localhost:1234", fact);
     CU_ASSERT_EQ_FATAL (res, exp);
@@ -168,7 +169,8 @@ CU_Theory ((enum ddsi_transport_selector tr, int32_t loc_kind), ddsi_locator_fro
     {
       CU_ASSERT_EQ_FATAL (loc.kind, loc_kind);
       CU_ASSERT_EQ_FATAL (loc.port, 1234);
-      CU_ASSERT_NEQ_FATAL (prefix_zero (&loc, 12) && memcmp (loc.address + 12, &localhost.sin_addr.s_addr, 4) == 0, 0);
+      CU_ASSERT_NEQ_FATAL (prefix_zero (&loc, 12), 0);
+      CU_ASSERT_MEMEQ_FATAL (loc.address + 12, 4, &localhost.sin_addr.s_addr, 4);
     }
   }
 #endif
@@ -340,7 +342,7 @@ CU_Theory ((enum ddsi_transport_selector tr, int32_t loc_kind), ddsi_locator_fro
     {
       CU_ASSERT_EQ_FATAL (loc.kind, loc_kind);
       CU_ASSERT_EQ_FATAL (loc.port, DDSI_LOCATOR_PORT_INVALID);
-      CU_ASSERT_EQ_FATAL (memcmp (loc.address, &localhost.sin6_addr.s6_addr, 16), 0);
+      CU_ASSERT_MEMEQ_FATAL (loc.address, sizeof (loc.address), &localhost.sin6_addr.s6_addr, 16);
     }
     res = ddsi_locator_from_string (&gv, &loc, "[localhost]", fact);
     CU_ASSERT_EQ_FATAL (res, exp);
@@ -348,7 +350,7 @@ CU_Theory ((enum ddsi_transport_selector tr, int32_t loc_kind), ddsi_locator_fro
     {
       CU_ASSERT_EQ_FATAL (loc.kind, loc_kind);
       CU_ASSERT_EQ_FATAL (loc.port, DDSI_LOCATOR_PORT_INVALID);
-      CU_ASSERT_EQ_FATAL (memcmp (loc.address, &localhost.sin6_addr.s6_addr, 16), 0);
+      CU_ASSERT_MEMEQ_FATAL (loc.address, sizeof (loc.address), &localhost.sin6_addr.s6_addr, 16);
     }
     res = ddsi_locator_from_string (&gv, &loc, "localhost:1234", fact);
     CU_ASSERT_EQ_FATAL (res, exp);
@@ -356,7 +358,7 @@ CU_Theory ((enum ddsi_transport_selector tr, int32_t loc_kind), ddsi_locator_fro
     {
       CU_ASSERT_EQ_FATAL (loc.kind, loc_kind);
       CU_ASSERT_EQ_FATAL (loc.port, 1234);
-      CU_ASSERT_EQ_FATAL (memcmp (loc.address, &localhost.sin6_addr.s6_addr, 16), 0);
+      CU_ASSERT_MEMEQ_FATAL (loc.address, sizeof (loc.address), &localhost.sin6_addr.s6_addr, 16);
     }
     res = ddsi_locator_from_string (&gv, &loc, "[localhost]:4567", fact);
     CU_ASSERT_EQ_FATAL (res, exp);
@@ -364,7 +366,7 @@ CU_Theory ((enum ddsi_transport_selector tr, int32_t loc_kind), ddsi_locator_fro
     {
       CU_ASSERT_EQ_FATAL (loc.kind, loc_kind);
       CU_ASSERT_EQ_FATAL (loc.port, 4567);
-      CU_ASSERT_EQ_FATAL (memcmp (loc.address, &localhost.sin6_addr.s6_addr, 16), 0);
+      CU_ASSERT_MEMEQ_FATAL (loc.address, sizeof (loc.address), &localhost.sin6_addr.s6_addr, 16);
     }
   }
 #endif

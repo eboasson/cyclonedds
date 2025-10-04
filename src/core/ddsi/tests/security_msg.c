@@ -301,15 +301,7 @@ CU_Test (ddsi_security_msg, serializer)
 
   /* Check serialization result. */
   size_t cmpsize = (len < sizeof(test_msg_ser)) ? len : sizeof(test_msg_ser);
-  if (memcmp (data, test_msg_ser, cmpsize) != 0)
-  {
-    printf ("memcmp(%d)\n", (int)cmpsize);
-    for (size_t k = 0; k < cmpsize; k++)
-      printf ("  %3zu  %02x  %02x (%c) %s\n", k, data[k], test_msg_ser[k],
-              ((test_msg_ser[k] >= '0') && (test_msg_ser[k] <= 'z')) ? test_msg_ser[k] : ' ',
-              (data[k] == test_msg_ser[k]) ? "" : "<--");
-    CU_ASSERT_NEQ_FATAL (!(bool)"memcmp", 0);
-  }
+  CU_ASSERT_MEMEQ (data, cmpsize, test_msg_ser, cmpsize);
   CU_ASSERT_EQ_FATAL (len, sizeof(test_msg_ser));
 
   /* Deserialize the message. */

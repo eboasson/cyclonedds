@@ -64,7 +64,7 @@ CU_Test (ddsi_plist, unalias_copy_merge)
                                               p0.identity_token.properties.n * sizeof (*p0.identity_token.properties.props));
 #endif
   ddsi_plist_fini (&p0alias);
-  CU_ASSERT_EQ (memcmp (&p0, &p0memcpy, sizeof (p0)), 0);
+  CU_ASSERT_MEMEQ (&p0, sizeof (p0), &p0memcpy, sizeof (p0memcpy));
   CU_ASSERT_STREQ (p0.qos.partition.strs[0], p0strs[0]);
   CU_ASSERT_STREQ (p0.qos.partition.strs[1], p0strs[1]);
   CU_ASSERT_STREQ (p0.qos.partition.strs[2], p0strs[2]);
@@ -79,7 +79,7 @@ CU_Test (ddsi_plist, unalias_copy_merge)
   ddsi_plist_t p1;
   ddsi_plist_init_empty (&p1);
   ddsi_plist_copy (&p1, &p0);
-  CU_ASSERT_EQ (memcmp (&p0, &p0memcpy, sizeof (p0)), 0);
+  CU_ASSERT_MEMEQ (&p0, sizeof (p0), &p0memcpy, sizeof (p0memcpy));
   CU_ASSERT_EQ (p1.present, p0.present);
   CU_ASSERT_EQ (p1.aliased, 0);
   CU_ASSERT_EQ (p1.qos.present, p0.qos.present);
@@ -118,7 +118,7 @@ CU_Test (ddsi_plist, unalias_copy_merge)
   ddsi_plist_init_empty (&p2);
   memcpy (&p2memcpy, &p2, sizeof (p2));
   ddsi_plist_mergein_missing (&p2, &p0, p0.present, p0.qos.present);
-  CU_ASSERT_EQ (memcmp (&p0, &p0memcpy, sizeof (p0)), 0);
+  CU_ASSERT_MEMEQ (&p0, sizeof (p0), &p0memcpy, sizeof (p0memcpy));
   CU_ASSERT_EQ (p2.present, p0.present);
   CU_ASSERT_EQ (p2.aliased, p2memcpy.aliased);
   CU_ASSERT_EQ (p2.qos.present, p0.qos.present);
@@ -181,7 +181,7 @@ CU_Test (ddsi_plist, unalias_copy_merge)
   ddsi_plist_t p3;
   ddsi_plist_init_empty (&p3);
   ddsi_plist_copy (&p3, &p0);
-  CU_ASSERT_EQ (memcmp (&p0, &p0memcpy, sizeof (p0)), 0);
+  CU_ASSERT_MEMEQ (&p0, sizeof (p0), &p0memcpy, sizeof (p0memcpy));
   CU_ASSERT_EQ (p3.present, p0.present);
   CU_ASSERT_EQ (p3.aliased, 0);
   CU_ASSERT_EQ (p3.qos.present, p0.qos.present);
@@ -220,7 +220,7 @@ CU_Test (ddsi_plist, unalias_copy_merge)
   ddsi_plist_init_empty (&p4);
   memcpy (&p4memcpy, &p4, sizeof (p4));
   ddsi_plist_mergein_missing (&p4, &p0, p0.present, p0.qos.present);
-  CU_ASSERT_EQ (memcmp (&p0, &p0memcpy, sizeof (p0)), 0);
+  CU_ASSERT_MEMEQ (&p0, sizeof (p0), &p0memcpy, sizeof (p0memcpy));
   CU_ASSERT_EQ (p4.present, p0.present);
   CU_ASSERT_EQ (p4.aliased, p4memcpy.aliased);
   CU_ASSERT_EQ (p4.qos.present, p0.qos.present);
@@ -486,7 +486,7 @@ CU_Test (ddsi_plist, locator_lists_accept)
             CU_ASSERT_NEQ_FATAL (lcmp, NULL);
             CU_ASSERT_EQ ((uint32_t) lcmp->loc.kind, pi_kind);
             CU_ASSERT_EQ (lcmp->loc.port, pi_port);
-            CU_ASSERT_EQ (memcmp (lcmp->loc.address, plist_ok + pi + 12, sizeof (lcmp->loc.address)), 0);
+            CU_ASSERT_MEMEQ (lcmp->loc.address, sizeof (lcmp->loc.address), plist_ok + pi + 12, sizeof (lcmp->loc.address));
           }
         }
         CU_ASSERT_EQ (l, NULL);

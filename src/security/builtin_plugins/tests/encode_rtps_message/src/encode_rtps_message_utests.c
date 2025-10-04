@@ -857,8 +857,7 @@ static void encode_rtps_message_not_authenticated(DDS_Security_CryptoTransformKi
     //print_octets( "PLAIN RTPS:",plain_buffer._buffer+4, plain_buffer._length-4);
     //print_octets( "DECODED RTPS:",decoded_buffer._buffer+8, decoded_buffer._length-8);
 
-    CU_ASSERT_EQ_FATAL (memcmp(plain_buffer._buffer + 4, decoded_buffer._buffer + 8, plain_buffer._length - 4), 0);
-
+    CU_ASSERT_MEMEQ_FATAL (plain_buffer._buffer + 4, plain_buffer._length - 4, decoded_buffer._buffer + 8, decoded_buffer._length-8);
     DDS_Security_OctetSeq_deinit((&decoded_buffer));
   }
   else
@@ -871,8 +870,7 @@ static void encode_rtps_message_not_authenticated(DDS_Security_CryptoTransformKi
     }
 
     CU_ASSERT_NEQ_FATAL (result, 0);
-
-    CU_ASSERT_EQ_FATAL (memcmp(plain_buffer._buffer + 4, data._buffer + 8, plain_buffer._length - 4), 0);
+    CU_ASSERT_MEMEQ_FATAL (plain_buffer._buffer + 4, plain_buffer._length - 4, data._buffer + 8, data._length - 8);
   }
 
   DDS_Security_OctetSeq_deinit((&plain_buffer));
@@ -1013,7 +1011,7 @@ static void encode_rtps_message_sign(DDS_Security_CryptoTransformKind_Enum trans
     CU_ASSERT_NEQ_FATAL (result, 0);
 
     /*TODO: this should consider INFO_SRC */
-    CU_ASSERT_EQ (memcmp(plain_buffer._buffer + 4, decoded_buffer._buffer + 8, plain_buffer._length - 4), 0);
+    CU_ASSERT_MEMEQ (plain_buffer._buffer + 4, plain_buffer._length - 4, decoded_buffer._buffer + 8, decoded_buffer._length - 8);
 
     DDS_Security_OctetSeq_deinit((&decoded_buffer));
   }
@@ -1028,7 +1026,7 @@ static void encode_rtps_message_sign(DDS_Security_CryptoTransformKind_Enum trans
     }
 
     CU_ASSERT_NEQ_FATAL (result, 0);
-    CU_ASSERT_EQ (memcmp(plain_buffer._buffer + 4, data._buffer + 8, plain_buffer._length - 4), 0);
+    CU_ASSERT_MEMEQ (plain_buffer._buffer + 4, plain_buffer._length - 4, data._buffer + 8, data._length - 8);
   }
 
   printf("num hmacs = %u\n", footer->length);

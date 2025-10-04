@@ -192,8 +192,8 @@ static void check_type_info (const struct dds_qos *xqos, const dds_topic_descrip
   DDS_XTypes_EquivalenceHash t_hash_m, t_hash_c;
   ddsi_typeid_get_equivalence_hash (t_id_m, &t_hash_m);
   ddsi_typeid_get_equivalence_hash (t_id_c, &t_hash_c);
-  CU_ASSERT_EQ_FATAL (memcmp (&d_hash_m, &t_hash_m, sizeof (d_hash_m)), 0);
-  CU_ASSERT_EQ_FATAL (memcmp (&d_hash_c, &t_hash_c, sizeof (d_hash_c)), 0);
+  CU_ASSERT_MEMEQ_FATAL (&d_hash_m, sizeof (d_hash_m), &t_hash_m, sizeof (t_hash_m));
+  CU_ASSERT_MEMEQ_FATAL (&d_hash_c, sizeof (d_hash_m), &t_hash_c, sizeof (t_hash_c));
   ddsi_typeinfo_free (type_info_from_topicdesc);
   ddsi_typeid_fini (d_id_m); ddsrt_free (d_id_m);
   ddsi_typeid_fini (d_id_c); ddsrt_free (d_id_c);
@@ -624,7 +624,7 @@ CU_Test(ddsc_builtin_topics, get_matched_publication)
     CU_ASSERT_EQ_FATAL (rc, 1);
     dds_builtintopic_endpoint_t *ep = dds_get_matched_publication_data (rd, wrih);
     CU_ASSERT_NEQ_FATAL (ep, NULL);
-    CU_ASSERT_EQ_FATAL (memcmp (&ep->participant_key, &zguid, sizeof (ep->participant_key)), 0);
+    CU_ASSERT_MEMEQ_FATAL (&ep->participant_key, sizeof (ep->participant_key), &zguid, sizeof (zguid));
     CU_ASSERT_EQ_FATAL (ep->participant_instance_handle, 0);
     dds_builtintopic_free_endpoint (ep);
     rc = dds_delete (rd);

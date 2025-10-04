@@ -1653,8 +1653,7 @@ CU_Test (ddsc_cdrstream, check_write_reject)
     if (tests[i].cdr_if_ok)
     {
       CU_ASSERT_EQ_FATAL (size, os.m_index);
-      CU_ASSERT_EQ_FATAL (os.m_index, tests[i].cdrsize_if_ok);
-      CU_ASSERT_EQ_FATAL (memcmp (tests[i].cdr_if_ok, os.m_buffer, os.m_index), 0);
+      CU_ASSERT_MEMEQ_FATAL (tests[i].cdr_if_ok, tests[i].cdrsize_if_ok, os.m_buffer, os.m_index);
     }
 
     if (desc.keys.nkeys)
@@ -1669,8 +1668,7 @@ CU_Test (ddsc_cdrstream, check_write_reject)
       if (tests[i].cdr_if_ok)
       {
         CU_ASSERT_EQ_FATAL (size, os.m_index);
-        CU_ASSERT_EQ_FATAL (os.m_index, tests[i].cdrsize_if_ok);
-        CU_ASSERT_EQ_FATAL (memcmp (tests[i].cdr_if_ok, os.m_buffer, os.m_index), 0);
+        CU_ASSERT_MEMEQ_FATAL (tests[i].cdr_if_ok, tests[i].cdrsize_if_ok, os.m_buffer, os.m_index);
       }
     }
 
@@ -1719,13 +1717,13 @@ CU_Test (ddsc_cdrstream, check_normalize_boolean)
     void *cdr = ddsrt_memdup (tests[i].cdr, tests[i].cdrsize);
     uint32_t act_size;
     bool ret = dds_stream_normalize (cdr, tests[i].cdrsize, false, DDSI_RTPS_CDR_ENC_VERSION_2, &desc, false, &act_size);
-    CU_ASSERT_NEQ_FATAL (ret && act_size == tests[i].cdrsize, 0);
-    CU_ASSERT_EQ_FATAL (memcmp (cdr, tests[i].ncdr, tests[i].cdrsize), 0);
+    CU_ASSERT_NEQ_FATAL (ret, 0);
+    CU_ASSERT_MEMEQ_FATAL (cdr, act_size, tests[i].ncdr, tests[i].cdrsize);
     if (desc.keys.nkeys)
     {
       ret = dds_stream_normalize (cdr, tests[i].cdrsize, true, DDSI_RTPS_CDR_ENC_VERSION_2, &desc, false, &act_size);
-      CU_ASSERT_NEQ_FATAL (ret && act_size == tests[i].cdrsize, 0);
-      CU_ASSERT_EQ_FATAL (memcmp (cdr, tests[i].ncdr, tests[i].cdrsize), 0);
+      CU_ASSERT_NEQ_FATAL (ret, 0);
+      CU_ASSERT_MEMEQ_FATAL (cdr, act_size, tests[i].ncdr, tests[i].cdrsize);
     }
     ddsrt_free (cdr);
     dds_cdrstream_desc_fini (&desc, &dds_cdrstream_default_allocator);
@@ -1769,8 +1767,7 @@ static void test_cdr (const struct test_cdr_params *test)
   {
     const bool wok = dds_stream_write_sample (&os, &dds_cdrstream_default_allocator, test->data, &desc);
     CU_ASSERT_NEQ_FATAL (wok, 0);
-    CU_ASSERT_EQ_FATAL (os.m_index, test->cdrsize);
-    CU_ASSERT_EQ_FATAL (memcmp (os.m_buffer, test->cdr, test->cdrsize), 0);
+    CU_ASSERT_MEMEQ_FATAL (os.m_buffer, os.m_index, test->cdr, test->cdrsize);
   }
   else
   {
@@ -1783,8 +1780,7 @@ static void test_cdr (const struct test_cdr_params *test)
   CU_ASSERT_EQ_FATAL (test->xcdr_valid, nok);
   if (!nok)
     goto done;
-  CU_ASSERT_EQ_FATAL (act_size, test->cdrsize);
-  CU_ASSERT_EQ_FATAL (memcmp (os.m_buffer, test->cdr, test->cdrsize), 0); // nothing should've changed
+  CU_ASSERT_MEMEQ_FATAL (os.m_buffer, act_size, test->cdr, test->cdrsize); // nothing should've changed
 
   dds_istream_t is;
   if (desc.keys.nkeys > 0)
@@ -1796,7 +1792,7 @@ static void test_cdr (const struct test_cdr_params *test)
     CU_ASSERT_NEQ_FATAL (kok, 0);
     // key is a 32-bit int at the end, so need to consume all input and result must match tail of expected CDR
     CU_ASSERT_EQ_FATAL (is.m_index, os.m_index);
-    CU_ASSERT_NEQ_FATAL (osk.m_index == 4 && memcmp (osk.m_buffer, test->cdr + test->cdrsize - 4, 4) == 0, 0);
+    CU_ASSERT_MEMEQ_FATAL (osk.m_buffer, osk.m_index, test->cdr + test->cdrsize - 4, 4);
     dds_ostream_fini (&osk, &dds_cdrstream_default_allocator);
   }
 

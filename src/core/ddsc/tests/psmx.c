@@ -1698,7 +1698,7 @@ CU_Test (ddsc_psmx, configstr)
     char *p = dds_pubsub_message_exchange_configstr (cases[i].in, "aa");
     CU_ASSERT_NEQ_FATAL ((p == NULL) == (cases[i].out == NULL), 0);
     if (p) {
-      CU_ASSERT_EQ_FATAL (memcmp (p, cases[i].out, outsz), 0);
+      CU_ASSERT_MEMEQ_FATAL (p, outsz, cases[i].out, outsz);
 
       for (size_t j = 0; j < cases[i].nkv; j++)
       {

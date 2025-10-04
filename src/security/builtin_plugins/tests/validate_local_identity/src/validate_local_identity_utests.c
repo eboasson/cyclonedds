@@ -673,7 +673,7 @@ CU_Test(ddssec_builtin_validate_local_identity,happy_day)
     CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
 
     print_guid("adjusted_participant_guid", &adjusted_participant_guid);
-    CU_ASSERT_EQ (memcmp(&adjusted_participant_guid.entityId, &entityId, sizeof(entityId)), 0);
+    CU_ASSERT_MEMEQ (&adjusted_participant_guid.entityId, sizeof(entityId), &entityId, sizeof(entityId));
 
     dds_security_property_deinit(&participant_qos.property.value);
     reset_exception(&exception);
@@ -717,7 +717,7 @@ CU_Test(ddssec_builtin_validate_local_identity,happy_day)
     CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
 
     print_guid("adjusted_participant_guid", &adjusted_participant_guid);
-    CU_ASSERT_EQ (memcmp(&adjusted_participant_guid.entityId, &entityId, sizeof(entityId)), 0);
+    CU_ASSERT_MEMEQ (&adjusted_participant_guid.entityId, sizeof(entityId), &entityId, sizeof(entityId));
 
     dds_security_property_deinit(&participant_qos.property.value);
     reset_exception(&exception);
@@ -1454,7 +1454,7 @@ CU_Test(ddssec_builtin_validate_local_identity,encrypted_key)
     CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
 
     print_guid("adjusted_participant_guid", &adjusted_participant_guid);
-    CU_ASSERT_EQ (memcmp(&adjusted_participant_guid.entityId, &entityId, sizeof(entityId)), 0);
+    CU_ASSERT_MEMEQ (&adjusted_participant_guid.entityId, sizeof(entityId), &entityId, sizeof(entityId));
 
     dds_security_property_deinit(&participant_qos.property.value);
     reset_exception(&exception);
@@ -1489,7 +1489,7 @@ CU_Test(ddssec_builtin_validate_local_identity,encrypted_key)
     CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
 
     print_guid("adjusted_participant_guid", &adjusted_participant_guid);
-    CU_ASSERT_EQ (memcmp(&adjusted_participant_guid.entityId, &entityId, sizeof(entityId)), 0);
+    CU_ASSERT_MEMEQ (&adjusted_participant_guid.entityId, sizeof(entityId), &entityId, sizeof(entityId));
 
     dds_security_property_deinit(&participant_qos.property.value);
     reset_exception(&exception);
@@ -1706,7 +1706,7 @@ CU_Test(ddssec_builtin_validate_local_identity,happy_day_elliptic)
     CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
 
     print_guid("adjusted_participant_guid", &adjusted_participant_guid);
-    CU_ASSERT_EQ (memcmp(&adjusted_participant_guid.entityId, &entityId, sizeof(entityId)), 0);
+    CU_ASSERT_MEMEQ (&adjusted_participant_guid.entityId, sizeof(entityId), &entityId, sizeof(entityId));
 
     dds_security_property_deinit(&participant_qos.property.value);
     reset_exception(&exception);
@@ -1749,7 +1749,7 @@ CU_Test(ddssec_builtin_validate_local_identity,happy_day_elliptic)
     CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
 
     print_guid("adjusted_participant_guid", &adjusted_participant_guid);
-    CU_ASSERT_EQ (memcmp(&adjusted_participant_guid.entityId, &entityId, sizeof(entityId)), 0);
+    CU_ASSERT_MEMEQ (&adjusted_participant_guid.entityId, sizeof(entityId), &entityId, sizeof(entityId));
 
     dds_security_property_deinit(&participant_qos.property.value);
     reset_exception(&exception);
@@ -1811,7 +1811,7 @@ CU_Test(ddssec_builtin_validate_local_identity,encrypted_ec_key)
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
 
     print_guid("adjusted_participant_guid", &adjusted_participant_guid);
-    CU_ASSERT_EQ_FATAL (memcmp(&adjusted_participant_guid.entityId, &entityId, sizeof(entityId)), 0);
+    CU_ASSERT_MEMEQ_FATAL (&adjusted_participant_guid.entityId, sizeof(entityId), &entityId, sizeof(entityId));
 
     dds_security_property_deinit(&participant_qos.property.value);
     reset_exception(&exception);
@@ -1844,8 +1844,7 @@ CU_Test(ddssec_builtin_validate_local_identity,encrypted_ec_key)
     /* We expected the validation to have succeeded. */
     CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_OK);
     CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-
-    CU_ASSERT_EQ (memcmp(&adjusted_participant_guid.entityId, &entityId, sizeof(entityId)), 0);
+    CU_ASSERT_MEMEQ (&adjusted_participant_guid.entityId, sizeof(entityId), &entityId, sizeof(entityId));
 
     dds_security_property_deinit(&participant_qos.property.value);
     reset_exception(&exception);
@@ -2004,7 +2003,7 @@ CU_Test(ddssec_builtin_validate_local_identity,return_freed_handle)
     CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
 
     print_guid("adjusted_participant_guid", &adjusted_participant_guid);
-    CU_ASSERT_EQ (memcmp(&adjusted_participant_guid.entityId, &entityId, sizeof(entityId)), 0);
+    CU_ASSERT_MEMEQ (&adjusted_participant_guid.entityId, sizeof(entityId), &entityId, sizeof(entityId));
 
     dds_security_property_deinit(&participant_qos.property.value);
     reset_exception(&exception);
@@ -2194,7 +2193,7 @@ CU_Test(ddssec_builtin_validate_local_identity,with_extended_certificate_check)
     CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
 
     print_guid("adjusted_participant_guid", &adjusted_participant_guid);
-    CU_ASSERT_EQ (memcmp(&adjusted_participant_guid.entityId, &entityId, sizeof(entityId)), 0);
+    CU_ASSERT_MEMEQ (&adjusted_participant_guid.entityId, sizeof(entityId), &entityId, sizeof(entityId));
 
     dds_security_property_deinit(&participant_qos.property.value);
     reset_exception(&exception);

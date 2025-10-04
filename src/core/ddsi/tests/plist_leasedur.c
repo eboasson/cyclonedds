@@ -181,7 +181,7 @@ CU_Test (ddsi_plist_leasedur, ser_spdp, .init = setup, .fini = teardown)
 
   const uint8_t expected[] = { LD(3,0x12345679), SENTINEL };
   const unsigned char *cdr = ddsi_xmsg_submsg_from_marker (m, marker);
-  CU_ASSERT_EQ (memcmp (expected, cdr, sizeof (expected)), 0);
+  CU_ASSERT_MEMEQ (expected, sizeof (expected), cdr, sizeof (expected));
 
   ddsi_plist_fini (&plist);
   ddsi_xmsg_free (m);
@@ -213,7 +213,7 @@ CU_Test (ddsi_plist_leasedur, ser_others, .init = setup, .fini = teardown)
 
     const uint8_t expected[] = { LL(1, 2,0x0abcdefb), SENTINEL };
     const unsigned char *cdr = ddsi_xmsg_submsg_from_marker (m, marker);
-    CU_ASSERT_EQ (memcmp (expected, cdr, sizeof (expected)), 0);
+    CU_ASSERT_MEMEQ (expected, sizeof (expected), cdr, sizeof (expected));
 
     ddsi_plist_fini (&plist);
     ddsi_xmsg_free (m);

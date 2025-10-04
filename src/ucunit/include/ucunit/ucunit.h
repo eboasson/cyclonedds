@@ -93,6 +93,27 @@ extern "C" {
   }                                                                     \
 } while(0)
 
+#define CU_ASSERT_MEMEQ_MAYBE_FATAL(x_, xsz_, y_, ysz_, fatal_) do {       \
+  const unsigned char *xv__ = (const unsigned char *) (x_);                               \
+  const unsigned char *yv__ = (const unsigned char *) (y_);                               \
+  const size_t xszv__ = (size_t) (xsz_); \
+  const size_t yszv__ = (size_t) (ysz_); \
+  const bool fatal__ = (fatal_);                                        \
+  const bool satisfied__ = (xszv__ == yszv__ && (xszv__ == 0 || memcmp (xv__, yv__, xszv__) == 0));   \
+  if (!satisfied__) {                                                   \
+    fprintf (stderr, "%s:%d: not satisfied: %s,%s (%p,%zu) == %s,%s (%p,%zu)\n", __FILE__, __LINE__, #x_, #xsz_, xv__, xszv__, #y_, #ysz_, yv__, yszv__); \
+    fprintf (stderr, "%s:\n", #x_); \
+    CU_hexdump (stderr, xv__, xszv__); \
+    fprintf (stderr, "%s:\n", #y_); \
+    CU_hexdump (stderr, yv__, yszv__); \
+    CU_assertImplementation (false, __LINE__, #x_ "==" #y_, __FILE__, "", fatal_); \
+    if (!satisfied__ && fatal__)                                         \
+      CU_UNREACHABLE;                                                   \
+  } else {                                                              \
+    CU_assertImplementation (true, __LINE__, #x_ "==" #y_, __FILE__, "", fatal_); \
+  }                                                                     \
+} while(0)
+
 #define CU_ASSERT_EQ(x_, y_) CU_ASSERT_OP_MAYBE_FATAL (x_, ==, y_, false)
 #define CU_ASSERT_EQ_FATAL(x_, y_) CU_ASSERT_OP_MAYBE_FATAL (x_, ==, y_, true)
 
@@ -116,6 +137,9 @@ extern "C" {
 
 #define CU_ASSERT_STRNEQ(x_, y_) CU_ASSERT_STRING_OP_MAYBE_FATAL (x_, !=, y_, false)
 #define CU_ASSERT_STRNEQ_FATAL(x_, y_) CU_ASSERT_STRING_OP_MAYBE_FATAL (x_, !=, y_, true)
+
+#define CU_ASSERT_MEMEQ(x_, xsz_, y_, ysz_) CU_ASSERT_MEMEQ_MAYBE_FATAL (x_, xsz_, y_, ysz_, false)
+#define CU_ASSERT_MEMEQ_FATAL(x_, xsz_, y_, ysz_) CU_ASSERT_MEMEQ_MAYBE_FATAL (x_, xsz_, y_, ysz_, true)
 
 #else
 
@@ -396,6 +420,8 @@ UCUNIT_EXPORT uint32_t CU_get_number_of_failures (void);
 UCUNIT_EXPORT void CU_cleanup_registry (void);
 
 UCUNIT_EXPORT void CU_assertImplementation (bool value, int line, const char *expr, const char *file, const char *something, bool isfatal);
+
+UCUNIT_EXPORT void CU_hexdump (FILE *fp, const unsigned char *msg, const size_t len);
 
 UCUNIT_EXPORT void CU_fatal (void);
 

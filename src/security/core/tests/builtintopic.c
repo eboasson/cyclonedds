@@ -98,7 +98,7 @@ CU_Test(ddssec_builtintopic, participant_iid)
     CU_ASSERT_EQ_FATAL (n, 1);
     CU_ASSERT_NEQ_FATAL (si.valid_data, 0);
     const dds_builtintopic_participant_t *s = raw;
-    CU_ASSERT_EQ_FATAL (memcmp (&s->key, &guid, sizeof (guid)), 0);
+    CU_ASSERT_MEMEQ_FATAL (&s->key, sizeof (s->key), &guid, sizeof (guid));
     dds_return_loan (rd, &raw, 1);
   }
 

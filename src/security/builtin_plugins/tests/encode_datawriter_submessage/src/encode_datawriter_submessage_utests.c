@@ -853,9 +853,7 @@ static void encode_datawriter_submessage_not_signed(DDS_Security_CryptoTransform
     }
 
     CU_ASSERT_NEQ_FATAL (result, 0);
-
-    CU_ASSERT_EQ (memcmp(plain_buffer._buffer, decoded_buffer._buffer, plain_buffer._length), 0);
-
+    CU_ASSERT_MEMEQ (plain_buffer._buffer, plain_buffer._length, decoded_buffer._buffer, decoded_buffer._length);
     DDS_Security_OctetSeq_deinit((&decoded_buffer));
   }
   else
@@ -868,8 +866,7 @@ static void encode_datawriter_submessage_not_signed(DDS_Security_CryptoTransform
     }
 
     CU_ASSERT_NEQ_FATAL (result, 0);
-
-    CU_ASSERT_EQ (memcmp(plain_buffer._buffer, data._buffer, plain_buffer._length), 0);
+    CU_ASSERT_MEMEQ (plain_buffer._buffer, plain_buffer._length, data._buffer, data._length);
   }
 
   unregister_datareader(reader_list._buffer[0]);
@@ -1014,9 +1011,7 @@ static void encode_datawriter_submessage_sign(DDS_Security_CryptoTransformKind_E
     }
 
     CU_ASSERT_NEQ_FATAL (result, 0);
-
-    CU_ASSERT_EQ (memcmp(plain_buffer._buffer, decoded_buffer._buffer, plain_buffer._length), 0);
-
+    CU_ASSERT_MEMEQ (plain_buffer._buffer, plain_buffer._length, decoded_buffer._buffer, decoded_buffer._length);
     DDS_Security_OctetSeq_deinit((&decoded_buffer));
   }
   else
@@ -1030,7 +1025,7 @@ static void encode_datawriter_submessage_sign(DDS_Security_CryptoTransformKind_E
     }
 
     CU_ASSERT_NEQ_FATAL (result, 0);
-    CU_ASSERT_EQ (memcmp(plain_buffer._buffer, data._buffer, plain_buffer._length), 0);
+    CU_ASSERT_MEMEQ (plain_buffer._buffer, plain_buffer._length, data._buffer, data._length);
   }
 
   printf("num hmacs = %u\n", footer->length);

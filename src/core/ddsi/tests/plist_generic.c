@@ -171,13 +171,7 @@ CU_Test (ddsi_plist_generic, ser_and_deser)
       CU_ASSERT_EQ (sersize, descs[i].exp_sersize);
     /* if sizes don't match, still check prefix */
     size_t cmpsize = (sersize < descs[i].exp_sersize) ? sersize : descs[i].exp_sersize;
-    if (memcmp (ser, descs[i].exp_ser, cmpsize) != 0)
-    {
-      printf ("memcmp i = %zu\n", i);
-      for (size_t k = 0; k < cmpsize; k++)
-        printf ("  %3zu  %02x  %02x\n", k, ((unsigned char *)ser)[k], descs[i].exp_ser[k]);
-      CU_ASSERT_NEQ (!(bool)"memcmp", 0);
-    }
+    CU_ASSERT_MEMEQ (ser, cmpsize, descs[i].exp_ser, cmpsize);
     /* check */
     memsize = ddsi_plist_memsize_generic (descs[i].desc);
     if (memsize > sizeof (mem))
@@ -204,8 +198,8 @@ CU_Test (ddsi_plist_generic, ser_and_deser)
       for (const enum ddsi_pserop *op = descs[i].desc; *op != XSTOP && can_memcmp; op++)
         if (*op == XS || *op == XO || *op == XQ)
           can_memcmp = false;
-      if (can_memcmp && memcmp (descs[i].exp_data ? descs[i].exp_data : descs[i].data, &mem, memsize) != 0)
-        CU_ASSERT_NEQ (!(bool)"memcmp", 0);
+      if (can_memcmp)
+        CU_ASSERT_MEMEQ (descs[i].exp_data ? descs[i].exp_data : descs[i].data, memsize, &mem, memsize);
       /* rely on mem checkers to find memory leaks, incorrect free, etc. */
       ddsi_plist_fini_generic (&mem, descs[i].desc, true);
     }
@@ -331,13 +325,7 @@ CU_Test (ddsi_plist_generic, optional)
   CU_ASSERT_EQ (sersize, exp_sersize);
   /* if sizes don't match, still check prefix */
   size_t cmpsize = (sersize < exp_sersize) ? sersize : exp_sersize;
-  if (memcmp (ser, exp_ser, cmpsize) != 0)
-  {
-    printf ("ddsi_plist_generic_optional: memcmp\n");
-    for (size_t k = 0; k < cmpsize; k++)
-      printf ("  %3zu  %02x  %02x\n", k, ((unsigned char *)ser)[k], exp_ser[k]);
-    CU_ASSERT_NEQ (!(bool)"memcmp", 0);
-  }
+  CU_ASSERT_MEMEQ (ser, cmpsize, exp_ser, cmpsize);
   /* check */
   memsize = ddsi_plist_memsize_generic (deser_desc);
   CU_ASSERT_LEQ_FATAL (memsize, sizeof (mem));
