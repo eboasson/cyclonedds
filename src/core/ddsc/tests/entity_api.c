@@ -344,17 +344,9 @@ CU_Test(ddsc_entity, get_entities, .init = create_entity, .fini = delete_entity)
 
     /* Get Children, of which there are currently none. */
     status = dds_get_children (entity, NULL, 0);
-    if (status > 0) {
-        CU_ASSERT_NEQ_FATAL (false, 0);
-    } else {
-        CU_ASSERT_EQ_FATAL (status, 0);
-    }
+    CU_ASSERT_EQ_FATAL (status, 0);
     status = dds_get_children (entity, &child, 1);
-    if (status > 0) {
-        CU_ASSERT_NEQ_FATAL (false, 0);
-    } else {
-        CU_ASSERT_EQ_FATAL (status, 0);
-    }
+    CU_ASSERT_EQ_FATAL (status, 0);
 }
 
 CU_Test(ddsc_entity, get_domainid, .init = create_entity, .fini = delete_entity)

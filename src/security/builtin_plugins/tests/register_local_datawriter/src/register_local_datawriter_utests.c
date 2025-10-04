@@ -255,7 +255,7 @@ CU_Test(ddssec_builtin_register_local_datawriter, builtin_endpoint, .init = suit
 
   CU_ASSERT_NEQ_FATAL (writer_crypto->metadata_protectionKind == DDS_SECURITY_PROTECTION_KIND_ENCRYPT, 0);
   CU_ASSERT_NEQ_FATAL (writer_crypto->data_protectionKind == DDS_SECURITY_BASICPROTECTION_KIND_ENCRYPT, 0);
-  CU_ASSERT_NEQ_FATAL (writer_crypto->is_builtin_participant_volatile_message_secure_writer == false, 0);
+  CU_ASSERT_EQ_FATAL (writer_crypto->is_builtin_participant_volatile_message_secure_writer, false);
 
   reset_exception(&exception);
   DDS_Security_PropertySeq_deinit(&datawriter_properties);

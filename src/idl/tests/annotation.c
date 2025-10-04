@@ -294,7 +294,7 @@ static void test_key(key_test_t test)
     }
     CU_ASSERT_EQ (u->switch_type_spec->key.value, test.val[0]);
   } else {
-    CU_ASSERT_NEQ (false, 0);
+    CU_FAIL ("expected struct or union");
   }
 
   idl_delete_pstate(pstate);
@@ -358,15 +358,15 @@ CU_Test(idl_annotation, nested)
   s = (idl_struct_t *)pstate->root;
   CU_ASSERT_NEQ_FATAL (idl_is_struct(s), 0);
   CU_ASSERT_EQ (s->nested.annotation, NULL);
-  CU_ASSERT_NEQ_FATAL (s->nested.value == false, 0);
+  CU_ASSERT_EQ_FATAL (s->nested.value, false);
   s = idl_next(s);
   CU_ASSERT_NEQ_FATAL (idl_is_struct(s), 0);
   CU_ASSERT_NEQ (s->nested.annotation, NULL);
-  CU_ASSERT_NEQ_FATAL (s->nested.value == true, 0);
+  CU_ASSERT_EQ_FATAL (s->nested.value, true);
   s = idl_next(s);
   CU_ASSERT_NEQ_FATAL (idl_is_struct(s), 0);
   CU_ASSERT_NEQ (s->nested.annotation, NULL);
-  CU_ASSERT_NEQ_FATAL (s->nested.value == true, 0);
+  CU_ASSERT_EQ_FATAL (s->nested.value, true);
   s = idl_next(s);
   CU_ASSERT_NEQ_FATAL (idl_is_struct(s), 0);
   CU_ASSERT_NEQ (s->nested.annotation, NULL);
@@ -1278,7 +1278,7 @@ static void validate_limit(const idl_literal_t *lit, double to_test)
       fval = (double)lit->value.ldbl;
       break;
     default:
-      CU_ASSERT_NEQ (false, 0);
+      CU_FAIL ("validate_limit: unhandled case");
   }
   CU_ASSERT_EQ (fval, to_test);
 }

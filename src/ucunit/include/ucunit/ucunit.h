@@ -53,11 +53,11 @@ extern "C" {
   )
 
 #define CU_PASS(msg) \
-  CU_assertImplementation (true, __LINE__, ("CU_PASS(" #msg ")"), __FILE__, "", false)
+  CU_assertImplementation (true, __LINE__, ("CU_PASS(" msg ")"), __FILE__, "", false)
 #define CU_FAIL(msg) \
-  CU_assertImplementation (false, __LINE__, ("CU_PASS(" #msg ")"), __FILE__, "", false)
+  CU_assertImplementation (false, __LINE__, ("CU_FAIL(" msg ")"), __FILE__, "", false)
 #define CU_FAIL_FATAL(msg) do { \
-    CU_assertImplementation (false, __LINE__, ("CU_PASS(" #msg ")"), __FILE__, "", true); \
+    CU_assertImplementation (false, __LINE__, ("CU_FAIL_FATAL(" msg ")"), __FILE__, "", true); \
     CU_UNREACHABLE; \
   } while (0)
 
