@@ -86,7 +86,7 @@ static void suite_register_local_datareader_init(void)
   shared_secret_handle = (DDS_Security_SharedSecretHandle)shared_secret_handle_impl;
 
   /* Check if we actually have the validate_local_identity() function. */
-  CU_ASSERT_NEQ (crypto != NULL && crypto->crypto_key_factory != NULL && crypto->crypto_key_factory->register_local_participant != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto != NULL && crypto->crypto_key_factory != NULL && crypto->crypto_key_factory->register_local_participant != NULL, 0);
   memset(&exception, 0, sizeof(DDS_Security_SecurityException));
   memset(&participant_properties, 0, sizeof(participant_properties));
   prepare_participant_security_attributes(&participant_security_attributes);
@@ -151,9 +151,9 @@ CU_Test(ddssec_builtin_register_local_datareader, happy_day, .init = suite_regis
   local_datareader_crypto *reader_crypto;
 
   /* Check if we actually have the function. */
-  CU_ASSERT_NEQ (crypto, NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory->register_local_datareader != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_datareader != NULL, 0);
 
   memset(&exception, 0, sizeof(DDS_Security_SecurityException));
   memset(&datareader_properties, 0, sizeof(datareader_properties));
@@ -170,14 +170,14 @@ CU_Test(ddssec_builtin_register_local_datareader, happy_day, .init = suite_regis
       &exception);
 
   /* A valid handle to be returned */
-  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ_FATAL (result, 0);
 
   CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_OK_CODE);
 
   /* NOTE: It would be better to check if the keys have been generated but there is no interface to get them from handle */
   reader_crypto = (local_datareader_crypto *)result;
 
-  CU_ASSERT_NEQ (reader_crypto->reader_key_material != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (reader_crypto->reader_key_material != NULL, 0);
   CU_ASSERT_NEQ (master_salt_not_empty(reader_crypto->reader_key_material), 0);
   CU_ASSERT_NEQ (master_key_not_empty(reader_crypto->reader_key_material), 0);
   CU_ASSERT_NEQ (reader_crypto->metadata_protectionKind == DDS_SECURITY_PROTECTION_KIND_ENCRYPT, 0);
@@ -199,11 +199,11 @@ CU_Test(ddssec_builtin_register_local_datareader, builtin_endpoint, .init = suit
   memset(&datareader_properties, 0, sizeof(datareader_properties));
 
   /* Check if we actually have the function. */
-  CU_ASSERT_NEQ (crypto, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory != NULL, 0);
   assert(crypto->crypto_key_factory != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory->register_local_datareader != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_datareader != NULL, 0);
   assert(crypto->crypto_key_factory->register_local_datareader != 0);
 
   datareader_properties._buffer = DDS_Security_PropertySeq_allocbuf(1);
@@ -226,12 +226,12 @@ CU_Test(ddssec_builtin_register_local_datareader, builtin_endpoint, .init = suit
     printf("register_local_datareader: %s\n", exception.message ? exception.message : "Error message missing");
 
   /* A valid handle to be returned */
-  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ_FATAL (result, 0);
   CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_OK_CODE);
 
   /* NOTE: It would be better to check if the keys have been generated but there is no interface to get them from handle */
   reader_crypto = (local_datareader_crypto *)result;
-  CU_ASSERT_NEQ (reader_crypto->reader_key_material != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (reader_crypto->reader_key_material != NULL, 0);
   CU_ASSERT_NEQ (master_salt_not_empty(reader_crypto->reader_key_material), 0);
   CU_ASSERT_NEQ (master_key_not_empty(reader_crypto->reader_key_material), 0);
   CU_ASSERT_NEQ (reader_crypto->metadata_protectionKind == DDS_SECURITY_PROTECTION_KIND_ENCRYPT, 0);
@@ -252,11 +252,11 @@ CU_Test(ddssec_builtin_register_local_datareader, special_endpoint_name, .init =
   memset(&datareader_properties, 0, sizeof(datareader_properties));
 
   /* Check if we actually have the function. */
-  CU_ASSERT_NEQ (crypto, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory != NULL, 0);
   assert(crypto->crypto_key_factory != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory->register_local_datareader != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_datareader != NULL, 0);
   assert(crypto->crypto_key_factory->register_local_datareader != 0);
 
   /*set special endpoint name*/
@@ -279,9 +279,9 @@ CU_Test(ddssec_builtin_register_local_datareader, special_endpoint_name, .init =
     printf("register_local_datareader: %s\n", exception.message ? exception.message : "Error message missing");
 
   /* A valid handle to be returned */
-  CU_ASSERT_NEQ (result, 0);
-  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_OK_CODE);
-  CU_ASSERT_NEQ (((local_datareader_crypto *)result)->is_builtin_participant_volatile_message_secure_reader, 0);
+  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_EQ_FATAL (exception.code, DDS_SECURITY_ERR_OK_CODE);
+  CU_ASSERT_NEQ_FATAL (((local_datareader_crypto *)result)->is_builtin_participant_volatile_message_secure_reader, 0);
   reset_exception(&exception);
   DDS_Security_PropertySeq_deinit(&datareader_properties);
 }
@@ -296,11 +296,11 @@ CU_Test(ddssec_builtin_register_local_datareader, invalid_participant, .init = s
   DDS_Security_EndpointSecurityAttributes datareader_security_attributes;
 
   /* Check if we actually have the function. */
-  CU_ASSERT_NEQ (crypto, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory != NULL, 0);
   assert(crypto->crypto_key_factory != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory->register_local_datareader != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_datareader != NULL, 0);
   assert(crypto->crypto_key_factory->register_local_datareader != 0);
 
   memset(&exception, 0, sizeof(DDS_Security_SecurityException));
@@ -318,7 +318,7 @@ CU_Test(ddssec_builtin_register_local_datareader, invalid_participant, .init = s
 
   /* Invalid handle should be returned */
   CU_ASSERT_EQ (result, 0);
-  CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_CRYPTO_HANDLE_CODE);
+  CU_ASSERT_EQ_FATAL (exception.code, DDS_SECURITY_ERR_INVALID_CRYPTO_HANDLE_CODE);
   CU_ASSERT_STREQ_FATAL (exception.message, DDS_SECURITY_ERR_INVALID_CRYPTO_HANDLE_MESSAGE);
   reset_exception(&exception);
 }

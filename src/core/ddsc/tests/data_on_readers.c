@@ -42,32 +42,32 @@ CU_Test (ddsc_data_on_readers, basic)
     if (x > 0 && x <= 2)
     {
       rc = dds_waitset_attach (ws[x - 1], sub, 0);
-      CU_ASSERT_EQ (rc, 0);
+      CU_ASSERT_EQ_FATAL (rc, 0);
     }
     else if (x > 2)
     {
       rc = dds_waitset_detach (ws[4 - x], sub);
-      CU_ASSERT_EQ (rc, 0);
+      CU_ASSERT_EQ_FATAL (rc, 0);
     }
 
     // initially no DoR or DA
     rc = dds_take_status (sub, &status, DDS_DATA_ON_READERS_STATUS);
-    CU_ASSERT_NEQ (rc == 0 && status == 0, 0);
+    CU_ASSERT_NEQ_FATAL (rc == 0 && status == 0, 0);
     for (int i = 0; i < NRDS; i++)
     {
       rc = dds_read_status (rds[i], &status, DDS_DATA_AVAILABLE_STATUS);
-      CU_ASSERT_NEQ (rc == 0 && status == 0, 0);
+      CU_ASSERT_NEQ_FATAL (rc == 0 && status == 0, 0);
     }
 
     // after write, DoR and DA on all
     rc = dds_write (wr, &(Space_Type1){1,1,1});
-    CU_ASSERT_EQ (rc, 0);
+    CU_ASSERT_EQ_FATAL (rc, 0);
     rc = dds_read_status (sub, &status, DDS_DATA_ON_READERS_STATUS);
-    CU_ASSERT_NEQ (rc == 0 && status != 0, 0);
+    CU_ASSERT_NEQ_FATAL (rc == 0 && status != 0, 0);
     for (int i = 0; i < NRDS; i++)
     {
       rc = dds_read_status (rds[i], &status, DDS_DATA_AVAILABLE_STATUS);
-      CU_ASSERT_NEQ (rc == 0 && status != 0, 0);
+      CU_ASSERT_NEQ_FATAL (rc == 0 && status != 0, 0);
     }
 
     // attempting to take non-materialized status has no effect, does reset flag if
@@ -76,9 +76,9 @@ CU_Test (ddsc_data_on_readers, basic)
     if (!materialized || x == 2)
     {
       rc = dds_take_status (sub, &status, DDS_DATA_ON_READERS_STATUS);
-      CU_ASSERT_NEQ (rc == 0 && status != 0, 0);
+      CU_ASSERT_NEQ_FATAL (rc == 0 && status != 0, 0);
       rc = dds_read_status (sub, &status, DDS_DATA_ON_READERS_STATUS);
-      CU_ASSERT_NEQ (rc == 0 && ((materialized && status == 0) || (!materialized && status != 0)), 0);
+      CU_ASSERT_NEQ_FATAL (rc == 0 && ((materialized && status == 0) || (!materialized && status != 0)), 0);
     }
 
     // read/take resets DA on reader, also resets DoR iff DoR is materialized
@@ -88,24 +88,24 @@ CU_Test (ddsc_data_on_readers, basic)
     for (int k = 0; k < NRDS; k++)
     {
       rc = dds_read (rds[k], &raw, &info, 1, 1);
-      CU_ASSERT_EQ (rc, 1);
+      CU_ASSERT_EQ_FATAL (rc, 1);
       rc = dds_read_status (sub, &status, DDS_DATA_ON_READERS_STATUS);
-      CU_ASSERT_EQ (rc, 0);
+      CU_ASSERT_EQ_FATAL (rc, 0);
       CU_ASSERT_NEQ_FATAL ((materialized && status == 0) ||
                            (!materialized && k < NRDS-1 && status != 0) ||
                            (!materialized && k == NRDS-1 && status == 0), false);
       for (int i = 0; i < NRDS; i++)
       {
         rc = dds_read_status (rds[i], &status, DDS_DATA_AVAILABLE_STATUS);
-        CU_ASSERT_EQ (rc, 0);
-        CU_ASSERT_NEQ ((i <= k && status == 0) || (i > k && status != 0), 0);
+        CU_ASSERT_EQ_FATAL (rc, 0);
+        CU_ASSERT_NEQ_FATAL ((i <= k && status == 0) || (i > k && status != 0), 0);
       }
     }
   }
 #undef NRDS
 
   rc = dds_delete (dp);
-  CU_ASSERT_EQ (rc, 0);
+  CU_ASSERT_EQ_FATAL (rc, 0);
 }
 
 CU_Test (ddsc_data_on_readers, while_da)
@@ -127,32 +127,32 @@ CU_Test (ddsc_data_on_readers, while_da)
 
   // initially no DoR or DA
   rc = dds_take_status (sub, &status, DDS_DATA_ON_READERS_STATUS);
-  CU_ASSERT_NEQ (rc == 0 && status == 0, 0);
+  CU_ASSERT_NEQ_FATAL (rc == 0 && status == 0, 0);
   for (int i = 0; i < NRDS; i++)
   {
     rc = dds_read_status (rds[i], &status, DDS_DATA_AVAILABLE_STATUS);
-    CU_ASSERT_NEQ (rc == 0 && status == 0, 0);
+    CU_ASSERT_NEQ_FATAL (rc == 0 && status == 0, 0);
   }
 
   // after write, DoR and DA on all
   rc = dds_write (wr, &(Space_Type1){1,1,1});
-  CU_ASSERT_EQ (rc, 0);
+  CU_ASSERT_EQ_FATAL (rc, 0);
   rc = dds_read_status (sub, &status, DDS_DATA_ON_READERS_STATUS);
-  CU_ASSERT_NEQ (rc == 0 && status != 0, 0);
+  CU_ASSERT_NEQ_FATAL (rc == 0 && status != 0, 0);
   for (int i = 0; i < NRDS; i++)
   {
     rc = dds_read_status (rds[i], &status, DDS_DATA_AVAILABLE_STATUS);
-    CU_ASSERT_NEQ (rc == 0 && status != 0, 0);
+    CU_ASSERT_NEQ_FATAL (rc == 0 && status != 0, 0);
   }
 
   // attach waitset - switchover to materialized
   // will remain set
   rc = dds_waitset_attach (ws, sub, 0);
-  CU_ASSERT_EQ (rc, 0);
+  CU_ASSERT_EQ_FATAL (rc, 0);
   rc = dds_read_status (sub, &status, DDS_DATA_ON_READERS_STATUS);
-  CU_ASSERT_NEQ (rc == 0 && status != 0, 0);
+  CU_ASSERT_NEQ_FATAL (rc == 0 && status != 0, 0);
 #undef NRDS
 
   rc = dds_delete (dp);
-  CU_ASSERT_EQ (rc, 0);
+  CU_ASSERT_EQ_FATAL (rc, 0);
 }

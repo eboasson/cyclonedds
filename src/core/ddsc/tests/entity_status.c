@@ -76,13 +76,13 @@ init_entity_status(void)
     dds_qset_destination_order (qos, DDS_DESTINATIONORDER_BY_SOURCE_TIMESTAMP);
 
     subscriber = dds_create_subscriber(participant, qos, NULL);
-    CU_ASSERT_GT (subscriber, 0);
+    CU_ASSERT_GT_FATAL (subscriber, 0);
     rea = dds_create_reader(subscriber, top, qos, NULL);
-    CU_ASSERT_GT (rea, 0);
+    CU_ASSERT_GT_FATAL (rea, 0);
     publisher = dds_create_publisher(participant, qos, NULL);
-    CU_ASSERT_GT (publisher, 0);
+    CU_ASSERT_GT_FATAL (publisher, 0);
     wri = dds_create_writer(publisher, top, qos, NULL);
-    CU_ASSERT_GT (wri, 0);
+    CU_ASSERT_GT_FATAL (wri, 0);
 
     waitSetwr = dds_create_waitset(participant);
     ret = dds_waitset_attach (waitSetwr, wri, wri);
@@ -240,7 +240,7 @@ CU_Test(ddsc_entity, incompatible_qos, .init=init_entity_status, .fini=fini_enti
 
     /* Create a reader with persistent durability */
     reader2 = dds_create_reader(participant, top, qos, NULL);
-    CU_ASSERT_GT (reader2, 0);
+    CU_ASSERT_GT_FATAL (reader2, 0);
     ret = dds_waitset_attach (waitSetrd, reader2, reader2);
     CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
 
@@ -427,7 +427,7 @@ Test(ddsc_entity, inconsistent_topic)
     dds_inconsistent_topic_status_t topic_status;
 
     top = dds_create_topic(participant, &RoundTripModule_DataType_desc, "RoundTrip1", NULL, NULL);
-    CU_ASSERT_GT (top, 0);
+    CU_ASSERT_GT_FATAL (top, 0);
 
     /*Set reader topic and writer topic statuses enabled*/
     ret = dds_set_status_mask(top, DDS_INCONSISTENT_TOPIC_STATUS);
@@ -440,7 +440,7 @@ Test(ddsc_entity, inconsistent_topic)
     CU_ASSERT_EQ_FATAL (ret, (dds_return_t)wsresultsize);
     ret = dds_get_inconsistent_topic_status (top, &topic_status);
     CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
-    CU_ASSERT_GT (topic_status.total_count, 0);
+    CU_ASSERT_GT_FATAL (topic_status.total_count, 0);
 
     /*Getting the status should have reset the trigger, waitset should timeout */
     status = dds_waitset_wait(waitSetrd, wsresults, wsresultsize, shortTimeout);
@@ -451,7 +451,7 @@ Test(ddsc_entity, inconsistent_topic)
     CU_ASSERT_EQ_FATAL (status, wsresultsize);
     ret = dds_get_inconsistent_topic_status (top, &topic_status);
     CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
-    CU_ASSERT_GT (topic_status.total_count, 0);
+    CU_ASSERT_GT_FATAL (topic_status.total_count, 0);
 
     /*Getting the status should have reset the trigger, waitset should timeout */
     status = dds_waitset_wait(waitSetrd, wsresults, wsresultsize, shortTimeout);
@@ -573,7 +573,7 @@ CU_Test(ddsc_entity, all_data_available, .init=init_entity_status, .fini=fini_en
     s_samples[0] = &s_sample;
 
     reader2 = dds_create_reader(subscriber, top, NULL, NULL);
-    CU_ASSERT_GT (reader2, 0);
+    CU_ASSERT_GT_FATAL (reader2, 0);
 
     ret = dds_set_status_mask(wri, DDS_PUBLICATION_MATCHED_STATUS);
     CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
@@ -625,7 +625,7 @@ CU_Test(ddsc_entity, all_data_available, .init=init_entity_status, .fini=fini_en
 
     /* Force materialized DATA_ON_READERS */
     ret = dds_waitset_attach(dds_create_waitset(participant), subscriber, 0);
-    CU_ASSERT_EQ (ret, 0);
+    CU_ASSERT_EQ_FATAL (ret, 0);
 
     /* Get DATA_ON_READERS status*/
     ret = dds_get_status_changes (subscriber, &sta);
@@ -893,7 +893,7 @@ CU_TheoryDataPoints(ddsc_triggered, status_ok) = {
 CU_Theory((dds_entity_t *e), ddsc_triggered, status_ok, .init=init_entity_status, .fini=fini_entity_status)
 {
     ret = dds_triggered (*e);
-    CU_ASSERT_GEQ (ret, 0);
+    CU_ASSERT_GEQ_FATAL (ret, 0);
 }
 /*************************************************************************************************/
 
@@ -1427,30 +1427,30 @@ CU_Test(ddsc_set_status_mask, trigger_waitset)
 {
   dds_return_t rc;
   const dds_entity_t dp = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_GT (dp, 0);
+  CU_ASSERT_GT_FATAL (dp, 0);
   char topicname[100];
   create_unique_topic_name ("ddsc_set_status_mask_trigger_waitset", topicname, sizeof (topicname));
   const dds_entity_t tp = dds_create_topic (dp, &Space_Type1_desc, topicname, NULL, NULL);
-  CU_ASSERT_GT (tp, 0);
+  CU_ASSERT_GT_FATAL (tp, 0);
 
   int attempts = 0;
   bool ok = false;
   do {
     const dds_entity_t rd = dds_create_reader (dp, tp, NULL, NULL);
-    CU_ASSERT_GT (rd, 0);
+    CU_ASSERT_GT_FATAL (rd, 0);
     rc = dds_set_status_mask (rd, DDS_SUBSCRIPTION_MATCHED_STATUS);
-    CU_ASSERT_EQ (rc, 0);
+    CU_ASSERT_EQ_FATAL (rc, 0);
     const dds_entity_t wr = dds_create_writer (dp, tp, NULL, NULL);
-    CU_ASSERT_GT (wr, 0);
+    CU_ASSERT_GT_FATAL (wr, 0);
     rc = dds_set_status_mask (wr, DDS_PUBLICATION_MATCHED_STATUS);
-    CU_ASSERT_EQ (rc, 0);
+    CU_ASSERT_EQ_FATAL (rc, 0);
     const dds_entity_t ws = dds_create_waitset (dp);
     rc = dds_waitset_attach (ws, rd, rd);
-    CU_ASSERT_EQ (rc, 0);
+    CU_ASSERT_EQ_FATAL (rc, 0);
     rc = dds_waitset_attach (ws, wr, wr);
-    CU_ASSERT_EQ (rc, 0);
+    CU_ASSERT_EQ_FATAL (rc, 0);
     rc = dds_write (wr, &(Space_Type1){1,2,3});
-    CU_ASSERT_EQ (rc, 0);
+    CU_ASSERT_EQ_FATAL (rc, 0);
 
     // now we have (or should have) SUB_MATCHED|DATA_AVAILABLE and PUB_MATCHED
     // and perhaps some others
@@ -1460,28 +1460,28 @@ CU_Test(ddsc_set_status_mask, trigger_waitset)
     uint32_t stat = 0;
     do {
       rc = dds_waitset_wait (ws, NULL, 0, DDS_INFINITY);
-      CU_ASSERT_GT (rc, 0);
+      CU_ASSERT_GT_FATAL (rc, 0);
       uint32_t tmp;
       rc = dds_take_status (rd, &tmp, DDS_SUBSCRIPTION_MATCHED_STATUS);
-      CU_ASSERT_EQ (rc, 0);
+      CU_ASSERT_EQ_FATAL (rc, 0);
       stat |= tmp;
       rc = dds_take_status (wr, &tmp, DDS_PUBLICATION_MATCHED_STATUS);
-      CU_ASSERT_EQ (rc, 0);
+      CU_ASSERT_EQ_FATAL (rc, 0);
       stat |= tmp;
     } while (stat != (DDS_PUBLICATION_MATCHED_STATUS | DDS_SUBSCRIPTION_MATCHED_STATUS));
     rc = dds_waitset_detach (ws, wr);
-    CU_ASSERT_EQ (rc, 0);
+    CU_ASSERT_EQ_FATAL (rc, 0);
 
     // Wait should now block (but with timeout = 0)
     rc = dds_waitset_wait (ws, NULL, 0, 0);
-    CU_ASSERT_EQ (rc, 0);
+    CU_ASSERT_EQ_FATAL (rc, 0);
 
     ddsrt_thread_t tid;
     ddsrt_threadattr_t tattr;
     ddsrt_threadattr_init (&tattr);
     struct data_available_wait_thread_arg targ = { .ws = ws };
     rc = ddsrt_thread_create (&tid, "data_available_wait_thread", &tattr, data_available_wait_thread, &targ);
-    CU_ASSERT_EQ (rc, 0);
+    CU_ASSERT_EQ_FATAL (rc, 0);
 
     // Changing status mask to DATA_AVAILABLE should result in an immediate wakeup
     // but we also want to be (reasonably sure) that we were actually blocked, so
@@ -1491,18 +1491,18 @@ CU_Test(ddsc_set_status_mask, trigger_waitset)
     dds_sleepfor (DDS_MSECS (100));
     ddsrt_mtime_t ttrig = ddsrt_time_monotonic ();
     rc = dds_set_status_mask (rd, DDS_DATA_AVAILABLE_STATUS);
-    CU_ASSERT_EQ (rc, 0);
+    CU_ASSERT_EQ_FATAL (rc, 0);
     rc = ddsrt_thread_join (tid, NULL);
-    CU_ASSERT_EQ (rc, 0);
+    CU_ASSERT_EQ_FATAL (rc, 0);
     rc = dds_delete (ws);
-    CU_ASSERT_EQ (rc, 0);
+    CU_ASSERT_EQ_FATAL (rc, 0);
     rc = dds_delete (rd);
-    CU_ASSERT_EQ (rc, 0);
+    CU_ASSERT_EQ_FATAL (rc, 0);
     rc = dds_delete (wr);
-    CU_ASSERT_EQ (rc, 0);
+    CU_ASSERT_EQ_FATAL (rc, 0);
 
     ok = targ.twait.v + DDS_MSECS (50) < ttrig.v && targ.twakeup.v < ttrig.v + DDS_MSECS (50);
   } while (!ok && attempts++ < 5);
-  CU_ASSERT_NEQ (ok, 0);
+  CU_ASSERT_NEQ_FATAL (ok, 0);
   dds_delete (dp);
 }

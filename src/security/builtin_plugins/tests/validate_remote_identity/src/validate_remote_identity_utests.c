@@ -438,9 +438,9 @@ CU_Test(ddssec_builtin_validate_remote_identity,happy_day_nil_auth_req )
 
     /* Check if we actually have validate_local_identity function. */
     CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (auth, NULL);
+    CU_ASSERT_NEQ_FATAL (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (auth->validate_remote_identity != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (auth->validate_remote_identity != NULL, 0);
     assert (auth->validate_remote_identity != NULL);
 
     if (local_identity_handle == DDS_SECURITY_HANDLE_NIL) {
@@ -498,11 +498,11 @@ CU_Test(ddssec_builtin_validate_remote_identity,happy_day_with_auth_req )
     DDS_Security_boolean success;
 
     /* Check if we actually have validate_local_identity function. */
-    CU_ASSERT_NEQ (auth, NULL);
+    CU_ASSERT_NEQ_FATAL (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (auth, NULL);
-    CU_ASSERT_NEQ (auth->validate_remote_identity != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (auth, NULL);
+    CU_ASSERT_NEQ_FATAL (auth->validate_remote_identity != NULL, 0);
     assert (auth->validate_remote_identity != 0);
 
     initialize_identity_token(&remote_identity_token, RSA_2048_ALGORITHM_NAME, RSA_2048_ALGORITHM_NAME);
@@ -523,7 +523,7 @@ CU_Test(ddssec_builtin_validate_remote_identity,happy_day_with_auth_req )
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
+    CU_ASSERT_EQ_FATAL (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
     CU_ASSERT_NEQ (remote_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (check_auth_request_token(&local_auth_request_token, 0), 0);
 
@@ -553,11 +553,11 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_parameters )
     DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
 
     /* Check if we actually have validate_local_identity function. */
-    CU_ASSERT_NEQ (auth, NULL);
+    CU_ASSERT_NEQ_FATAL (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (auth, NULL);
-    CU_ASSERT_NEQ (auth->validate_remote_identity != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (auth, NULL);
+    CU_ASSERT_NEQ_FATAL (auth->validate_remote_identity != NULL, 0);
     assert (auth->validate_remote_identity != 0);
 
     initialize_identity_token(&remote_identity_token, RSA_2048_ALGORITHM_NAME, RSA_2048_ALGORITHM_NAME);
@@ -635,11 +635,11 @@ CU_Test(ddssec_builtin_validate_remote_identity,unknown_local_identity )
     DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
 
     /* Check if we actually have validate_local_identity function. */
-    CU_ASSERT_NEQ (auth, NULL);
+    CU_ASSERT_NEQ_FATAL (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (auth, NULL);
-    CU_ASSERT_NEQ (auth->validate_remote_identity != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (auth, NULL);
+    CU_ASSERT_NEQ_FATAL (auth->validate_remote_identity != NULL, 0);
     assert (auth->validate_remote_identity != 0);
 
     initialize_identity_token(&remote_identity_token, RSA_2048_ALGORITHM_NAME, RSA_2048_ALGORITHM_NAME);
@@ -681,11 +681,11 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_remote_identity_token )
     DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
 
     /* Check if we actually have validate_local_identity function. */
-    CU_ASSERT_NEQ (auth, NULL);
+    CU_ASSERT_NEQ_FATAL (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (auth, NULL);
-    CU_ASSERT_NEQ (auth->validate_remote_identity != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (auth, NULL);
+    CU_ASSERT_NEQ_FATAL (auth->validate_remote_identity != NULL, 0);
     assert (auth->validate_remote_identity != 0);
 
     initialize_identity_token(&remote_identity_token, RSA_2048_ALGORITHM_NAME, RSA_2048_ALGORITHM_NAME);
@@ -755,11 +755,11 @@ CU_Test(ddssec_builtin_validate_remote_identity,invalid_auth_req_token )
     unsigned char *futureChallenge;
 
     /* Check if we actually have validate_local_identity function. */
-    CU_ASSERT_NEQ (auth, NULL);
+    CU_ASSERT_NEQ_FATAL (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (auth, NULL);
-    CU_ASSERT_NEQ (auth->validate_remote_identity != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (auth, NULL);
+    CU_ASSERT_NEQ_FATAL (auth->validate_remote_identity != NULL, 0);
     assert (auth->validate_remote_identity != 0);
 
     initialize_identity_token(&remote_identity_token, RSA_2048_ALGORITHM_NAME, RSA_2048_ALGORITHM_NAME);
@@ -1008,11 +1008,11 @@ CU_Test(ddssec_builtin_validate_remote_identity,already_validated_same_token )
     DDS_Security_boolean success;
 
     /* Check if we actually have validate_local_identity function. */
-    CU_ASSERT_NEQ (auth, NULL);
+    CU_ASSERT_NEQ_FATAL (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (auth, NULL);
-    CU_ASSERT_NEQ (auth->validate_remote_identity != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (auth, NULL);
+    CU_ASSERT_NEQ_FATAL (auth->validate_remote_identity != NULL, 0);
     assert (auth->validate_remote_identity != 0);
 
     initialize_identity_token(&remote_identity_token, RSA_2048_ALGORITHM_NAME, RSA_2048_ALGORITHM_NAME);
@@ -1033,7 +1033,7 @@ CU_Test(ddssec_builtin_validate_remote_identity,already_validated_same_token )
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
+    CU_ASSERT_EQ_FATAL (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
     CU_ASSERT_NEQ (remote_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (check_auth_request_token(&local_auth_request_token, 0), 0);
 
@@ -1053,7 +1053,7 @@ CU_Test(ddssec_builtin_validate_remote_identity,already_validated_same_token )
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
+    CU_ASSERT_EQ_FATAL (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
     CU_ASSERT_EQ (remote_identity_handle, remote_identity_handle2);
     CU_ASSERT_NEQ (check_auth_request_token(&local_auth_request_token, 0), 0);
 
@@ -1087,10 +1087,10 @@ CU_Test(ddssec_builtin_validate_remote_identity,already_validated_different_toke
     DDS_Security_boolean success;
 
     /* Check if we actually have validate_local_identity function. */
-    CU_ASSERT_NEQ (auth, NULL);
+    CU_ASSERT_NEQ_FATAL (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (auth->validate_remote_identity != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (auth->validate_remote_identity != NULL, 0);
     assert (auth->validate_remote_identity != 0);
 
     initialize_identity_token(&remote_identity_token, RSA_2048_ALGORITHM_NAME, RSA_2048_ALGORITHM_NAME);
@@ -1111,8 +1111,8 @@ CU_Test(ddssec_builtin_validate_remote_identity,already_validated_different_toke
         printf("validate_local_identity_failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
-    CU_ASSERT_NEQ (remote_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_EQ_FATAL (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
+    CU_ASSERT_NEQ_FATAL (remote_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (check_auth_request_token(&local_auth_request_token, 0), 0);
 
     reset_exception(&exception);

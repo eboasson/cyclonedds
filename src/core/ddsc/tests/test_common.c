@@ -20,9 +20,9 @@ static void sync_reader_writer_impl (dds_entity_t participant_rd, dds_entity_t r
   dds_attach_t triggered;
   dds_return_t ret;
   dds_entity_t waitset_rd = dds_create_waitset (participant_rd);
-  CU_ASSERT_GT (waitset_rd, 0);
+  CU_ASSERT_GT_FATAL (waitset_rd, 0);
   dds_entity_t waitset_wr = dds_create_waitset (participant_wr);
-  CU_ASSERT_GT (waitset_wr, 0);
+  CU_ASSERT_GT_FATAL (waitset_wr, 0);
 
   /* Sync reader to writer. */
   ret = dds_set_status_mask (reader, DDS_SUBSCRIPTION_MATCHED_STATUS);
@@ -91,7 +91,7 @@ void xcdr2_ser (const void *obj, const dds_topic_descriptor_t *topic_desc, dds_o
   os->x.m_xcdr_version = DDSI_RTPS_CDR_ENC_VERSION_2;
   bool ret = dds_stream_write_sampleLE (os, &dds_cdrstream_default_allocator, obj, &desc);
   dds_cdrstream_desc_fini (&desc, &dds_cdrstream_default_allocator);
-  CU_ASSERT_NEQ (ret, 0);
+  CU_ASSERT_NEQ_FATAL (ret, 0);
 }
 
 void xcdr2_deser (const unsigned char *buf, uint32_t sz, void **obj, const dds_topic_descriptor_t *desc)

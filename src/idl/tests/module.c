@@ -41,12 +41,12 @@ CU_Test(idl_module, reopen)
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
 
   idl_module_t* m1 = (idl_module_t*)pstate->root;
-  CU_ASSERT_NEQ (idl_is_module(m1), 0);
+  CU_ASSERT_NEQ_FATAL (idl_is_module(m1), 0);
   assert(m1);
   CU_ASSERT_STREQ (m1->name->identifier, "m1");
 
   idl_struct_t *s1 = (idl_struct_t*)m1->definitions;
-  CU_ASSERT_NEQ (idl_is_struct(s1), 0);
+  CU_ASSERT_NEQ_FATAL (idl_is_struct(s1), 0);
   CU_ASSERT_EQ (s1->node.parent, (void *) m1);
   CU_ASSERT_EQ_FATAL (s1->inherit_spec, NULL);
 
@@ -65,7 +65,7 @@ CU_Test(idl_module, reopen)
   CU_ASSERT_EQ (idl_array_size(decl1), 0);
 
   idl_module_t* m2 = (idl_module_t*)m1->node.next;
-  CU_ASSERT_NEQ (idl_is_module(m2), 0);
+  CU_ASSERT_NEQ_FATAL (idl_is_module(m2), 0);
   assert(m2);
   CU_ASSERT_STREQ (m2->name->identifier, "m1");
 #if 0
@@ -74,7 +74,7 @@ CU_Test(idl_module, reopen)
 #endif
 
   idl_struct_t* s2 = (idl_struct_t*)m2->definitions;
-  CU_ASSERT_NEQ (idl_is_struct(s2), 0);
+  CU_ASSERT_NEQ_FATAL (idl_is_struct(s2), 0);
   CU_ASSERT_EQ (s2->node.parent, (void *) m2);
   CU_ASSERT_EQ_FATAL (s2->inherit_spec, NULL);
 

@@ -40,11 +40,11 @@ CU_Test(ddsc_subscriber, notify_readers) {
   dds_return_t ret;
 
   participant = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant, 0);
+  CU_ASSERT_GT_FATAL (participant, 0);
 
 
   subscriber = dds_create_subscriber(participant, NULL, NULL);
-  CU_ASSERT_GT (subscriber, 0);
+  CU_ASSERT_GT_FATAL (subscriber, 0);
 
   /* todo implement tests */
   ret = dds_notify_readers(subscriber);
@@ -62,7 +62,7 @@ CU_Test(ddsc_subscriber, create) {
   dds_qos_t *sqos;
 
   participant = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant, 0);
+  CU_ASSERT_GT_FATAL (participant, 0);
 
   /*** Verify participant parameter ***/
 
@@ -70,14 +70,14 @@ CU_Test(ddsc_subscriber, create) {
   CU_ASSERT_EQ_FATAL (subscriber, DDS_RETCODE_BAD_PARAMETER);
 
   subscriber = dds_create_subscriber(participant, NULL, NULL);
-  CU_ASSERT_GT (subscriber, 0);
+  CU_ASSERT_GT_FATAL (subscriber, 0);
   dds_delete(subscriber);
 
   /*** Verify qos parameter ***/
 
   sqos = dds_create_qos(); /* Use defaults (no user-defined policies) */
   subscriber = dds_create_subscriber(participant, sqos, NULL);
-  CU_ASSERT_GT (subscriber, 0);
+  CU_ASSERT_GT_FATAL (subscriber, 0);
   dds_delete(subscriber);
   dds_delete_qos(sqos);
 
@@ -87,7 +87,7 @@ CU_Test(ddsc_subscriber, create) {
   dds_qset_destination_order(sqos, dok.dok); /* Set invalid dest. order (ignored, not applicable for subscriber) */
   DDSRT_WARNING_CLANG_ON(assign-enum);
   subscriber = dds_create_subscriber(participant, sqos, NULL);
-  CU_ASSERT_GT (subscriber, 0);
+  CU_ASSERT_GT_FATAL (subscriber, 0);
   dds_delete(subscriber);
   dds_delete_qos(sqos);
 
@@ -104,21 +104,21 @@ CU_Test(ddsc_subscriber, create) {
 
   listener = dds_create_listener(NULL); /* Use defaults (all listeners unset) */
   subscriber = dds_create_subscriber(participant, NULL, listener);
-  CU_ASSERT_GT (subscriber, 0);
+  CU_ASSERT_GT_FATAL (subscriber, 0);
   dds_delete(subscriber);
   dds_delete_listener(listener);
 
   listener = dds_create_listener(NULL);
   dds_lset_data_available(listener, &on_data_available); /* Set on_data_available listener */
   subscriber = dds_create_subscriber(participant, NULL, listener);
-  CU_ASSERT_GT (subscriber, 0);
+  CU_ASSERT_GT_FATAL (subscriber, 0);
   dds_delete(subscriber);
   dds_delete_listener(listener);
 
   listener = dds_create_listener(NULL);
   dds_lset_publication_matched(listener, &on_publication_matched); /* Set on_publication_matched listener (ignored, not applicable for subscriber) */
   subscriber = dds_create_subscriber(participant, NULL, listener);
-  CU_ASSERT_GT (subscriber, 0);
+  CU_ASSERT_GT_FATAL (subscriber, 0);
   dds_delete(subscriber);
   dds_delete_listener(listener);
 
@@ -136,7 +136,7 @@ CU_Test(ddsc_subscriber, invalid_qos)
   dds_return_t rc;
 
   participant = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant, 0);
+  CU_ASSERT_GT_FATAL (participant, 0);
 
   qos = dds_create_qos ();
   CU_ASSERT_NEQ_FATAL (qos, NULL);
@@ -147,10 +147,10 @@ CU_Test(ddsc_subscriber, invalid_qos)
   dds_qset_presentation(qos, pask.pask, false, false);
 
   subscriber = dds_create_subscriber(participant, qos, NULL);
-  CU_ASSERT_EQ (subscriber, DDS_RETCODE_BAD_PARAMETER);
+  CU_ASSERT_EQ_FATAL (subscriber, DDS_RETCODE_BAD_PARAMETER);
 
   dds_delete_qos (qos);
   rc = dds_delete(participant);
-  CU_ASSERT_EQ (rc, 0);
+  CU_ASSERT_EQ_FATAL (rc, 0);
 }
 

@@ -144,16 +144,16 @@ CU_Test (ddsi_plist_leasedur, deser, .init = setup, .fini = teardown)
       struct plist_valid const * const exp =
         (contexts[j] == DDSI_PLIST_CONTEXT_PARTICIPANT) ? &plists[i].spdp : &plists[i].others;
       ret = ddsi_plist_init_frommsg (&plist, NULL, ~(uint64_t)0, ~(uint64_t)0, &src, &gv, contexts[j]);
-      CU_ASSERT_NEQ ((ret == 0) == exp->valid, 0);
+      CU_ASSERT_NEQ_FATAL ((ret == 0) == exp->valid, 0);
       if (exp->valid)
       {
-        CU_ASSERT_NEQ (plist.present == 0 && plist.aliased == 0, 0);
-        CU_ASSERT_NEQ (((plist.qos.present & DDSI_QP_LIVELINESS) != 0) == exp->present, 0);
-        CU_ASSERT_EQ (plist.qos.aliased, 0);
+        CU_ASSERT_NEQ_FATAL (plist.present == 0 && plist.aliased == 0, 0);
+        CU_ASSERT_NEQ_FATAL (((plist.qos.present & DDSI_QP_LIVELINESS) != 0) == exp->present, 0);
+        CU_ASSERT_EQ_FATAL (plist.qos.aliased, 0);
         if (exp->present)
         {
-          CU_ASSERT_NEQ (plist.qos.liveliness.kind == exp->kind, 0);
-          CU_ASSERT_NEQ (plist.qos.liveliness.lease_duration == exp->lease_duration, 0);
+          CU_ASSERT_NEQ_FATAL (plist.qos.liveliness.kind == exp->kind, 0);
+          CU_ASSERT_NEQ_FATAL (plist.qos.liveliness.lease_duration == exp->lease_duration, 0);
         }
         ddsi_plist_fini (&plist);
       }
@@ -166,7 +166,7 @@ CU_Test (ddsi_plist_leasedur, ser_spdp, .init = setup, .fini = teardown)
   ddsi_guid_t guid;
   memset (&guid, 0, sizeof (guid));
   struct ddsi_xmsg *m = ddsi_xmsg_new (gv.xmsgpool, &guid, NULL, 64, DDSI_XMSG_KIND_DATA);
-  CU_ASSERT_NEQ (m, NULL);
+  CU_ASSERT_NEQ_FATAL (m, NULL);
   struct ddsi_xmsg_marker marker;
   void *x = ddsi_xmsg_append (m, &marker, 0);
   (void) x;
@@ -198,7 +198,7 @@ CU_Test (ddsi_plist_leasedur, ser_others, .init = setup, .fini = teardown)
     ddsi_guid_t guid;
     memset (&guid, 0, sizeof (guid));
     struct ddsi_xmsg *m = ddsi_xmsg_new (gv.xmsgpool, &guid, NULL, 64, DDSI_XMSG_KIND_DATA);
-    CU_ASSERT_NEQ (m, NULL);
+    CU_ASSERT_NEQ_FATAL (m, NULL);
     struct ddsi_xmsg_marker marker;
     void *x = ddsi_xmsg_append (m, &marker, 0);
     (void) x;
@@ -337,15 +337,15 @@ static void ddsi_plist_leasedur_new_proxypp_impl (bool include_lease_duration)
 
   // After waiting for a reasonable amount of time, the (fake) proxy participant
   // should exist and have picked up the lease duration from the message
-  CU_ASSERT_NEQ (proxypp, NULL);
-  CU_ASSERT_NEQ (proxypp->plist->qos.present & DDSI_QP_LIVELINESS, 0);
-  CU_ASSERT_NEQ (proxypp->plist->qos.liveliness.kind == DDS_LIVELINESS_AUTOMATIC, 0);
+  CU_ASSERT_NEQ_FATAL (proxypp, NULL);
+  CU_ASSERT_NEQ_FATAL (proxypp->plist->qos.present & DDSI_QP_LIVELINESS, 0);
+  CU_ASSERT_NEQ_FATAL (proxypp->plist->qos.liveliness.kind == DDS_LIVELINESS_AUTOMATIC, 0);
   if (include_lease_duration) {
-    CU_ASSERT_NEQ (proxypp->plist->qos.liveliness.lease_duration == 3071111111, 0);
+    CU_ASSERT_NEQ_FATAL (proxypp->plist->qos.liveliness.lease_duration == 3071111111, 0);
   } else {
-    CU_ASSERT_NEQ (proxypp->plist->qos.liveliness.lease_duration == DDS_SECS (100), 0);
+    CU_ASSERT_NEQ_FATAL (proxypp->plist->qos.liveliness.lease_duration == DDS_SECS (100), 0);
   }
-  CU_ASSERT_NEQ (proxypp->lease->tdur == proxypp->plist->qos.liveliness.lease_duration, 0);
+  CU_ASSERT_NEQ_FATAL (proxypp->lease->tdur == proxypp->plist->qos.liveliness.lease_duration, 0);
   ddsi_thread_state_asleep (thrst);
 }
 
@@ -373,7 +373,7 @@ static void ddsi_plist_leasedur_new_proxyrd_impl (bool include_lease_duration)
   ddsi_generate_participant_guid (&ppguid, &gv);
   dds_return_t ret = ddsi_new_participant (&ppguid, &gv, 0, &plist);
   ddsi_thread_state_asleep (thrst);
-  CU_ASSERT_GEQ (ret, 0);
+  CU_ASSERT_GEQ_FATAL (ret, 0);
   ddsi_plist_fini (&plist);
 
   // not static nor const: we need to patch in the port number
@@ -471,8 +471,8 @@ static void ddsi_plist_leasedur_new_proxyrd_impl (bool include_lease_duration)
 
   // After waiting for a reasonable amount of time, the (fake) proxy participant
   // should exist and have picked up the lease duration from the message
-  CU_ASSERT_NEQ (prd, NULL);
-  CU_ASSERT_NEQ (prd->c.xqos->present & DDSI_QP_LIVELINESS, 0);
+  CU_ASSERT_NEQ_FATAL (prd, NULL);
+  CU_ASSERT_NEQ_FATAL (prd->c.xqos->present & DDSI_QP_LIVELINESS, 0);
   if (include_lease_duration) {
     CU_ASSERT_NEQ (prd->c.xqos->liveliness.kind == DDS_LIVELINESS_MANUAL_BY_PARTICIPANT, 0);
     CU_ASSERT_NEQ (prd->c.xqos->liveliness.lease_duration == 2041944443, 0);

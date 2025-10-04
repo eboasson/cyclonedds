@@ -173,7 +173,7 @@ CU_Test(dds_log, only_log_file, .init=setup, .fini=teardown)
   (void)fseek(fh, 0L, SEEK_SET);
   nbytes = fread(buf, 1, sizeof(buf) - 1, fh);
   /* At least foobar should have been printed to the log file. */
-  CU_ASSERT_GT (nbytes, 6);
+  CU_ASSERT_GT_FATAL (nbytes, 6);
   buf[nbytes] = '\0';
   ptr = strstr(buf, "foobar\n");
   CU_ASSERT_NEQ (ptr, NULL);
@@ -199,7 +199,7 @@ CU_Test(dds_log, same_file, .init=setup, .fini=teardown)
   (void)fseek(fh, 0L, SEEK_SET);
   nbytes = fread(buf, 1, sizeof(buf) - 1, fh);
   /* At least foobar should have been written to the trace file. */
-  CU_ASSERT_NEQ (nbytes, 6);
+  CU_ASSERT_NEQ_FATAL (nbytes, 6);
   buf[nbytes] = '\0';
   ptr = strstr(buf, "foobar\n");
   CU_ASSERT_NEQ_FATAL (ptr, NULL);

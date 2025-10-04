@@ -155,7 +155,7 @@ CU_Test(idl_file, normalize_empty)
   char *norm = NULL;
 
   ret = idl_normalize_path("", &norm);
-  CU_ASSERT_GEQ (ret, 0);
+  CU_ASSERT_GEQ_FATAL (ret, 0);
   CU_ASSERT_NEQ_FATAL (norm, NULL);
   assert(prefix);
   fprintf(stderr, "path: %s\nexpect: %s\nnormalized: %s\n", prefix, prefix, norm);
@@ -172,7 +172,7 @@ CU_Test(idl_file, normalize_revert)
   CU_ASSERT_NEQ_FATAL (path, NULL);
   assert(path);
   ret = idl_normalize_path(path, &norm);
-  CU_ASSERT_GEQ (ret, 0);
+  CU_ASSERT_GEQ_FATAL (ret, 0);
   CU_ASSERT_NEQ_FATAL (norm, NULL);
   assert(norm);
   fprintf(stderr, "path: %s\n", path);

@@ -27,13 +27,13 @@ static void create_entity(void)
 {
     CU_ASSERT_EQ_FATAL (entity, -1);
     entity = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_GT (entity, 0);
+    CU_ASSERT_GT_FATAL (entity, 0);
 }
 
 /* Fixture to delete prerequisite entity */
 static void delete_entity(void)
 {
-    CU_ASSERT_GT (entity, 0);
+    CU_ASSERT_GT_FATAL (entity, 0);
     dds_return_t ret = dds_delete(entity);
     CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
     entity = -1;
@@ -43,7 +43,7 @@ CU_Test(ddsc_entity, create, .fini = delete_entity)
 {
     /* Use participant as entity in the tests. */
     entity = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_GT (entity, 0 );
+    CU_ASSERT_GT_FATAL (entity, 0 );
 }
 
 CU_Test(ddsc_entity, enable, .init = create_entity, .fini = delete_entity)
@@ -274,7 +274,7 @@ CU_Test(ddsc_entity, guid, .init = create_entity, .fini = delete_entity)
     /* Get Instance Handle, which should not be 0 for a participant. */
     status = dds_get_guid (entity, &guid);
     CU_ASSERT_EQ_FATAL (status, DDS_RETCODE_OK);
-    CU_ASSERT_NEQ (memcmp(&guid, &zero, sizeof(guid)), 0);
+    CU_ASSERT_NEQ_FATAL (memcmp(&guid, &zero, sizeof(guid)), 0);
 }
 
 CU_Test(ddsc_entity, instance_handle, .init = create_entity, .fini = delete_entity)
@@ -345,13 +345,13 @@ CU_Test(ddsc_entity, get_entities, .init = create_entity, .fini = delete_entity)
     /* Get Children, of which there are currently none. */
     status = dds_get_children (entity, NULL, 0);
     if (status > 0) {
-        CU_ASSERT_NEQ (false, 0);
+        CU_ASSERT_NEQ_FATAL (false, 0);
     } else {
         CU_ASSERT_EQ_FATAL (status, 0);
     }
     status = dds_get_children (entity, &child, 1);
     if (status > 0) {
-        CU_ASSERT_NEQ (false, 0);
+        CU_ASSERT_NEQ_FATAL (false, 0);
     } else {
         CU_ASSERT_EQ_FATAL (status, 0);
     }
@@ -373,7 +373,7 @@ CU_Test(ddsc_entity, get_domainid, .init = create_entity, .fini = delete_entity)
     /* Get and check the domain id. */
     status = dds_get_domainid (entity, &id);
     CU_ASSERT_EQ_FATAL (status, DDS_RETCODE_OK);
-    CU_ASSERT_NEQ (id, DDS_DOMAIN_DEFAULT);
+    CU_ASSERT_NEQ_FATAL (id, DDS_DOMAIN_DEFAULT);
 }
 
 CU_Test(ddsc_entity, delete, .init = create_entity)

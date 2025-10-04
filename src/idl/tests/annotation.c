@@ -66,7 +66,7 @@ static void test_optional(optional_test_t test)
       nstructs++;
       idl_struct_t *s = (idl_struct_t *)node;
       CU_ASSERT_NEQ_FATAL (s, NULL);
-      CU_ASSERT_NEQ (idl_is_struct(s), 0);
+      CU_ASSERT_NEQ_FATAL (idl_is_struct(s), 0);
       assert(s);
       idl_member_t *m = NULL;
       int n = 0;
@@ -119,7 +119,7 @@ static void test_default(
   CU_ASSERT_EQ_FATAL (ret, test.ret);
   if (pstate) {
     idl_struct_t *s = (idl_struct_t *)pstate->root;
-    CU_ASSERT_NEQ (idl_is_struct(s), 0);
+    CU_ASSERT_NEQ_FATAL (idl_is_struct(s), 0);
     assert(s);
     idl_member_t *m = NULL;
     IDL_FOREACH(m, s->members) {
@@ -356,19 +356,19 @@ CU_Test(idl_annotation, nested)
   CU_ASSERT_NEQ_FATAL (pstate, NULL);
   assert(pstate);
   s = (idl_struct_t *)pstate->root;
-  CU_ASSERT_NEQ (idl_is_struct(s), 0);
+  CU_ASSERT_NEQ_FATAL (idl_is_struct(s), 0);
   CU_ASSERT_EQ (s->nested.annotation, NULL);
-  CU_ASSERT_NEQ (s->nested.value == false, 0);
+  CU_ASSERT_NEQ_FATAL (s->nested.value == false, 0);
   s = idl_next(s);
-  CU_ASSERT_NEQ (idl_is_struct(s), 0);
+  CU_ASSERT_NEQ_FATAL (idl_is_struct(s), 0);
   CU_ASSERT_NEQ (s->nested.annotation, NULL);
-  CU_ASSERT_NEQ (s->nested.value == true, 0);
+  CU_ASSERT_NEQ_FATAL (s->nested.value == true, 0);
   s = idl_next(s);
-  CU_ASSERT_NEQ (idl_is_struct(s), 0);
+  CU_ASSERT_NEQ_FATAL (idl_is_struct(s), 0);
   CU_ASSERT_NEQ (s->nested.annotation, NULL);
-  CU_ASSERT_NEQ (s->nested.value == true, 0);
+  CU_ASSERT_NEQ_FATAL (s->nested.value == true, 0);
   s = idl_next(s);
-  CU_ASSERT_NEQ (idl_is_struct(s), 0);
+  CU_ASSERT_NEQ_FATAL (idl_is_struct(s), 0);
   CU_ASSERT_NEQ (s->nested.annotation, NULL);
   CU_ASSERT_NEQ (s->nested.value == false, 0);
   idl_delete_pstate(pstate);
@@ -415,7 +415,7 @@ CU_Test(idl_annotation, topic)
     if (ret == IDL_RETCODE_OK) {
       const char *a;
       s = (idl_struct_t *)pstate->root;
-      CU_ASSERT_NEQ (idl_is_struct(s), 0);
+      CU_ASSERT_NEQ_FATAL (idl_is_struct(s), 0);
       a = idl_identifier(s->nested.annotation);
       CU_ASSERT_EQ ((a == NULL), (tests[i].a == NULL));
       CU_ASSERT_NEQ (a == NULL || strcmp(a, tests[i].a) == 0, 0);
@@ -464,23 +464,23 @@ CU_Test(idl_annotation, default_nested)
     CU_ASSERT_EQ (ret, IDL_RETCODE_OK);
     if (ret == IDL_RETCODE_OK) {
       m = (idl_module_t *)pstate->root;
-      CU_ASSERT_NEQ (idl_is_module(m), 0);
+      CU_ASSERT_NEQ_FATAL (idl_is_module(m), 0);
       CU_ASSERT_NEQ (!tests[i].dn[0].a == !m->default_nested.annotation, 0);
       CU_ASSERT_EQ (m->default_nested.value, tests[i].dn[0].v);
       m = m->definitions;
-      CU_ASSERT_NEQ (idl_is_module(m), 0);
+      CU_ASSERT_NEQ_FATAL (idl_is_module(m), 0);
       CU_ASSERT_NEQ (!tests[i].dn[1].a == !m->default_nested.annotation, 0);
       CU_ASSERT_EQ (m->default_nested.value, tests[i].dn[1].v);
       s = m->definitions;
-      CU_ASSERT_NEQ (idl_is_struct(s), 0);
+      CU_ASSERT_NEQ_FATAL (idl_is_struct(s), 0);
       CU_ASSERT_NEQ (!tests[i].n[0].a == !s->nested.annotation, 0);
-      CU_ASSERT_NEQ (s->nested.value == tests[i].n[0].v, 0);
+      CU_ASSERT_NEQ_FATAL (s->nested.value == tests[i].n[0].v, 0);
       m = idl_next(m);
-      CU_ASSERT_NEQ (idl_is_module(m), 0);
+      CU_ASSERT_NEQ_FATAL (idl_is_module(m), 0);
       CU_ASSERT_NEQ (!tests[i].dn[2].a == !m->default_nested.annotation, 0);
       CU_ASSERT_EQ (m->default_nested.value, tests[i].dn[2].v);
       s = m->definitions;
-      CU_ASSERT_NEQ (idl_is_struct(s), 0);
+      CU_ASSERT_NEQ_FATAL (idl_is_struct(s), 0);
       CU_ASSERT_NEQ (!tests[i].n[1].a == !s->nested.annotation, 0);
       CU_ASSERT_NEQ (s->nested.value == tests[i].n[1].v, 0);
     }
@@ -594,7 +594,7 @@ void test_id(
           n++;
         }
       } else {
-        CU_ASSERT_NEQ (0, 0);
+        CU_ASSERT_NEQ_FATAL (0, 0);
       }
     }
   }
@@ -843,7 +843,7 @@ CU_Test(idl_annotation, extensibility)
           idl_struct_t *s = (idl_struct_t *)pstate->root;
           CU_ASSERT_NEQ_FATAL (s, NULL);
           assert(s);
-          CU_ASSERT_NEQ (idl_is_struct(s), 0);
+          CU_ASSERT_NEQ_FATAL (idl_is_struct(s), 0);
           CU_ASSERT_EQ (s->extensibility.value, tests[i].ext);
           break;
         }
@@ -851,7 +851,7 @@ CU_Test(idl_annotation, extensibility)
           idl_union_t *u = (idl_union_t *)pstate->root;
           CU_ASSERT_NEQ_FATAL (u, NULL);
           assert(u);
-          CU_ASSERT_NEQ (idl_is_union(u), 0);
+          CU_ASSERT_NEQ_FATAL (idl_is_union(u), 0);
           CU_ASSERT_EQ (u->extensibility.value, tests[i].ext);
           break;
         }
@@ -880,7 +880,7 @@ CU _ Test(idl_annotation, foobar_struct)
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
   CU_ASSERT_NEQ (tree, NULL);
   s = (idl_struct_t *)tree->root;
-  CU_ASSERT_NEQ (idl_is_struct(s), 0);
+  CU_ASSERT_NEQ_FATAL (idl_is_struct(s), 0);
   idl_delete_tree(tree);
 }
 #endif
@@ -1084,7 +1084,7 @@ CU_Test(idl_annotation, position)
     assert(pstate);
     CU_ASSERT_NEQ_FATAL (pstate->root, NULL);
     assert(pstate->root);
-    CU_ASSERT_NEQ (idl_is_bitmask(pstate->root), 0);
+    CU_ASSERT_NEQ_FATAL (idl_is_bitmask(pstate->root), 0);
     idl_bitmask_t *b = (idl_bitmask_t *)pstate->root;
     idl_bit_value_t *bv = b->bit_values;
     for (int j = 0; j <= 3; bv = idl_next(bv), j++) {
@@ -1550,12 +1550,12 @@ CU_Test(idl_annotation, idl_is_string_fix)
     return;
 
   const idl_struct_t *_struct = (const idl_struct_t*)pstate->root;
-  CU_ASSERT_NEQ (idl_is_struct(pstate->root), 0);
+  CU_ASSERT_NEQ_FATAL (idl_is_struct(pstate->root), 0);
 
   const idl_member_t *_member = _struct->members;
-  CU_ASSERT_NEQ (idl_is_member(_member), 0);
+  CU_ASSERT_NEQ_FATAL (idl_is_member(_member), 0);
 
-  CU_ASSERT_NEQ (_member->value.annotation != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (_member->value.annotation != NULL, 0);
   CU_ASSERT_NEQ (idl_is_string(_member->value.value), 0);
 
   idl_delete_pstate(pstate);

@@ -342,11 +342,11 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, happy_day, .init = s
   DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
   DDS_Security_DatawriterCryptoTokenSeq tokens;
 
-  CU_ASSERT_NEQ (crypto, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_exchange != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange != NULL, 0);
   assert(crypto->crypto_key_exchange != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_exchange->set_remote_datawriter_crypto_tokens != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange->set_remote_datawriter_crypto_tokens != NULL, 0);
   assert(crypto->crypto_key_exchange->set_remote_datawriter_crypto_tokens != 0);
 
   memset(&tokens, 0, sizeof(tokens));
@@ -365,7 +365,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, happy_day, .init = s
     printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
   DDS_Security_DataHolderSeq_deinit(&tokens);
-  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ_FATAL (result, 0);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
   reset_exception(&exception);
@@ -377,11 +377,11 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, single_token, .init 
   DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
   DDS_Security_DatawriterCryptoTokenSeq tokens;
 
-  CU_ASSERT_NEQ (crypto, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_exchange != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange != NULL, 0);
   assert(crypto->crypto_key_exchange != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_exchange->set_remote_datawriter_crypto_tokens != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange->set_remote_datawriter_crypto_tokens != NULL, 0);
   assert(crypto->crypto_key_exchange->set_remote_datawriter_crypto_tokens != 0);
   memset(&tokens, 0, sizeof(tokens));
   create_writer_tokens(&tokens, 1);
@@ -398,7 +398,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, single_token, .init 
     printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
   DDS_Security_DataHolderSeq_deinit(&tokens);
-  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ_FATAL (result, 0);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
   reset_exception(&exception);
@@ -411,11 +411,11 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_args, .init 
   DDS_Security_DatawriterCryptoTokenSeq tokens;
 
   /* Check if we actually have the validate_local_identity() function. */
-  CU_ASSERT_NEQ (crypto, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_exchange != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange != NULL, 0);
   assert(crypto->crypto_key_exchange != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_exchange->create_local_datawriter_crypto_tokens != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange->create_local_datawriter_crypto_tokens != NULL, 0);
   assert(crypto->crypto_key_exchange->create_local_datawriter_crypto_tokens != 0);
   memset(&tokens, 0, sizeof(tokens));
   create_writer_tokens(&tokens, 2);
@@ -509,11 +509,11 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_tokens, .ini
   DDS_Security_DatawriterCryptoTokenSeq tokens;
   DDS_Security_DatawriterCryptoTokenSeq empty_tokens;
 
-  CU_ASSERT_NEQ (crypto, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_exchange != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange != NULL, 0);
   assert(crypto->crypto_key_exchange != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_exchange->set_remote_datawriter_crypto_tokens != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange->set_remote_datawriter_crypto_tokens != NULL, 0);
   assert(crypto->crypto_key_exchange->set_remote_datawriter_crypto_tokens != 0);
 
   memset(&tokens, 0, sizeof(tokens));
@@ -722,11 +722,11 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_key_material
   DDS_Security_DatawriterCryptoTokenSeq tokens;
   DDS_Security_KeyMaterial_AES_GCM_GMAC keymat;
 
-  CU_ASSERT_NEQ (crypto, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_exchange != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange != NULL, 0);
   assert(crypto->crypto_key_exchange != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_exchange->set_remote_datawriter_crypto_tokens != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_exchange->set_remote_datawriter_crypto_tokens != NULL, 0);
   assert(crypto->crypto_key_exchange->set_remote_datawriter_crypto_tokens != 0);
   memset(&tokens, 0, sizeof(tokens));
   create_writer_tokens_no_key_material(&tokens, 1);

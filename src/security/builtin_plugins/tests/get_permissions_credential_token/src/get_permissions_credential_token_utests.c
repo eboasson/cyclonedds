@@ -322,11 +322,11 @@ static void set_path_to_etc_dir(void)
 static void suite_get_permissions_credential_token_init(void)
 {
   plugins = load_plugins(&access_control, &auth, NULL /* Cryptograpy */, NULL);
-  CU_ASSERT_NEQ (plugins, NULL);
+  CU_ASSERT_NEQ_FATAL (plugins, NULL);
   set_path_to_etc_dir();
   local_permissions_init(0);
   permissions = read_document_from_file(PERMISSIONS_FILE_NAME);
-  CU_ASSERT_NEQ (permissions, NULL);
+  CU_ASSERT_NEQ_FATAL (permissions, NULL);
 }
 
 static void suite_get_permissions_credential_token_fini(void)
@@ -374,9 +374,9 @@ CU_Test(ddssec_builtin_get_permissions_credential_token, happy_day, .init = suit
   DDS_Security_boolean result;
 
   /* Pre-requisites. */
-  CU_ASSERT_NEQ (access_control, NULL);
+  CU_ASSERT_NEQ_FATAL (access_control, NULL);
   assert(access_control != NULL);
-  CU_ASSERT_NEQ (access_control->get_permissions_credential_token != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->get_permissions_credential_token != NULL, 0);
   assert(access_control->get_permissions_credential_token != 0);
   memset(&exception, 0, sizeof(DDS_Security_SecurityException));
   memset(&token, 0, sizeof(token));
@@ -391,7 +391,7 @@ CU_Test(ddssec_builtin_get_permissions_credential_token, happy_day, .init = suit
   {
     printf("get_permissions_credential_token: %s\n", exception.message ? exception.message : "Error message missing");
   }
-  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ_FATAL (result, 0);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
 
@@ -410,9 +410,9 @@ CU_Test(ddssec_builtin_get_permissions_credential_token, invalid_args, .init = s
   DDS_Security_boolean result;
 
   /* Pre-requisites. */
-  CU_ASSERT_NEQ (access_control, NULL);
+  CU_ASSERT_NEQ_FATAL (access_control, NULL);
   assert(access_control != NULL);
-  CU_ASSERT_NEQ (access_control->get_permissions_credential_token != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (access_control->get_permissions_credential_token != NULL, 0);
   assert(access_control->get_permissions_credential_token != 0);
   memset(&exception, 0, sizeof(DDS_Security_SecurityException));
   memset(&token, 0, sizeof(token));

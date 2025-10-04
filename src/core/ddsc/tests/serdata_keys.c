@@ -29,9 +29,9 @@ static dds_entity_t create_pp (dds_domainid_t domain_id)
 {
   char *conf = ddsrt_expand_envvars(DDS_CONFIG, domain_id);
   dds_entity_t domain = dds_create_domain (domain_id, conf);
-  CU_ASSERT_GEQ (domain, 0);
+  CU_ASSERT_GEQ_FATAL (domain, 0);
   dds_entity_t participant = dds_create_participant (domain_id, NULL, NULL);
-  CU_ASSERT_GEQ (participant, 0);
+  CU_ASSERT_GEQ_FATAL (participant, 0);
   ddsrt_free (conf);
   return participant;
 }
@@ -64,11 +64,11 @@ static void do_test_key_write_xcdrv (const dds_topic_descriptor_t *desc, size_t 
   dds_return_t ret;
 
   ret = dds_set_status_mask (rd, DDS_DATA_AVAILABLE_STATUS);
-  CU_ASSERT_EQ (ret, 0);
+  CU_ASSERT_EQ_FATAL (ret, 0);
   dds_entity_t ws = dds_create_waitset (participant1);
-  CU_ASSERT_GEQ (ws, 0);
+  CU_ASSERT_GEQ_FATAL (ws, 0);
   ret = dds_waitset_attach (ws, rd, 0);
-  CU_ASSERT_EQ (ret, 0);
+  CU_ASSERT_EQ_FATAL (ret, 0);
 
   // Write data (checks key-from-sample and key-from-data)
   dds_write (wr1, sample);
@@ -78,18 +78,18 @@ static void do_test_key_write_xcdrv (const dds_topic_descriptor_t *desc, size_t 
   samples[0] = NULL;
 
   ret = dds_waitset_wait (ws, NULL, 0, DDS_INFINITY);
-  CU_ASSERT_GEQ (ret, 0);
+  CU_ASSERT_GEQ_FATAL (ret, 0);
 
   uint32_t n_data = 0;
   dds_instance_handle_t ih = 0;
   while (n_data < 2)
   {
     dds_return_t n = dds_take (rd, samples, sample_info, 2, 2);
-    CU_ASSERT_GEQ (n, 0);
+    CU_ASSERT_GEQ_FATAL (n, 0);
     n_data += (uint32_t) n;
     for (int32_t m = 0; m < n; m++)
     {
-      CU_ASSERT_NEQ (sample_info[m].valid_data, 0);
+      CU_ASSERT_NEQ_FATAL (sample_info[m].valid_data, 0);
       if (ih == 0)
         ih = sample_info[m].instance_handle;
       else
@@ -102,20 +102,20 @@ static void do_test_key_write_xcdrv (const dds_topic_descriptor_t *desc, size_t 
   // Dispose (checks key-from-sample and key-from-key)
   dds_dispose (wr1, sample);
   ret = dds_waitset_wait (ws, NULL, 0, DDS_INFINITY);
-  CU_ASSERT_GEQ (ret, 0);
+  CU_ASSERT_GEQ_FATAL (ret, 0);
 
   // take the dispose and store its instance handle
   samples[0] = NULL;
   ret = dds_take (rd, samples, sample_info, 1, 1);
   CU_ASSERT_EQ_FATAL (ret, 1);
   ih = sample_info[0].instance_handle;
-  CU_ASSERT_NEQ (!sample_info[0].valid_data, 0);
+  CU_ASSERT_NEQ_FATAL (!sample_info[0].valid_data, 0);
   dds_return_loan (rd, samples, ret);
 
   // write a sample to make the instance alive again
   dds_write (wr2, sample);
   ret = dds_waitset_wait (ws, NULL, 0, DDS_INFINITY);
-  CU_ASSERT_GEQ (ret, 0);
+  CU_ASSERT_GEQ_FATAL (ret, 0);
   samples[0] = NULL;
   ret = dds_take (rd, samples, sample_info, 1, 1);
   CU_ASSERT_EQ_FATAL (ret, 1);
@@ -124,11 +124,11 @@ static void do_test_key_write_xcdrv (const dds_topic_descriptor_t *desc, size_t 
   // dispose from wr2 and take the dispose
   dds_dispose (wr2, sample);
   ret = dds_waitset_wait (ws, NULL, 0, DDS_INFINITY);
-  CU_ASSERT_GEQ (ret, 0);
+  CU_ASSERT_GEQ_FATAL (ret, 0);
   samples[0] = NULL;
   ret = dds_take (rd, samples, sample_info, 1, 1);
   CU_ASSERT_EQ_FATAL (ret, 1);
-  CU_ASSERT_NEQ (!sample_info[0].valid_data, 0);
+  CU_ASSERT_NEQ_FATAL (!sample_info[0].valid_data, 0);
   CU_ASSERT_EQ_FATAL (ih, sample_info[0].instance_handle);
   dds_return_loan (rd, samples, ret);
 
@@ -424,7 +424,7 @@ static void check_key_keyhash (struct dds_serdata_default *sd,
   int cmp = memcmp (kh.value, exp_kh.value, 16);
   if (cmp != 0)
     tprintf("** keyhash match failed **\n");
-  CU_ASSERT_EQ (cmp, 0);
+  CU_ASSERT_EQ_FATAL (cmp, 0);
 }
 
 #if DDSRT_ENDIAN == DDSRT_LITTLE_ENDIAN
@@ -1468,7 +1468,7 @@ CU_Test(ddsc_serdata, key_serialization)
       // Create SDK_DATA serdata from sample
       {
         struct dds_serdata_default *sd = (struct dds_serdata_default *) ddsi_serdata_from_sample (sertype, SDK_DATA, sample);
-        CU_ASSERT_NEQ (sd, NULL);
+        CU_ASSERT_NEQ_FATAL (sd, NULL);
         assert (sd != NULL);
 
         size_t exp_sz_aligned = alignN (tests[test_index].xcdrv[dr].data_sz, 4);
@@ -1486,7 +1486,7 @@ CU_Test(ddsc_serdata, key_serialization)
       // Create SDK_KEY serdata from sample
       {
         struct dds_serdata_default *sd = (struct dds_serdata_default *) ddsi_serdata_from_sample (sertype, SDK_KEY, sample);
-        CU_ASSERT_NEQ (sd, NULL);
+        CU_ASSERT_NEQ_FATAL (sd, NULL);
         assert (sd != NULL);
 
         size_t exp_sz = tests[test_index].xcdrv[dr].key_sz;
@@ -1512,7 +1512,7 @@ CU_Test(ddsc_serdata, key_serialization)
         memcpy (key_cdr.iov_base, &hdr, sizeof (hdr));
         memcpy ((unsigned char *) key_cdr.iov_base + sizeof (hdr), tests[test_index].xcdrv[dr].key, tests[test_index].xcdrv[dr].key_sz);
         struct dds_serdata_default *sd = (struct dds_serdata_default *) ddsi_serdata_from_ser_iov (sertype, SDK_KEY, 1, &key_cdr, key_cdr.iov_len);
-        CU_ASSERT_NEQ (sd, NULL);
+        CU_ASSERT_NEQ_FATAL (sd, NULL);
         assert (sd != NULL);
         ddsrt_free (key_cdr.iov_base);
 
@@ -1530,7 +1530,7 @@ CU_Test(ddsc_serdata, key_serialization)
         memcpy (data_cdr.iov_base, &hdr, sizeof (hdr));
         memcpy ((unsigned char *) data_cdr.iov_base + sizeof (hdr), tests[test_index].xcdrv[dr].data, tests[test_index].xcdrv[dr].data_sz);
         struct dds_serdata_default *sd = (struct dds_serdata_default *) ddsi_serdata_from_ser_iov (sertype, SDK_DATA, 1, &data_cdr, data_cdr.iov_len);
-        CU_ASSERT_NEQ (sd, NULL);
+        CU_ASSERT_NEQ_FATAL (sd, NULL);
         assert (sd != NULL);
         ddsrt_free (data_cdr.iov_base);
 

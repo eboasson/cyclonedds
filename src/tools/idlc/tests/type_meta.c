@@ -106,7 +106,7 @@ static void xcdr2_ser (const void *obj, const struct dds_cdrstream_desc *desc, d
   os->x.m_size = 0;
   os->x.m_xcdr_version = DDSI_RTPS_CDR_ENC_VERSION_2;
   bool ret = dds_stream_write_sampleLE (os, &dds_cdrstream_default_allocator, obj, desc);
-  CU_ASSERT_NEQ (ret, 0);
+  CU_ASSERT_NEQ_FATAL (ret, 0);
 }
 
 static void xcdr2_deser (unsigned char *buf, uint32_t sz, void **obj, const struct dds_cdrstream_desc *desc)
@@ -922,7 +922,7 @@ static void test_annotation_meta_info(const s_a_t *test)
     DDS_XTypes_CompleteStructMemberSeq mseq = tm->to_complete->_u.complete._u.struct_type.member_seq;
     for (size_t i = 0; i < mseq._length; i++)
     {
-      //CU_ASSERT_NEQ (i < sizeof(test->members)/sizeof(test->members[0]), 0);
+      //CU_ASSERT_NEQ_FATAL (i < sizeof(test->members)/sizeof(test->members[0]), 0);
       m_a_t m = test->members[i];
       CU_ASSERT_NEQ_FATAL (mseq._buffer, NULL);
       if (!mseq._buffer)

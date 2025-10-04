@@ -572,12 +572,12 @@ CU_Test(ddssec_builtin_validate_begin_handshake_request,happy_day_challenge)
     DDS_Security_OctetSeq local_participant_data;
     DDS_Security_boolean success;
 
-    CU_ASSERT_NEQ (auth, NULL);
+    CU_ASSERT_NEQ_FATAL (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (auth->begin_handshake_request != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request != NULL, 0);
     assert (auth->begin_handshake_request != 0);
 
     fill_local_participant_data(&local_participant_data, 82);
@@ -595,7 +595,7 @@ CU_Test(ddssec_builtin_validate_begin_handshake_request,happy_day_challenge)
         printf("begin_handshake_request failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
+    CU_ASSERT_EQ_FATAL (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
     CU_ASSERT_NEQ (handshake_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (validate_handshake_token(&handshake_token, NULL), 0);
 
@@ -623,12 +623,12 @@ CU_Test(ddssec_builtin_validate_begin_handshake_request,happy_day_future_challen
     DDS_Security_OctetSeq local_participant_data;
     DDS_Security_boolean success;
 
-    CU_ASSERT_NEQ (auth, NULL);
+    CU_ASSERT_NEQ_FATAL (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (auth->begin_handshake_request != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request != NULL, 0);
     assert (auth->begin_handshake_request != 0);
 
     fill_local_participant_data(&local_participant_data, 82);
@@ -646,7 +646,7 @@ CU_Test(ddssec_builtin_validate_begin_handshake_request,happy_day_future_challen
         printf("begin_handshake_request failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
+    CU_ASSERT_EQ_FATAL (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
     CU_ASSERT_NEQ (handshake_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ (validate_handshake_token(&handshake_token, &challenge1->value), 0);
 
@@ -674,12 +674,12 @@ CU_Test(ddssec_builtin_validate_begin_handshake_request,invalid_arguments)
     DDS_Security_SecurityException exception = DDS_SECURITY_EXCEPTION_INIT;
     DDS_Security_OctetSeq local_participant_data;
 
-    CU_ASSERT_NEQ (auth, NULL);
+    CU_ASSERT_NEQ_FATAL (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (auth->begin_handshake_request != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request != NULL, 0);
     assert (auth->begin_handshake_request != 0);
 
     fill_local_participant_data(&local_participant_data, 82);
@@ -781,12 +781,12 @@ CU_Test(ddssec_builtin_validate_begin_handshake_request,return_handle)
     DDS_Security_OctetSeq local_participant_data;
     DDS_Security_boolean success;
 
-    CU_ASSERT_NEQ (auth, NULL);
+    CU_ASSERT_NEQ_FATAL (auth, NULL);
     assert (auth != NULL);
-    CU_ASSERT_NEQ (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (auth->begin_handshake_request != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request != NULL, 0);
     assert (auth->begin_handshake_request != 0);
 
     fill_local_participant_data(&local_participant_data, 82);
@@ -804,7 +804,7 @@ CU_Test(ddssec_builtin_validate_begin_handshake_request,return_handle)
         printf("begin_handshake_request failed: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
+    CU_ASSERT_EQ_FATAL (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
     CU_ASSERT_NEQ (handshake_handle, DDS_SECURITY_HANDLE_NIL);
 
     reset_exception(&exception);

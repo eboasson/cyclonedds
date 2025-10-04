@@ -89,10 +89,10 @@ test_expr(
       break;
     c = idl_next(c);
   } while (c);
-  CU_ASSERT_NEQ (idl_is_const(c), 0);
+  CU_ASSERT_NEQ_FATAL (idl_is_const(c), 0);
   assert(c);
   cv = c->const_expr;
-  CU_ASSERT_NEQ (idl_is_literal(cv), 0);
+  CU_ASSERT_NEQ_FATAL (idl_is_literal(cv), 0);
   CU_ASSERT_EQ (idl_compare(cv, exp), IDL_EQUAL);
   idl_delete_pstate(pstate);
 }

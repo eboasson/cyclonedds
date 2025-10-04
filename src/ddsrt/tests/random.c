@@ -43,7 +43,7 @@ CU_Test(ddsrt_random, makeseed)
   for (size_t i = 0; i < N_PRNG; i++)
   {
     bool ok = ddsrt_prng_makeseed (&seeds[i]);
-    CU_ASSERT_NEQ (ok, 0);
+    CU_ASSERT_NEQ_FATAL (ok, 0);
   }
 
   /* Any pair the same is possible, but the likelihood should be so small that it is worth accepting
@@ -51,7 +51,7 @@ CU_Test(ddsrt_random, makeseed)
   for (size_t i = 0; i < N_PRNG; i++)
   {
     for (size_t j = i + 1; j < N_PRNG; j++)
-      CU_ASSERT_NEQ (memcmp (&seeds[i], &seeds[j], sizeof (seeds[i])), 0);
+      CU_ASSERT_NEQ_FATAL (memcmp (&seeds[i], &seeds[j], sizeof (seeds[i])), 0);
   }
 
   /* A short random sequence generated from each of the different seeds should be unique -- again,
@@ -68,7 +68,7 @@ CU_Test(ddsrt_random, makeseed)
   for (size_t i = 0; i < N_PRNG; i++)
   {
     for (size_t j = i + 1; j < N_PRNG; j++)
-      CU_ASSERT_NEQ (memcmp (&data[i], &data[j], sizeof (data[i])), 0);
+      CU_ASSERT_NEQ_FATAL (memcmp (&data[i], &data[j], sizeof (data[i])), 0);
   }
 }
 

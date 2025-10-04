@@ -36,19 +36,19 @@ static void
 setup(void)
 {
     e[PAR] = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_GT (e[PAR], 0);
+    CU_ASSERT_GT_FATAL (e[PAR], 0);
     e[TOP] = dds_create_topic(e[PAR], &RoundTripModule_DataType_desc, "RoundTrip", NULL, NULL);
-    CU_ASSERT_GT (e[TOP], 0);
+    CU_ASSERT_GT_FATAL (e[TOP], 0);
     e[PUB] = dds_create_publisher(e[PAR], NULL, NULL);
-    CU_ASSERT_GT (e[PUB], 0);
+    CU_ASSERT_GT_FATAL (e[PUB], 0);
     e[WRI] = dds_create_writer(e[PUB], e[TOP], NULL, NULL);
-    CU_ASSERT_GT (e[WRI], 0);
+    CU_ASSERT_GT_FATAL (e[WRI], 0);
     e[SUB] = dds_create_subscriber(e[PAR], NULL, NULL);
-    CU_ASSERT_GT (e[SUB], 0);
+    CU_ASSERT_GT_FATAL (e[SUB], 0);
     e[REA] = dds_create_reader(e[SUB], e[TOP], NULL, NULL);
-    CU_ASSERT_GT (e[REA], 0);
+    CU_ASSERT_GT_FATAL (e[REA], 0);
     e[RCD] = dds_create_readcondition(e[REA], DDS_ANY_STATE);
-    CU_ASSERT_GT (e[RCD], 0);
+    CU_ASSERT_GT_FATAL (e[RCD], 0);
     e[BAD] = 314159265;
 }
 

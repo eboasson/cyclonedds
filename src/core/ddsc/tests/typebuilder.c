@@ -30,7 +30,7 @@ static dds_entity_t g_participant = 0;
 static void typebuilder_init (void)
 {
   g_participant = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_GT (g_participant, 0);
+  CU_ASSERT_GT_FATAL (g_participant, 0);
 }
 
 static void typebuilder_fini (void)
@@ -46,8 +46,8 @@ static void topic_type_ref (dds_entity_t topic, struct ddsi_type **type)
   struct ddsi_sertype *sertype = t->m_stype;
   ret = ddsi_type_ref_local (&t->m_entity.m_domain->gv, type, sertype, DDSI_TYPEID_KIND_COMPLETE);
   CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
-  CU_ASSERT_NEQ (type, NULL);
-  CU_ASSERT_NEQ (*type, NULL);
+  CU_ASSERT_NEQ_FATAL (type, NULL);
+  CU_ASSERT_NEQ_FATAL (*type, NULL);
   dds_topic_unpin (t);
 }
 
@@ -155,7 +155,7 @@ CU_Theory((const dds_topic_descriptor_t *desc), ddsc_typebuilder, topic_desc, .i
 
   create_unique_topic_name ("ddsc_typebuilder", topic_name, sizeof (topic_name));
   topic = dds_create_topic (g_participant, desc, topic_name, NULL, NULL);
-  CU_ASSERT_GT (topic, 0);
+  CU_ASSERT_GT_FATAL (topic, 0);
 
   // generate a topic descriptor
   topic_type_ref (topic, &type);
@@ -202,7 +202,7 @@ CU_Theory((const dds_topic_descriptor_t *desc), ddsc_typebuilder, topic_desc, .i
   tprintf ("typeinfo: %u (%u)\n", generated_desc->type_information.sz, desc->type_information.sz);
   ddsi_typeinfo_t *tinfo = ddsi_typeinfo_deser (desc->type_information.data, desc->type_information.sz);
   ddsi_typeinfo_t *gen_tinfo = ddsi_typeinfo_deser (generated_desc->type_information.data, generated_desc->type_information.sz);
-  CU_ASSERT_NEQ (ddsi_typeinfo_equal (tinfo, gen_tinfo, DDSI_TYPE_INCLUDE_DEPS), 0);
+  CU_ASSERT_NEQ_FATAL (ddsi_typeinfo_equal (tinfo, gen_tinfo, DDSI_TYPE_INCLUDE_DEPS), 0);
   ddsi_typeinfo_fini (tinfo);
   ddsrt_free (tinfo);
   ddsi_typeinfo_fini (gen_tinfo);
@@ -211,7 +211,7 @@ CU_Theory((const dds_topic_descriptor_t *desc), ddsc_typebuilder, topic_desc, .i
   tprintf ("typemap: %u (%u)\n", generated_desc->type_mapping.sz, desc->type_mapping.sz);
   ddsi_typemap_t *tmap = ddsi_typemap_deser (desc->type_mapping.data, desc->type_mapping.sz);
   ddsi_typemap_t *gen_tmap = ddsi_typemap_deser (generated_desc->type_mapping.data, generated_desc->type_mapping.sz);
-  CU_ASSERT_NEQ (tmap_equal (tmap, gen_tmap), 0);
+  CU_ASSERT_NEQ_FATAL (tmap_equal (tmap, gen_tmap), 0);
   ddsi_typemap_fini (tmap);
   ddsrt_free (tmap);
   ddsi_typemap_fini (gen_tmap);
@@ -236,7 +236,7 @@ CU_Test(ddsc_typebuilder, invalid_toplevel, .init = typebuilder_init, .fini = ty
 
   create_unique_topic_name ("ddsc_typebuilder", topic_name, sizeof (topic_name));
   topic = dds_create_topic (g_participant, &TypeBuilderTypes_t2_desc, topic_name, NULL, NULL);
-  CU_ASSERT_GT (topic, 0);
+  CU_ASSERT_GT_FATAL (topic, 0);
 
   // generate a topic descriptor
   topic_type_ref (topic, &type);
@@ -263,7 +263,7 @@ CU_Test(ddsc_typebuilder, alias_toplevel, .init = typebuilder_init, .fini = type
 
   create_unique_topic_name ("ddsc_typebuilder", topic_name, sizeof (topic_name));
   topic = dds_create_topic (g_participant, &TypeBuilderTypes_t48_desc, topic_name, NULL, NULL);
-  CU_ASSERT_GT (topic, 0);
+  CU_ASSERT_GT_FATAL (topic, 0);
 
   // generate a topic descriptor
   topic_type_ref (topic, &type);
@@ -278,7 +278,7 @@ CU_Test(ddsc_typebuilder, alias_toplevel, .init = typebuilder_init, .fini = type
   char topic_name2[100];
   create_unique_topic_name ("ddsc_typebuilder", topic_name2, sizeof (topic_name2));
   const dds_entity_t topic2 = dds_create_topic (g_participant, generated_desc, topic_name2, NULL, NULL);
-  CU_ASSERT_GT (topic2, 0);
+  CU_ASSERT_GT_FATAL (topic2, 0);
 
   // verify its type really is the alias
   struct ddsi_type *type2;
@@ -288,7 +288,7 @@ CU_Test(ddsc_typebuilder, alias_toplevel, .init = typebuilder_init, .fini = type
 
 #if 0
   const dds_entity_t wr = dds_create_writer (g_participant, topic2, NULL, NULL);
-  CU_ASSERT_GT (wr, 0);
+  CU_ASSERT_GT_FATAL (wr, 0);
   while (true)
   {
     dds_write (wr, &(TypeBuilderTypes_t48){ .t1 = { .n1 = 33 } });

@@ -1016,8 +1016,8 @@ fill_handshake_message_token(
         dh2 = &tokens[idx++];
         hash_c2 = &tokens[idx++];
 
-        CU_ASSERT_NEQ (hash1_from_request, NULL);
-        CU_ASSERT_NEQ (hash2_from_reply, NULL);
+        CU_ASSERT_NEQ_FATAL (hash1_from_request, NULL);
+        CU_ASSERT_NEQ_FATAL (hash2_from_reply, NULL);
 
         set_binary_property_value(hash_c1, DDS_AUTHTOKEN_PROP_HASH_C1, hash1_from_request->value._buffer, hash1_from_request->value._length);
         set_binary_property_value(hash_c2, DDS_AUTHTOKEN_PROP_HASH_C2, hash2_from_reply->value._buffer, hash2_from_reply->value._length);
@@ -1127,11 +1127,11 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_request )
     const DDS_Security_Property_t *c_perm;
     struct octet_seq dh1_pub_key;
 
-    CU_ASSERT_NEQ (g_auth, NULL);
-    CU_ASSERT_NEQ (g_local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (g_remote_identity_handle, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (g_auth->begin_handshake_request != NULL, 0);
-    CU_ASSERT_NEQ (g_auth->process_handshake != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (g_auth, NULL);
+    CU_ASSERT_NEQ_FATAL (g_local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (g_remote_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (g_auth->begin_handshake_request != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (g_auth->process_handshake != NULL, 0);
 
     /* simulate request */
     result = g_auth->begin_handshake_request(
@@ -1143,7 +1143,7 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_request )
                     &g_serialized_participant_data,
                     &exception);
 
-    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
+    CU_ASSERT_EQ_FATAL (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
 
     /* mock reply */
     dh1 = find_binary_property(&handshake_token_out, DDS_AUTHTOKEN_PROP_DH1);
@@ -1175,7 +1175,7 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_request )
                         &handshake_reply_token_in,
                         handshake_handle,
                         &exception);
-    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_OK_FINAL_MESSAGE);
+    CU_ASSERT_EQ_FATAL (result, DDS_SECURITY_VALIDATION_OK_FINAL_MESSAGE);
 
     /*
      * Actual test.
@@ -1188,20 +1188,20 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_request )
 
     CU_ASSERT_NEQ_FATAL (success, false);
 
-    CU_ASSERT_NEQ (credential_token.class_id, NULL);
+    CU_ASSERT_NEQ_FATAL (credential_token.class_id, NULL);
     CU_ASSERT_STREQ (credential_token.class_id, DDS_AUTHTOKEN_CLASS_ID);
     CU_ASSERT_EQ (credential_token.properties._length, 2);
     CU_ASSERT_EQ (credential_token.binary_properties._length, 0);
 
     c_id = find_property(&credential_token, DDS_AUTHTOKEN_PROP_C_ID);
-    CU_ASSERT_NEQ (c_id, NULL);
-    CU_ASSERT_NEQ (c_id->value != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (c_id, NULL);
+    CU_ASSERT_NEQ_FATAL (c_id->value != NULL, 0);
     //printf("c_id->value: %s\n", c_id->value);
     CU_ASSERT_STREQ (c_id->value, REMOTE_IDENTITY_CERTIFICATE);
 
     c_perm = find_property(&credential_token, DDS_AUTHTOKEN_PROP_C_PERM);
-    CU_ASSERT_NEQ (c_perm, NULL);
-    CU_ASSERT_NEQ (c_perm->value != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (c_perm, NULL);
+    CU_ASSERT_NEQ_FATAL (c_perm->value != NULL, 0);
     //printf("c_perm->value: %s\n", c_perm->value);
     CU_ASSERT_STREQ (c_perm->value, PERMISSIONS_DOCUMENT);
 
@@ -1243,12 +1243,12 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_reply )
     const DDS_Security_Property_t *c_perm;
     struct octet_seq dh2_pub_key;
 
-    CU_ASSERT_NEQ (g_auth->process_handshake != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (g_auth->process_handshake != NULL, 0);
 
-    CU_ASSERT_NEQ (g_auth, NULL);
-    CU_ASSERT_NEQ (g_local_identity_handle, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (g_remote_identity_handle, DDS_SECURITY_HANDLE_NIL);
-    CU_ASSERT_NEQ (g_auth->begin_handshake_reply != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (g_auth, NULL);
+    CU_ASSERT_NEQ_FATAL (g_local_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (g_remote_identity_handle, DDS_SECURITY_HANDLE_NIL);
+    CU_ASSERT_NEQ_FATAL (g_auth->begin_handshake_reply != NULL, 0);
 
     /* simulate reply */
     fill_handshake_message_token_default(
@@ -1267,7 +1267,7 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_reply )
                     &g_serialized_participant_data,
                     &exception);
 
-    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
+    CU_ASSERT_EQ_FATAL (result, DDS_SECURITY_VALIDATION_PENDING_HANDSHAKE_MESSAGE);
 
     /* mock final */
     dh2 = find_binary_property(&handshake_token_out, DDS_AUTHTOKEN_PROP_DH2);
@@ -1300,7 +1300,7 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_reply )
                         handshake_handle,
                         &exception);
 
-    CU_ASSERT_EQ (result, DDS_SECURITY_VALIDATION_OK);
+    CU_ASSERT_EQ_FATAL (result, DDS_SECURITY_VALIDATION_OK);
 
     /*
      * Actual test.
@@ -1313,20 +1313,20 @@ CU_Test(ddssec_builtin_get_authenticated_peer_credential,token_after_reply )
 
     CU_ASSERT_NEQ_FATAL (success, false);
 
-    CU_ASSERT_NEQ (credential_token.class_id, NULL);
+    CU_ASSERT_NEQ_FATAL (credential_token.class_id, NULL);
     CU_ASSERT_STREQ (credential_token.class_id, DDS_AUTHTOKEN_CLASS_ID);
     CU_ASSERT_EQ (credential_token.properties._length, 2);
     CU_ASSERT_EQ (credential_token.binary_properties._length, 0);
 
     c_id = find_property(&credential_token, DDS_AUTHTOKEN_PROP_C_ID);
-    CU_ASSERT_NEQ (c_id, NULL);
-    CU_ASSERT_NEQ (c_id->value != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (c_id, NULL);
+    CU_ASSERT_NEQ_FATAL (c_id->value != NULL, 0);
     //printf("c_id->value: %s\n", c_id->value);
     CU_ASSERT_STREQ (c_id->value, REMOTE_IDENTITY_CERTIFICATE);
 
     c_perm = find_property(&credential_token, DDS_AUTHTOKEN_PROP_C_PERM);
-    CU_ASSERT_NEQ (c_perm, NULL);
-    CU_ASSERT_NEQ (c_perm->value != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (c_perm, NULL);
+    CU_ASSERT_NEQ_FATAL (c_perm->value != NULL, 0);
     //printf("c_perm->value: %s\n", c_perm->value);
     CU_ASSERT_STREQ (c_perm->value, PERMISSIONS_DOCUMENT);
 

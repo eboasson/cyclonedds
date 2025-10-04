@@ -281,14 +281,14 @@ static void setup (struct ddsi_domaingv *gv, uint32_t factories)
   {
     (void) ddsi_udp_init (gv);
     struct ddsi_tran_factory * const udp = ddsi_factory_find (gv, "udp");
-    CU_ASSERT_NEQ (udp, NULL);
+    CU_ASSERT_NEQ_FATAL (udp, NULL);
     udp->m_enable = true;
   }
   if (factories & DDSI_LOCATOR_KIND_TCPv4)
   {
     (void) ddsi_tcp_init (gv);
     struct ddsi_tran_factory * const tcp = ddsi_factory_find (gv, "tcp");
-    CU_ASSERT_NEQ (tcp, NULL);
+    CU_ASSERT_NEQ_FATAL (tcp, NULL);
     tcp->m_enable = true;
   }
 }
@@ -483,7 +483,7 @@ CU_Test (ddsi_plist, locator_lists_accept)
             } else {
               lcmp = l1; l1 = l1->next;
             }
-            CU_ASSERT_NEQ (lcmp, NULL);
+            CU_ASSERT_NEQ_FATAL (lcmp, NULL);
             CU_ASSERT_NEQ ((uint32_t) lcmp->loc.kind == pi_kind, 0);
             CU_ASSERT_NEQ (lcmp->loc.port == pi_port, 0);
             CU_ASSERT_NEQ (memcmp (lcmp->loc.address, plist_ok + pi + 12, sizeof (lcmp->loc.address)) == 0, 0);

@@ -776,11 +776,11 @@ static void encode_datawriter_submessage_not_signed(DDS_Security_CryptoTransform
   DDS_Security_EndpointSecurityAttributes datawriter_security_attributes;
   bool is_encrypted;
 
-  CU_ASSERT_NEQ (crypto, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform != NULL, 0);
   assert(crypto->crypto_transform != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_transform->encode_datawriter_submessage != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_datawriter_submessage != NULL, 0);
   assert(crypto->crypto_transform->encode_datawriter_submessage != 0);
 
   if (transformation_kind == CRYPTO_TRANSFORMATION_KIND_AES128_GCM || transformation_kind == CRYPTO_TRANSFORMATION_KIND_AES256_GCM)
@@ -797,12 +797,12 @@ static void encode_datawriter_submessage_not_signed(DDS_Security_CryptoTransform
   initialize_data_submessage(&plain_buffer, DDSRT_BOSEL_NATIVE);
 
   writer_crypto = register_local_datawriter(&datawriter_security_attributes, &datawriter_properties);
-  CU_ASSERT_NEQ (writer_crypto, 0);
+  CU_ASSERT_NEQ_FATAL (writer_crypto, 0);
 
   session_keys = get_datawriter_session(writer_crypto);
 
   reader_crypto = register_remote_datareader(writer_crypto);
-  CU_ASSERT_NEQ (reader_crypto, 0);
+  CU_ASSERT_NEQ_FATAL (reader_crypto, 0);
 
   reader_list._length = reader_list._maximum = 1;
   reader_list._buffer = DDS_Security_DatareaderCryptoHandleSeq_allocbuf(1);
@@ -824,7 +824,7 @@ static void encode_datawriter_submessage_not_signed(DDS_Security_CryptoTransform
     printf("encode_datawriter_submessage: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ_FATAL (result, 0);
 
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
@@ -832,7 +832,7 @@ static void encode_datawriter_submessage_not_signed(DDS_Security_CryptoTransform
   reset_exception(&exception);
 
   result = check_encoded_data(&encoded_buffer, is_encrypted, &header, &footer, &data);
-  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ_FATAL (result, 0);
 
   CU_ASSERT_NEQ (header->transform_identifier.transformation_kind[3] == transformation_kind, 0);
 
@@ -852,7 +852,7 @@ static void encode_datawriter_submessage_not_signed(DDS_Security_CryptoTransform
       printf("Decode failed\n");
     }
 
-    CU_ASSERT_NEQ (result, 0);
+    CU_ASSERT_NEQ_FATAL (result, 0);
 
     CU_ASSERT_EQ (memcmp(plain_buffer._buffer, decoded_buffer._buffer, plain_buffer._length), 0);
 
@@ -867,7 +867,7 @@ static void encode_datawriter_submessage_not_signed(DDS_Security_CryptoTransform
       printf("Decode failed\n");
     }
 
-    CU_ASSERT_NEQ (result, 0);
+    CU_ASSERT_NEQ_FATAL (result, 0);
 
     CU_ASSERT_EQ (memcmp(plain_buffer._buffer, data._buffer, plain_buffer._length), 0);
   }
@@ -931,11 +931,11 @@ static void encode_datawriter_submessage_sign(DDS_Security_CryptoTransformKind_E
   DDS_Security_EndpointSecurityAttributes datawriter_security_attributes;
   bool is_encrypted;
 
-  CU_ASSERT_NEQ (crypto, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform != NULL, 0);
   assert(crypto->crypto_transform != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_transform->encode_datawriter_submessage != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_datawriter_submessage != NULL, 0);
   assert(crypto->crypto_transform->encode_datawriter_submessage != 0);
 
   if (transformation_kind == CRYPTO_TRANSFORMATION_KIND_AES128_GCM || transformation_kind == CRYPTO_TRANSFORMATION_KIND_AES256_GCM)
@@ -952,7 +952,7 @@ static void encode_datawriter_submessage_sign(DDS_Security_CryptoTransformKind_E
   initialize_data_submessage(&plain_buffer, DDSRT_BOSEL_NATIVE);
 
   writer_crypto = register_local_datawriter(&datawriter_security_attributes, &datawriter_properties);
-  CU_ASSERT_NEQ (writer_crypto, 0);
+  CU_ASSERT_NEQ_FATAL (writer_crypto, 0);
 
   session_keys = get_datawriter_session(writer_crypto);
 
@@ -961,7 +961,7 @@ static void encode_datawriter_submessage_sign(DDS_Security_CryptoTransformKind_E
   for (i = 0; i < READERS_CNT; i++)
   {
     reader_crypto = register_remote_datareader(writer_crypto);
-    CU_ASSERT_NEQ (reader_crypto, 0);
+    CU_ASSERT_NEQ_FATAL (reader_crypto, 0);
     reader_list._buffer[i] = reader_crypto;
   }
   index = 0;
@@ -985,7 +985,7 @@ static void encode_datawriter_submessage_sign(DDS_Security_CryptoTransformKind_E
       printf("encode_datawriter_submessage: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (result, 0);
+    CU_ASSERT_NEQ_FATAL (result, 0);
     CU_ASSERT_EQ (exception.code, 0);
     CU_ASSERT_EQ (exception.message, NULL);
 
@@ -994,7 +994,7 @@ static void encode_datawriter_submessage_sign(DDS_Security_CryptoTransformKind_E
   }
 
   result = check_encoded_data(&encoded_buffer, is_encrypted, &header, &footer, &data);
-  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ_FATAL (result, 0);
 
   CU_ASSERT_NEQ (header->transform_identifier.transformation_kind[3] == transformation_kind, 0);
 
@@ -1013,7 +1013,7 @@ static void encode_datawriter_submessage_sign(DDS_Security_CryptoTransformKind_E
       printf("Decode failed\n");
     }
 
-    CU_ASSERT_NEQ (result, 0);
+    CU_ASSERT_NEQ_FATAL (result, 0);
 
     CU_ASSERT_EQ (memcmp(plain_buffer._buffer, decoded_buffer._buffer, plain_buffer._length), 0);
 
@@ -1029,7 +1029,7 @@ static void encode_datawriter_submessage_sign(DDS_Security_CryptoTransformKind_E
       printf("Decode failed\n");
     }
 
-    CU_ASSERT_NEQ (result, 0);
+    CU_ASSERT_NEQ_FATAL (result, 0);
     CU_ASSERT_EQ (memcmp(plain_buffer._buffer, data._buffer, plain_buffer._length), 0);
   }
 
@@ -1090,11 +1090,11 @@ CU_Test(ddssec_builtin_encode_datawriter_submessage, invalid_args, .init = suite
   DDS_Security_PropertySeq datawriter_properties;
   DDS_Security_EndpointSecurityAttributes datawriter_security_attributes;
 
-  CU_ASSERT_NEQ (crypto, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform != NULL, 0);
   assert(crypto->crypto_transform != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_transform->encode_datawriter_submessage != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_datawriter_submessage != NULL, 0);
   assert(crypto->crypto_transform->encode_datawriter_submessage != 0);
 
   prepare_endpoint_security_attributes_and_properties(&datawriter_security_attributes, &datawriter_properties, CRYPTO_TRANSFORMATION_KIND_AES256_GCM, true);
@@ -1103,12 +1103,12 @@ CU_Test(ddssec_builtin_encode_datawriter_submessage, invalid_args, .init = suite
   memset(&empty_reader_list, 0, sizeof(empty_reader_list));
 
   writer_crypto = register_local_datawriter(&datawriter_security_attributes, &datawriter_properties);
-  CU_ASSERT_NEQ (writer_crypto, 0);
+  CU_ASSERT_NEQ_FATAL (writer_crypto, 0);
 
   //set_protection_kind(writer_crypto, DDS_SECURITY_PROTECTION_KIND_ENCRYPT_WITH_ORIGIN_AUTHENTICATION);
 
   reader_crypto = register_remote_datareader(writer_crypto);
-  CU_ASSERT_NEQ (reader_crypto, 0);
+  CU_ASSERT_NEQ_FATAL (reader_crypto, 0);
 
   reader_list._length = reader_list._maximum = 1;
   reader_list._buffer = DDS_Security_DatareaderCryptoHandleSeq_allocbuf(1);

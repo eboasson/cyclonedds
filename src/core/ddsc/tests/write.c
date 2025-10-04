@@ -36,15 +36,15 @@ static void
 setup(void)
 {
     participant = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_GT (participant, 0);
+    CU_ASSERT_GT_FATAL (participant, 0);
     char topicname[100];
     create_unique_topic_name ("RoundTrip", topicname, sizeof (topicname));
     topic = dds_create_topic(participant, &RoundTripModule_DataType_desc, topicname, NULL, NULL);
-    CU_ASSERT_GT (topic, 0);
+    CU_ASSERT_GT_FATAL (topic, 0);
     publisher = dds_create_publisher(participant, NULL, NULL);
-    CU_ASSERT_GT (publisher, 0);
+    CU_ASSERT_GT_FATAL (publisher, 0);
     writer = dds_create_writer(participant, topic, NULL, NULL);
-    CU_ASSERT_GT (writer, 0);
+    CU_ASSERT_GT_FATAL (writer, 0);
 
     memset(&data, 0, sizeof(data));
     data.payload._length = payloadSize;
@@ -151,13 +151,13 @@ CU_Test(ddsc_write, simpletypes)
     };
 
     par = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_GT (par, 0);
+    CU_ASSERT_GT_FATAL (par, 0);
     char topicname[100];
     create_unique_topic_name ("RoundTrip", topicname, sizeof (topicname));
     top = dds_create_topic(par, &Space_simpletypes_desc, topicname, NULL, NULL);
-    CU_ASSERT_GT (top, 0);
+    CU_ASSERT_GT_FATAL (top, 0);
     wri = dds_create_writer(par, top, NULL, NULL);
-    CU_ASSERT_GT (wri, 0);
+    CU_ASSERT_GT_FATAL (wri, 0);
 
     status = dds_write(wri, &st_data);
     CU_ASSERT_EQ_FATAL (status, DDS_RETCODE_OK);
@@ -201,13 +201,13 @@ CU_Test(ddsc_write, invalid_data)
     dds_entity_t par, top, wri;
 
     par = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_GT (par, 0);
+    CU_ASSERT_GT_FATAL (par, 0);
     char topicname[100];
     create_unique_topic_name ("RoundTrip", topicname, sizeof (topicname));
     top = dds_create_topic(par, &Space_invalid_data_desc, topicname, NULL, NULL);
-    CU_ASSERT_GT (top, 0);
+    CU_ASSERT_GT_FATAL (top, 0);
     wri = dds_create_writer(par, top, NULL, NULL);
-    CU_ASSERT_GT (wri, 0);
+    CU_ASSERT_GT_FATAL (wri, 0);
 
     for (size_t i = 0; i < sizeof (tests) / sizeof (tests[0]); i++)
     {
@@ -260,7 +260,7 @@ CU_Test(ddsc_write, relwr_unrelrd_network)
   }
 
   // It really should have succeeded after several attempts
-  CU_ASSERT_GT (result, 0);
+  CU_ASSERT_GT_FATAL (result, 0);
 }
 
 CU_Test(ddsc_write, batch_flush)
@@ -319,7 +319,7 @@ CU_Test(ddsc_write, batch_flush)
       x[i].flush, x[i].exp);
     int result = test_oneliner_no_shm (prog);
     ddsrt_free (prog);
-    CU_ASSERT_GT (result, 0);
+    CU_ASSERT_GT_FATAL (result, 0);
   }
 }
 
@@ -352,6 +352,6 @@ CU_Test(ddsc_write, async_one_unrel_sample)
   }
 
   // It really should have succeeded after several attempts
-  CU_ASSERT_GT (result, 0);
+  CU_ASSERT_GT_FATAL (result, 0);
 }
 

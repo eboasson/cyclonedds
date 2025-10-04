@@ -20,9 +20,9 @@ CU_Test (ddsc_sertype_default, compare)
 {
   dds_return_t ret;
   dds_entity_t domain = dds_create_domain (0, NULL);
-  CU_ASSERT_GEQ (domain, 0);
+  CU_ASSERT_GEQ_FATAL (domain, 0);
   dds_entity_t participant = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_GEQ (participant, 0);
+  CU_ASSERT_GEQ_FATAL (participant, 0);
 
   char topic_name[100];
   create_unique_topic_name ("ddsc_dynamic_type", topic_name, sizeof (topic_name));

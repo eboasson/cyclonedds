@@ -22,16 +22,16 @@ CU_Test(ddsc_participant, create_and_delete) {
   dds_entity_t participant, participant2, participant3;
 
   participant = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant, 0);
+  CU_ASSERT_GT_FATAL (participant, 0);
 
   participant2 = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant2, 0);
+  CU_ASSERT_GT_FATAL (participant2, 0);
 
   dds_delete (participant);
   dds_delete (participant2);
 
   participant3 = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant3, 0);
+  CU_ASSERT_GT_FATAL (participant3, 0);
 
   dds_delete (participant3);
 
@@ -51,14 +51,14 @@ CU_Test(ddsc_participant, create_with_no_conf_no_env)
 
   //valid specific domain value
   participant2 = dds_create_participant (valid_domain, NULL, NULL);
-  CU_ASSERT_GT (participant2, 0);
+  CU_ASSERT_GT_FATAL (participant2, 0);
   status = dds_get_domainid(participant2, &domain_id);
   CU_ASSERT_EQ_FATAL (status, DDS_RETCODE_OK);
   CU_ASSERT_EQ_FATAL (domain_id, valid_domain);
 
   //DDS_DOMAIN_DEFAULT from user
   participant3 = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant3, 0);
+  CU_ASSERT_GT_FATAL (participant3, 0);
   status = dds_get_domainid(participant3, &domain_id);
   CU_ASSERT_EQ_FATAL (status, DDS_RETCODE_OK);
   CU_ASSERT_EQ_FATAL (domain_id, valid_domain);
@@ -79,7 +79,7 @@ CU_Test(ddsc_participant, create_multiple_domains)
 
   //valid specific domain value
   participant1 = dds_create_participant (1, NULL, NULL);
-  CU_ASSERT_GT (participant1, 0);
+  CU_ASSERT_GT_FATAL (participant1, 0);
   status = dds_get_domainid(participant1, &domain_id);
   CU_ASSERT_EQ_FATAL (status, DDS_RETCODE_OK);
   CU_ASSERT_EQ_FATAL (domain_id, 1);
@@ -88,7 +88,7 @@ CU_Test(ddsc_participant, create_multiple_domains)
 
   //DDS_DOMAIN_DEFAULT from user
   participant2 = dds_create_participant (2, NULL, NULL);
-  CU_ASSERT_GT (participant2, 0);
+  CU_ASSERT_GT_FATAL (participant2, 0);
   status = dds_get_domainid(participant2, &domain_id);
   CU_ASSERT_EQ_FATAL (status, DDS_RETCODE_OK);
   CU_ASSERT_EQ_FATAL (domain_id, 2);
@@ -116,7 +116,7 @@ CU_Test(ddsc_participant, create_with_conf_no_env) {
 
     //valid specific domain value
     participant2 = dds_create_participant (valid_domain, NULL, NULL);
-    CU_ASSERT_GT (participant2, 0);
+    CU_ASSERT_GT_FATAL (participant2, 0);
     status = dds_get_domainid(participant2, &domain_id);
     CU_ASSERT_EQ_FATAL (status, DDS_RETCODE_OK);
     CU_ASSERT_EQ_FATAL (domain_id, valid_domain);
@@ -124,7 +124,7 @@ CU_Test(ddsc_participant, create_with_conf_no_env) {
 
     //DDS_DOMAIN_DEFAULT from the user
     participant3 = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_GT (participant3, 0);
+    CU_ASSERT_GT_FATAL (participant3, 0);
     status = dds_get_domainid(participant3, &domain_id);
     CU_ASSERT_EQ_FATAL (status, DDS_RETCODE_OK);
     CU_ASSERT_EQ_FATAL (domain_id, valid_domain);
@@ -143,7 +143,7 @@ CU_Test(ddsc_participant_lookup, one) {
 
   /* Create a participant */
   participant = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant, 0);
+  CU_ASSERT_GT_FATAL (participant, 0);
 
   /* Get domain id */
   status = dds_get_domainid(participant, &domain_id);
@@ -166,10 +166,10 @@ CU_Test(ddsc_participant_lookup, multiple) {
 
   /* Create participants */
   participant = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant, 0);
+  CU_ASSERT_GT_FATAL (participant, 0);
 
   participant2 = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant2, 0);
+  CU_ASSERT_GT_FATAL (participant2, 0);
 
   /* Get domain id */
   status = dds_get_domainid(participant, &domain_id);
@@ -177,8 +177,8 @@ CU_Test(ddsc_participant_lookup, multiple) {
 
   num_of_found_pp = dds_lookup_participant( domain_id, participants, size);
   CU_ASSERT_EQ_FATAL (num_of_found_pp, 2);
-  CU_ASSERT_NEQ (participants[0] == participant || participants[0] == participant2, 0);
-  CU_ASSERT_NEQ (participants[1] == participant || participants[1] == participant2, 0);
+  CU_ASSERT_NEQ_FATAL (participants[0] == participant || participants[0] == participant2, 0);
+  CU_ASSERT_NEQ_FATAL (participants[1] == participant || participants[1] == participant2, 0);
   CU_ASSERT_NEQ_FATAL (participants[0], participants[1]);
 
   dds_delete (participant2);
@@ -195,13 +195,13 @@ CU_Test(ddsc_participant_lookup, array_too_small) {
 
   /* Create participants */
   participant = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant, 0);
+  CU_ASSERT_GT_FATAL (participant, 0);
 
   participant2 = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant2, 0);
+  CU_ASSERT_GT_FATAL (participant2, 0);
 
   participant3 = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant3, 0);
+  CU_ASSERT_GT_FATAL (participant3, 0);
 
   /* Get domain id */
   status = dds_get_domainid(participant, &domain_id);
@@ -209,8 +209,8 @@ CU_Test(ddsc_participant_lookup, array_too_small) {
 
   num_of_found_pp = dds_lookup_participant( domain_id, participants, size);
   CU_ASSERT_EQ_FATAL (num_of_found_pp, 3);
-  CU_ASSERT_NEQ (participants[0] == participant || participants[0] == participant2 || participants[0] == participant3, 0);
-  CU_ASSERT_NEQ (participants[1] == participant || participants[1] == participant2 || participants[1] == participant3, 0);
+  CU_ASSERT_NEQ_FATAL (participants[0] == participant || participants[0] == participant2 || participants[0] == participant3, 0);
+  CU_ASSERT_NEQ_FATAL (participants[1] == participant || participants[1] == participant2 || participants[1] == participant3, 0);
   CU_ASSERT_NEQ_FATAL (participants[0], participants[1]);
 
   dds_delete (participant3);
@@ -227,7 +227,7 @@ CU_Test(ddsc_participant_lookup, null_zero){
 
   /* Create a participant */
   participant = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant, 0);
+  CU_ASSERT_GT_FATAL (participant, 0);
 
   /* Get domain id */
   status = dds_get_domainid(participant, &domain_id);
@@ -248,7 +248,7 @@ CU_Test(ddsc_participant_lookup, null_nonzero){
 
   /* Create a participant */
   participant = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant, 0);
+  CU_ASSERT_GT_FATAL (participant, 0);
 
   /* Get domain id */
   status = dds_get_domainid(participant, &domain_id);
@@ -270,7 +270,7 @@ CU_Test(ddsc_participant_lookup, unknown_id) {
 
   /* Create a participant */
   participant = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant, 0);
+  CU_ASSERT_GT_FATAL (participant, 0);
 
   /* Get domain id */
   status = dds_get_domainid(participant, &domain_id);
@@ -303,7 +303,7 @@ CU_Test(ddsc_participant_lookup, no_more) {
 
   /* Create a participant */
   participant = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant, 0);
+  CU_ASSERT_GT_FATAL (participant, 0);
 
   /* Get domain id */
   status = dds_get_domainid(participant, &domain_id);
@@ -325,10 +325,10 @@ CU_Test(ddsc_participant_lookup, deleted) {
 
   /* Create participants */
   participant = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant, 0);
+  CU_ASSERT_GT_FATAL (participant, 0);
 
   participant2 = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant2, 0);
+  CU_ASSERT_GT_FATAL (participant2, 0);
 
   /* Get domain id */
   status = dds_get_domainid(participant, &domain_id);
@@ -338,7 +338,7 @@ CU_Test(ddsc_participant_lookup, deleted) {
 
   num_of_found_pp = dds_lookup_participant( domain_id, participants, size);
   CU_ASSERT_EQ_FATAL (num_of_found_pp, 1);
-  CU_ASSERT_EQ (participants[0], participant);
+  CU_ASSERT_EQ_FATAL (participants[0], participant);
 
   dds_delete (participant);
 }

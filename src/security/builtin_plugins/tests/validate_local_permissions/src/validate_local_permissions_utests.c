@@ -250,9 +250,9 @@ static DDS_Security_IdentityHandle create_local_identity(DDS_Security_Qos *parti
   DDS_Security_GuidPrefix_t prefix = {0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, 0xb8, 0xb9, 0xba, 0xbb};
   DDS_Security_EntityId_t entityId = {{0xb0, 0xb1, 0xb2}, 0x1};
 
-  CU_ASSERT_NEQ (g_auth, NULL);
+  CU_ASSERT_NEQ_FATAL (g_auth, NULL);
   assert(g_auth != NULL);
-  CU_ASSERT_NEQ (g_auth->validate_local_identity != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (g_auth->validate_local_identity != NULL, 0);
   assert(g_auth->validate_local_identity != 0);
 
   memset(&local_participant_guid, 0, sizeof(local_participant_guid));
@@ -339,9 +339,9 @@ static void qos_init_data(DDS_Security_Qos *participant_qos, const char *certifi
   permission_ca = create_uri_data(certificate_filename);
   permission_uri = create_uri_data(permission_filename);
   governance_uri = create_uri_data(governance_filename);
-  CU_ASSERT_NEQ (permission_ca, NULL);
-  CU_ASSERT_NEQ (permission_uri, NULL);
-  CU_ASSERT_NEQ (governance_uri, NULL);
+  CU_ASSERT_NEQ_FATAL (permission_ca, NULL);
+  CU_ASSERT_NEQ_FATAL (permission_uri, NULL);
+  CU_ASSERT_NEQ_FATAL (governance_uri, NULL);
 
   memset(participant_qos, 0, sizeof(*participant_qos));
   fill_property_policy(&(participant_qos->property),
@@ -430,13 +430,13 @@ static DDS_Security_IdentityHandle test_setup(DDS_Security_Qos *participant_qos)
                            NULL);
   if (g_plugins)
   {
-    CU_ASSERT_NEQ (g_auth, NULL);
+    CU_ASSERT_NEQ_FATAL (g_auth, NULL);
     assert(g_auth != NULL);
-    CU_ASSERT_NEQ (g_access_control, NULL);
+    CU_ASSERT_NEQ_FATAL (g_access_control, NULL);
     assert(g_access_control != NULL);
-    CU_ASSERT_NEQ (g_access_control->validate_local_permissions != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (g_access_control->validate_local_permissions != NULL, 0);
     assert(g_access_control->validate_local_permissions != 0);
-    CU_ASSERT_NEQ (g_access_control->return_permissions_handle != NULL, 0);
+    CU_ASSERT_NEQ_FATAL (g_access_control->return_permissions_handle != NULL, 0);
     assert(g_access_control->return_permissions_handle != 0);
 
     local_id_hdl = create_local_identity(participant_qos);
@@ -469,7 +469,7 @@ static DDS_Security_long test_failure_scenario(DDS_Security_Qos *participant_qos
 
   /* Prepare testing environment. */
   local_id_hdl = test_setup(participant_qos);
-  CU_ASSERT_NEQ (local_id_hdl, DDS_SECURITY_HANDLE_NIL);
+  CU_ASSERT_NEQ_FATAL (local_id_hdl, DDS_SECURITY_HANDLE_NIL);
 
   /* Call the plugin with the invalid property. */
   result = g_access_control->validate_local_permissions(
@@ -591,7 +591,7 @@ static DDS_Security_long test_corrupted_signature(bool corrupt_permissions, bool
                 "Test_Governance_full.p7s");
 
   /* Only allow one signature to be corrupted. */
-  CU_ASSERT_NEQ (corrupt_permissions, corrupt_governance);
+  CU_ASSERT_NEQ_FATAL (corrupt_permissions, corrupt_governance);
 
   /* Corrupt the signature. */
   if (corrupt_permissions)
@@ -600,10 +600,10 @@ static DDS_Security_long test_corrupted_signature(bool corrupt_permissions, bool
     prop = dds_security_property_find(&(participant_qos.property.value), DDS_SEC_PROP_ACCESS_GOVERNANCE);
 
   /* Just some (hardcoded) sanity checks. */
-  CU_ASSERT_NEQ (prop, NULL);
-  CU_ASSERT_NEQ (prop->value != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (prop, NULL);
+  CU_ASSERT_NEQ_FATAL (prop->value != NULL, 0);
   len = strlen(prop->value);
-  CU_ASSERT_GT (len, 2250);
+  CU_ASSERT_GT_FATAL (len, 2250);
 
   /* Corrupt a byte somewhere in the signature. */
   prop->value[len - 75]--;
@@ -636,7 +636,7 @@ CU_Test(ddssec_builtin_validate_local_permissions, valid_file, .init = suite_val
                 "Test_Permissions_full.p7s",
                 "Test_Governance_full.p7s");
   local_id_hdl = test_setup(&participant_qos);
-  CU_ASSERT_NEQ (local_id_hdl, DDS_SECURITY_HANDLE_NIL);
+  CU_ASSERT_NEQ_FATAL (local_id_hdl, DDS_SECURITY_HANDLE_NIL);
 
   result = g_access_control->validate_local_permissions(
       g_access_control,

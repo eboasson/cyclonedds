@@ -478,7 +478,7 @@ static uint32_t get_transformation_kind(uint32_t key_size, bool encrypted)
   {
     kind = encrypted ? CRYPTO_TRANSFORMATION_KIND_AES256_GCM : CRYPTO_TRANSFORMATION_KIND_AES256_GMAC;
   }
-  CU_ASSERT_NEQ (kind, CRYPTO_TRANSFORMATION_KIND_INVALID);
+  CU_ASSERT_NEQ_FATAL (kind, CRYPTO_TRANSFORMATION_KIND_INVALID);
   return kind;
 }
 
@@ -550,9 +550,9 @@ static void encode_serialized_payload_check(uint32_t key_size, bool encrypted)
   uint32_t session_id;
   size_t length;
 
-  CU_ASSERT_NEQ (crypto, NULL);
-  CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
-  CU_ASSERT_NEQ (crypto->crypto_transform->encode_serialized_payload != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_serialized_payload != NULL, 0);
 
   length = strlen(SAMPLE_TEST_DATA) + 1;
   plain_buffer._length = plain_buffer._maximum = (uint32_t) length;
@@ -560,7 +560,7 @@ static void encode_serialized_payload_check(uint32_t key_size, bool encrypted)
   memcpy((char *)plain_buffer._buffer, SAMPLE_TEST_DATA, length);
 
   writer_crypto = register_local_datawriter(encrypted);
-  CU_ASSERT_NEQ (writer_crypto, 0);
+  CU_ASSERT_NEQ_FATAL (writer_crypto, 0);
 
   CU_ASSERT_NEQ (check_protection_kind(writer_crypto, encrypted ? DDS_SECURITY_BASICPROTECTION_KIND_ENCRYPT : DDS_SECURITY_BASICPROTECTION_KIND_SIGN), 0);
 
@@ -581,13 +581,13 @@ static void encode_serialized_payload_check(uint32_t key_size, bool encrypted)
   {
     printf("[ERROR] encode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
   }
-  CU_ASSERT_NEQ (result, 0);
+  CU_ASSERT_NEQ_FATAL (result, 0);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
   reset_exception(&exception);
 
   result = split_encoded_data(encoded_buffer._buffer, encoded_buffer._length, &header, &encoded_payload, &footer, encrypted);
-  CU_ASSERT_EQ (result, true);
+  CU_ASSERT_EQ_FATAL (result, true);
   CU_ASSERT_NEQ (check_payload_encoded(&encoded_payload, &plain_buffer, encrypted), 0);
 
   session_id = ddsrt_fromBE4u(*(uint32_t *)header->session_id);
@@ -603,7 +603,7 @@ static void encode_serialized_payload_check(uint32_t key_size, bool encrypted)
     {
       printf("[ERROR] Decryption failed\n");
     }
-    CU_ASSERT_NEQ (result, 0);
+    CU_ASSERT_NEQ_FATAL (result, 0);
     CU_ASSERT_NEQ (check_payload_decoded(&decoded_buffer, &plain_buffer), 0);
     DDS_Security_OctetSeq_deinit(&decoded_buffer);
   }
@@ -614,7 +614,7 @@ static void encode_serialized_payload_check(uint32_t key_size, bool encrypted)
     {
       printf("[ERROR] Signature check failed\n");
     }
-    CU_ASSERT_NEQ (result, 0);
+    CU_ASSERT_NEQ_FATAL (result, 0);
   }
 
   DDS_Security_OctetSeq_deinit(&encoded_buffer);
@@ -655,18 +655,18 @@ CU_Test(ddssec_builtin_encode_serialized_payload, invalid_args, .init = suite_en
   DDS_Security_OctetSeq empty_buffer;
   size_t length;
 
-  CU_ASSERT_NEQ (crypto, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_transform != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform != NULL, 0);
   assert(crypto->crypto_transform != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_transform->encode_serialized_payload != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_serialized_payload != NULL, 0);
   assert(crypto->crypto_transform->encode_serialized_payload != 0);
 
   writer_crypto = register_local_datawriter(true);
-  CU_ASSERT_NEQ (writer_crypto, 0);
+  CU_ASSERT_NEQ_FATAL (writer_crypto, 0);
 
   reader_crypto = register_remote_datareader(writer_crypto);
-  CU_ASSERT_NEQ (reader_crypto, 0);
+  CU_ASSERT_NEQ_FATAL (reader_crypto, 0);
 
   memset(&extra_inline_qos, 0, sizeof(extra_inline_qos));
   memset(&empty_buffer, 0, sizeof(empty_buffer));

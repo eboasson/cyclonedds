@@ -73,11 +73,11 @@ CU_Test(ddssec_builtin_register_local_participant, happy_day, .init = suite_regi
   DDS_Security_ParticipantSecurityAttributes participant_security_attributes;
 
   /* Check if we actually have the validate_local_identity() function. */
-  CU_ASSERT_NEQ (crypto, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory != NULL, 0);
   assert(crypto->crypto_key_factory != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory->register_local_participant != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_participant != NULL, 0);
   assert(crypto->crypto_key_factory->register_local_participant != 0);
 
   memset(&exception, 0, sizeof(DDS_Security_SecurityException));
@@ -123,11 +123,11 @@ CU_Test(ddssec_builtin_register_local_participant, empty_identity, .init = suite
   DDS_Security_ParticipantSecurityAttributes participant_security_attributes;
 
   /* Check if we actually have the validate_local_identity() function. */
-  CU_ASSERT_NEQ (crypto, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto, NULL);
   assert(crypto != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory != NULL, 0);
   assert(crypto->crypto_key_factory != NULL);
-  CU_ASSERT_NEQ (crypto->crypto_key_factory->register_local_participant != NULL, 0);
+  CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_local_participant != NULL, 0);
   assert(crypto->crypto_key_factory->register_local_participant != 0);
 
   memset(&exception, 0, sizeof(DDS_Security_SecurityException));
@@ -146,7 +146,7 @@ CU_Test(ddssec_builtin_register_local_participant, empty_identity, .init = suite
     printf("register_local_participant: %s\n", exception.message ? exception.message : "Error message missing");
 
   CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_IDENTITY_EMPTY_CODE);
-  CU_ASSERT_NEQ (exception.message, NULL);
+  CU_ASSERT_NEQ_FATAL (exception.message, NULL);
   CU_ASSERT_STREQ (exception.message, DDS_SECURITY_ERR_IDENTITY_EMPTY_MESSAGE);
   CU_ASSERT_EQ (result, 0);
 

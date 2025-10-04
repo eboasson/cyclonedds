@@ -66,23 +66,23 @@ static void readcondition_init (void)
   char name[100];
 
   g_participant = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (g_participant, 0);
+  CU_ASSERT_GT_FATAL (g_participant, 0);
 
   g_waitset = dds_create_waitset (g_participant);
-  CU_ASSERT_GT (g_waitset, 0);
+  CU_ASSERT_GT_FATAL (g_waitset, 0);
 
   g_topic = dds_create_topic (g_participant, &Space_Type1_desc, create_unique_topic_name ("ddsc_readcondition_test", name, 100), NULL, NULL);
-  CU_ASSERT_GT (g_topic, 0);
+  CU_ASSERT_GT_FATAL (g_topic, 0);
 
   /* Create a reader that keeps last sample of all instances. */
   dds_qset_history (qos, DDS_HISTORY_KEEP_LAST, 1);
   g_reader = dds_create_reader (g_participant, g_topic, qos, NULL);
-  CU_ASSERT_GT (g_reader, 0);
+  CU_ASSERT_GT_FATAL (g_reader, 0);
 
   /* Create a reader that will not automatically dispose unregistered samples. */
   dds_qset_writer_data_lifecycle (qos, false);
   g_writer = dds_create_writer (g_participant, g_topic, qos, NULL);
-  CU_ASSERT_GT (g_writer, 0);
+  CU_ASSERT_GT_FATAL (g_writer, 0);
 
   /* Sync g_reader to g_writer. */
   ret = dds_set_status_mask (g_reader, DDS_SUBSCRIPTION_MATCHED_STATUS);
@@ -175,7 +175,7 @@ static void readcondition_init (void)
 static void readcondition_fini (void)
 {
   dds_return_t ret = dds_delete (g_participant);
-  CU_ASSERT_EQ (ret, 0);
+  CU_ASSERT_EQ_FATAL (ret, 0);
 }
 
 CU_Test(ddsc_readcondition_create, second, .init=readcondition_init, .fini=readcondition_fini)
@@ -186,9 +186,9 @@ CU_Test(ddsc_readcondition_create, second, .init=readcondition_init, .fini=readc
   dds_return_t ret;
 
   cond1 = dds_create_readcondition (g_reader, mask);
-  CU_ASSERT_GT (cond1, 0);
+  CU_ASSERT_GT_FATAL (cond1, 0);
   cond2 = dds_create_readcondition (g_reader, mask);
-  CU_ASSERT_GT (cond2, 0);
+  CU_ASSERT_GT_FATAL (cond2, 0);
 
   /* Also, we should be able to delete both. */
   ret = dds_delete (cond1);
@@ -234,7 +234,7 @@ CU_Test(ddsc_readcondition_get_mask, deleted, .init=readcondition_init, .fini=re
   dds_entity_t condition;
   dds_return_t ret;
   condition = dds_create_readcondition (g_reader, mask);
-  CU_ASSERT_GT (condition, 0);
+  CU_ASSERT_GT_FATAL (condition, 0);
   dds_delete (condition);
   mask = 0;
   ret = dds_get_mask (condition, &mask);
@@ -247,7 +247,7 @@ CU_Test(ddsc_readcondition_get_mask, null, .init=readcondition_init, .fini=readc
   dds_entity_t condition;
   dds_return_t ret;
   condition = dds_create_readcondition (g_reader, mask);
-  CU_ASSERT_GT (condition, 0);
+  CU_ASSERT_GT_FATAL (condition, 0);
   DDSRT_WARNING_MSVC_OFF (6387); /* Disable SAL warning on intentional misuse of the API */
   ret = dds_get_mask (condition, NULL);
   DDSRT_WARNING_MSVC_ON (6387);
@@ -290,14 +290,14 @@ CU_Theory((uint32_t ss, uint32_t vs, uint32_t is), ddsc_readcondition_get_mask, 
   dds_return_t ret;
 
   condition = dds_create_readcondition (g_reader, maskIn);
-  CU_ASSERT_GT (condition, 0);
+  CU_ASSERT_GT_FATAL (condition, 0);
 
   ret = dds_get_mask (condition, &maskOut);
   CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
   CU_ASSERT_EQ_FATAL (maskIn, maskOut);
 
   ret = dds_delete (condition);
-  CU_ASSERT_EQ (ret, 0);
+  CU_ASSERT_EQ_FATAL (ret, 0);
 }
 
 
@@ -307,7 +307,7 @@ CU_Test(ddsc_readcondition_read, already_deleted, .init=readcondition_init, .fin
   dds_return_t ret;
 
   condition = dds_create_readcondition (g_reader, DDS_ANY_SAMPLE_STATE | DDS_ANY_VIEW_STATE | DDS_ANY_INSTANCE_STATE);
-  CU_ASSERT_GT (condition, 0);
+  CU_ASSERT_GT_FATAL (condition, 0);
 
   ret = dds_delete (condition);
   CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
@@ -322,7 +322,7 @@ CU_Test(ddsc_readcondition_take, already_deleted, .init=readcondition_init, .fin
   dds_return_t ret;
 
   condition = dds_create_readcondition (g_reader, DDS_ANY_SAMPLE_STATE | DDS_ANY_VIEW_STATE | DDS_ANY_INSTANCE_STATE);
-  CU_ASSERT_GT (condition, 0);
+  CU_ASSERT_GT_FATAL (condition, 0);
 
   ret = dds_delete (condition);
   CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
@@ -403,7 +403,7 @@ static const char *sst_str (uint32_t sst)
     case DDS_ANY_SAMPLE_STATE: return "any";
     case DDS_READ_SAMPLE_STATE: return "read";
     case DDS_NOT_READ_SAMPLE_STATE: return "not_read";
-    default: CU_ASSERT_NEQ (0, 0); return "INVALID";
+    default: CU_ASSERT_NEQ_FATAL (0, 0); return "INVALID";
   }
 }
 
@@ -414,7 +414,7 @@ static const char *vst_str (uint32_t vst)
     case DDS_ANY_VIEW_STATE: return "any";
     case DDS_NEW_VIEW_STATE: return "new";
     case DDS_NOT_NEW_VIEW_STATE: return "old";
-    default: CU_ASSERT_NEQ (0, 0); return "INVALID";
+    default: CU_ASSERT_NEQ_FATAL (0, 0); return "INVALID";
   }
 }
 
@@ -432,7 +432,7 @@ static const char *ist_str (uint32_t ist)
       return "!nowriters";
     case DDS_NOT_ALIVE_NO_WRITERS_INSTANCE_STATE | DDS_NOT_ALIVE_DISPOSED_INSTANCE_STATE:
       return "!alive";
-    default: CU_ASSERT_NEQ (0, 0); return "INVALID";
+    default: CU_ASSERT_NEQ_FATAL (0, 0); return "INVALID";
   }
 }
 
@@ -453,7 +453,7 @@ static void readcondition_readtake (
     ist = DDS_ANY_INSTANCE_STATE;
 
   condition = dds_create_readcondition (g_reader, sst | vst | ist);
-  CU_ASSERT_GT (condition, 0);
+  CU_ASSERT_GT_FATAL (condition, 0);
 
   if (mask == 0)
   {
@@ -482,9 +482,9 @@ static void readcondition_readtake (
   for (int i = 0; i < expn; i++)
   {
     // sanity check the expectation itself, then the data
-    CU_ASSERT_NEQ ((SAMPLE_SST (exp[i]) & (sst | mask)), 0);
-    CU_ASSERT_NEQ ((SAMPLE_VST (exp[i]) & (vst | mask)), 0);
-    CU_ASSERT_NEQ ((SAMPLE_IST (exp[i]) & (ist | mask)), 0);
+    CU_ASSERT_NEQ_FATAL ((SAMPLE_SST (exp[i]) & (sst | mask)), 0);
+    CU_ASSERT_NEQ_FATAL ((SAMPLE_VST (exp[i]) & (vst | mask)), 0);
+    CU_ASSERT_NEQ_FATAL ((SAMPLE_IST (exp[i]) & (ist | mask)), 0);
     check_expected_long_1 (exp[i], g_samples[i], &g_info[i]);
   }
 }
@@ -538,21 +538,21 @@ CU_Test(ddsc_readcondition, stress)
   dds_return_t rc;
 
   const dds_entity_t pp = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_GT (pp, 0);
+  CU_ASSERT_GT_FATAL (pp, 0);
 
   char tpname[100];
   create_unique_topic_name ("ddsc_data_avail_stress_delete_reader", tpname, sizeof (tpname));
 
   dds_qos_t * const qos = dds_create_qos ();
-  CU_ASSERT_NEQ (qos, NULL);
+  CU_ASSERT_NEQ_FATAL (qos, NULL);
   dds_qset_reliability (qos, DDS_RELIABILITY_RELIABLE, DDS_SECS (1));
   dds_qset_writer_data_lifecycle (qos, false);
   const dds_entity_t tp = dds_create_topic (pp, &Space_Type1_desc, tpname, qos, NULL);
-  CU_ASSERT_GT (tp, 0);
+  CU_ASSERT_GT_FATAL (tp, 0);
   dds_delete_qos (qos);
 
   const dds_entity_t wr = dds_create_writer (pp, tp, NULL, NULL);
-  CU_ASSERT_GT (wr, 0);
+  CU_ASSERT_GT_FATAL (wr, 0);
   struct writethread_arg wrarg = {
     .wr = wr,
     .stop = DDSRT_ATOMIC_UINT32_INIT (0)
@@ -561,12 +561,12 @@ CU_Test(ddsc_readcondition, stress)
   ddsrt_thread_t wrtid;
   ddsrt_threadattr_init (&tattr);
   rc = ddsrt_thread_create (&wrtid, "writer", &tattr, writethread, &wrarg);
-  CU_ASSERT_EQ (rc, 0);
+  CU_ASSERT_EQ_FATAL (rc, 0);
 
   const dds_entity_t rd = dds_create_reader (pp, tp, NULL, NULL);
-  CU_ASSERT_GT (rd, 0);
+  CU_ASSERT_GT_FATAL (rd, 0);
   const dds_entity_t ws = dds_create_waitset (pp);
-  CU_ASSERT_GT (ws, 0);
+  CU_ASSERT_GT_FATAL (ws, 0);
 
   const dds_time_t tend = dds_time () + duration;
   uint32_t nconds = 0;
@@ -577,17 +577,17 @@ CU_Test(ddsc_readcondition, stress)
     if (conds[condidx])
     {
       rc = dds_delete (conds[condidx]);
-      CU_ASSERT_EQ (rc, 0);
+      CU_ASSERT_EQ_FATAL (rc, 0);
       conds[condidx] = 0;
     }
 
     conds[condidx] = dds_create_readcondition (rd, DDS_ANY_STATE);
-    CU_ASSERT_GT (conds[condidx], 0);
+    CU_ASSERT_GT_FATAL (conds[condidx], 0);
 
     // the fact that read conditions get updated even when not attached to a waitset is
     // probably a bug, so let's attach it to a waitset for good measure
     rc = dds_waitset_attach (ws, conds[condidx], conds[condidx]);
-    CU_ASSERT_EQ (rc, 0);
+    CU_ASSERT_EQ_FATAL (rc, 0);
 
     // take whatever sample happens to be present: we want the read condition to be triggered
     // by the _arrival_ of a sample
@@ -596,7 +596,7 @@ CU_Test(ddsc_readcondition, stress)
       void *sampleptr = &sample;
       dds_sample_info_t si;
       rc = dds_take (rd, &sampleptr, &si, 1, 1);
-      CU_ASSERT_NEQ (rc == 0 || rc == 1, 0);
+      CU_ASSERT_NEQ_FATAL (rc == 0 || rc == 1, 0);
     }
 
     while (!ddsrt_atomic_ld32 (&wrarg.stop) && dds_time () < tend && !dds_triggered (conds[condidx]))
@@ -612,10 +612,10 @@ CU_Test(ddsc_readcondition, stress)
   tprintf ("nconds %"PRIu32"\n", nconds);
   tprintf ("stop %"PRIu32"\n", ddsrt_atomic_ld32 (&wrarg.stop));
 
-  CU_ASSERT_GT (nconds, 100); // sanity check
-  CU_ASSERT_NEQ (!(ddsrt_atomic_ld32 (&wrarg.stop) & 2), 0);
+  CU_ASSERT_GT_FATAL (nconds, 100); // sanity check
+  CU_ASSERT_NEQ_FATAL (!(ddsrt_atomic_ld32 (&wrarg.stop) & 2), 0);
 
   rc = dds_delete (pp);
-  CU_ASSERT_EQ (rc, 0);
+  CU_ASSERT_EQ_FATAL (rc, 0);
 #undef NCONDS
 }

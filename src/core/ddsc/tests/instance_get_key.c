@@ -46,34 +46,34 @@ static void setup(void)
     dds_return_t ret;
 
     participant = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-    CU_ASSERT_GT (participant, 0);
+    CU_ASSERT_GT_FATAL (participant, 0);
 
     waitset = dds_create_waitset(participant);
-    CU_ASSERT_GT (waitset, 0);
+    CU_ASSERT_GT_FATAL (waitset, 0);
 
     topic = dds_create_topic(participant, &RoundTripModule_Address_desc, "ddsc_instance_get_key", NULL, NULL);
-    CU_ASSERT_GT (topic, 0);
+    CU_ASSERT_GT_FATAL (topic, 0);
 
     publisher = dds_create_publisher(participant, NULL, NULL);
-    CU_ASSERT_GT (publisher, 0);
+    CU_ASSERT_GT_FATAL (publisher, 0);
 
     writer = dds_create_writer(publisher, topic, NULL, NULL);
-    CU_ASSERT_GT (writer, 0);
+    CU_ASSERT_GT_FATAL (writer, 0);
 
     subscriber = dds_create_subscriber(participant, NULL, NULL);
-    CU_ASSERT_GT (subscriber, 0);
+    CU_ASSERT_GT_FATAL (subscriber, 0);
 
     reader = dds_create_reader(subscriber, topic, NULL, NULL);
-    CU_ASSERT_GT (reader, 0);
+    CU_ASSERT_GT_FATAL (reader, 0);
 
     readcondition = dds_create_readcondition(reader, mask);
-    CU_ASSERT_GT (readcondition, 0);
+    CU_ASSERT_GT_FATAL (readcondition, 0);
 
     ret = dds_waitset_attach(waitset, readcondition, readcondition);
     CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
 
     querycondition = dds_create_querycondition(reader, mask, filter);
-    CU_ASSERT_GT (querycondition, 0);
+    CU_ASSERT_GT_FATAL (querycondition, 0);
 
     ret = dds_waitset_attach(waitset, querycondition, querycondition);
     CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);

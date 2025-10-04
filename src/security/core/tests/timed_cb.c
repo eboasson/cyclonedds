@@ -60,7 +60,7 @@ static struct ddsi_xeventq *get_xeventq (dds_entity_t e)
   dds_entity *x;
 
   r = dds_entity_pin (e, &x);
-  CU_ASSERT_GEQ (r, 0);
+  CU_ASSERT_GEQ_FATAL (r, 0);
   evq = x->m_domain->gv.xevents;
   dds_entity_unpin (x);
   return evq;
@@ -69,9 +69,9 @@ static struct ddsi_xeventq *get_xeventq (dds_entity_t e)
 static void setup(void)
 {
   pp = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (pp, 0);
+  CU_ASSERT_GT_FATAL (pp, 0);
   xeventq = get_xeventq(pp);
-  CU_ASSERT_NEQ (xeventq, NULL);
+  CU_ASSERT_NEQ_FATAL (xeventq, NULL);
 }
 
 static void teardown(void)

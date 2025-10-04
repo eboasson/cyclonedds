@@ -90,9 +90,9 @@ static void handshake_init(const char * auth_init, const char * auth_fini, const
   dds_free (conf);
 
   g_participant1 = dds_create_participant (DDS_DOMAINID1, NULL, NULL);
-  CU_ASSERT_GT (g_participant1, 0);
+  CU_ASSERT_GT_FATAL (g_participant1, 0);
   g_participant2 = dds_create_participant (DDS_DOMAINID2, NULL, NULL);
-  CU_ASSERT_GT (g_participant2, 0);
+  CU_ASSERT_GT_FATAL (g_participant2, 0);
 }
 
 static void handshake_fini(void)
@@ -147,11 +147,11 @@ CU_Test(ddssec_handshake, check_tokens)
 
   // Get subscriber and publisher crypto tokens
   struct dds_security_cryptography_impl * crypto_context_pub = get_cryptography_context (g_participant1);
-  CU_ASSERT_NEQ (crypto_context_pub, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto_context_pub, NULL);
   struct ddsrt_circlist *pub_tokens = get_crypto_tokens (crypto_context_pub);
 
   struct dds_security_cryptography_impl * crypto_context_sub = get_cryptography_context (g_participant2);
-  CU_ASSERT_NEQ (crypto_context_sub, NULL);
+  CU_ASSERT_NEQ_FATAL (crypto_context_sub, NULL);
   struct ddsrt_circlist *sub_tokens = get_crypto_tokens (crypto_context_sub);
 
   // Find all publisher tokens in subscribers token store
@@ -174,7 +174,7 @@ CU_Test(ddssec_handshake, check_tokens)
       }
       printf("- find token %s #%"PRIuSIZE", len %"PRIuSIZE"\n", get_crypto_token_type_str (token_data->type), n, token_data->data_len[n]);
       struct crypto_token_data *st = find_crypto_token (crypto_context_sub, exp_type, token_data->data[n], token_data->data_len[n]);
-      CU_ASSERT_NEQ (st, NULL);
+      CU_ASSERT_NEQ_FATAL (st, NULL);
     }
     ddsrt_circlist_remove (pub_tokens, list_elem);
     ddsrt_free (token_data);

@@ -137,7 +137,7 @@ CU_Test(idl_pragma, keylist_nested_key)
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
   assert(pstate);
   s1 = idl_next(pstate->root);
-  CU_ASSERT_NEQ (idl_is_struct(s1), 0);
+  CU_ASSERT_NEQ_FATAL (idl_is_struct(s1), 0);
   CU_ASSERT_NEQ ((idl_mask(s1->keylist) & IDL_KEYLIST) != 0, 0);
   idl_delete_pstate(pstate);
 }
@@ -209,9 +209,9 @@ CU_Test(idl_pragma, keylist_scoped_name)
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
   assert(pstate);
   m1 = (idl_module_t *)pstate->root;
-  CU_ASSERT_NEQ (idl_is_module(m1), 0);
+  CU_ASSERT_NEQ_FATAL (idl_is_module(m1), 0);
   s1 = (idl_struct_t *)m1->definitions;
-  CU_ASSERT_NEQ (idl_is_struct(s1), 0);
+  CU_ASSERT_NEQ_FATAL (idl_is_struct(s1), 0);
   CU_ASSERT_NEQ ((idl_mask(s1->keylist) & IDL_KEYLIST) != 0, 0);
   idl_delete_pstate(pstate);
 }
@@ -231,7 +231,7 @@ CU_Test(idl_pragma, keylist_outer_scope)
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
   assert(pstate);
   s1 = (idl_struct_t *)pstate->root;
-  CU_ASSERT_NEQ (idl_is_struct(s1), 0);
+  CU_ASSERT_NEQ_FATAL (idl_is_struct(s1), 0);
   CU_ASSERT_NEQ ((idl_mask(s1->keylist) & IDL_KEYLIST) != 0, 0);
   idl_delete_pstate(pstate);
 }
@@ -249,6 +249,6 @@ CU_Test(idl_pragma, unknown)
   CU_ASSERT_NEQ_FATAL (pstate, NULL);
   assert(pstate);
   s1 = (idl_struct_t *)pstate->root;
-  CU_ASSERT_NEQ (idl_is_struct(s1), 0);
+  CU_ASSERT_NEQ_FATAL (idl_is_struct(s1), 0);
   idl_delete_pstate(pstate);
 }

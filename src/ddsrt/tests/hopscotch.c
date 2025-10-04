@@ -62,7 +62,7 @@ static void init (bool random)
 
   ddsrt_prng_seed_t prng_seed;
   bool haveseed = ddsrt_prng_makeseed (&prng_seed);
-  CU_ASSERT_NEQ (haveseed, 0);
+  CU_ASSERT_NEQ_FATAL (haveseed, 0);
   ddsrt_prng_init (&prng, &prng_seed);
   printf ("%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32"\n",
           prng_seed.key[0], prng_seed.key[1], prng_seed.key[2], prng_seed.key[3], prng_seed.key[4], prng_seed.key[5], prng_seed.key[6], prng_seed.key[7]);
@@ -261,7 +261,7 @@ static uint32_t chhtest_thread (void *varg)
   ddsrt_prng_t local_prng;
   ddsrt_prng_seed_t prng_seed;
   bool haveseed = ddsrt_prng_makeseed (&prng_seed);
-  CU_ASSERT_NEQ (haveseed, 0);
+  CU_ASSERT_NEQ_FATAL (haveseed, 0);
   ddsrt_prng_init (&local_prng, &prng_seed);
   printf ("%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32"\n",
           prng_seed.key[0], prng_seed.key[1], prng_seed.key[2], prng_seed.key[3], prng_seed.key[4], prng_seed.key[5], prng_seed.key[6], prng_seed.key[7]);
@@ -316,7 +316,7 @@ static void chhtest_check (void *vobj, void *varg)
 {
   uint32_t *obj = vobj;
   uint32_t *count = varg;
-  CU_ASSERT_NEQ (*obj, UINT32_MAX);
+  CU_ASSERT_NEQ_FATAL (*obj, UINT32_MAX);
   (*count)++;
 }
 
@@ -338,7 +338,7 @@ CU_Test(ddsrt_hopscotch, concurrent, .timeout = 20)
     keyset[i] = i;
 
   chh = ddsrt_chh_new (1, hash_uint32, equals_uint32, chhtest_gc, &gclist);
-  CU_ASSERT_NEQ (chh, NULL);
+  CU_ASSERT_NEQ_FATAL (chh, NULL);
 
   ddsrt_atomic_uint32_t stop = DDSRT_ATOMIC_UINT32_INIT (0);
   struct chhtest_thread_arg args[4];
@@ -364,7 +364,7 @@ CU_Test(ddsrt_hopscotch, concurrent, .timeout = 20)
     ddsrt_threadattr_t attr;
     ddsrt_threadattr_init (&attr);
     dds_return_t ret = ddsrt_thread_create (&tids[i], "x", &attr, chhtest_thread, &args[i]);
-    CU_ASSERT_EQ (ret, 0);
+    CU_ASSERT_EQ_FATAL (ret, 0);
   }
 
   dds_time_t tend = dds_time () + DDS_SECS (15);
@@ -376,7 +376,7 @@ CU_Test(ddsrt_hopscotch, concurrent, .timeout = 20)
   for (uint32_t i = 0; i < 4; i++)
   {
     dds_return_t ret = ddsrt_thread_join (tids[i], NULL);
-    CU_ASSERT_EQ (ret, 0);
+    CU_ASSERT_EQ_FATAL (ret, 0);
     printf ("args[%"PRIu32"] add %"PRIu32" rm %"PRIu32" lk %"PRIu32" max %"PRIu32"\n",
             i, args[i].adds, args[i].removes, args[i].lookups, args[i].maxnkeys);
   }
@@ -390,11 +390,11 @@ CU_Test(ddsrt_hopscotch, concurrent, .timeout = 20)
     {
       if (keyset[i] != UINT32_MAX)
       {
-        CU_ASSERT_GT (count, 0);
+        CU_ASSERT_GT_FATAL (count, 0);
         count--;
       }
     }
-    CU_ASSERT_EQ (count, 0);
+    CU_ASSERT_EQ_FATAL (count, 0);
   }
 
   ddsrt_chh_free (chh);

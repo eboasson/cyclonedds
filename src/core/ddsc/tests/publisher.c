@@ -42,11 +42,11 @@ CU_Test(ddsc_publisher, create)
   CU_ASSERT_EQ_FATAL (publisher, DDS_RETCODE_PRECONDITION_NOT_MET);
 
   participant = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant, 0);
+  CU_ASSERT_GT_FATAL (participant, 0);
 
   /* Use non-null participant */
   publisher = dds_create_publisher(participant, NULL, NULL);
-  CU_ASSERT_GT (publisher, 0);
+  CU_ASSERT_GT_FATAL (publisher, 0);
 
   /* Use entity that is not a participant */
   publisher1 = dds_create_publisher(publisher, NULL, NULL);
@@ -59,7 +59,7 @@ CU_Test(ddsc_publisher, create)
 
   /* Use qos without partition; in that case the default partition should be used */
   publisher = dds_create_publisher(participant, qos, NULL);
-  CU_ASSERT_GT (publisher, 0);
+  CU_ASSERT_GT_FATAL (publisher, 0);
   dds_delete(publisher);
 
 /* Somehow, the compiler thinks the char arrays might not be zero-terminated... */
@@ -71,19 +71,19 @@ CU_Test(ddsc_publisher, create)
   /* Use qos with single partition */
   dds_qset_partition (qos, 1, singlePartitions);
   publisher = dds_create_publisher(participant, qos, NULL);
-  CU_ASSERT_GT (publisher, 0);
+  CU_ASSERT_GT_FATAL (publisher, 0);
   dds_delete(publisher);
 
   /* Use qos with multiple partitions */
   dds_qset_partition (qos, 2, multiplePartitions);
   publisher = dds_create_publisher(participant, qos, NULL);
-  CU_ASSERT_GT (publisher, 0);
+  CU_ASSERT_GT_FATAL (publisher, 0);
   dds_delete(publisher);
 
   /* Use qos with multiple partitions */
   dds_qset_partition (qos, 2, duplicatePartitions);
   publisher = dds_create_publisher(participant, qos, NULL);
-  CU_ASSERT_GT (publisher, 0);
+  CU_ASSERT_GT_FATAL (publisher, 0);
   dds_delete(publisher);
 
 #ifdef _MSC_VER
@@ -94,7 +94,7 @@ CU_Test(ddsc_publisher, create)
   listener = dds_create_listener(NULL);
   CU_ASSERT_NEQ_FATAL (listener, NULL);
   publisher = dds_create_publisher(participant, NULL, listener);
-  CU_ASSERT_GT (publisher, 0);
+  CU_ASSERT_GT_FATAL (publisher, 0);
   dds_delete(publisher);
 
   dds_reset_listener(listener);
@@ -102,7 +102,7 @@ CU_Test(ddsc_publisher, create)
   /* Use listener for data_available */
   dds_lset_data_available(listener, NULL);
   publisher = dds_create_publisher(participant, NULL, listener);
-  CU_ASSERT_GT (publisher, 0);
+  CU_ASSERT_GT_FATAL (publisher, 0);
   dds_delete(publisher);
 
   dds_reset_listener(listener);
@@ -110,7 +110,7 @@ CU_Test(ddsc_publisher, create)
   /* Use DDS_LUNSET for data_available */
   dds_lset_data_available(listener, DDS_LUNSET);
   publisher = dds_create_publisher(participant, NULL, listener);
-  CU_ASSERT_GT (publisher, 0);
+  CU_ASSERT_GT_FATAL (publisher, 0);
   dds_delete(publisher);
 
   dds_reset_listener(listener);
@@ -118,7 +118,7 @@ CU_Test(ddsc_publisher, create)
   /* Use callback for data_available */
   dds_lset_data_available(listener, data_available_cb);
   publisher = dds_create_publisher(participant, NULL, listener);
-  CU_ASSERT_GT (publisher, 0);
+  CU_ASSERT_GT_FATAL (publisher, 0);
   dds_delete(publisher);
 
   /* Use both qos setting and callback listener */
@@ -139,7 +139,7 @@ CU_Test(ddsc_publisher, invalid_qos)
   dds_return_t rc;
 
   participant = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant, 0);
+  CU_ASSERT_GT_FATAL (participant, 0);
 
   qos = dds_create_qos ();
   CU_ASSERT_NEQ_FATAL (qos, NULL);
@@ -150,11 +150,11 @@ CU_Test(ddsc_publisher, invalid_qos)
   dds_qset_presentation(qos, pask.pask, false, false);
 
   publisher = dds_create_publisher(participant, qos, NULL);
-  CU_ASSERT_EQ (publisher, DDS_RETCODE_BAD_PARAMETER);
+  CU_ASSERT_EQ_FATAL (publisher, DDS_RETCODE_BAD_PARAMETER);
 
   dds_delete_qos (qos);
   rc = dds_delete(participant);
-  CU_ASSERT_EQ (rc, 0);
+  CU_ASSERT_EQ_FATAL (rc, 0);
 }
 
 CU_Test(ddsc_publisher, suspend_resume)
@@ -173,7 +173,7 @@ CU_Test(ddsc_publisher, suspend_resume)
 
   /* Uae dds_suspend on something else than a publisher */
   participant = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant, 0);
+  CU_ASSERT_GT_FATAL (participant, 0);
   status = dds_suspend(participant);
   CU_ASSERT_EQ_FATAL (status, DDS_RETCODE_ILLEGAL_OPERATION);
 
@@ -183,7 +183,7 @@ CU_Test(ddsc_publisher, suspend_resume)
 
   /* Use dds_resume without calling dds_suspend */
   publisher = dds_create_publisher(participant, NULL, NULL);
-  CU_ASSERT_GT (publisher, 0);
+  CU_ASSERT_GT_FATAL (publisher, 0);
   status = dds_resume(publisher); /* Should be precondition not met? */
   CU_ASSERT_EQ_FATAL (status, DDS_RETCODE_UNSUPPORTED);
 
@@ -226,7 +226,7 @@ CU_Test(ddsc_publisher, wait_for_acks)
   CU_ASSERT_EQ_FATAL (status, DDS_RETCODE_PRECONDITION_NOT_MET);
 
   participant = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
-  CU_ASSERT_GT (participant, 0);
+  CU_ASSERT_GT_FATAL (participant, 0);
 
   /* Wait_for_acks on participant and minusOneSec timeout */
   status = dds_wait_for_acks(participant, minusOneSec);
@@ -245,7 +245,7 @@ CU_Test(ddsc_publisher, wait_for_acks)
   CU_ASSERT_EQ_FATAL (status, DDS_RETCODE_ILLEGAL_OPERATION);
 
   publisher = dds_create_publisher(participant, NULL, NULL);
-  CU_ASSERT_GT (publisher, 0);
+  CU_ASSERT_GT_FATAL (publisher, 0);
 
   /* Wait_for_acks on publisher and minusOneSec timeout --
      either BAD_PARAMETER or UNSUPPORTED would be both be ok, really */
