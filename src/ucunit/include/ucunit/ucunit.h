@@ -68,29 +68,28 @@ extern "C" {
   const bool satisfied__ = (xv__) op_ (yv__);                           \
   if (!satisfied__) {                                                   \
     char fmt__[100];                                                    \
-    snprintf (fmt__, sizeof (fmt__), "%%s:%%d: not satisfied: %%s (%s) %%s %%s (%s)\n", CU_ASSERT_PRINTF_FORMAT (xv__), CU_ASSERT_PRINTF_FORMAT (yv__)); \
-    fprintf (stderr, fmt__, __FILE__, __LINE__, #x_, xv__, #op_, #y_, yv__); \
-    CU_assertImplementation (false, __LINE__, #x_ #op_ #y_, __FILE__, "", fatal__); \
-    if (!satisfied__ && fatal__)                                         \
-      CU_UNREACHABLE;                                                   \
-  } else {                                                              \
-    CU_assertImplementation (true, __LINE__, #x_ #op_ #y_, __FILE__, "", fatal__); \
+    snprintf (fmt__, sizeof (fmt__),                                    \
+      "%%s:%%d: not satisfied: (%%s [= %s]) %%s (%%s [= %s])\n",        \
+      CU_ASSERT_PRINTF_FORMAT (xv__), CU_ASSERT_PRINTF_FORMAT (yv__));  \
+    fprintf (stderr, fmt__, __FILE__, __LINE__,                         \
+      #x_, xv__, #op_, #y_, yv__);                                      \
   }                                                                     \
-} while(0)
+  CU_assertImplementation (satisfied__, __LINE__,                       \
+    "(" #x_ ") " #op_ " (" #y_ ")", __FILE__, "", fatal__);             \
+  if (!satisfied__ && fatal__)                                          \
+    CU_UNREACHABLE;                                                     \
+} while (0)
 
 #else
 
-#define CU_ASSERT_OP_MAYBE_FATAL(x_, op_, y_, fatal_) do {              \
-  const bool fatal__ = (fatal_);                                        \
-  const bool satisfied__ = (x_) op_ (y_);                           \
-  if (!satisfied__) {                                                   \
-    CU_assertImplementation (false, __LINE__, #x_ #op_ #y_, __FILE__, "", fatal__); \
-    if (!satisfied__ && fatal__)                                         \
-      CU_UNREACHABLE;                                                   \
-  } else {                                                              \
-    CU_assertImplementation (true, __LINE__, #x_ #op_ #y_, __FILE__, "", fatal__); \
-  }                                                                     \
-} while(0)
+#define CU_ASSERT_OP_MAYBE_FATAL(x_, op_, y_, fatal_) do {      \
+  const bool fatal__ = (fatal_);                                \
+  const bool satisfied__ = (x_) op_ (y_);                       \
+  CU_assertImplementation (satisfied__, __LINE__,               \
+    "(" #x_ ") " #op_ " (" #y_ ")", __FILE__, "", fatal__);     \
+  if (!satisfied__ && fatal__)                                  \
+    CU_UNREACHABLE;                                             \
+} while (0)
 
 #endif
 
@@ -100,35 +99,41 @@ extern "C" {
   const bool fatal__ = (fatal_);                                        \
   const bool satisfied__ = xv__ && yv__ && strcmp (xv__, yv__) op_ 0;   \
   if (!satisfied__) {                                                   \
-    fprintf (stderr, "%s:%d: not satisfied: %s (%s) %s %s (%s)\n", __FILE__, __LINE__, #x_, xv__, #op_, #y_, yv__); \
-    CU_assertImplementation (false, __LINE__, #x_ #op_ #y_, __FILE__, "", fatal_); \
-    if (!satisfied__ && fatal__)                                         \
-      CU_UNREACHABLE;                                                   \
-  } else {                                                              \
-    CU_assertImplementation (true, __LINE__, #x_ #op_ #y_, __FILE__, "", fatal_); \
+    fprintf (stderr,                                                    \
+      "%s:%d: not satisfied: (%s [= %s]) %s (%s [= %s])\n",             \
+      __FILE__, __LINE__, #x_, xv__, #op_, #y_, yv__);                  \
   }                                                                     \
-} while(0)
+  CU_assertImplementation (satisfied__, __LINE__,                       \
+    "(" #x_ ") " #op_ " (" #y_ ")", __FILE__, "", fatal_);              \
+  if (!satisfied__ && fatal__)                                          \
+    CU_UNREACHABLE;                                                     \
+} while (0)
 
-#define CU_ASSERT_MEMEQ_MAYBE_FATAL(x_, xsz_, y_, ysz_, fatal_) do {       \
-  const unsigned char *xv__ = (const unsigned char *) (x_);                               \
-  const unsigned char *yv__ = (const unsigned char *) (y_);                               \
-  const size_t xszv__ = (size_t) (xsz_); \
-  const size_t yszv__ = (size_t) (ysz_); \
+#define CU_ASSERT_MEMEQ_MAYBE_FATAL(x_, xsz_, y_, ysz_, fatal_) do {    \
+  const unsigned char *xv__ = (const unsigned char *) (x_);             \
+  const unsigned char *yv__ = (const unsigned char *) (y_);             \
+  const size_t xszv__ = (size_t) (xsz_);                                \
+  const size_t yszv__ = (size_t) (ysz_);                                \
   const bool fatal__ = (fatal_);                                        \
-  const bool satisfied__ = (xszv__ == yszv__ && (xszv__ == 0 || memcmp (xv__, yv__, xszv__) == 0));   \
+  const bool satisfied__ =                                              \
+    (xszv__ == yszv__ &&                                                \
+     (xszv__ == 0 || memcmp (xv__, yv__, xszv__) == 0));                \
   if (!satisfied__) {                                                   \
-    fprintf (stderr, "%s:%d: not satisfied: %s,%s (%p,%zu) == %s,%s (%p,%zu)\n", __FILE__, __LINE__, #x_, #xsz_, xv__, xszv__, #y_, #ysz_, yv__, yszv__); \
-    fprintf (stderr, "%s:\n", #x_); \
-    CU_hexdump (stderr, xv__, xszv__); \
-    fprintf (stderr, "%s:\n", #y_); \
-    CU_hexdump (stderr, yv__, yszv__); \
-    CU_assertImplementation (false, __LINE__, #x_ "==" #y_, __FILE__, "", fatal_); \
-    if (!satisfied__ && fatal__)                                         \
-      CU_UNREACHABLE;                                                   \
-  } else {                                                              \
-    CU_assertImplementation (true, __LINE__, #x_ "==" #y_, __FILE__, "", fatal_); \
+    fprintf (stderr,                                                    \
+      "%s:%d: not satisfied: "                                          \
+      "(%s,%s [= %p,%zu]) == (%s,%s [= %p,%zu])\n",                     \
+      __FILE__, __LINE__,                                               \
+      #x_, #xsz_, xv__, xszv__, #y_, #ysz_, yv__, yszv__);              \
+    fprintf (stderr, "%s:\n", #x_);                                     \
+    CU_hexdump (stderr, xv__, xszv__);                                  \
+    fprintf (stderr, "%s:\n", #y_);                                     \
+    CU_hexdump (stderr, yv__, yszv__);                                  \
   }                                                                     \
-} while(0)
+  CU_assertImplementation (satisfied__, __LINE__,                       \
+    "(" #x_ ") == (" #y_ ")", __FILE__, "", fatal_);                    \
+  if (!satisfied__ && fatal__)                                          \
+    CU_UNREACHABLE;                                                     \
+} while (0)
 
 #define CU_ASSERT_EQ(x_, y_) CU_ASSERT_OP_MAYBE_FATAL (x_, ==, y_, false)
 #define CU_ASSERT_EQ_FATAL(x_, y_) CU_ASSERT_OP_MAYBE_FATAL (x_, ==, y_, true)
