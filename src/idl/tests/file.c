@@ -271,11 +271,11 @@ CU_Test(idl_file, relative_bad_params)
       fprintf(stderr, "path: %s\n", path);
       ret = idl_relative_path(base, path, &rel);
       fprintf(stderr, "relative: %s\n", rel ? rel : "-");
-      if (rel)
-        free(rel);
       CU_ASSERT_EQ_FATAL (ret, bad_param);
       // coverity[use_after_free:FALSE]
       CU_ASSERT_EQ (rel, NULL);
+      if (rel)
+        free(rel);
     }
   }
 }
