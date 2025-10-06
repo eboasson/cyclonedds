@@ -64,8 +64,8 @@ CU_Test(idl_union, single_case)
   ret = idl_parse_string(pstate, str);
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
   u = (idl_union_t *)pstate->root;
+  CU_ASSERT_NEQ_FATAL (u, NULL);
   CU_ASSERT_FATAL (idl_is_union(u));
-  assert(u);
   CU_ASSERT_EQ_FATAL (idl_type(u->switch_type_spec->type_spec), IDL_LONG);
   c = (idl_case_t *)u->cases;
   CU_ASSERT_FATAL (idl_is_case(c));
@@ -93,8 +93,8 @@ CU_Test(idl_union, single_default_case)
   ret = idl_parse_string(pstate, str);
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
   u = (idl_union_t *)pstate->root;
+  CU_ASSERT_NEQ_FATAL (u, NULL);
   CU_ASSERT_FATAL (idl_is_union(u));
-  assert(u);
   CU_ASSERT_EQ_FATAL (idl_type(u->switch_type_spec->type_spec), IDL_CHAR);
   c = (idl_case_t *)u->cases;
   CU_ASSERT_FATAL (idl_is_case(c));
@@ -141,8 +141,8 @@ CU_Test(idl_union, enumerator_switch_type)
   ret = idl_parse_string(pstate, str);
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
   e = (idl_enum_t *)pstate->root;
+  CU_ASSERT_NEQ_FATAL (e, NULL);
   CU_ASSERT_FATAL (idl_is_enum(e));
-  assert(e);
   el = e->enumerators;
   CU_ASSERT_FATAL (idl_is_enumerator(el));
   CU_ASSERT_STREQ (idl_identifier(el), "Red");
@@ -178,8 +178,7 @@ CU_Test(idl_union, typedef_switch_types)
 
   ret = idl_create_pstate(0u, NULL, &pstate);
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
-  CU_ASSERT_NEQ (pstate, NULL);
-  assert(pstate);
+  CU_ASSERT_NEQ_FATAL (pstate, NULL);
   str = T("char", "baz") U("baz");
   ret = idl_parse_string(pstate, str);
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
@@ -192,11 +191,9 @@ CU_Test(idl_union, typedef_switch_types)
 
   ret = idl_create_pstate(0u, NULL, &pstate);
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
-  assert(ret == IDL_RETCODE_OK);
   // Coverity thinks pstate is possibly a freed pointer
   // coverity[use_after_free:FALSE]
-  CU_ASSERT_NEQ (pstate, NULL);
-  assert(pstate);
+  CU_ASSERT_NEQ_FATAL (pstate, NULL);
   str = M("foo", T("char", "baz") U("baz"));
   ret = idl_parse_string(pstate, str);
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
@@ -211,8 +208,7 @@ CU_Test(idl_union, typedef_switch_types)
 
   ret = idl_create_pstate(0u, NULL, &pstate);
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
-  CU_ASSERT_NEQ (pstate, NULL);
-  assert(pstate);
+  CU_ASSERT_NEQ_FATAL (pstate, NULL);
   str = M("foo", T("char", "baz")) M("bar", U("foo::baz"));
   ret = idl_parse_string(pstate, str);
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
@@ -308,7 +304,6 @@ CU_Test(idl_union, default_discriminator_bool)
       const idl_union_t *u;
 
       CU_ASSERT_NEQ_FATAL (pstate, NULL);
-      assert(pstate);
       u = (const idl_union_t *)pstate->root;
       CU_ASSERT_FATAL (idl_is_union(u));
       c = u->cases;
@@ -338,8 +333,8 @@ CU_Test(idl_union, default_discriminator_bool)
         CU_ASSERT_EQ (idl_parent(u->default_case), (void *) c);
       }
       l = u->default_case ? u->default_case->const_expr : NULL;
+      CU_ASSERT_NEQ_FATAL (l, NULL);
       CU_ASSERT_EQ_FATAL (idl_type(l), IDL_BOOL);
-      assert(l);
       CU_ASSERT_EQ (l->value.bln, tests[i].discriminant);
     }
     idl_delete_pstate(pstate);
@@ -382,7 +377,6 @@ CU_Test(idl_union, default_discriminator_signed_int)
     ret = parse_string(buf, &pstate);
     CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
     CU_ASSERT_NEQ_FATAL (pstate, NULL);
-    assert(pstate);
     u = (const idl_union_t *)pstate->root;
     CU_ASSERT_FATAL (idl_is_union(u));
     c = u->cases;
@@ -447,7 +441,6 @@ CU_Test(idl_union, default_discriminator_unsigned_int)
     ret = parse_string(buf, &pstate);
     CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
     CU_ASSERT_NEQ_FATAL (pstate, NULL);
-    assert(pstate);
     u = (const idl_union_t *)pstate->root;
     CU_ASSERT_FATAL (idl_is_union(u));
     c = u->cases;
@@ -498,7 +491,6 @@ CU_Test(idl_union, default_discriminator_enum)
   ret = parse_string(idl, &pstate);
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
   CU_ASSERT_NEQ_FATAL (pstate, NULL);
-  assert(pstate);
   e1 = (const idl_enum_t *)pstate->root;
   CU_ASSERT_FATAL (idl_is_enum(e1));
   e1x = e1->enumerators;
@@ -515,7 +507,6 @@ CU_Test(idl_union, default_discriminator_enum)
   ret = parse_string(idl, &pstate);
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
   CU_ASSERT_NEQ_FATAL (pstate, NULL);
-  assert(pstate);
   e1 = (const idl_enum_t *)pstate->root;
   CU_ASSERT_FATAL (idl_is_enum(e1));
   e1x = idl_next(e1->enumerators);
@@ -532,7 +523,6 @@ CU_Test(idl_union, default_discriminator_enum)
   ret = parse_string(idl, &pstate);
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
   CU_ASSERT_NEQ_FATAL (pstate, NULL);
-  assert(pstate);
   e1 = (const idl_enum_t *)pstate->root;
   CU_ASSERT_FATAL (idl_is_enum(e1));
   e1x = e1->enumerators;
@@ -554,7 +544,6 @@ CU_Test(idl_union, default_discriminator_enum)
   ret = parse_string(idl, &pstate);
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
   CU_ASSERT_NEQ_FATAL (pstate, NULL);
-  assert(pstate);
   e1 = (const idl_enum_t *)pstate->root;
   CU_ASSERT_FATAL (idl_is_enum(e1));
   e1x = idl_next(e1->enumerators);

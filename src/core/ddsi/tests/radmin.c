@@ -110,7 +110,6 @@ static void insert_sample (struct ddsi_defrag *defrag, struct ddsi_reorder *reor
 {
   struct ddsi_rsample_info *si = ddsi_rmsg_alloc (rmsg, sizeof (*si));
   CU_ASSERT_NEQ_FATAL (si, NULL);
-  assert (si);
   // only "seq" and "size" really matter
   memset (si, 0, sizeof (*si));
   si->rst = rst;

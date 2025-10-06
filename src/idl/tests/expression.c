@@ -82,7 +82,6 @@ test_expr(
     return;
   }
   CU_ASSERT_NEQ_FATAL (pstate, NULL);
-  assert(pstate);
   c = (void *)pstate->root;
   do {
     if (idl_is_const(c) && strcmp(idl_identifier(c), "x") == 0)
@@ -90,7 +89,7 @@ test_expr(
     c = idl_next(c);
   } while (c);
   CU_ASSERT_FATAL (idl_is_const(c));
-  assert(c);
+  CU_ASSERT_NEQ_FATAL (c, NULL);
   cv = c->const_expr;
   CU_ASSERT_FATAL (idl_is_literal(cv));
   CU_ASSERT_EQ (idl_compare(cv, exp), IDL_EQUAL);

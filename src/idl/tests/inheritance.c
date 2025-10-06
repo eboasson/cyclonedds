@@ -123,11 +123,9 @@ CU_Test(idl_inheritance, empty_structs)
     ret = idl_create_pstate(0, NULL, &pstate);
     CU_ASSERT_EQ (ret, IDL_RETCODE_OK);
     CU_ASSERT_NEQ_FATAL (pstate, NULL);
-    assert(pstate);
     ret = idl_parse_string(pstate, tests[i].str);
     CU_ASSERT_EQ (ret, IDL_RETCODE_OK);
     CU_ASSERT_NEQ_FATAL (pstate->root, NULL);
-    assert(pstate->root);
     const idl_struct_t *s = (idl_struct_t *)pstate->root;
     // search for struct by name
     while (s && !(idl_is_struct(s) && strcmp(idl_identifier(s), "sx") == 0))

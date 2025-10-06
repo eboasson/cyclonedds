@@ -857,7 +857,6 @@ CU_Test(idlc_type_meta, type_obj_serdes)
 
         // compare serialized blobs
         CU_ASSERT_EQ_FATAL (os.x.m_index, os_test.x.m_index);
-        assert (os.x.m_index == os_test.x.m_index);
         int cmp = memcmp (os.x.m_buffer, os_test.x.m_buffer, os.x.m_index);
         CU_ASSERT_EQ_FATAL (cmp, 0);
 

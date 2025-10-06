@@ -508,13 +508,9 @@ static void decode_rtps_message_not_authenticated(DDS_Security_CryptoTransformKi
   DDS_Security_PropertySeq properties;
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
-  assert(crypto != NULL);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
-  assert(crypto->crypto_transform != NULL);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_rtps_message, NULL);
-  assert(crypto->crypto_transform->encode_rtps_message != 0);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->decode_rtps_message, NULL);
-  assert(crypto->crypto_transform->decode_rtps_message != 0);
 
   prepare_participant_security_attributes_and_properties(&attributes, &properties, transformation_kind, true);
   register_local_participants(&attributes, &properties);
@@ -629,13 +625,9 @@ static void decode_rtps_message_authenticated(DDS_Security_CryptoTransformKind_E
   int i, index;
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
-  assert(crypto != NULL);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
-  assert(crypto->crypto_transform != NULL);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_rtps_message, NULL);
-  assert(crypto->crypto_transform->encode_rtps_message != 0);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->decode_rtps_message, NULL);
-  assert(crypto->crypto_transform->decode_rtps_message != 0);
 
   prepare_participant_security_attributes_and_properties(&attributes, &properties, transformation_kind, true);
   register_local_participants(&attributes, &properties);
@@ -764,13 +756,9 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_args, .init = suite_decode_r
   DDS_Security_PropertySeq properties;
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
-  assert(crypto != NULL);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
-  assert(crypto->crypto_transform != NULL);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_rtps_message, NULL);
-  assert(crypto->crypto_transform->encode_rtps_message != 0);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->decode_rtps_message, NULL);
-  assert(crypto->crypto_transform->decode_rtps_message != 0);
 
   prepare_participant_security_attributes_and_properties(&attributes, &properties, CRYPTO_TRANSFORMATION_KIND_AES256_GMAC, false);
   register_local_participants(&attributes, &properties);
@@ -916,13 +904,9 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
   DDS_Security_PropertySeq properties;
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
-  assert(crypto != NULL);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
-  assert(crypto->crypto_transform != NULL);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_rtps_message, NULL);
-  assert(crypto->crypto_transform->encode_rtps_message != 0);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->decode_rtps_message, NULL);
-  assert(crypto->crypto_transform->decode_rtps_message != 0);
 
   prepare_participant_security_attributes_and_properties(&attributes, &properties, CRYPTO_TRANSFORMATION_KIND_AES256_GMAC, false);
   register_local_participants(&attributes, &properties);

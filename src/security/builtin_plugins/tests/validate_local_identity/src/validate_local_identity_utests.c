@@ -640,9 +640,7 @@ CU_Test(ddssec_builtin_validate_local_identity,happy_day)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));
     memcpy(&candidate_participant_guid.prefix, &prefix, sizeof(prefix));
@@ -746,9 +744,7 @@ CU_Test(ddssec_builtin_validate_local_identity,invalid_certificate)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));
     memcpy(&candidate_participant_guid.prefix, &prefix, sizeof(prefix));
@@ -834,9 +830,7 @@ CU_Test(ddssec_builtin_validate_local_identity,invalid_root)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));
     memcpy(&candidate_participant_guid.prefix, &prefix, sizeof(prefix));
@@ -919,9 +913,7 @@ CU_Test(ddssec_builtin_validate_local_identity,invalid_chain)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));
     memcpy(&candidate_participant_guid.prefix, &prefix, sizeof(prefix));
@@ -1005,9 +997,7 @@ CU_Test(ddssec_builtin_validate_local_identity,certificate_key_too_small)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));
     memcpy(&candidate_participant_guid.prefix, &prefix, sizeof(prefix));
@@ -1058,9 +1048,7 @@ CU_Test(ddssec_builtin_validate_local_identity,invalid_private_key)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));
     memcpy(&candidate_participant_guid.prefix, &prefix, sizeof(prefix));
@@ -1143,9 +1131,7 @@ CU_Test(ddssec_builtin_validate_local_identity,private_key_too_small)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));
     memcpy(&candidate_participant_guid.prefix, &prefix, sizeof(prefix));
@@ -1195,9 +1181,7 @@ CU_Test(ddssec_builtin_validate_local_identity,missing_certificate_property)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));
     memcpy(&candidate_participant_guid.prefix, &prefix, sizeof(prefix));
@@ -1253,9 +1237,7 @@ CU_Test(ddssec_builtin_validate_local_identity,missing_ca_property)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));
     memcpy(&candidate_participant_guid.prefix, &prefix, sizeof(prefix));
@@ -1308,9 +1290,7 @@ CU_Test(ddssec_builtin_validate_local_identity,missing_private_key_property)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));
     memcpy(&candidate_participant_guid.prefix, &prefix, sizeof(prefix));
@@ -1363,9 +1343,7 @@ CU_Test(ddssec_builtin_validate_local_identity,unsupported_certification_format)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     len = strlen("uri:") + strlen(&identity_certificate[6]) + 1;
     cert = ddsrt_malloc(len);
@@ -1421,9 +1399,7 @@ CU_Test(ddssec_builtin_validate_local_identity,encrypted_key)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));
     memcpy(&candidate_participant_guid.prefix, &prefix, sizeof(prefix));
@@ -1509,9 +1485,7 @@ CU_Test(ddssec_builtin_validate_local_identity,encrypted_key_no_password)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));
     memcpy(&candidate_participant_guid.prefix, &prefix, sizeof(prefix));
@@ -1585,9 +1559,7 @@ CU_Test(ddssec_builtin_validate_local_identity,encrypted_key_invalid_password)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));
     memcpy(&candidate_participant_guid.prefix, &prefix, sizeof(prefix));
@@ -1673,9 +1645,7 @@ CU_Test(ddssec_builtin_validate_local_identity,happy_day_elliptic)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));
     memcpy(&candidate_participant_guid.prefix, &prefix, sizeof(prefix));
@@ -1778,9 +1748,7 @@ CU_Test(ddssec_builtin_validate_local_identity,encrypted_ec_key)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));
     memcpy(&candidate_participant_guid.prefix, &prefix, sizeof(prefix));
@@ -1864,9 +1832,7 @@ CU_Test(ddssec_builtin_validate_local_identity,elliptic_unsupported_certificate)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));
     memcpy(&candidate_participant_guid.prefix, &prefix, sizeof(prefix));
@@ -1916,9 +1882,7 @@ CU_Test(ddssec_builtin_validate_local_identity,elliptic_unsupported_private_key)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));
     memcpy(&candidate_participant_guid.prefix, &prefix, sizeof(prefix));
@@ -1969,9 +1933,7 @@ CU_Test(ddssec_builtin_validate_local_identity,return_freed_handle)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));
     memcpy(&candidate_participant_guid.prefix, &prefix, sizeof(prefix));
@@ -2042,9 +2004,7 @@ CU_Test(ddssec_builtin_validate_local_identity,no_file)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     /* validate with file */
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));
@@ -2160,9 +2120,7 @@ CU_Test(ddssec_builtin_validate_local_identity,with_extended_certificate_check)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));
     memcpy(&candidate_participant_guid.prefix, &prefix, sizeof(prefix));
@@ -2249,9 +2207,7 @@ CU_Test(ddssec_builtin_validate_local_identity,crl)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));
     memcpy(&candidate_participant_guid.prefix, &prefix, sizeof(prefix));
@@ -2335,9 +2291,7 @@ CU_Test(ddssec_builtin_validate_local_identity,trusted_ca_dir_and_crl)
 
     /* Check if we actually have the validate_local_identity() function. */
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (auth->validate_local_identity, NULL);
-    assert (auth->validate_local_identity != 0);
 
     /* validate with file */
     memset(&adjusted_participant_guid, 0, sizeof(adjusted_participant_guid));

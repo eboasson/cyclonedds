@@ -133,7 +133,6 @@ CU_Test(idl_file, untaint)
 
     str = idl_strdup(tests[i].input);
     CU_ASSERT_NEQ_FATAL (str, NULL);
-    assert(str);
     fprintf(stderr, "input: '%s'\n", str);
     len = idl_untaint_path(str);
     if (tests[i].length == -1) {
@@ -170,11 +169,9 @@ CU_Test(idl_file, normalize_revert)
 
   (void) idl_asprintf(&path, "%s/..", prefix);
   CU_ASSERT_NEQ_FATAL (path, NULL);
-  assert(path);
   ret = idl_normalize_path(path, &norm);
   CU_ASSERT_GEQ_FATAL (ret, 0);
   CU_ASSERT_NEQ_FATAL (norm, NULL);
-  assert(norm);
   fprintf(stderr, "path: %s\n", path);
   { size_t sep = 0;
     for (size_t i=0,n=strlen(prefix); i < n; i++) {
@@ -205,7 +202,6 @@ CU_Test(idl_file, normalize_revert_too_many)
   size = steps * step;
   revert = malloc(size + 1);
   CU_ASSERT_NEQ_FATAL (revert, NULL);
-  assert(revert);
   for (size_t i=0; i < steps; i++)
     memcpy(revert + (i*step), "/..", step);
   revert[size] = '\0';

@@ -24,8 +24,7 @@ CU_Test(idl_enum, no_enumerator)
   const char str[] = "enum foo { };";
   ret = idl_create_pstate(0u, NULL, &pstate);
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
-  CU_ASSERT_NEQ (pstate, NULL);
-  assert(pstate);
+  CU_ASSERT_NEQ_FATAL (pstate, NULL);
   ret = idl_parse_string(pstate, str);
   CU_ASSERT_EQ (ret, IDL_RETCODE_SYNTAX_ERROR);
   CU_ASSERT_EQ (pstate->root, NULL);
@@ -40,8 +39,7 @@ CU_Test(idl_enum, duplicate_enumerators)
   const char str[] = "enum foo { bar, bar };";
   ret = idl_create_pstate(0u, NULL, &pstate);
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
-  CU_ASSERT_NEQ (pstate, NULL);
-  assert(pstate);
+  CU_ASSERT_NEQ_FATAL (pstate, NULL);
   ret = idl_parse_string(pstate, str);
   CU_ASSERT_EQ (ret, IDL_RETCODE_SEMANTIC_ERROR);
   CU_ASSERT_EQ (pstate->root, NULL);
@@ -56,8 +54,7 @@ CU_Test(idl_enum, enumerator_matches_enum)
   const char str[] = "enum foo { foo };";
   ret = idl_create_pstate(0u, NULL, &pstate);
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
-  CU_ASSERT_NEQ (pstate, NULL);
-  assert(pstate);
+  CU_ASSERT_NEQ_FATAL (pstate, NULL);
   ret = idl_parse_string(pstate, str);
   CU_ASSERT_EQ (ret, IDL_RETCODE_SEMANTIC_ERROR);
   CU_ASSERT_EQ (pstate->root, NULL);
@@ -89,7 +86,6 @@ CU_Test(idl_enum, single_enumerator)
   ret = idl_create_pstate(0u, NULL, &pstate);
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
   CU_ASSERT_NEQ_FATAL (pstate, NULL);
-  assert(pstate);
   ret = idl_parse_string(pstate, str);
   CU_ASSERT_EQ (ret, IDL_RETCODE_OK);
   e = (idl_enum_t *)pstate->root;
@@ -113,7 +109,6 @@ CU_Test(idl_enum, multiple_enumerators)
   ret = idl_create_pstate(0u, NULL, &pstate);
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
   CU_ASSERT_NEQ_FATAL (pstate, NULL);
-  assert(pstate);
   ret = idl_parse_string(pstate, str);
   CU_ASSERT_EQ (ret, IDL_RETCODE_OK);
   e = (idl_enum_t *)pstate->root;

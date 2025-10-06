@@ -492,9 +492,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_happy_day, .init = su
   result = plugins_init();
   CU_ASSERT_FATAL (result);
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (access_control->get_participant_sec_attributes, NULL);
-  assert(access_control->get_participant_sec_attributes != 0);
 
   result = create_local_identity(0, "Test_Governance_full.p7s");
   CU_ASSERT_FATAL (result);
@@ -553,9 +551,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datawriter_happy_day, .init = sui
   result = plugins_init();
   CU_ASSERT_FATAL (result);
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (access_control->get_datawriter_sec_attributes, NULL);
-  assert(access_control->get_datawriter_sec_attributes != 0);
 
   result = create_local_identity(0, "Test_Governance_full.p7s");
   CU_ASSERT_FATAL (result);
@@ -604,9 +600,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datawriter_non_existing_topic, .i
   result = plugins_init();
   CU_ASSERT_FATAL (result);
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (access_control->get_datawriter_sec_attributes, NULL);
-  assert(access_control->get_datawriter_sec_attributes != 0);
 
   /* use a different domain(30) to get non matching topic result */
   result = create_local_identity(30, "Test_Governance_full.p7s");
@@ -647,9 +641,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datareader_happy_day, .init = sui
   result = plugins_init();
   CU_ASSERT_FATAL (result);
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (access_control->get_datareader_sec_attributes, NULL);
-  assert(access_control->get_datareader_sec_attributes != 0);
 
   result = create_local_identity(0, "Test_Governance_full.p7s");
   CU_ASSERT_FATAL (result);
@@ -698,9 +690,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datareader_non_existing_topic, .i
   result = plugins_init();
   CU_ASSERT_FATAL (result);
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (access_control->get_datawriter_sec_attributes, NULL);
-  assert(access_control->get_datawriter_sec_attributes != 0);
 
   /* use a different domain (30) to get non matching topic result */
   result = create_local_identity(30, "Test_Governance_full.p7s");
@@ -739,9 +729,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_invalid_param, .init 
   result = plugins_init();
   CU_ASSERT_FATAL (result);
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (access_control->get_participant_sec_attributes, NULL);
-  assert(access_control->get_participant_sec_attributes != 0);
 
   result = access_control->get_participant_sec_attributes(
       NULL,
@@ -797,9 +785,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datareader_invalid_param, .init =
   result = plugins_init();
   CU_ASSERT_FATAL (result);
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (access_control->get_datareader_sec_attributes, NULL);
-  assert(access_control->get_datareader_sec_attributes != 0);
 
   memset(&attributes, 0, sizeof(attributes));
 
@@ -883,9 +869,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, datawriter_invalid_param, .init =
   result = plugins_init();
   CU_ASSERT_FATAL (result);
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (access_control->get_datawriter_sec_attributes, NULL);
-  assert(access_control->get_datawriter_sec_attributes != 0);
 
   memset(&attributes, 0, sizeof(attributes));
 
@@ -968,9 +952,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, topic_happy_day, .init = suite_ge
   result = plugins_init();
   CU_ASSERT_FATAL (result);
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (access_control->get_topic_sec_attributes, NULL);
-  assert(access_control->get_topic_sec_attributes != 0);
 
   result = create_local_identity(0, "Test_Governance_full.p7s");
   CU_ASSERT_FATAL (result);
@@ -1015,9 +997,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, topic_non_existing_topic, .init =
   result = plugins_init();
   CU_ASSERT_FATAL (result);
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (access_control->get_topic_sec_attributes, NULL);
-  assert(access_control->get_topic_sec_attributes != 0);
 
   result = create_local_identity(30, "Test_Governance_full.p7s");
   CU_ASSERT_FATAL (result);
@@ -1057,9 +1037,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, topic_invalid_param, .init = suit
   result = plugins_init();
   CU_ASSERT_FATAL (result);
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (access_control->get_topic_sec_attributes, NULL);
-  assert(access_control->get_topic_sec_attributes != 0);
 
   result = create_local_identity(0, "Test_Governance_full.p7s");
   CU_ASSERT_FATAL (result);
@@ -1136,9 +1114,7 @@ CU_Test(ddssec_builtin_get_xxx_sec_attributes, participant_2nd_rule, .init = sui
   result = plugins_init();
   CU_ASSERT_FATAL (result);
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (access_control->get_participant_sec_attributes, NULL);
-  assert(access_control->get_participant_sec_attributes != 0);
 
   result = create_local_identity(30, "Test_Governance_full.p7s");
   CU_ASSERT_FATAL (result);
@@ -1203,7 +1179,6 @@ static void test_liveliness_discovery_participant_attr(
   bool result;
 
   CU_ASSERT_NEQ_FATAL (access_control->get_participant_sec_attributes, NULL);
-  assert(access_control->get_participant_sec_attributes != 0);
 
   memset(&attr, 0, sizeof(attr));
 
@@ -1244,7 +1219,6 @@ static void test_liveliness_discovery_writer_attr(
   bool result;
 
   CU_ASSERT_NEQ_FATAL (access_control->get_datawriter_sec_attributes, NULL);
-  assert(access_control->get_datawriter_sec_attributes != 0);
 
   memset(&attr, 0, sizeof(attr));
 
@@ -1290,7 +1264,6 @@ static void test_liveliness_discovery_reader_attr(
   bool result;
 
   CU_ASSERT_NEQ_FATAL (access_control->get_datareader_sec_attributes, NULL);
-  assert(access_control->get_datareader_sec_attributes != 0);
 
   memset(&attr, 0, sizeof(attr));
 

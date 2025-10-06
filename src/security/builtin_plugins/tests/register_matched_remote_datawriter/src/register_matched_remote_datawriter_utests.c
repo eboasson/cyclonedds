@@ -269,11 +269,8 @@ CU_Test(ddssec_builtin_register_remote_datawriter, with_origin_authentication, .
 
   /* Check if we actually have the function. */
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
-  assert(crypto != NULL);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory, NULL);
-  assert(crypto->crypto_key_factory != NULL);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_matched_remote_datawriter, NULL);
-  assert(crypto->crypto_key_factory->register_matched_remote_datawriter != 0);
   register_local_regular();
 
   /*set reader protection kind */
@@ -324,11 +321,8 @@ CU_Test(ddssec_builtin_register_remote_datawriter, invalid_participant, .init = 
 
   /* Check if we actually have the function. */
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
-  assert(crypto != NULL);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory, NULL);
-  assert(crypto->crypto_key_factory != NULL);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_matched_remote_datawriter, NULL);
-  assert(crypto->crypto_key_factory->register_matched_remote_datawriter != 0);
   register_local_regular();
 
   /* Now call the function. */
@@ -355,11 +349,8 @@ CU_Test(ddssec_builtin_register_remote_datawriter, invalid_writer_properties, .i
 
   /* Check if we actually have the function. */
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
-  assert(crypto != NULL);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory, NULL);
-  assert(crypto->crypto_key_factory != NULL);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_key_factory->register_matched_remote_datawriter, NULL);
-  assert(crypto->crypto_key_factory->register_matched_remote_datawriter != 0);
   register_local_regular();
 
   /* Now call the function. */

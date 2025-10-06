@@ -67,7 +67,6 @@ static void test_optional(optional_test_t test)
       idl_struct_t *s = (idl_struct_t *)node;
       CU_ASSERT_NEQ_FATAL (s, NULL);
       CU_ASSERT_FATAL (idl_is_struct(s));
-      assert(s);
       idl_member_t *m = NULL;
       int n = 0;
       IDL_FOREACH(m, s->members) {
@@ -120,7 +119,6 @@ static void test_default(
   if (pstate) {
     idl_struct_t *s = (idl_struct_t *)pstate->root;
     CU_ASSERT_FATAL (idl_is_struct(s));
-    assert(s);
     idl_member_t *m = NULL;
     IDL_FOREACH(m, s->members) {
       const idl_literal_t *def = idl_default_value(m);
@@ -205,7 +203,6 @@ static void test_enum_default(enum_default_test_t test) {
   if (test.ret == ret
    && ret == IDL_RETCODE_OK) {
     CU_ASSERT_NEQ_FATAL (pstate, NULL);
-    assert(pstate);
     idl_enum_t *e = (idl_enum_t *)pstate->root;
     CU_ASSERT (idl_is_enum(e));
     if (idl_is_enum(e)) {
@@ -266,7 +263,6 @@ static void test_key(key_test_t test)
     return;
 
   CU_ASSERT_NEQ_FATAL (pstate, NULL);
-  assert(pstate);
 
   if (idl_is_struct(pstate->root)) {
     idl_struct_t *s = (idl_struct_t *)pstate->root;
@@ -354,7 +350,6 @@ CU_Test(idl_annotation, nested)
   ret = parse_string(IDL_FLAG_ANNOTATIONS, str, &pstate);
   CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
   CU_ASSERT_NEQ_FATAL (pstate, NULL);
-  assert(pstate);
   s = (idl_struct_t *)pstate->root;
   CU_ASSERT_FATAL (idl_is_struct(s));
   CU_ASSERT_EQ (s->nested.annotation, NULL);
@@ -838,12 +833,10 @@ CU_Test(idl_annotation, extensibility)
     CU_ASSERT_EQ_FATAL (ret, tests[i].ret);
     if (tests[i].ret == IDL_RETCODE_OK) {
       CU_ASSERT_NEQ_FATAL (pstate, NULL);
-      assert(pstate);
       switch (tests[i].type) {
         case IDL_STRUCT: {
           idl_struct_t *s = (idl_struct_t *)pstate->root;
           CU_ASSERT_NEQ_FATAL (s, NULL);
-          assert(s);
           CU_ASSERT_FATAL (idl_is_struct(s));
           CU_ASSERT_EQ (s->extensibility.value, tests[i].ext);
           break;
@@ -851,7 +844,6 @@ CU_Test(idl_annotation, extensibility)
         case IDL_UNION: {
           idl_union_t *u = (idl_union_t *)pstate->root;
           CU_ASSERT_NEQ_FATAL (u, NULL);
-          assert(u);
           CU_ASSERT_FATAL (idl_is_union(u));
           CU_ASSERT_EQ (u->extensibility.value, tests[i].ext);
           break;
@@ -1025,9 +1017,7 @@ CU_Test(idl_annotation, bit_bound)
       continue;
     }
     CU_ASSERT_NEQ_FATAL (pstate, NULL);
-    assert(pstate);
     CU_ASSERT_NEQ_FATAL (pstate->root, NULL);
-    assert(pstate->root);
     if (idl_is_bitmask(pstate->root)) {
       idl_bitmask_t *b = (idl_bitmask_t *)pstate->root;
       CU_ASSERT_EQ_FATAL (b->bit_bound.value, tests[i].value);
@@ -1082,15 +1072,12 @@ CU_Test(idl_annotation, position)
       continue;
     }
     CU_ASSERT_NEQ_FATAL (pstate, NULL);
-    assert(pstate);
     CU_ASSERT_NEQ_FATAL (pstate->root, NULL);
-    assert(pstate->root);
     CU_ASSERT_FATAL (idl_is_bitmask(pstate->root));
     idl_bitmask_t *b = (idl_bitmask_t *)pstate->root;
     idl_bit_value_t *bv = b->bit_values;
     for (int j = 0; j <= 3; bv = idl_next(bv), j++) {
       CU_ASSERT_NEQ_FATAL (bv, NULL);
-      assert(bv);
       CU_ASSERT_EQ (bv->position.value, tests[i].p[j]);
     }
     idl_delete_pstate(pstate);

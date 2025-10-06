@@ -57,11 +57,10 @@ CU_Test(idl_forward, struct_union_maybe_enum)
       const idl_type_spec_t *node;
       CU_ASSERT_NEQ_FATAL (pstate, NULL);
       CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
-      assert(pstate);
       for (node = pstate->root; idl_is_forward(node); node = idl_next(node))
         forward = node;
+      CU_ASSERT_NEQ_FATAL (forward, NULL);
       CU_ASSERT_FATAL (idl_is_forward(forward));
-      assert(forward);
       CU_ASSERT_EQ (idl_type(node), tests[i].type);
       CU_ASSERT_EQ (forward->type_spec, (void *) node);
     }

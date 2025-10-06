@@ -382,12 +382,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, valid_permissions, .init = s
 
   /* Check if we actually have validate_remote_permissions function. */
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
   CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions, NULL);
-  assert(access_control->validate_remote_permissions != 0);
   CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle, NULL);
-  assert(access_control->return_permissions_handle != 0);
 
   fill_permissions_token(&permissions_token);
   r = fill_peer_credential_token(&credential_token, "Test_Permissions_ok.p7s");
@@ -424,12 +421,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_unknown_ca, .ini
 
   /* Check if we actually have validate_remote_permissions function. */
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
   CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions, NULL);
-  assert(access_control->validate_remote_permissions != 0);
   CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle, NULL);
-  assert(access_control->return_permissions_handle != 0);
 
   fill_permissions_token(&permissions_token);
   r = fill_peer_credential_token(&credential_token, "Test_Permissions_unknown_ca.p7s");
@@ -479,12 +473,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_not_signed, .ini
 
   /* Check if we actually have validate_remote_permissions function. */
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
   CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions, NULL);
-  assert(access_control->validate_remote_permissions != 0);
   CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle, NULL);
-  assert(access_control->return_permissions_handle != 0);
 
   fill_permissions_token(&permissions_token);
   r = fill_peer_credential_token(&credential_token, "Test_Permissions_not_signed.p7s");
@@ -533,12 +524,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, invalid_credential_token, .i
 
   /* Check if we actually have validate_remote_permissions function. */
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
   CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions, NULL);
-  assert(access_control->validate_remote_permissions != 0);
   CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle, NULL);
-  assert(access_control->return_permissions_handle != 0);
 
   remote_identity_handle++;
 
@@ -807,12 +795,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, invalid_xml, .init = suite_v
 
   /* Check if we actually have validate_remote_permissions function. */
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
   CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions, NULL);
-  assert(access_control->validate_remote_permissions != 0);
   CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle, NULL);
-  assert(access_control->return_permissions_handle != 0);
 
   fill_permissions_token(&permissions_token);
   //permissions_token.
@@ -853,12 +838,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_expired, .init =
 
   /* Check if we actually have validate_remote_permissions function. */
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
   CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions, NULL);
-  assert(access_control->validate_remote_permissions != 0);
   CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle, NULL);
-  assert(access_control->return_permissions_handle != 0);
 
   fill_permissions_token(&permissions_token);
   r = fill_peer_credential_token(&credential_token, "Test_Permissions_expired.p7s");
@@ -894,12 +876,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_not_yet, .init =
 
   /* Check if we actually have validate_remote_permissions function. */
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
   CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions, NULL);
-  assert(access_control->validate_remote_permissions != 0);
   CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle, NULL);
-  assert(access_control->return_permissions_handle != 0);
 
   fill_permissions_token(&permissions_token);
   r = fill_peer_credential_token(&credential_token, "Test_Permissions_notyet.p7s");
@@ -935,12 +914,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_unknown_subject_
 
   /* Check if we actually have validate_remote_permissions function. */
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
   CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions, NULL);
-  assert(access_control->validate_remote_permissions != 0);
   CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle, NULL);
-  assert(access_control->return_permissions_handle != 0);
 
   fill_permissions_token(&permissions_token);
   r = fill_peer_credential_token(&credential_token, "Test_Permissions_unknown_subject.p7s");
@@ -1001,12 +977,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, permissions_different_subjec
 
   /* Check if we actually have validate_remote_permissions function. */
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
   CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions, NULL);
-  assert(access_control->validate_remote_permissions != 0);
   CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle, NULL);
-  assert(access_control->return_permissions_handle != 0);
 
   fill_permissions_token(&permissions_token);
   r = fill_peer_credential_token(&credential_token, "Test_Permissions_different_subject_representation.p7s");
@@ -1042,12 +1015,9 @@ CU_Test(ddssec_builtin_validate_remote_permissions, corrupted_signature, .init =
 
   /* Check if we actually have validate_remote_permissions function. */
   CU_ASSERT_NEQ_FATAL (access_control, NULL);
-  assert(access_control != NULL);
   CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
   CU_ASSERT_NEQ_FATAL (access_control->validate_remote_permissions, NULL);
-  assert(access_control->validate_remote_permissions != 0);
   CU_ASSERT_NEQ_FATAL (access_control->return_permissions_handle, NULL);
-  assert(access_control->return_permissions_handle != 0);
 
   fill_permissions_token(&permissions_token);
   //permissions_token.

@@ -656,11 +656,8 @@ CU_Test(ddssec_builtin_encode_serialized_payload, invalid_args, .init = suite_en
   size_t length;
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
-  assert(crypto != NULL);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
-  assert(crypto->crypto_transform != NULL);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_serialized_payload, NULL);
-  assert(crypto->crypto_transform->encode_serialized_payload != 0);
 
   writer_crypto = register_local_datawriter(true);
   CU_ASSERT_NEQ_FATAL (writer_crypto, 0);

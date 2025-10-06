@@ -788,11 +788,8 @@ static void encode_rtps_message_not_authenticated(DDS_Security_CryptoTransformKi
   DDS_Security_PropertySeq properties;
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
-  assert(crypto != NULL);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
-  assert(crypto->crypto_transform != NULL);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_rtps_message, NULL);
-  assert(crypto->crypto_transform->encode_rtps_message != 0);
 
   prepare_participant_security_attributes_and_properties(&attributes, &properties, transformation_kind, false);
 
@@ -925,11 +922,8 @@ static void encode_rtps_message_sign(DDS_Security_CryptoTransformKind_Enum trans
   size_t i;
 
   CU_ASSERT_NEQ_FATAL (crypto, NULL);
-  assert(crypto != NULL);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_transform, NULL);
-  assert(crypto->crypto_transform != NULL);
   CU_ASSERT_NEQ_FATAL (crypto->crypto_transform->encode_rtps_message, NULL);
-  assert(crypto->crypto_transform->encode_rtps_message != 0);
 
   prepare_participant_security_attributes_and_properties(&attributes, &properties, transformation_kind, true);
 
@@ -976,7 +970,6 @@ static void encode_rtps_message_sign(DDS_Security_CryptoTransformKind_Enum trans
     }
 
     CU_ASSERT_FATAL (result);
-    assert(result);
     CU_ASSERT_EQ (exception.code, 0);
     CU_ASSERT_EQ (exception.message, NULL);
 
@@ -990,7 +983,6 @@ static void encode_rtps_message_sign(DDS_Security_CryptoTransformKind_Enum trans
 
   result = check_encoded_data(&encoded_buffer, encoded, &header, &footer, &data);
   CU_ASSERT_FATAL (result);
-  assert(footer);
 
   CU_ASSERT_LEQ ((unsigned) transformation_kind, 255);
   CU_ASSERT_EQ (header->transform_identifier.transformation_kind[3], (uint8_t) transformation_kind);

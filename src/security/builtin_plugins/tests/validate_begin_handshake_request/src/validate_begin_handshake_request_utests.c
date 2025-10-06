@@ -573,12 +573,10 @@ CU_Test(ddssec_builtin_validate_begin_handshake_request,happy_day_challenge)
     DDS_Security_boolean success;
 
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request, NULL);
-    assert (auth->begin_handshake_request != 0);
 
     fill_local_participant_data(&local_participant_data, 82);
 
@@ -624,12 +622,10 @@ CU_Test(ddssec_builtin_validate_begin_handshake_request,happy_day_future_challen
     DDS_Security_boolean success;
 
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request, NULL);
-    assert (auth->begin_handshake_request != 0);
 
     fill_local_participant_data(&local_participant_data, 82);
 
@@ -675,12 +671,10 @@ CU_Test(ddssec_builtin_validate_begin_handshake_request,invalid_arguments)
     DDS_Security_OctetSeq local_participant_data;
 
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request, NULL);
-    assert (auth->begin_handshake_request != 0);
 
     fill_local_participant_data(&local_participant_data, 82);
 
@@ -782,12 +776,10 @@ CU_Test(ddssec_builtin_validate_begin_handshake_request,return_handle)
     DDS_Security_boolean success;
 
     CU_ASSERT_NEQ_FATAL (auth, NULL);
-    assert (auth != NULL);
     CU_ASSERT_NEQ_FATAL (local_identity_handle, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle1, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (remote_identity_handle2, DDS_SECURITY_HANDLE_NIL);
     CU_ASSERT_NEQ_FATAL (auth->begin_handshake_request, NULL);
-    assert (auth->begin_handshake_request != 0);
 
     fill_local_participant_data(&local_participant_data, 82);
 

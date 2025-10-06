@@ -104,7 +104,6 @@ CU_Test(idlc_descriptor, keys_nested)
       for (uint32_t j = 0; j < descriptor.keys[k].n_order; j++)
         CU_ASSERT_EQ_FATAL (descriptor.keys[k].order[j], tests[i].key_order[k][j]);
       CU_ASSERT_NEQ_FATAL (descriptor.keys[k].name, NULL);
-      assert (descriptor.keys[k].name && tests[i].key_name[k]);
       CU_ASSERT_STREQ_FATAL (descriptor.keys[k].name, tests[i].key_name[k]);
       CU_ASSERT_EQ_FATAL (descriptor.keys[k].key_idx, tests[i].key_index[k]);
     }
@@ -291,7 +290,6 @@ CU_Test(idlc_descriptor, keys_inheritance)
 
     for (uint32_t k = 0; k < descriptor.n_keys; k++) {
       CU_ASSERT_NEQ_FATAL (descriptor.keys[k].name, NULL);
-      assert (descriptor.keys[k].name && tests[i].key_name[k]);
       CU_ASSERT_STREQ_FATAL (descriptor.keys[k].name, tests[i].key_name[k]);
     }
 
