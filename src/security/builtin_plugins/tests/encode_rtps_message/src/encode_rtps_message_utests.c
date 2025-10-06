@@ -834,7 +834,8 @@ static void encode_rtps_message_not_authenticated(DDS_Security_CryptoTransformKi
   result = check_encoded_data(&encoded_buffer, encrypted, &header, &footer, &data);
   CU_ASSERT_FATAL (result);
 
-  CU_ASSERT_EQ (header->transform_identifier.transformation_kind[3], transformation_kind);
+  CU_ASSERT_LEQ ((unsigned) transformation_kind, 255);
+  CU_ASSERT_EQ (header->transform_identifier.transformation_kind[3], (uint8_t) transformation_kind);
 
   session_id = ddsrt_bswap4u(*(uint32_t *)header->session_id);
 
@@ -991,7 +992,8 @@ static void encode_rtps_message_sign(DDS_Security_CryptoTransformKind_Enum trans
   CU_ASSERT_FATAL (result);
   assert(footer);
 
-  CU_ASSERT_EQ (header->transform_identifier.transformation_kind[3], transformation_kind);
+  CU_ASSERT_LEQ ((unsigned) transformation_kind, 255);
+  CU_ASSERT_EQ (header->transform_identifier.transformation_kind[3], (uint8_t) transformation_kind);
 
   session_id = ddsrt_bswap4u(*(uint32_t *)header->session_id);
 

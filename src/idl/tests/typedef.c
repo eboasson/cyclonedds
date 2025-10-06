@@ -257,8 +257,8 @@ CU_Test(idl_typedef, forward_declaration)
       CU_ASSERT_FATAL (idl_is_typedef(alias));
       type_spec = idl_next(alias);
       CU_ASSERT_EQ_FATAL (idl_type(type_spec), tests[i].type);
-      CU_ASSERT_EQ (alias->type_spec, forward);
-      CU_ASSERT_EQ (forward->type_spec, type_spec);
+      CU_ASSERT_EQ (alias->type_spec, (void *) forward);
+      CU_ASSERT_EQ (forward->type_spec, (void *) type_spec);
     }
     idl_delete_pstate(pstate);
   }
@@ -291,8 +291,8 @@ CU_Test(idl_typedef, backwards_forward_declaration)
       CU_ASSERT_FATAL (idl_is_forward(forward));
       alias = idl_next(forward);
       CU_ASSERT_FATAL (idl_is_typedef(alias));
-      CU_ASSERT_EQ (alias->type_spec, type_spec);
-      CU_ASSERT_EQ (forward->type_spec, type_spec);
+      CU_ASSERT_EQ (alias->type_spec, (void *) type_spec);
+      CU_ASSERT_EQ (forward->type_spec, (void *) type_spec);
     }
     idl_delete_pstate(pstate);
   }
@@ -324,7 +324,7 @@ CU_Test(idl_typedef, constructed_type)
       CU_ASSERT_EQ_FATAL (idl_type(type_spec), tests[i].type);
       alias = idl_next(type_spec);
       CU_ASSERT_FATAL (idl_is_typedef(alias));
-      CU_ASSERT_EQ (alias->type_spec, type_spec);
+      CU_ASSERT_EQ (alias->type_spec, (void *) type_spec);
     }
     idl_delete_pstate(pstate);
   }

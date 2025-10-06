@@ -63,7 +63,7 @@ extern "C" {
 
 #define CU_ASSERT_OP_MAYBE_FATAL(x_, op_, y_, fatal_) do {              \
   typeof (x_) xv__ = (x_);                                              \
-  typeof (y_) yv__ = (y_);                                              \
+  typeof (x_) yv__ = (y_); /* note: typeof x_ here, not typeof y_) */   \
   const bool fatal__ = (fatal_);                                        \
   const bool satisfied__ = (xv__) op_ (yv__);                           \
   if (!satisfied__) {                                                   \

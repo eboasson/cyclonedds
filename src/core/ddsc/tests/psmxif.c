@@ -304,7 +304,7 @@ static void do_psmxif_shared_memory (const char *dummylib)
     props = dds_stream_data_types(PsmxType1_desc.m_ops);
     CU_ASSERT_EQ_FATAL ((props & DDS_DATA_TYPE_IS_MEMCPY_SAFE), DDS_DATA_TYPE_IS_MEMCPY_SAFE);
   }
-  const size_t psmx_interface_counts[] = {1, 1, 2};
+  const uint32_t psmx_interface_counts[] = {1, 1, 2};
 
   for (size_t i = 0; i < 3; ++i) {
     const dds_domainid_t domainId = 0;
@@ -445,7 +445,7 @@ CU_Test(ddsc_psmxif, shared_memory_v0)
   do_psmxif_shared_memory ("dummy_v0");
 }
 
-static void check_psmx_instances (dds_entity_t e, size_t nexp, const char **vexp)
+static void check_psmx_instances (dds_entity_t e, uint32_t nexp, const char **vexp)
 {
   dds_qos_t * const qos = dds_create_qos ();
   dds_return_t ret = dds_get_qos (e, qos);

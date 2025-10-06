@@ -857,7 +857,8 @@ static void encode_datareader_submessage_not_signed(uint32_t transformation_kind
   result = check_encoded_data(&encoded_buffer, is_encrypted, &header, &footer, &data);
   CU_ASSERT_FATAL (result);
 
-  CU_ASSERT_EQ (header->transform_identifier.transformation_kind[3], transformation_kind);
+  CU_ASSERT_LEQ (transformation_kind, 255);
+  CU_ASSERT_EQ (header->transform_identifier.transformation_kind[3], (uint8_t) transformation_kind);
 
   session_id = ddsrt_bswap4u(*(uint32_t *)header->session_id);
 
@@ -1009,7 +1010,8 @@ static void encode_datareader_submessage_sign(uint32_t transformation_kind)
   result = check_encoded_data(&encoded_buffer, is_encrypted, &header, &footer, &data);
   CU_ASSERT_FATAL (result);
 
-  CU_ASSERT_EQ (header->transform_identifier.transformation_kind[3], transformation_kind);
+  CU_ASSERT_LEQ (transformation_kind, 255);
+  CU_ASSERT_EQ (header->transform_identifier.transformation_kind[3], (uint8_t) transformation_kind);
 
   session_id = ddsrt_bswap4u(*(uint32_t *)header->session_id);
 

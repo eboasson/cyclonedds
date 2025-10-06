@@ -35,9 +35,9 @@ static struct timeval tv_init = { .tv_sec = -2, .tv_usec = -2 };
 /* Simple test to validate that duration to timeval conversion is correct. */
 CU_Test(ddsrt_select, duration_to_timeval)
 {
+  const int usecs_max = 999999;
   struct timeval tv, *tvptr;
   dds_duration_t nsecs_max;
-  dds_duration_t usecs_max = 999999;
   dds_duration_t secs_max;
   DDSRT_STATIC_ASSERT (CHAR_BIT * sizeof (ddsrt_tv_sec_t) == 32 || CHAR_BIT * sizeof (ddsrt_tv_sec_t) == 64);
   DDSRT_WARNING_MSVC_OFF(6326)

@@ -447,7 +447,7 @@ CU_Test (ddsi_plist, locator_lists_accept)
       ddsi_plist_t plist;
       dds_return_t rc = ddsi_plist_init_frommsg (&plist, &nextafter, ~(uint64_t)0, ~(uint64_t)0, &src, &gv, DDSI_PLIST_CONTEXT_PARTICIPANT);
       CU_ASSERT_EQ (rc, 0);
-      CU_ASSERT_EQ ((unsigned char *) nextafter, plist_ok + sizeof (plist_ok));
+      CU_ASSERT_EQ ((const unsigned char *) nextafter, plist_ok + sizeof (plist_ok));
       if (factories == 0)
       {
         // nothing enabled, nothing present

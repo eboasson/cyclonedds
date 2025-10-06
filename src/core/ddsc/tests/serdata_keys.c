@@ -406,7 +406,7 @@ static void check_key_keyhash (struct dds_serdata_default *sd,
   const unsigned char *expected_key_keyhash, size_t expected_key_sz_keyhash)
 {
   // key in sd must be translated into XCDRv2 key, so also check when testing data representation XCDR1
-  CU_ASSERT_EQ ((unsigned) sd->key.keysize, expected_key_sz_xcdrv2);
+  CU_ASSERT_EQ ((size_t) sd->key.keysize, expected_key_sz_xcdrv2);
   int cmp_key = memcmp (serdata_default_keybuf (sd), expected_key_xcdrv2, expected_key_sz_xcdrv2);
   if (cmp_key != 0)
     tprintf("** key match failed **\n");

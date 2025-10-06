@@ -63,7 +63,7 @@ CU_Test(idl_forward, struct_union_maybe_enum)
       CU_ASSERT_FATAL (idl_is_forward(forward));
       assert(forward);
       CU_ASSERT_EQ (idl_type(node), tests[i].type);
-      CU_ASSERT_EQ (forward->type_spec, node);
+      CU_ASSERT_EQ (forward->type_spec, (void *) node);
     }
     idl_delete_pstate(pstate);
   }

@@ -508,7 +508,7 @@ static void ddsc_multi_sertype_impl (dds_entity_t pp_pub, dds_entity_t pp_sub, e
      should have received one extra (whereas the others should cause deserialization
      failure warnings) */
   tprintf ("reading\n");
-  const size_t nexp = ((sizeof (writers) / sizeof (writers[0])) *
+  const uint32_t nexp = ((sizeof (writers) / sizeof (writers[0])) *
                          (sizeof (readers) / sizeof (readers[0])) +
                          ((sizeof (readers) / sizeof (readers[0])) / (sizeof (sub_topics) / sizeof (sub_topics[0]))));
   /* For the volatile case, expecting exactly as many deserialization failures as there
@@ -516,7 +516,7 @@ static void ddsc_multi_sertype_impl (dds_entity_t pp_pub, dds_entity_t pp_sub, e
      even if there are multiple readers.  For transient-local data, the data set is
      converted for each new reader (of a different topic) and there will therefore be more
      conversion failures. */
-  const size_t nexp_fail =
+  const uint32_t nexp_fail =
     (sizeof (sub_topics) / sizeof (sub_topics[0]) - 1) *
     (mode != MSM_TRANSLOCAL ? 1 : (sizeof (readers) / sizeof (readers[0])) / (sizeof (sub_topics) / sizeof (sub_topics[0])));
   uint32_t nseen = 0;

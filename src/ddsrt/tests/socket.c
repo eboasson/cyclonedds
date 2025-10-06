@@ -60,7 +60,8 @@ static void sockaddrfromstr_test(char *str, int af, dds_return_t exp)
   rc = ddsrt_sockaddrfromstr(af, str, &ss);
   CU_ASSERT_EQ (rc, exp);
   if (rc == DDS_RETCODE_OK) {
-    CU_ASSERT_EQ (ss.ss_family, af);
+    CU_ASSERT_LEQ (af, 255);
+    CU_ASSERT_EQ (ss.ss_family, (uint8_t) af);
   }
 }
 
@@ -177,7 +178,8 @@ static void gethostbyname_test(char *name, int af, dds_return_t exp)
   if (rc == DDS_RETCODE_OK) {
     CU_ASSERT_GT_FATAL (hent->naddrs, 0);
     if (af != AF_UNSPEC) {
-      CU_ASSERT_EQ (hent->addrs[0].ss_family, af);
+      CU_ASSERT_LEQ (af, 255);
+      CU_ASSERT_EQ (hent->addrs[0].ss_family, (uint8_t) af);
     }
   }
   ddsrt_free(hent);
