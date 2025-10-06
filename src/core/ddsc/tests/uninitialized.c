@@ -42,7 +42,7 @@
 
 static void check (dds_return_t res)
 {
-  CU_ASSERT_NEQ (res == DDS_RETCODE_PRECONDITION_NOT_MET || res == DDS_RETCODE_BAD_PARAMETER || res == DDS_RETCODE_UNSUPPORTED, 0);
+  CU_ASSERT (res == DDS_RETCODE_PRECONDITION_NOT_MET || res == DDS_RETCODE_BAD_PARAMETER || res == DDS_RETCODE_UNSUPPORTED);
 }
 
 static void check_0 (void *ptr)

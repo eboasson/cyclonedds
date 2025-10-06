@@ -317,7 +317,7 @@ static void logsink (void *varg, const dds_log_data_t *msg)
     char *p = strchr (arg->buf[arg->size], '{');
     CU_ASSERT_NEQ_FATAL (p, NULL);
     p++;
-    CU_ASSERT_NEQ_FATAL (strcmp (p, "}\n") == 0 || strcmp (p, "0}\n") == 0, 0);
+    CU_ASSERT_FATAL (strcmp (p, "}\n") == 0 || strcmp (p, "0}\n") == 0);
     if (*p == '0')
     {
       *p++ = '}';

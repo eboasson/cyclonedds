@@ -109,7 +109,7 @@ static void do_test_key_write_xcdrv (const dds_topic_descriptor_t *desc, size_t 
   ret = dds_take (rd, samples, sample_info, 1, 1);
   CU_ASSERT_EQ_FATAL (ret, 1);
   ih = sample_info[0].instance_handle;
-  CU_ASSERT_NEQ_FATAL (!sample_info[0].valid_data, 0);
+  CU_ASSERT_FATAL (!sample_info[0].valid_data);
   dds_return_loan (rd, samples, ret);
 
   // write a sample to make the instance alive again
@@ -128,7 +128,7 @@ static void do_test_key_write_xcdrv (const dds_topic_descriptor_t *desc, size_t 
   samples[0] = NULL;
   ret = dds_take (rd, samples, sample_info, 1, 1);
   CU_ASSERT_EQ_FATAL (ret, 1);
-  CU_ASSERT_NEQ_FATAL (!sample_info[0].valid_data, 0);
+  CU_ASSERT_FATAL (!sample_info[0].valid_data);
   CU_ASSERT_EQ_FATAL (ih, sample_info[0].instance_handle);
   dds_return_loan (rd, samples, ret);
 

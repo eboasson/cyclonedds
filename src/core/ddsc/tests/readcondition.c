@@ -596,7 +596,7 @@ CU_Test(ddsc_readcondition, stress)
       void *sampleptr = &sample;
       dds_sample_info_t si;
       rc = dds_take (rd, &sampleptr, &si, 1, 1);
-      CU_ASSERT_NEQ_FATAL (rc == 0 || rc == 1, 0);
+      CU_ASSERT_FATAL (rc == 0 || rc == 1);
     }
 
     while (!ddsrt_atomic_ld32 (&wrarg.stop) && dds_time () < tend && !dds_triggered (conds[condidx]))
@@ -613,7 +613,7 @@ CU_Test(ddsc_readcondition, stress)
   tprintf ("stop %"PRIu32"\n", ddsrt_atomic_ld32 (&wrarg.stop));
 
   CU_ASSERT_GT_FATAL (nconds, 100); // sanity check
-  CU_ASSERT_NEQ_FATAL (!(ddsrt_atomic_ld32 (&wrarg.stop) & 2), 0);
+  CU_ASSERT_FATAL (!(ddsrt_atomic_ld32 (&wrarg.stop) & 2));
 
   rc = dds_delete (pp);
   CU_ASSERT_EQ_FATAL (rc, 0);

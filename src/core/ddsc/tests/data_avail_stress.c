@@ -101,7 +101,7 @@ static void setup (bool remote, struct writethread_arg *wrarg)
   pub_dom = dds_create_domain (0, conf_pub);
   CU_ASSERT_GT_FATAL (pub_dom, 0);
   sub_dom = remote ? dds_create_domain (1, conf_sub) : 0;
-  CU_ASSERT_NEQ_FATAL (!remote || sub_dom > 0, 0);
+  CU_ASSERT_FATAL (!remote || sub_dom > 0);
   ddsrt_free (conf_pub);
   ddsrt_free (conf_sub);
 
@@ -211,16 +211,16 @@ static void stress_data_avail_delete_reader (bool remote, int duration)
   tprintf ("stop %"PRIu32"\n", ddsrt_atomic_ld32 (&wrarg.stop));
 
   CU_ASSERT_GT_FATAL (nreaders, 10); // sanity check
-  CU_ASSERT_NEQ_FATAL (!ddsrt_atomic_ld32 (&lstatus.error), 0);
+  CU_ASSERT_FATAL (!ddsrt_atomic_ld32 (&lstatus.error));
   CU_ASSERT_GT_FATAL (ddsrt_atomic_ld32 (&lstatus.taken), 100);
-  CU_ASSERT_NEQ_FATAL (!(ddsrt_atomic_ld32 (&wrarg.stop) & 2), 0);
+  CU_ASSERT_FATAL (!(ddsrt_atomic_ld32 (&wrarg.stop) & 2));
 
   for (uint32_t i = 0; i < NRDS; i++)
     dds_delete_listener (list[i]);
   rc = dds_delete (sub_dom);
-  CU_ASSERT_NEQ_FATAL (sub_dom == 0 || rc == 0, 0);
+  CU_ASSERT_FATAL (sub_dom == 0 || rc == 0);
   rc = dds_delete (pub_dom);
-  CU_ASSERT_NEQ_FATAL (pub_dom == 0 || rc == 0, 0);
+  CU_ASSERT_FATAL (pub_dom == 0 || rc == 0);
 #undef NRDS
 }
 

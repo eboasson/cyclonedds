@@ -429,7 +429,7 @@ CU_Test(ddssec_fsm, create, .init = fsm_control_init, .fini = fsm_control_fini)
   /* Check whether timeout callback has NOT been invoked */
   /* Check correct callback parameter passing (from fsm to user defined methods) */
   ddsrt_mutex_lock (&g_lock);
-  CU_ASSERT_NEQ (correct_arg && correct_fsm, 0);
+  CU_ASSERT (correct_arg && correct_fsm);
   CU_ASSERT_EQ (visited_timeout, 0);
   ddsrt_mutex_unlock (&g_lock);
 }
@@ -490,7 +490,7 @@ CU_Test(ddssec_fsm, timeout, .init = fsm_control_init, .fini = fsm_control_fini)
   ddsrt_mutex_lock (&g_lock);
   while (visited_timeout != 0x7)
     ddsrt_cond_wait (&g_cond, &g_lock);
-  CU_ASSERT_NEQ (correct_arg_timeout && correct_fsm_timeout, 0);
+  CU_ASSERT (correct_arg_timeout && correct_fsm_timeout);
   ddsrt_mutex_unlock (&g_lock);
   dds_security_fsm_free (fsm_timeout);
 }

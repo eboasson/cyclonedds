@@ -401,5 +401,5 @@ CU_Test (ddsc_waitset, torture)
      reading from it) and BAD_PARAMETER to be returned if the library is otherwise
      properly deinitialized. */
   rc = dds_get_parent (DDS_CYCLONEDDS_HANDLE);
-  CU_ASSERT_NEQ_FATAL (rc == DDS_RETCODE_PRECONDITION_NOT_MET || rc == DDS_RETCODE_BAD_PARAMETER, 0);
+  CU_ASSERT_FATAL (rc == DDS_RETCODE_PRECONDITION_NOT_MET || rc == DDS_RETCODE_BAD_PARAMETER);
 }

@@ -287,11 +287,11 @@ static void handle_validate_local_identity (dds_domainid_t domain_id, bool exp_l
   }
   CU_ASSERT_NEQ_FATAL (msg, NULL);
   assert (msg != NULL);
-  CU_ASSERT_NEQ_FATAL ((msg->result == DDS_SECURITY_VALIDATION_OK) != exp_localid_fail, 0);
+  CU_ASSERT_FATAL ((msg->result == DDS_SECURITY_VALIDATION_OK) != exp_localid_fail);
   if (exp_localid_fail && exp_localid_msg)
   {
     print_test_msg ("validate_local_identity failed as expected (msg: %s)\n", msg->err_msg);
-    CU_ASSERT_NEQ_FATAL (msg->err_msg && strstr (msg->err_msg, exp_localid_msg) != NULL, 0);
+    CU_ASSERT_FATAL (msg->err_msg && strstr (msg->err_msg, exp_localid_msg) != NULL);
   }
   else
   {
@@ -359,7 +359,7 @@ void validate_handshake_result(struct Handshake *hs, bool exp_fail_hs_req, const
       }
       else
       {
-        CU_ASSERT_NEQ_FATAL (hs->err_msg && strstr(hs->err_msg, fail_hs_req_msg) != NULL, 0);
+        CU_ASSERT_FATAL (hs->err_msg && strstr(hs->err_msg, fail_hs_req_msg) != NULL);
       }
     }
   }
@@ -374,7 +374,7 @@ void validate_handshake_result(struct Handshake *hs, bool exp_fail_hs_req, const
       }
       else
       {
-        CU_ASSERT_NEQ_FATAL (hs->err_msg && strstr(hs->err_msg, fail_hs_reply_msg) != NULL, 0);
+        CU_ASSERT_FATAL (hs->err_msg && strstr(hs->err_msg, fail_hs_reply_msg) != NULL);
       }
     }
   }

@@ -211,7 +211,7 @@ CU_Theory((const dds_topic_descriptor_t *desc), ddsc_typebuilder, topic_desc, .i
   tprintf ("typemap: %u (%u)\n", generated_desc->type_mapping.sz, desc->type_mapping.sz);
   ddsi_typemap_t *tmap = ddsi_typemap_deser (desc->type_mapping.data, desc->type_mapping.sz);
   ddsi_typemap_t *gen_tmap = ddsi_typemap_deser (generated_desc->type_mapping.data, generated_desc->type_mapping.sz);
-  CU_ASSERT_NEQ_FATAL (tmap_equal (tmap, gen_tmap), 0);
+  CU_ASSERT_FATAL (tmap_equal (tmap, gen_tmap));
   ddsi_typemap_fini (tmap);
   ddsrt_free (tmap);
   ddsi_typemap_fini (gen_tmap);

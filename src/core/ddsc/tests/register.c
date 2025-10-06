@@ -151,7 +151,7 @@ CU_Theory((dds_instance_handle_t *hndl2, void *datap), ddsc_register_instance, i
     dds_return_t ret;
 
     /* Only test when the combination of parameters is actually invalid.*/
-    CU_ASSERT_NEQ_FATAL ((hndl2 == NULL) || (datap == NULL), 0);
+    CU_ASSERT_FATAL ((hndl2 == NULL) || (datap == NULL));
 
     DDSRT_WARNING_MSVC_OFF(6387); /* Disable SAL warning on intentional misuse of the API */
     ret = dds_register_instance(g_writer, hndl2, datap);

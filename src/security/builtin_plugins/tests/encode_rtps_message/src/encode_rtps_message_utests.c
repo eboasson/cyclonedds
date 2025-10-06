@@ -825,14 +825,14 @@ static void encode_rtps_message_not_authenticated(DDS_Security_CryptoTransformKi
     printf("encode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
 
   reset_exception(&exception);
 
   result = check_encoded_data(&encoded_buffer, encrypted, &header, &footer, &data);
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
 
   CU_ASSERT_EQ (header->transform_identifier.transformation_kind[3], transformation_kind);
 
@@ -852,7 +852,7 @@ static void encode_rtps_message_not_authenticated(DDS_Security_CryptoTransformKi
       printf("Decode failed\n");
     }
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
 
     //print_octets( "PLAIN RTPS:",plain_buffer._buffer+4, plain_buffer._length-4);
     //print_octets( "DECODED RTPS:",decoded_buffer._buffer+8, decoded_buffer._length-8);
@@ -869,7 +869,7 @@ static void encode_rtps_message_not_authenticated(DDS_Security_CryptoTransformKi
       printf("Decode failed\n");
     }
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
     CU_ASSERT_MEMEQ_FATAL (plain_buffer._buffer + 4, plain_buffer._length - 4, data._buffer + 8, data._length - 8);
   }
 
@@ -974,7 +974,7 @@ static void encode_rtps_message_sign(DDS_Security_CryptoTransformKind_Enum trans
       printf("encode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
     assert(result);
     CU_ASSERT_EQ (exception.code, 0);
     CU_ASSERT_EQ (exception.message, NULL);
@@ -988,7 +988,7 @@ static void encode_rtps_message_sign(DDS_Security_CryptoTransformKind_Enum trans
   assert (encoded_buffer._buffer != NULL);
 
   result = check_encoded_data(&encoded_buffer, encoded, &header, &footer, &data);
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   assert(footer);
 
   CU_ASSERT_EQ (header->transform_identifier.transformation_kind[3], transformation_kind);
@@ -1008,7 +1008,7 @@ static void encode_rtps_message_sign(DDS_Security_CryptoTransformKind_Enum trans
       printf("Decode failed\n");
     }
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
 
     /*TODO: this should consider INFO_SRC */
     CU_ASSERT_MEMEQ (plain_buffer._buffer + 4, plain_buffer._length - 4, decoded_buffer._buffer + 8, decoded_buffer._length - 8);
@@ -1025,13 +1025,13 @@ static void encode_rtps_message_sign(DDS_Security_CryptoTransformKind_Enum trans
       printf("Decode failed\n");
     }
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
     CU_ASSERT_MEMEQ (plain_buffer._buffer + 4, plain_buffer._length - 4, data._buffer + 8, data._length - 8);
   }
 
   printf("num hmacs = %u\n", footer->length);
 
-  CU_ASSERT_NEQ (check_signing(&reader_list, footer, session_id, header->session_id, session_keys->key_size), 0);
+  CU_ASSERT (check_signing(&reader_list, footer, session_id, header->session_id, session_keys->key_size));
 
   unregister_remote_participants();
 
@@ -1121,7 +1121,7 @@ CU_Test(ddssec_builtin_encode_rtps_message, invalid_args, .init = suite_encode_r
     printf("encode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1142,7 +1142,7 @@ CU_Test(ddssec_builtin_encode_rtps_message, invalid_args, .init = suite_encode_r
     printf("encode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1164,7 +1164,7 @@ CU_Test(ddssec_builtin_encode_rtps_message, invalid_args, .init = suite_encode_r
     printf("encode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1186,7 +1186,7 @@ CU_Test(ddssec_builtin_encode_rtps_message, invalid_args, .init = suite_encode_r
     printf("encode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 

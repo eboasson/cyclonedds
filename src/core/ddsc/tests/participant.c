@@ -177,8 +177,8 @@ CU_Test(ddsc_participant_lookup, multiple) {
 
   num_of_found_pp = dds_lookup_participant( domain_id, participants, size);
   CU_ASSERT_EQ_FATAL (num_of_found_pp, 2);
-  CU_ASSERT_NEQ_FATAL (participants[0] == participant || participants[0] == participant2, 0);
-  CU_ASSERT_NEQ_FATAL (participants[1] == participant || participants[1] == participant2, 0);
+  CU_ASSERT_FATAL (participants[0] == participant || participants[0] == participant2);
+  CU_ASSERT_FATAL (participants[1] == participant || participants[1] == participant2);
   CU_ASSERT_NEQ_FATAL (participants[0], participants[1]);
 
   dds_delete (participant2);
@@ -209,8 +209,8 @@ CU_Test(ddsc_participant_lookup, array_too_small) {
 
   num_of_found_pp = dds_lookup_participant( domain_id, participants, size);
   CU_ASSERT_EQ_FATAL (num_of_found_pp, 3);
-  CU_ASSERT_NEQ_FATAL (participants[0] == participant || participants[0] == participant2 || participants[0] == participant3, 0);
-  CU_ASSERT_NEQ_FATAL (participants[1] == participant || participants[1] == participant2 || participants[1] == participant3, 0);
+  CU_ASSERT_FATAL (participants[0] == participant || participants[0] == participant2 || participants[0] == participant3);
+  CU_ASSERT_FATAL (participants[1] == participant || participants[1] == participant2 || participants[1] == participant3);
   CU_ASSERT_NEQ_FATAL (participants[0], participants[1]);
 
   dds_delete (participant3);

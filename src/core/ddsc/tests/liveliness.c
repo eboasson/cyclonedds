@@ -589,7 +589,7 @@ static void test_create_delete_writer_stress(bool remote_reader)
   dds_sleepfor(DDS_MSECS(ldur / 2));
   CU_ASSERT_EQ_FATAL (dds_get_liveliness_changed_status(reader, &lstatus), DDS_RETCODE_OK);
   tprintf("alive: %"PRIu32", not-alive: %"PRIu32"\n", lstatus.alive_count, lstatus.not_alive_count);
-  CU_ASSERT_NEQ_FATAL (lstatus.alive_count == alive_writers_auto && lstatus.not_alive_count == alive_writers_man, 0);
+  CU_ASSERT_FATAL (lstatus.alive_count == alive_writers_auto && lstatus.not_alive_count == alive_writers_man);
 
   /* cleanup remaining writers */
   for (n = 0; n < MAX_WRITERS; n++)
@@ -1051,7 +1051,7 @@ static void wait_for_notalive (dds_entity_t reader, struct liveliness_changed_st
 
   ddsrt_mutex_lock (&listener_state->lock);
   tprintf("early w0 %"PRIx64" alive %"PRIu32" not-alive %"PRIu32"\n", listener_state->w0_handle, listener_state->w0_alive, listener_state->w0_not_alive);
-  CU_ASSERT_NEQ_FATAL (!listener_state->weirdness, 0);
+  CU_ASSERT_FATAL (!listener_state->weirdness);
   CU_ASSERT_NEQ_FATAL (listener_state->w0_handle, 0);
   while (listener_state->w0_not_alive < listener_state->w0_alive && retries-- > 0)
   {

@@ -1996,8 +1996,8 @@ CU_Test(validate_begin_handshake_reply,extended_certificate_check,  .init = init
     release_local_identity();
     release_remote_identities();
 
-    CU_ASSERT_NEQ_FATAL (!validate_local_identity("trusted_ca_dir", NULL) , 0);
-    CU_ASSERT_NEQ_FATAL (!validate_remote_identities( remote_identity_trusted ) , 0);
+    CU_ASSERT_FATAL (!validate_local_identity("trusted_ca_dir", NULL) );
+    CU_ASSERT_FATAL (!validate_remote_identities( remote_identity_trusted ) );
 
     CU_ASSERT_NEQ_FATAL (auth, NULL);
     assert (auth != NULL);
@@ -2046,8 +2046,8 @@ CU_Test(validate_begin_handshake_reply,extended_certificate_check,  .init = init
     release_local_identity();
     release_remote_identities();
 
-    CU_ASSERT_NEQ_FATAL (!validate_local_identity("trusted_ca_dir", NULL) , 0);
-    CU_ASSERT_NEQ_FATAL (!validate_remote_identities( remote_identity_untrusted ) , 0);
+    CU_ASSERT_FATAL (!validate_local_identity("trusted_ca_dir", NULL) );
+    CU_ASSERT_FATAL (!validate_remote_identities( remote_identity_untrusted ) );
 
     CU_ASSERT_NEQ_FATAL (auth, NULL);
     assert (auth != NULL);
@@ -2086,8 +2086,8 @@ CU_Test(validate_begin_handshake_reply,extended_certificate_check,  .init = init
     release_local_identity();
     release_remote_identities();
 
-    CU_ASSERT_NEQ_FATAL (!validate_local_identity("trusted_ca_dir", NULL) , 0);
-    CU_ASSERT_NEQ_FATAL (!validate_remote_identities( remote_identity_trusted_expired ) , 0);
+    CU_ASSERT_FATAL (!validate_local_identity("trusted_ca_dir", NULL) );
+    CU_ASSERT_FATAL (!validate_remote_identities( remote_identity_trusted_expired ) );
 
     CU_ASSERT_NEQ_FATAL (auth, NULL);
     assert (auth != NULL);
@@ -2135,8 +2135,8 @@ CU_Test(validate_begin_handshake_reply,crl,  .init = init_testcase, .fini = fini
     release_local_identity();
     release_remote_identities();
 
-    CU_ASSERT_NEQ_FATAL (!validate_local_identity(NULL, crl) , 0);
-    CU_ASSERT_NEQ_FATAL (!validate_remote_identities( remote_identity_revoked ) , 0);
+    CU_ASSERT_FATAL (!validate_local_identity(NULL, crl) );
+    CU_ASSERT_FATAL (!validate_remote_identities( remote_identity_revoked ) );
 
     CU_ASSERT_NEQ_FATAL (auth, NULL);
     assert (auth != NULL);

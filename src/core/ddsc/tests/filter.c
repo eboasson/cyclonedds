@@ -531,11 +531,11 @@ CU_Test (ddsc_filter, sampleinfo)
   xfarg.insthandle = ih[0];
   ret = dds_write (wr[0], &(Space_Type1){0,0,0});
   CU_ASSERT_EQ_FATAL (ret, 0);
-  CU_ASSERT_NEQ (!xfarg.invalid_dynamic, 0);
+  CU_ASSERT (!xfarg.invalid_dynamic);
   xfarg.insthandle = ih[1];
   ret = dds_write (wr[0], &(Space_Type1){1,0,0});
   CU_ASSERT_EQ_FATAL (ret, 0);
-  CU_ASSERT_NEQ (!xfarg.invalid_dynamic, 0);
+  CU_ASSERT (!xfarg.invalid_dynamic);
 
   // write two samples with wr[1], neither of which passes the sample info filters
   xfarg.viewstate = DDS_NEW_VIEW_STATE;
@@ -543,13 +543,13 @@ CU_Test (ddsc_filter, sampleinfo)
   xfarg.insthandle = ih[0];
   ret = dds_write (wr[1], &(Space_Type1){0,0,0});
   CU_ASSERT_EQ_FATAL (ret, 0);
-  CU_ASSERT_NEQ (!xfarg.invalid_dynamic, 0);
+  CU_ASSERT (!xfarg.invalid_dynamic);
   xfarg.viewstate = DDS_NEW_VIEW_STATE;
   xfarg.inststate = DDS_ALIVE_INSTANCE_STATE;
   xfarg.insthandle = ih[1];
   ret = dds_write (wr[1], &(Space_Type1){1,0,0});
   CU_ASSERT_EQ_FATAL (ret, 0);
-  CU_ASSERT_NEQ (!xfarg.invalid_dynamic, 0);
+  CU_ASSERT (!xfarg.invalid_dynamic);
   // but does affect registrations for known samples (because we currently can't
   // distinguish between filtering on key values or attributes)
   ret = dds_unregister_instance(wr[1], &(Space_Type1){1,0,0});
@@ -582,7 +582,7 @@ CU_Test (ddsc_filter, sampleinfo)
   xfarg.insthandle = ih[1];
   ret = dds_write (wr[0], &(Space_Type1){1,0,1});
   CU_ASSERT_EQ_FATAL (ret, 0);
-  CU_ASSERT_NEQ (!xfarg.invalid_dynamic, 0);
+  CU_ASSERT (!xfarg.invalid_dynamic);
   // unregister doesn't trigger a filter invocation
   ret = dds_unregister_instance (wr[0], &(Space_Type1){1,0,0});
   CU_ASSERT_EQ_FATAL (ret, 0);
@@ -591,7 +591,7 @@ CU_Test (ddsc_filter, sampleinfo)
   xfarg.inststate = DDS_NOT_ALIVE_NO_WRITERS_INSTANCE_STATE;
   ret = dds_write (wr[0], &(Space_Type1){1,0,2});
   CU_ASSERT_EQ_FATAL (ret, 0);
-  CU_ASSERT_NEQ (!xfarg.invalid_dynamic, 0);
+  CU_ASSERT (!xfarg.invalid_dynamic);
   // new view state and alive again; bumped no writers generation
   xfarg.viewstate = DDS_NEW_VIEW_STATE;
   xfarg.inststate = DDS_ALIVE_INSTANCE_STATE;
@@ -599,18 +599,18 @@ CU_Test (ddsc_filter, sampleinfo)
   xfarg.nowrgen++;
   ret = dds_write (wr[0], &(Space_Type1){1,0,3});
   CU_ASSERT_EQ_FATAL (ret, 0);
-  CU_ASSERT_NEQ (!xfarg.invalid_dynamic, 0);
+  CU_ASSERT (!xfarg.invalid_dynamic);
 
   // dispose doesn't trigger a filter invocation
   ret = dds_dispose (wr[0], &(Space_Type1){1,0,0});
   CU_ASSERT_EQ_FATAL (ret, 0);
-  CU_ASSERT_NEQ (!xfarg.invalid_dynamic, 0);
+  CU_ASSERT (!xfarg.invalid_dynamic);
   // next write, it should show up in the filter as DISPOSED
   xfarg.viewstate = DDS_NEW_VIEW_STATE;
   xfarg.inststate = DDS_NOT_ALIVE_DISPOSED_INSTANCE_STATE;
   ret = dds_write (wr[0], &(Space_Type1){1,0,4});
   CU_ASSERT_EQ_FATAL (ret, 0);
-  CU_ASSERT_NEQ (!xfarg.invalid_dynamic, 0);
+  CU_ASSERT (!xfarg.invalid_dynamic);
   // alive again; bumped disposed generation
   xfarg.viewstate = DDS_NEW_VIEW_STATE;
   xfarg.inststate = DDS_ALIVE_INSTANCE_STATE;
@@ -618,7 +618,7 @@ CU_Test (ddsc_filter, sampleinfo)
   xfarg.insthandle = ih[1];
   ret = dds_write (wr[0], &(Space_Type1){1,0,5});
   CU_ASSERT_EQ_FATAL (ret, 0);
-  CU_ASSERT_NEQ (!xfarg.invalid_dynamic, 0);
+  CU_ASSERT (!xfarg.invalid_dynamic);
 
   // all local, so filter evaluations happen during the call to write and we can
   // safely inspect the filter argument despite it being modified by the filter
@@ -628,9 +628,9 @@ CU_Test (ddsc_filter, sampleinfo)
   ret = dds_get_instance_handle (wr[1], &wr1_ih);
   CU_ASSERT_EQ_FATAL (ret, 0);
   CU_ASSERT_EQ_FATAL (xfarg.rejhandle, wr1_ih);
-  CU_ASSERT_NEQ_FATAL (!xfarg.toomany, 0);
-  CU_ASSERT_NEQ_FATAL (!xfarg.invalid_fixed, 0);
-  CU_ASSERT_NEQ_FATAL (!xfarg.invalid_dynamic, 0);
+  CU_ASSERT_FATAL (!xfarg.toomany);
+  CU_ASSERT_FATAL (!xfarg.invalid_fixed);
+  CU_ASSERT_FATAL (!xfarg.invalid_dynamic);
 
   CU_ASSERT_NEQ_FATAL (xfarg.sampleinfo_called, 0);
   CU_ASSERT_NEQ_FATAL (xfarg.sample_sampleinfo_called, 0);

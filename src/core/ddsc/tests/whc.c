@@ -118,8 +118,8 @@ static void check_intermediate_whc_state(dds_entity_t writer, ddsi_seqno_t exp_m
   /* WHC must not contain any samples < exp_min and must contain at least exp_max if it
      contains at least one sample.  (We never know for certain when ACKs arrive.) */
   tprintf(" -- intermediate state: unacked: %zu; min %"PRIu64" (exp %"PRIu64"); max %"PRIu64" (exp %"PRIu64")\n", whcst.unacked_bytes, whcst.min_seq, exp_min, whcst.max_seq, exp_max);
-  CU_ASSERT_NEQ_FATAL (whcst.min_seq >= exp_min || (whcst.min_seq == 0 && whcst.max_seq == 0), 0);
-  CU_ASSERT_NEQ_FATAL (whcst.max_seq == exp_max || (whcst.min_seq == 0 && whcst.max_seq == 0), 0);
+  CU_ASSERT_FATAL (whcst.min_seq >= exp_min || (whcst.min_seq == 0 && whcst.max_seq == 0));
+  CU_ASSERT_FATAL (whcst.max_seq == exp_max || (whcst.min_seq == 0 && whcst.max_seq == 0));
 }
 
 static void check_whc_state(dds_entity_t writer, ddsi_seqno_t exp_min, ddsi_seqno_t exp_max)

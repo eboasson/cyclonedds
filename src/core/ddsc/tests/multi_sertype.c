@@ -542,7 +542,7 @@ static void ddsc_multi_sertype_impl (dds_entity_t pp_pub, dds_entity_t pp_sub, e
         }
         else
         {
-          CU_ASSERT_NEQ_FATAL (si.source_timestamp >= 1 && si.source_timestamp <= 3, 0);
+          CU_ASSERT_FATAL (si.source_timestamp >= 1 && si.source_timestamp <= 3);
           CU_ASSERT_EQ_FATAL (s.x._length, 3);
           CU_ASSERT_EQ_FATAL (s.x._buffer[0], 1);
           CU_ASSERT_EQ_FATAL (s.x._buffer[1], 4);
@@ -561,7 +561,7 @@ static void ddsc_multi_sertype_impl (dds_entity_t pp_pub, dds_entity_t pp_sub, e
         if (!si.valid_data)
           continue;
         tprintf ("recv: ary %"PRId64"\n", si.source_timestamp);
-        CU_ASSERT_NEQ_FATAL (si.source_timestamp >= 1 && si.source_timestamp <= 3, 0);
+        CU_ASSERT_FATAL (si.source_timestamp >= 1 && si.source_timestamp <= 3);
         CU_ASSERT_EQ_FATAL (a.x[0], 3);
         CU_ASSERT_EQ_FATAL (a.x[1], 1);
         CU_ASSERT_EQ_FATAL (a.x[2], 4);
@@ -578,7 +578,7 @@ static void ddsc_multi_sertype_impl (dds_entity_t pp_pub, dds_entity_t pp_sub, e
         if (!si.valid_data)
           continue;
         tprintf ("recv: uni %"PRId64"\n", si.source_timestamp);
-        CU_ASSERT_NEQ_FATAL (si.source_timestamp >= 1 && si.source_timestamp <= 3, 0);
+        CU_ASSERT_FATAL (si.source_timestamp >= 1 && si.source_timestamp <= 3);
         CU_ASSERT_EQ_FATAL (u._d, 3);
         CU_ASSERT_EQ_FATAL (u._u.a._length, 1);
         CU_ASSERT_NEQ_FATAL (u._u.a._buffer, NULL);

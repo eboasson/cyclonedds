@@ -34,14 +34,14 @@ static Space_Type1 getdata (const dds_sample_info_t *si, const struct ddsi_serty
     ok = ddsi_serdata_to_sample (sd, &s, NULL, NULL);
   else
     ok = ddsi_serdata_untyped_to_sample (st, sd, &s, NULL, NULL);
-  CU_ASSERT_NEQ_FATAL (ok, 0);
+  CU_ASSERT_FATAL (ok);
   return s;
 }
 
 static dds_return_t coll_fail_always (void *varg, const dds_sample_info_t *si, const struct ddsi_sertype *st, struct ddsi_serdata *sd)
 {
   (void)varg;
-  CU_ASSERT_NEQ_FATAL (!si->valid_data || st == sd->type, 0);
+  CU_ASSERT_FATAL (!si->valid_data || st == sd->type);
   Space_Type1 s = getdata (si, st, sd);
   tprintf ("coll_fail_always: %d, %d\n", s.long_1, s.long_2);
   return INT32_MIN; // easily recognized negative number that is not a return code from Cyclone DDS
@@ -54,7 +54,7 @@ struct coll_fail_after_1_arg {
 
 static dds_return_t coll_fail_after_1 (void *varg, const dds_sample_info_t *si, const struct ddsi_sertype *st, struct ddsi_serdata *sd)
 {
-  CU_ASSERT_NEQ_FATAL (!si->valid_data || st == sd->type, 0);
+  CU_ASSERT_FATAL (!si->valid_data || st == sd->type);
   struct coll_fail_after_1_arg * const arg = varg;
   Space_Type1 s = getdata (si, st, sd);
   tprintf ("coll_fail_after_1: %d, %d\n", s.long_1, s.long_2);
@@ -97,7 +97,7 @@ static void dotest (read_op op)
   struct coll_fail_after_1_arg arg1 = { .count = 0, .k = -1 };
   rc = op (rd, INT32_MAX, 0, 0, coll_fail_after_1, &arg1);
   CU_ASSERT_EQ_FATAL (rc, 1);
-  CU_ASSERT_NEQ_FATAL (arg1.k >= 0 && arg1.k <= 2, 0);
+  CU_ASSERT_FATAL (arg1.k >= 0 && arg1.k <= 2);
 
   // same should be true if instance handle is provided, use a different instance just because we can
   dds_instance_handle_t ih;
@@ -129,7 +129,7 @@ static void dotest (read_op op)
   for (int i = 0; i < rc; i++)
   {
     CU_ASSERT_EQ_FATAL (xs[i].long_1, arg1.k);
-    CU_ASSERT_NEQ_FATAL (si[i].sample_state == (i == 0 && isread ? DDS_READ_SAMPLE_STATE : DDS_NOT_READ_SAMPLE_STATE), 0);
+    CU_ASSERT_FATAL (si[i].sample_state == (i == 0 && isread ? DDS_READ_SAMPLE_STATE : DDS_NOT_READ_SAMPLE_STATE));
     CU_ASSERT_EQ_FATAL (si[i].view_state, (isnew ? DDS_NEW_VIEW_STATE : DDS_NOT_NEW_VIEW_STATE));
   }
   rc = dds_take_instance (rd, ptrs, si, (size_t) (2 + isread + isnew), (uint32_t) (2 + isread + isnew), ih);
@@ -141,7 +141,7 @@ static void dotest (read_op op)
   for (int i = 0; i < rc; i++)
   {
     CU_ASSERT_EQ_FATAL (xs[i].long_1, arg2.k);
-    CU_ASSERT_NEQ_FATAL (si[i].sample_state == (i == 0 && isread ? DDS_READ_SAMPLE_STATE : DDS_NOT_READ_SAMPLE_STATE), 0);
+    CU_ASSERT_FATAL (si[i].sample_state == (i == 0 && isread ? DDS_READ_SAMPLE_STATE : DDS_NOT_READ_SAMPLE_STATE));
     CU_ASSERT_EQ_FATAL (si[i].view_state, (isnew ? DDS_NEW_VIEW_STATE : DDS_NOT_NEW_VIEW_STATE));
   }
   rc = dds_take (rd, ptrs, si, 10, 10);

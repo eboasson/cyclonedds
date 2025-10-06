@@ -227,7 +227,7 @@ CU_Test (ddsc_redundant_networking, uc_data_on_all_intfs)
 
   struct dds_entity *xent;
   rc = dds_entity_pin (wr, &xent);
-  CU_ASSERT_NEQ_FATAL (rc == 0 && dds_entity_kind (xent) == DDS_KIND_WRITER, 0);
+  CU_ASSERT_FATAL (rc == 0 && dds_entity_kind (xent) == DDS_KIND_WRITER);
   struct dds_writer * const xwr = (struct dds_writer *) xent;
   // We expect exactly two unicast orelse two multicast addresses
   // (which ones we get depends on whether the network interface
@@ -263,7 +263,7 @@ CU_Test (ddsc_redundant_networking, uc_data_on_all_intfs)
   ddsrt_cond_mtime_destroy (&larg.cond);
   ddsrt_mutex_destroy (&larg.lock);
 
-  CU_ASSERT_NEQ_FATAL (larg.data_seen && larg.acknack_seen, 0);
+  CU_ASSERT_FATAL (larg.data_seen && larg.acknack_seen);
 
   rc = dds_delete (dom_sub);
   CU_ASSERT_EQ_FATAL (rc, 0);

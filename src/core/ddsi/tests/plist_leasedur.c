@@ -147,8 +147,8 @@ CU_Test (ddsi_plist_leasedur, deser, .init = setup, .fini = teardown)
       CU_ASSERT_NEQ_FATAL ((ret == 0) == exp->valid, 0);
       if (exp->valid)
       {
-        CU_ASSERT_NEQ_FATAL (plist.present == 0 && plist.aliased == 0, 0);
-        CU_ASSERT_NEQ_FATAL (((plist.qos.present & DDSI_QP_LIVELINESS) != 0) == exp->present, 0);
+        CU_ASSERT_FATAL (plist.present == 0 && plist.aliased == 0);
+        CU_ASSERT_FATAL (((plist.qos.present & DDSI_QP_LIVELINESS) != 0) == exp->present);
         CU_ASSERT_EQ_FATAL (plist.qos.aliased, 0);
         if (exp->present)
         {

@@ -670,10 +670,10 @@ CU_Test(ddsc_qos, property, .init=qos_init, .fini=qos_fini)
     uint32_t cnt = 0;
 
     /* NULLs shouldn't crash and be a noops. */
-    CU_ASSERT_NEQ_FATAL (!dds_qget_prop (g_qos, NULL, NULL), 0);
-    CU_ASSERT_NEQ_FATAL (!dds_qget_prop (g_qos, c_property_names[0], NULL), 0);
-    CU_ASSERT_NEQ_FATAL (!dds_qget_prop (g_qos, NULL, &value), 0);
-    CU_ASSERT_NEQ_FATAL (!dds_qget_prop (NULL, c_property_names[0], &value), 0);
+    CU_ASSERT_FATAL (!dds_qget_prop (g_qos, NULL, NULL));
+    CU_ASSERT_FATAL (!dds_qget_prop (g_qos, c_property_names[0], NULL));
+    CU_ASSERT_FATAL (!dds_qget_prop (g_qos, NULL, &value));
+    CU_ASSERT_FATAL (!dds_qget_prop (NULL, c_property_names[0], &value));
 
     dds_qset_prop (g_qos, NULL, NULL);
     dds_qset_prop (g_qos, NULL, c_property_values[0]);
@@ -681,7 +681,7 @@ CU_Test(ddsc_qos, property, .init=qos_init, .fini=qos_fini)
 
     /* Set null value should not succeed, setting empty string should */
     dds_qset_prop (g_qos, c_property_names[0], NULL);
-    CU_ASSERT_NEQ_FATAL (!dds_qget_prop (g_qos, c_property_names[0], &value), 0);
+    CU_ASSERT_FATAL (!dds_qget_prop (g_qos, c_property_names[0], &value));
     dds_qset_prop (g_qos, c_property_names[0], "");
     CU_ASSERT_NEQ_FATAL (dds_qget_prop (g_qos, c_property_names[0], &value), 0);
     CU_ASSERT_STREQ_FATAL (value, "");
@@ -718,7 +718,7 @@ CU_Test(ddsc_qos, property, .init=qos_init, .fini=qos_fini)
 
     /* Unset a property and check if removed */
     dds_qunset_prop (g_qos, c_property_names[1]);
-    CU_ASSERT_NEQ_FATAL (!dds_qget_prop (g_qos, c_property_names[1], &value), 0);
+    CU_ASSERT_FATAL (!dds_qget_prop (g_qos, c_property_names[1], &value));
     CU_ASSERT_NEQ_FATAL (dds_qget_propnames (g_qos, &cnt, NULL), 0);
     CU_ASSERT_EQ_FATAL (cnt, 2);
     CU_ASSERT_NEQ_FATAL (dds_qget_prop (g_qos, c_property_names[0], &value), 0);
@@ -729,7 +729,7 @@ CU_Test(ddsc_qos, property, .init=qos_init, .fini=qos_fini)
     dds_free (value);
     dds_qunset_prop (g_qos, c_property_names[0]);
     dds_qunset_prop (g_qos, c_property_names[2]);
-    CU_ASSERT_NEQ_FATAL (!dds_qget_propnames (g_qos, &cnt, NULL), 0);
+    CU_ASSERT_FATAL (!dds_qget_propnames (g_qos, &cnt, NULL));
 }
 
 CU_Test(ddsc_qos, bproperty, .init=qos_init, .fini=qos_fini)
@@ -740,10 +740,10 @@ CU_Test(ddsc_qos, bproperty, .init=qos_init, .fini=qos_fini)
     uint32_t cnt = 0;
 
     /* NULLs shouldn't crash and be a noops. */
-    CU_ASSERT_NEQ_FATAL (!dds_qget_bprop (g_qos, NULL, NULL, NULL), 0);
-    CU_ASSERT_NEQ_FATAL (!dds_qget_bprop (g_qos, c_bproperty_names[0], NULL, NULL), 0);
-    CU_ASSERT_NEQ_FATAL (!dds_qget_bprop (g_qos, NULL, &bvalue, &size), 0);
-    CU_ASSERT_NEQ_FATAL (!dds_qget_bprop (NULL, c_bproperty_names[0], &bvalue, &size), 0);
+    CU_ASSERT_FATAL (!dds_qget_bprop (g_qos, NULL, NULL, NULL));
+    CU_ASSERT_FATAL (!dds_qget_bprop (g_qos, c_bproperty_names[0], NULL, NULL));
+    CU_ASSERT_FATAL (!dds_qget_bprop (g_qos, NULL, &bvalue, &size));
+    CU_ASSERT_FATAL (!dds_qget_bprop (NULL, c_bproperty_names[0], &bvalue, &size));
 
     dds_qset_bprop (g_qos, NULL, NULL, 0);
     dds_qset_bprop (g_qos, NULL, &c_bproperty_values[0], 0);
@@ -792,7 +792,7 @@ CU_Test(ddsc_qos, bproperty, .init=qos_init, .fini=qos_fini)
 
     /* Unset a binary property and check if removed */
     dds_qunset_bprop (g_qos, c_bproperty_names[1]);
-    CU_ASSERT_NEQ_FATAL (!dds_qget_bprop (g_qos, c_bproperty_names[1], &bvalue, &size), 0);
+    CU_ASSERT_FATAL (!dds_qget_bprop (g_qos, c_bproperty_names[1], &bvalue, &size));
     CU_ASSERT_NEQ_FATAL (dds_qget_bpropnames (g_qos, &cnt, NULL), 0);
     CU_ASSERT_EQ_FATAL (cnt, 2);
     CU_ASSERT_NEQ_FATAL (dds_qget_bprop (g_qos, c_bproperty_names[0], &bvalue, &size), 0);
@@ -809,7 +809,7 @@ CU_Test(ddsc_qos, bproperty, .init=qos_init, .fini=qos_fini)
     dds_free (bvalue);
     dds_qunset_bprop (g_qos, c_bproperty_names[0]);
     dds_qunset_bprop (g_qos, c_bproperty_names[2]);
-    CU_ASSERT_NEQ_FATAL (!dds_qget_bpropnames (g_qos, &cnt, NULL), 0);
+    CU_ASSERT_FATAL (!dds_qget_bpropnames (g_qos, &cnt, NULL));
 }
 
 CU_Test(ddsc_qos, property_mixed, .init=qos_init, .fini=qos_fini)
@@ -841,15 +841,15 @@ CU_Test(ddsc_qos, property_mixed, .init=qos_init, .fini=qos_fini)
 
     /* Unset and check */
     dds_qunset_bprop (g_qos, c_property_names[0]);
-    CU_ASSERT_NEQ_FATAL (!dds_qget_bprop (g_qos, c_property_names[0], &bvalue, &size), 0);
+    CU_ASSERT_FATAL (!dds_qget_bprop (g_qos, c_property_names[0], &bvalue, &size));
     CU_ASSERT_NEQ_FATAL (dds_qget_prop (g_qos, c_property_names[0], &value), 0);
     CU_ASSERT_STREQ_FATAL (value, c_property_values[0]);
     dds_free (value);
 
     dds_qunset_prop (g_qos, c_property_names[0]);
-    CU_ASSERT_NEQ_FATAL (!dds_qget_prop (g_qos, c_property_names[0], &value), 0);
-    CU_ASSERT_NEQ_FATAL (!dds_qget_propnames (g_qos, &cnt, NULL), 0);
-    CU_ASSERT_NEQ_FATAL (!dds_qget_bpropnames (g_qos, &cnt, NULL), 0);
+    CU_ASSERT_FATAL (!dds_qget_prop (g_qos, c_property_names[0], &value));
+    CU_ASSERT_FATAL (!dds_qget_propnames (g_qos, &cnt, NULL));
+    CU_ASSERT_FATAL (!dds_qget_bpropnames (g_qos, &cnt, NULL));
 }
 
 CU_Test(ddsc_qos, type_consistency, .init=qos_init, .fini=qos_fini)

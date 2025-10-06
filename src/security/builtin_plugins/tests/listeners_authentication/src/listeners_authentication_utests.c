@@ -1687,8 +1687,8 @@ CU_Test(ddssec_builtin_listeners_auth, local_remote_set_before_validation)
         time_left -= DDS_MSECS(100);
     }
 
-    CU_ASSERT_NEQ (local_expired, 0);
-    CU_ASSERT_NEQ (remote_expired, 0);
+    CU_ASSERT (local_expired);
+    CU_ASSERT (remote_expired);
 
 
     reset_exception(&exception);

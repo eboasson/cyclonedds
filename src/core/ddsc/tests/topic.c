@@ -172,7 +172,7 @@ CU_TheoryDataPoints(ddsc_topic_get_name, invalid_params) = {
 };
 CU_Theory((char *name, size_t size), ddsc_topic_get_name, invalid_params, .init = ddsc_topic_init, .fini = ddsc_topic_fini)
 {
-  CU_ASSERT_NEQ_FATAL ((name != g_name_buf) || (size != MAX_NAME_SIZE), 0);
+  CU_ASSERT_FATAL ((name != g_name_buf) || (size != MAX_NAME_SIZE));
   dds_return_t ret = dds_get_name(g_topic_rtmdt, name, size);
   CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_BAD_PARAMETER);
 }
@@ -224,7 +224,7 @@ CU_TheoryDataPoints(ddsc_topic_get_type_name, invalid_params) = {
 };
 CU_Theory((char *name, size_t size), ddsc_topic_get_type_name, invalid_params, .init = ddsc_topic_init, .fini = ddsc_topic_fini)
 {
-  CU_ASSERT_NEQ_FATAL ((name != g_name_buf) || (size != MAX_NAME_SIZE), 0);
+  CU_ASSERT_FATAL ((name != g_name_buf) || (size != MAX_NAME_SIZE));
   dds_return_t ret = dds_get_type_name(g_topic_rtmdt, name, size);
   CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_BAD_PARAMETER);
 }

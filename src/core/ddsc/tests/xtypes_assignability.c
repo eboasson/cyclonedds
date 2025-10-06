@@ -288,12 +288,12 @@ static void sample_check_XType4a_4 (void *ptr1, void *ptr2)
 {
   XSpace_XType4a *s_wr = (XSpace_XType4a *) ptr1;
   XSpace_XType4 *s_rd = (XSpace_XType4 *) ptr2;
-  CU_ASSERT_NEQ_FATAL (s_rd->seq_1._length == s_wr->seq_1._length && s_rd->seq_1._length == 999, 0);
-  CU_ASSERT_NEQ_FATAL (s_rd->seq_2._length == s_wr->seq_2._length && s_rd->seq_2._length == 5, 0);
+  CU_ASSERT_FATAL (s_rd->seq_1._length == s_wr->seq_1._length && s_rd->seq_1._length == 999);
+  CU_ASSERT_FATAL (s_rd->seq_2._length == s_wr->seq_2._length && s_rd->seq_2._length == 5);
   for (uint32_t n = 0; n < 999; n++)
-    CU_ASSERT_NEQ_FATAL (s_rd->seq_1._buffer[n] == s_wr->seq_1._buffer[n] && s_rd->seq_1._buffer[n] == n, 0);
+    CU_ASSERT_FATAL (s_rd->seq_1._buffer[n] == s_wr->seq_1._buffer[n] && s_rd->seq_1._buffer[n] == n);
   for (uint32_t n = 0; n < 5; n++)
-    CU_ASSERT_NEQ_FATAL (s_rd->seq_2._buffer[n] == s_wr->seq_2._buffer[n] && s_rd->seq_2._buffer[n] == n, 0);
+    CU_ASSERT_FATAL (s_rd->seq_2._buffer[n] == s_wr->seq_2._buffer[n] && s_rd->seq_2._buffer[n] == n);
 }
 
 static void sample_init_XType5a (void *ptr)

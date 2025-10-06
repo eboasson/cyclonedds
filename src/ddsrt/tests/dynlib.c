@@ -28,7 +28,7 @@ do { \
   if (var == NULL) { \
     char err[256]; \
     r = ddsrt_dlerror(err, sizeof(err)); \
-    CU_ASSERT_NEQ_FATAL (r > 0 || r == DDS_RETCODE_NOT_ENOUGH_SPACE, 0); \
+    CU_ASSERT_FATAL (r > 0 || r == DDS_RETCODE_NOT_ENOUGH_SPACE); \
     printf("\n%s", err); \
     CU_FAIL_FATAL(msg); \
   } \
@@ -92,7 +92,7 @@ CU_Test(ddsrt_library, dlopen_unknown)
   CU_ASSERT_EQ_FATAL (l, NULL)
 
   r = ddsrt_dlerror(buffer, sizeof(buffer));
-  CU_ASSERT_NEQ_FATAL (r > 0 || r == DDS_RETCODE_NOT_ENOUGH_SPACE, 0);
+  CU_ASSERT_FATAL (r > 0 || r == DDS_RETCODE_NOT_ENOUGH_SPACE);
   printf("\n%s", buffer);
 }
 
@@ -133,7 +133,7 @@ CU_Test(ddsrt_library, dlsym_unknown)
   CU_ASSERT_EQ_FATAL (f, NULL)
 
   r = ddsrt_dlerror(buffer, sizeof(buffer));
-  CU_ASSERT_NEQ_FATAL (r > 0 || r == DDS_RETCODE_NOT_ENOUGH_SPACE, 0);
+  CU_ASSERT_FATAL (r > 0 || r == DDS_RETCODE_NOT_ENOUGH_SPACE);
   printf("\n%s", buffer);
 
   r = ddsrt_dlclose(l);

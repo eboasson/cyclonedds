@@ -76,9 +76,9 @@ CU_Test(ddsrt_getifaddrs, ipv4)
     CU_ASSERT_EQ (ifa->addr->sa_family, AF_INET);
     if (ifa->addr->sa_family == AF_INET) {
       if (ifa->flags & IFF_LOOPBACK) {
-        CU_ASSERT_NEQ (ddsrt_sockaddr_isloopback(ifa->addr), 0);
+        CU_ASSERT (ddsrt_sockaddr_isloopback(ifa->addr));
       } else {
-        CU_ASSERT_NEQ (!ddsrt_sockaddr_isloopback(ifa->addr), 0);
+        CU_ASSERT (!ddsrt_sockaddr_isloopback(ifa->addr));
       }
       seen = 1;
     }
@@ -170,7 +170,7 @@ CU_Test(ddsrt_getifaddrs, ipv4_n_ipv6)
     CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
     for (ifa = ifa_root; ifa; ifa = ifa->next) {
       CU_ASSERT_NEQ_FATAL (ifa->addr, NULL);
-      CU_ASSERT_NEQ (ifa->addr->sa_family == AF_INET || ifa->addr->sa_family == AF_INET6, 0);
+      CU_ASSERT (ifa->addr->sa_family == AF_INET || ifa->addr->sa_family == AF_INET6);
       if (ifa->addr->sa_family == AF_INET) {
         have_ipv4 = 1;
       } else if (ifa->addr->sa_family == AF_INET6) {

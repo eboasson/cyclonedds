@@ -478,7 +478,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, writer_happy_day, .init = suite
     if (!result)
         printf("preprocess_secure_submsg: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
     CU_ASSERT_EQ (exception.code, 0);
     CU_ASSERT_EQ (exception.message, NULL);
     CU_ASSERT_EQ (writer_crypto, remote_writer_crypto);
@@ -504,7 +504,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, writer_happy_day, .init = suite
     if (!result)
         printf("preprocess_secure_submsg: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
     CU_ASSERT_EQ (exception.code, 0);
     CU_ASSERT_EQ (exception.message, NULL);
     CU_ASSERT_EQ (writer_crypto, remote_writer_crypto);
@@ -547,7 +547,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, reader_happy_day, .init = suite
     if (!result)
         printf("preprocess_secure_submsg: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
     CU_ASSERT_EQ (exception.code, 0);
     CU_ASSERT_EQ (exception.message, NULL);
     CU_ASSERT_EQ (writer_crypto, local_writer_crypto);
@@ -570,7 +570,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, reader_happy_day, .init = suite
     if (!result)
         printf("preprocess_secure_submsg: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
     CU_ASSERT_EQ (exception.code, 0);
     CU_ASSERT_EQ (exception.message, NULL);
     CU_ASSERT_EQ (writer_crypto, local_writer_crypto);
@@ -614,7 +614,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, invalid_args, .init = suite_pre
     if (!result)
         printf("preprocess_secure_submsg: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -633,7 +633,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, invalid_args, .init = suite_pre
     if (!result)
         printf("preprocess_secure_submsg: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -672,7 +672,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, invalid_message, .init = suite_
     if (!result)
         printf("preprocess_secure_submsg: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -697,7 +697,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, invalid_message, .init = suite_
         if (!result)
             printf("preprocess_secure_submsg: %s\n", exception.message ? exception.message : "Error message missing");
 
-        CU_ASSERT_NEQ (!result, 0);
+        CU_ASSERT (!result);
         CU_ASSERT_NEQ (exception.code, 0);
         CU_ASSERT_NEQ (exception.message, NULL);
         reset_exception(&exception);
@@ -721,7 +721,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, invalid_message, .init = suite_
         if (!result)
             printf("preprocess_secure_submsg: %s\n", exception.message ? exception.message : "Error message missing");
 
-        CU_ASSERT_NEQ (!result, 0);
+        CU_ASSERT (!result);
         CU_ASSERT_NEQ (exception.code, 0);
         CU_ASSERT_NEQ (exception.message, NULL);
         reset_exception(&exception);
@@ -822,7 +822,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, volatile_secure, .init = suite_
     if (!result)
         printf("preprocess_secure_submsg: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
     CU_ASSERT_EQ (exception.code, 0);
     CU_ASSERT_EQ (exception.message, NULL);
     CU_ASSERT_NEQ (((remote_datawriter_crypto *)writer_crypto)->is_builtin_participant_volatile_message_secure_writer, 0);

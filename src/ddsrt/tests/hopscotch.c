@@ -62,7 +62,7 @@ static void init (bool random)
 
   ddsrt_prng_seed_t prng_seed;
   bool haveseed = ddsrt_prng_makeseed (&prng_seed);
-  CU_ASSERT_NEQ_FATAL (haveseed, 0);
+  CU_ASSERT_FATAL (haveseed);
   ddsrt_prng_init (&prng, &prng_seed);
   printf ("%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32"\n",
           prng_seed.key[0], prng_seed.key[1], prng_seed.key[2], prng_seed.key[3], prng_seed.key[4], prng_seed.key[5], prng_seed.key[6], prng_seed.key[7]);
@@ -261,7 +261,7 @@ static uint32_t chhtest_thread (void *varg)
   ddsrt_prng_t local_prng;
   ddsrt_prng_seed_t prng_seed;
   bool haveseed = ddsrt_prng_makeseed (&prng_seed);
-  CU_ASSERT_NEQ_FATAL (haveseed, 0);
+  CU_ASSERT_FATAL (haveseed);
   ddsrt_prng_init (&local_prng, &prng_seed);
   printf ("%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32".%08"PRIx32"\n",
           prng_seed.key[0], prng_seed.key[1], prng_seed.key[2], prng_seed.key[3], prng_seed.key[4], prng_seed.key[5], prng_seed.key[6], prng_seed.key[7]);

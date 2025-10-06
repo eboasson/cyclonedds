@@ -107,7 +107,7 @@ static void suite_register_matched_remote_datawriter_init(void)
   shared_secret_handle = (DDS_Security_SharedSecretHandle)shared_secret_handle_impl;
 
   /* Check if we actually have the validate_local_identity() function. */
-  CU_ASSERT_NEQ_FATAL (crypto != NULL && crypto->crypto_key_factory != NULL && crypto->crypto_key_factory->register_local_participant != NULL, 0);
+  CU_ASSERT_FATAL (crypto != NULL && crypto->crypto_key_factory != NULL && crypto->crypto_key_factory->register_local_participant != NULL);
   memset(&exception, 0, sizeof(DDS_Security_SecurityException));
   memset(&participant_properties, 0, sizeof(participant_properties));
 
@@ -203,7 +203,7 @@ CU_Test(ddssec_builtin_register_remote_datawriter, happy_day, .init = suite_regi
   reset_exception(&exception);
 
   unregister_result = crypto->crypto_key_factory->unregister_datawriter(crypto->crypto_key_factory, result, &exception);
-  CU_ASSERT_NEQ_FATAL (unregister_result, 0);
+  CU_ASSERT_FATAL (unregister_result);
 }
 
 /* test if function returns volatile secure writer crypto if the reader is volatile secure*/
@@ -306,11 +306,11 @@ CU_Test(ddssec_builtin_register_remote_datawriter, with_origin_authentication, .
 
   /*test unregister the local pair*/
   unregister_result = crypto->crypto_key_factory->unregister_datareader(crypto->crypto_key_factory, local_reader_handle, &exception);
-  CU_ASSERT_NEQ_FATAL (unregister_result, 0);
+  CU_ASSERT_FATAL (unregister_result);
 
   /* unregister remote should give error*/
   unregister_result = crypto->crypto_key_factory->unregister_datareader(crypto->crypto_key_factory, result, &exception);
-  CU_ASSERT_NEQ_FATAL (!unregister_result, 0);
+  CU_ASSERT_FATAL (!unregister_result);
   reset_exception(&exception);
 }
 

@@ -60,7 +60,7 @@ CU_Test(idl_forward, struct_union_maybe_enum)
       assert(pstate);
       for (node = pstate->root; idl_is_forward(node); node = idl_next(node))
         forward = node;
-      CU_ASSERT_NEQ_FATAL (idl_is_forward(forward), 0);
+      CU_ASSERT_FATAL (idl_is_forward(forward));
       assert(forward);
       CU_ASSERT_EQ (idl_type(node), tests[i].type);
       CU_ASSERT_EQ (forward->type_spec, node);
@@ -96,10 +96,10 @@ CU_Test(idl_forward, aliases)
       size_t n = tests[i].forwards - 1;
       for (size_t j = 0; j < tests[i].forwards; j++) {
         forward[j] = j ? idl_next(forward[j - 1]) : (idl_forward_t *)pstate->root;
-        CU_ASSERT_NEQ_FATAL (idl_is_forward(forward[j]), 0);
+        CU_ASSERT_FATAL (idl_is_forward(forward[j]));
       }
       alias = idl_next(forward[n]);
-      CU_ASSERT_NEQ_FATAL (idl_is_typedef(alias), 0);
+      CU_ASSERT_FATAL (idl_is_typedef(alias));
       type_spec = idl_next(alias);
       CU_ASSERT_EQ_FATAL (idl_type(type_spec), tests[i].type);
       CU_ASSERT_EQ (forward[n]->type_spec, type_spec);
@@ -138,10 +138,10 @@ CU_Test(idl_forward, backwards_aliases)
       CU_ASSERT_EQ_FATAL (idl_type(type_spec), tests[i].type);
       for (size_t j = 0; j < tests[i].forwards; j++) {
         forward[j] = j ? idl_next(forward[j - 1]) : idl_next(type_spec);
-        CU_ASSERT_NEQ_FATAL (idl_is_forward(forward[j]), 0);
+        CU_ASSERT_FATAL (idl_is_forward(forward[j]));
       }
       alias = idl_next(forward[n]);
-      CU_ASSERT_NEQ_FATAL (idl_is_typedef(alias), 0);
+      CU_ASSERT_FATAL (idl_is_typedef(alias));
       CU_ASSERT_EQ (forward[n]->type_spec, type_spec);
       CU_ASSERT_EQ (alias->type_spec, type_spec);
     }

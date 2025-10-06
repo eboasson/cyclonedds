@@ -334,12 +334,12 @@ CU_Test(ddssec_builtin_get_permissions_token, happy_day, .init = suite_get_permi
   {
     printf("get_permissions_token: %s\n", exception.message ? exception.message : "Error message missing");
   }
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
 
   /* Test token contents. */
-  CU_ASSERT_NEQ (validate_permissions_token(&token), 0);
+  CU_ASSERT (validate_permissions_token(&token));
 
   /* Post-requisites. */
   DDS_Security_DataHolder_deinit(&token);
@@ -370,7 +370,7 @@ CU_Test(ddssec_builtin_get_permissions_token, invalid_args, .init = suite_get_pe
   {
     printf("get_permissions_token: %s\n", exception.message ? exception.message : "Error message missing");
   }
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
   CU_ASSERT_NEQ (exception.message, NULL);
   reset_exception(&exception);
@@ -384,7 +384,7 @@ CU_Test(ddssec_builtin_get_permissions_token, invalid_args, .init = suite_get_pe
   {
     printf("get_permissions_token: %s\n", exception.message ? exception.message : "Error message missing");
   }
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
   CU_ASSERT_NEQ (exception.message, NULL);
   reset_exception(&exception);
@@ -398,7 +398,7 @@ CU_Test(ddssec_builtin_get_permissions_token, invalid_args, .init = suite_get_pe
   {
     printf("get_permissions_token: %s\n", exception.message ? exception.message : "Error message missing");
   }
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
   CU_ASSERT_NEQ (exception.message, NULL);
   reset_exception(&exception);
@@ -412,7 +412,7 @@ CU_Test(ddssec_builtin_get_permissions_token, invalid_args, .init = suite_get_pe
   {
     printf("get_permissions_token: %s\n", exception.message ? exception.message : "Error message missing");
   }
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
   reset_exception(&exception);
@@ -426,7 +426,7 @@ CU_Test(ddssec_builtin_get_permissions_token, invalid_args, .init = suite_get_pe
   {
     printf("get_permissions_token: %s\n", exception.message ? exception.message : "Error message missing");
   }
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_EQ (exception.code, DDS_SECURITY_ERR_INVALID_PARAMETER_CODE);
   CU_ASSERT_NEQ (exception.message, NULL);
   reset_exception(&exception);

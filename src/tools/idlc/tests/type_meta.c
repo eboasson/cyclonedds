@@ -106,7 +106,7 @@ static void xcdr2_ser (const void *obj, const struct dds_cdrstream_desc *desc, d
   os->x.m_size = 0;
   os->x.m_xcdr_version = DDSI_RTPS_CDR_ENC_VERSION_2;
   bool ret = dds_stream_write_sampleLE (os, &dds_cdrstream_default_allocator, obj, desc);
-  CU_ASSERT_NEQ_FATAL (ret, 0);
+  CU_ASSERT_FATAL (ret);
 }
 
 static void xcdr2_deser (unsigned char *buf, uint32_t sz, void **obj, const struct dds_cdrstream_desc *desc)

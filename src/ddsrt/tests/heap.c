@@ -50,7 +50,7 @@ CU_Test(ddsrt_heap, calloc)
       char *ptr = ddsrt_calloc(allocsizes[i], allocsizes[j]);
       CU_ASSERT_NEQ (ptr, NULL); /* ddsrt_calloc is supposed to abort on failure */
       if(allocsizes[i] * allocsizes[j] > 0) {
-        CU_ASSERT_NEQ (ptr[0] == 0 && !memcmp(ptr, ptr + 1, (allocsizes[i] * allocsizes[j]) - 1), 0); /* ddsrt_calloc should memset properly */
+        CU_ASSERT (ptr[0] == 0 && !memcmp(ptr, ptr + 1, (allocsizes[i] * allocsizes[j]) - 1)); /* ddsrt_calloc should memset properly */
       }
       ddsrt_free(ptr);
     }
@@ -71,7 +71,7 @@ CU_Test(ddsrt_heap, realloc)
       CU_ASSERT_NEQ_FATAL (ptr, NULL); /* ddsrt_realloc is supposed to abort on failure */
       unchanged = (prevs < s) ? prevs : s;
       if(unchanged) {
-        CU_ASSERT_NEQ (ptr && ptr[0] == 1 && !memcmp(ptr, ptr + 1, unchanged - 1), 0); /* ddsrt_realloc shouldn't change memory */
+        CU_ASSERT (ptr && ptr[0] == 1 && !memcmp(ptr, ptr + 1, unchanged - 1)); /* ddsrt_realloc shouldn't change memory */
       }
       memset(ptr, 1, s); /* This potentially segfaults if the actual allocated block is too small */
       prevs = s;
@@ -111,7 +111,7 @@ CU_Test(ddsrt_heap, calloc_s)
       char *ptr = ddsrt_calloc_s(allocsizes_s[i], allocsizes_s[j]); /* If either one is 0, ddsrt_calloc_s should still return a pointer */
       if(ptr) {
         if(s) {
-          CU_ASSERT_NEQ (ptr[0] == 0 && !memcmp(ptr, ptr + 1, s - 1), 0); /* malloc_0_s should memset properly */
+          CU_ASSERT (ptr[0] == 0 && !memcmp(ptr, ptr + 1, s - 1)); /* malloc_0_s should memset properly */
         }
       } else if (s <= 16) {
         /* Failure to allocate can't be considered a test fault really,
@@ -142,7 +142,7 @@ CU_Test(ddsrt_heap, ddsrt_realloc_s)
       if(newptr){
         unchanged = (prevs < s) ? prevs : s;
         if(unchanged) {
-          CU_ASSERT_NEQ (newptr[0] == 1 && !memcmp(newptr, newptr + 1, unchanged - 1), 0); /* ddsrt_realloc_s shouldn't change memory */
+          CU_ASSERT (newptr[0] == 1 && !memcmp(newptr, newptr + 1, unchanged - 1)); /* ddsrt_realloc_s shouldn't change memory */
         }
         memset(newptr, 1, s); /* This potentially segfaults if the actual allocated block is too small */
       }

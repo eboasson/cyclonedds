@@ -824,7 +824,7 @@ static void encode_datawriter_submessage_not_signed(DDS_Security_CryptoTransform
     printf("encode_datawriter_submessage: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
 
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
@@ -832,7 +832,7 @@ static void encode_datawriter_submessage_not_signed(DDS_Security_CryptoTransform
   reset_exception(&exception);
 
   result = check_encoded_data(&encoded_buffer, is_encrypted, &header, &footer, &data);
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
 
   CU_ASSERT_EQ (header->transform_identifier.transformation_kind[3], transformation_kind);
 
@@ -852,7 +852,7 @@ static void encode_datawriter_submessage_not_signed(DDS_Security_CryptoTransform
       printf("Decode failed\n");
     }
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
     CU_ASSERT_MEMEQ (plain_buffer._buffer, plain_buffer._length, decoded_buffer._buffer, decoded_buffer._length);
     DDS_Security_OctetSeq_deinit((&decoded_buffer));
   }
@@ -865,7 +865,7 @@ static void encode_datawriter_submessage_not_signed(DDS_Security_CryptoTransform
       printf("Decode failed\n");
     }
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
     CU_ASSERT_MEMEQ (plain_buffer._buffer, plain_buffer._length, data._buffer, data._length);
   }
 
@@ -982,7 +982,7 @@ static void encode_datawriter_submessage_sign(DDS_Security_CryptoTransformKind_E
       printf("encode_datawriter_submessage: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
     CU_ASSERT_EQ (exception.code, 0);
     CU_ASSERT_EQ (exception.message, NULL);
 
@@ -991,7 +991,7 @@ static void encode_datawriter_submessage_sign(DDS_Security_CryptoTransformKind_E
   }
 
   result = check_encoded_data(&encoded_buffer, is_encrypted, &header, &footer, &data);
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
 
   CU_ASSERT_EQ (header->transform_identifier.transformation_kind[3], transformation_kind);
 
@@ -1010,7 +1010,7 @@ static void encode_datawriter_submessage_sign(DDS_Security_CryptoTransformKind_E
       printf("Decode failed\n");
     }
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
     CU_ASSERT_MEMEQ (plain_buffer._buffer, plain_buffer._length, decoded_buffer._buffer, decoded_buffer._length);
     DDS_Security_OctetSeq_deinit((&decoded_buffer));
   }
@@ -1024,13 +1024,13 @@ static void encode_datawriter_submessage_sign(DDS_Security_CryptoTransformKind_E
       printf("Decode failed\n");
     }
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
     CU_ASSERT_MEMEQ (plain_buffer._buffer, plain_buffer._length, data._buffer, data._length);
   }
 
   printf("num hmacs = %u\n", footer->length);
 
-  CU_ASSERT_NEQ (check_reader_signing(&reader_list, footer, session_id, header->session_id, session_keys->key_size), 0);
+  CU_ASSERT (check_reader_signing(&reader_list, footer, session_id, header->session_id, session_keys->key_size));
 
   for (i = 0; i < READERS_CNT; i++)
   {
@@ -1125,7 +1125,7 @@ CU_Test(ddssec_builtin_encode_datawriter_submessage, invalid_args, .init = suite
     printf("encode_datawriter_submessage: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1147,7 +1147,7 @@ CU_Test(ddssec_builtin_encode_datawriter_submessage, invalid_args, .init = suite
     printf("encode_datawriter_submessage: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1169,7 +1169,7 @@ CU_Test(ddssec_builtin_encode_datawriter_submessage, invalid_args, .init = suite
     printf("encode_datawriter_submessage: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 

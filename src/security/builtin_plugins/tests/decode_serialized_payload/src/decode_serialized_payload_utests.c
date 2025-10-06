@@ -465,7 +465,7 @@ static void decode_serialized_payload_check(uint32_t key_size, bool encrypted)
 
   local_writer_crypto = register_local_datawriter(encrypted);
   CU_ASSERT_NEQ_FATAL (local_writer_crypto, 0);
-  CU_ASSERT_NEQ (check_writer_protection_kind(local_writer_crypto, encrypted ? DDS_SECURITY_BASICPROTECTION_KIND_ENCRYPT : DDS_SECURITY_BASICPROTECTION_KIND_SIGN), 0);
+  CU_ASSERT (check_writer_protection_kind(local_writer_crypto, encrypted ? DDS_SECURITY_BASICPROTECTION_KIND_ENCRYPT : DDS_SECURITY_BASICPROTECTION_KIND_SIGN));
 
   session_keys = get_datawriter_session(local_writer_crypto);
   session_keys->master_key_material->transformation_kind = get_transformation_kind(key_size, encrypted);
@@ -481,7 +481,7 @@ static void decode_serialized_payload_check(uint32_t key_size, bool encrypted)
   CU_ASSERT_NEQ_FATAL (remote_writer_crypto, 0);
 
   result = set_remote_datawriter_tokens(local_writer_crypto, remote_reader_crypto, local_reader_crypto, remote_writer_crypto);
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
 
   /* Encrypt the data. */
   result = crypto->crypto_transform->encode_serialized_payload(
@@ -497,7 +497,7 @@ static void decode_serialized_payload_check(uint32_t key_size, bool encrypted)
     printf("encode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
 
@@ -518,7 +518,7 @@ static void decode_serialized_payload_check(uint32_t key_size, bool encrypted)
     printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
 
@@ -602,7 +602,7 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_args, .init = suite_de
   CU_ASSERT_NEQ_FATAL (remote_writer_crypto, 0);
 
   result = set_remote_datawriter_tokens(local_writer_crypto, remote_reader_crypto, local_reader_crypto, remote_writer_crypto);
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
 
   /* encrypt the data */
   result = crypto->crypto_transform->encode_serialized_payload(
@@ -618,7 +618,7 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_args, .init = suite_de
     printf("encode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
 
@@ -639,7 +639,7 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_args, .init = suite_de
     printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -660,7 +660,7 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_args, .init = suite_de
     printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -681,7 +681,7 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_args, .init = suite_de
     printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -702,7 +702,7 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_args, .init = suite_de
     printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -766,7 +766,7 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
   CU_ASSERT_NEQ_FATAL (remote_writer_crypto, 0);
 
   result = set_remote_datawriter_tokens(local_writer_crypto, remote_reader_crypto, local_reader_crypto, remote_writer_crypto);
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
 
   /* Encrypt the data. */
   result = crypto->crypto_transform->encode_serialized_payload(
@@ -782,14 +782,14 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
     printf("encode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
 
   reset_exception(&exception);
 
   result = split_encoded_data(encoded_buffer._buffer, encoded_buffer._length, &header, &contents, &length, &footer);
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   assert(result); // for Clang's static analyzer
 
   /* use incorrect transformation kind */
@@ -810,7 +810,7 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
       printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -841,7 +841,7 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
       printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -872,7 +872,7 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
       printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -910,7 +910,7 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
       printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -948,7 +948,7 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
       printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -981,7 +981,7 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
       printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1017,7 +1017,7 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
       printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1044,7 +1044,7 @@ CU_Test(ddssec_builtin_decode_serialized_payload, invalid_data, .init = suite_de
       printf("decode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 

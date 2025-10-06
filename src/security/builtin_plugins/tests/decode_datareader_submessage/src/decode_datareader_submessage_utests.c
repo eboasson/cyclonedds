@@ -540,7 +540,7 @@ static void decode_datareader_submessage_not_signed(
   CU_ASSERT_NEQ_FATAL (nodeB_remote_reader_crypto, 0);
 
   result = set_remote_datareader_tokens(nodeA_local_reader_crypto, nodeA_remote_writer_crypto, nodeB_local_writer_crypto, nodeB_remote_reader_crypto);
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
 
   writer_list._length = writer_list._maximum = 1;
   writer_list._buffer = DDS_Security_DatawriterCryptoHandleSeq_allocbuf(1);
@@ -560,7 +560,7 @@ static void decode_datareader_submessage_not_signed(
     printf("encode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
 
@@ -586,7 +586,7 @@ static void decode_datareader_submessage_not_signed(
   {
     printf("Decoding failed: %s\n", exception.message);
   }
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ_FATAL (decoded_buffer._length, plain_buffer._length);
 
   reset_exception(&exception);
@@ -692,7 +692,7 @@ static void decode_datareader_submessage_signed(
     CU_ASSERT_NEQ_FATAL (remote_reader_crypto, 0);
 
     result = set_remote_datareader_tokens(local_reader_crypto, remote_writer_crypto, local_writer_crypto, remote_reader_crypto);
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
 
     local_writer_list._buffer[i] = local_writer_crypto;
     remote_reader_list._buffer[i] = remote_reader_crypto;
@@ -713,7 +713,7 @@ static void decode_datareader_submessage_signed(
     printf("encode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
 
@@ -735,7 +735,7 @@ static void decode_datareader_submessage_signed(
       printf("decode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
     CU_ASSERT_EQ_FATAL (exception.code, 0);
     CU_ASSERT_EQ (exception.message, NULL);
     CU_ASSERT_EQ_FATAL (decoded_buffer._length, plain_buffer._length);
@@ -838,7 +838,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_args, .init = suite
   CU_ASSERT_NEQ_FATAL (remote_reader_crypto, 0);
 
   result = set_remote_datareader_tokens(local_reader_crypto, remote_writer_crypto, local_writer_crypto, remote_reader_crypto);
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
 
   writer_list._length = writer_list._maximum = 1;
   writer_list._buffer = DDS_Security_DatawriterCryptoHandleSeq_allocbuf(1);
@@ -858,7 +858,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_args, .init = suite
     printf("encode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
 
@@ -878,7 +878,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_args, .init = suite
     printf("decode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -898,7 +898,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_args, .init = suite
     printf("decode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -918,7 +918,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_args, .init = suite
     printf("decode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -938,7 +938,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_args, .init = suite
     printf("decode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1006,7 +1006,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_data, .init = suite
   CU_ASSERT_NEQ_FATAL (remote_reader_crypto, 0);
 
   result = set_remote_datareader_tokens(local_reader_crypto, remote_writer_crypto, local_writer_crypto, remote_reader_crypto);
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
 
   writer_list._length = writer_list._maximum = 1;
   writer_list._buffer = DDS_Security_DatawriterCryptoHandleSeq_allocbuf(1);
@@ -1026,7 +1026,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_data, .init = suite
     printf("encode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
 
@@ -1056,7 +1056,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_data, .init = suite
       printf("decode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1089,7 +1089,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_data, .init = suite
       printf("decode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1122,7 +1122,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_data, .init = suite
       printf("decode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1155,7 +1155,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_data, .init = suite
       printf("decode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1188,7 +1188,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_data, .init = suite
       printf("decode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1221,7 +1221,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_data, .init = suite
       printf("decode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1254,7 +1254,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_data, .init = suite
       printf("decode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1286,7 +1286,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_data, .init = suite
       printf("decode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1318,7 +1318,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_data, .init = suite
       printf("decode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1350,7 +1350,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_data, .init = suite
       printf("decode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1384,7 +1384,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_data, .init = suite
       printf("decode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1416,7 +1416,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_data, .init = suite
       printf("decode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1451,7 +1451,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_data, .init = suite
       printf("decode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1489,7 +1489,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_data, .init = suite
       printf("decode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1527,7 +1527,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, invalid_data, .init = suite
       printf("decode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1653,7 +1653,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, volatile_sec, .init = suite
     printf("encode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
 
@@ -1673,7 +1673,7 @@ CU_Test(ddssec_builtin_decode_datareader_submessage, volatile_sec, .init = suite
     printf("decode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ_FATAL (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
   CU_ASSERT_EQ_FATAL (decoded_buffer._length, plain_buffer._length);

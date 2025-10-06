@@ -262,7 +262,7 @@ CU_Theory((dds_entity_t *par, dds_entity_t *top), ddsc_reader_create, non_partic
     dds_entity_t rdr;
     /* The only valid permutation is when par is actual the participant and top is
      * actually the topic. So, don't test that permutation. */
-    CU_ASSERT_NEQ_FATAL ((par != &g_participant) || (top != &g_topic), 0);
+    CU_ASSERT_FATAL ((par != &g_participant) || (top != &g_topic));
     rdr = dds_create_reader(*par, *top, NULL, NULL);
     CU_ASSERT_EQ_FATAL (rdr, DDS_RETCODE_ILLEGAL_OPERATION);
 }
@@ -336,7 +336,7 @@ CU_Test(ddsc_reader_create, topic_lifespan)
   rc = dds_entity_pin (rd, &x);
   CU_ASSERT_EQ_FATAL (rc, 0);
   CU_ASSERT_NEQ_FATAL (x->m_qos, NULL);
-  CU_ASSERT_NEQ (!dds_qget_lifespan (x->m_qos, NULL), 0);
+  CU_ASSERT (!dds_qget_lifespan (x->m_qos, NULL));
   dds_entity_unpin (x);
   rc = dds_delete (pp);
   CU_ASSERT_EQ_FATAL (rc, 0);
@@ -361,7 +361,7 @@ CU_Theory((void **buf, dds_sample_info_t *si, size_t bufsz, uint32_t maxs), ddsc
     dds_return_t ret;
     /* The only valid permutation is when non of the buffer values are
      * invalid. So, don't test that. */
-    CU_ASSERT_NEQ_FATAL ((buf != g_samples) || (si != g_info) || (bufsz == 0) || (maxs == 0) || (bufsz < maxs), 0);
+    CU_ASSERT_FATAL ((buf != g_samples) || (si != g_info) || (bufsz == 0) || (maxs == 0) || (bufsz < maxs));
     /* TODO: CHAM-306, currently, a buffer is automatically 'promoted' to a loan when a buffer is
      * provided with NULL pointers. So, in fact, there's currently no real difference between calling
      * dds_read() dds_read_wl() (except for the provided bufsz). This will change, which means that
@@ -480,7 +480,7 @@ CU_Theory((void **buf, dds_sample_info_t *si, uint32_t maxs), ddsc_read_wl, inva
     dds_return_t ret;
     /* The only valid permutation is when non of the buffer values are
      * invalid. So, don't test that. */
-    CU_ASSERT_NEQ_FATAL ((buf != g_loans) || (si != g_info) || (maxs == 0), 0);
+    CU_ASSERT_FATAL ((buf != g_loans) || (si != g_info) || (maxs == 0));
     ret = dds_read_wl(g_reader, buf, si, maxs);
     CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_BAD_PARAMETER);
 }
@@ -593,7 +593,7 @@ CU_Theory((void **buf, dds_sample_info_t *si, size_t bufsz, uint32_t maxs), ddsc
     dds_return_t ret;
     /* The only valid permutation is when non of the buffer values are
      * invalid. So, don't test that. */
-    CU_ASSERT_NEQ_FATAL ((buf != g_samples) || (si != g_info) || (bufsz == 0) || (maxs == 0) || (bufsz < maxs), 0);
+    CU_ASSERT_FATAL ((buf != g_samples) || (si != g_info) || (bufsz == 0) || (maxs == 0) || (bufsz < maxs));
     /* TODO: CHAM-306, currently, a buffer is automatically 'promoted' to a loan when a buffer is
      * provided with NULL pointers. So, in fact, there's currently no real difference between calling
      * dds_read_mask() dds_read_mask_wl() (except for the provided bufsz). This will change, which means that
@@ -1150,7 +1150,7 @@ CU_Theory((void **buf, dds_sample_info_t *si, uint32_t maxs), ddsc_read_mask_wl,
     dds_return_t ret;
     /* The only valid permutation is when non of the buffer values are
      * invalid. So, don't test that. */
-    CU_ASSERT_NEQ_FATAL ((buf != g_loans) || (si != g_info) || (maxs == 0), 0);
+    CU_ASSERT_FATAL ((buf != g_loans) || (si != g_info) || (maxs == 0));
     ret = dds_read_mask_wl(g_reader, buf, si, maxs, mask);
     CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_BAD_PARAMETER);
 }
@@ -1727,7 +1727,7 @@ CU_Theory((void **buf, dds_sample_info_t *si, size_t bufsz, uint32_t maxs), ddsc
     dds_return_t ret;
     /* The only valid permutation is when non of the buffer values are
      * invalid. So, don't test that. */
-    CU_ASSERT_NEQ_FATAL ((buf != g_samples) || (si != g_info) || (bufsz == 0) || (maxs == 0) || (bufsz < maxs), 0);
+    CU_ASSERT_FATAL ((buf != g_samples) || (si != g_info) || (bufsz == 0) || (maxs == 0) || (bufsz < maxs));
     /* TODO: CHAM-306, currently, a buffer is automatically 'promoted' to a loan when a buffer is
      * provided with NULL pointers. So, in fact, there's currently no real difference between calling
      * dds_take() dds_take_wl() (except for the provided bufsz). This will change, which means that
@@ -1846,7 +1846,7 @@ CU_Theory((void **buf, dds_sample_info_t *si, uint32_t maxs), ddsc_take_wl, inva
     dds_return_t ret;
     /* The only valid permutation is when non of the buffer values are
      * invalid. So, don't test that. */
-    CU_ASSERT_NEQ_FATAL ((buf != g_loans) || (si != g_info) || (maxs == 0), 0);
+    CU_ASSERT_FATAL ((buf != g_loans) || (si != g_info) || (maxs == 0));
     ret = dds_take_wl(g_reader, buf, si, maxs);
     CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_BAD_PARAMETER);
 }
@@ -1960,7 +1960,7 @@ CU_Theory((void **buf, dds_sample_info_t *si, size_t bufsz, uint32_t maxs), ddsc
     dds_return_t ret;
     /* The only valid permutation is when non of the buffer values are
      * invalid. So, don't test that. */
-    CU_ASSERT_NEQ_FATAL ((buf != g_samples) || (si != g_info) || (bufsz == 0) || (maxs == 0) || (bufsz < maxs), 0);
+    CU_ASSERT_FATAL ((buf != g_samples) || (si != g_info) || (bufsz == 0) || (maxs == 0) || (bufsz < maxs));
     /* TODO: CHAM-306, currently, a buffer is automatically 'promoted' to a loan when a buffer is
      * provided with NULL pointers. So, in fact, there's currently no real difference between calling
      * dds_take_mask() dds_take_mask_wl() (except for the provided bufsz). This will change, which means that
@@ -2650,7 +2650,7 @@ CU_Theory((void **buf, dds_sample_info_t *si, uint32_t maxs), ddsc_take_mask_wl,
     dds_return_t ret;
     /* The only valid permutation is when non of the buffer values are
      * invalid. So, don't test that. */
-    CU_ASSERT_NEQ_FATAL ((buf != g_loans) || (si != g_info) || (maxs == 0), 0);
+    CU_ASSERT_FATAL ((buf != g_loans) || (si != g_info) || (maxs == 0));
     ret = dds_take_mask_wl(g_reader, buf, si, maxs, mask);
     CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_BAD_PARAMETER);
 }
@@ -3306,7 +3306,7 @@ static void do_readtake_sample_rank (const char *opname_past_tense, dds_return_t
             const dds_entity_t qc = dds_create_querycondition (rd, 0, test_long_2_eq_2);
             rc = dds_read_instance (qc, buf, si, 1, 1, ih);
             CU_ASSERT_EQ_FATAL (rc, 1);
-            CU_ASSERT_NEQ_FATAL (xs[0].long_1 == i && xs[0].long_2 == 2 && xs[0].long_3 == 1, 0);
+            CU_ASSERT_FATAL (xs[0].long_1 == i && xs[0].long_2 == 2 && xs[0].long_3 == 1);
             rc = dds_delete (qc);
             CU_ASSERT_EQ_FATAL (rc, 0);
             rc = dds_dispose (wr, &(Space_Type1){ .long_1 = i, .long_2 = 0, .long_3 = 0 });
@@ -3350,14 +3350,14 @@ static void do_readtake_sample_rank (const char *opname_past_tense, dds_return_t
           int i = 0;
           while (i < n)
           {
-            CU_ASSERT_NEQ_FATAL (0 <= xs[i].long_1 && xs[i].long_1 <= 2, 0);
-            CU_ASSERT_NEQ_FATAL (!skip_even_long_2 || (xs[i].long_2 % 2) != 0, 0);
+            CU_ASSERT_FATAL (0 <= xs[i].long_1 && xs[i].long_1 <= 2);
+            CU_ASSERT_FATAL (!skip_even_long_2 || (xs[i].long_2 % 2) != 0);
             const int nsamp_after_maybe_skipping_even = skip_even_long_2 ? nsamp[xs[i].long_1] / 2 : nsamp[xs[i].long_1];
             const int nsamp_of_inst = (i + nsamp_after_maybe_skipping_even < n) ? nsamp_after_maybe_skipping_even : n - i;
             //tprintf ("i = %d nsamp_of_inst = %d\n", i, nsamp_of_inst);
             assert (nsamp_of_inst > 0);
             CU_ASSERT_EQ_FATAL (si[i].sample_rank, (uint32_t) (nsamp_of_inst - 1));
-            CU_ASSERT_NEQ_FATAL ((!si[i].valid_data && xs[i].long_3 == 0) || (si[i].valid_data && xs[i].long_3 == 1), 0);
+            CU_ASSERT_FATAL ((!si[i].valid_data && xs[i].long_3 == 0) || (si[i].valid_data && xs[i].long_3 == 1));
             CU_ASSERT_LT_FATAL ((int) si[i].sample_rank, nsamp_of_inst);
             const int first_of_inst = i;
             for (int j = 0; j < nsamp_of_inst; j++)
@@ -3434,7 +3434,7 @@ CU_Test (ddsc_peek, plain)
     CU_ASSERT_EQ_FATAL (rc, 3);
     for (int32_t i = 0; i < rc; i++)
     {
-      CU_ASSERT_NEQ_FATAL (xs[i].long_1 == xs[i].long_2 && xs[i].long_2 == xs[i].long_3, 0);
+      CU_ASSERT_FATAL (xs[i].long_1 == xs[i].long_2 && xs[i].long_2 == xs[i].long_3);
       CU_ASSERT_LEQ_FATAL (xs[i].long_1, 31);
       seen |= 1u << xs[i].long_1;
       CU_ASSERT_EQ_FATAL (si[i].view_state, DDS_NEW_VIEW_STATE);
@@ -3456,7 +3456,7 @@ CU_Test (ddsc_peek, mask)
   Space_Type1 xs[3];
   void *ptrs[] = { &xs[0], &xs[1], &xs[2] };
   rc = dds_read (rd, ptrs, si, 1, 1);
-  CU_ASSERT_NEQ_FATAL (rc == 1 && xs[0].long_1 <= 31, 0);
+  CU_ASSERT_FATAL (rc == 1 && xs[0].long_1 <= 31);
   const uint32_t not_visible = 1u << xs[0].long_1;
   // dds_read gest tested elsewhere, no need to redo that here
   for (int k = 0; k < 2; k++)
@@ -3466,7 +3466,7 @@ CU_Test (ddsc_peek, mask)
     CU_ASSERT_EQ_FATAL (rc, 2);
     for (int32_t i = 0; i < rc; i++)
     {
-      CU_ASSERT_NEQ_FATAL (xs[i].long_1 == xs[i].long_2 && xs[i].long_2 == xs[i].long_3, 0);
+      CU_ASSERT_FATAL (xs[i].long_1 == xs[i].long_2 && xs[i].long_2 == xs[i].long_3);
       CU_ASSERT_LEQ_FATAL (xs[i].long_1, 31);
       seen |= 1u << xs[i].long_1;
       CU_ASSERT_EQ_FATAL (si[i].view_state, DDS_NEW_VIEW_STATE);
@@ -3489,14 +3489,14 @@ CU_Test (ddsc_peek, instance)
   void *ptrs[] = { &xs[0], &xs[1], &xs[2] };
   rc = dds_peek_instance (rd, ptrs, si, 3, 3, ih);
   CU_ASSERT_EQ_FATAL (rc, 1);
-  CU_ASSERT_NEQ_FATAL (xs[0].long_1 == xs[0].long_2 && xs[0].long_2 == xs[0].long_3, 0);
+  CU_ASSERT_FATAL (xs[0].long_1 == xs[0].long_2 && xs[0].long_2 == xs[0].long_3);
   CU_ASSERT_LEQ_FATAL (xs[0].long_1, 31);
   const int32_t expect = xs[0].long_1;
   CU_ASSERT_EQ_FATAL (si[0].view_state, DDS_NEW_VIEW_STATE);
   CU_ASSERT_EQ_FATAL (si[0].sample_state, DDS_NOT_READ_SAMPLE_STATE);
   rc = dds_peek_instance (rd, ptrs, si, 3, 3, ih);
   CU_ASSERT_EQ_FATAL (rc, 1);
-  CU_ASSERT_NEQ_FATAL (xs[0].long_1 == xs[0].long_2 && xs[0].long_2 == xs[0].long_3, 0);
+  CU_ASSERT_FATAL (xs[0].long_1 == xs[0].long_2 && xs[0].long_2 == xs[0].long_3);
   CU_ASSERT_EQ_FATAL (xs[0].long_1, expect);
   CU_ASSERT_EQ_FATAL (si[0].view_state, DDS_NEW_VIEW_STATE);
   CU_ASSERT_EQ_FATAL (si[0].sample_state, DDS_NOT_READ_SAMPLE_STATE);
@@ -3514,13 +3514,13 @@ CU_Test (ddsc_peek, instance_mask)
   Space_Type1 xs[3];
   void *ptrs[] = { &xs[0], &xs[1], &xs[2] };
   rc = dds_read_instance (rd, ptrs, si, 1, 1, ih);
-  CU_ASSERT_NEQ_FATAL (rc == 1 && xs[0].long_1 <= 31, 0);
+  CU_ASSERT_FATAL (rc == 1 && xs[0].long_1 <= 31);
   const int32_t expect = xs[0].long_1;
   rc = dds_peek_instance_mask (rd, ptrs, si, 3, 3, ih, DDS_NOT_READ_SAMPLE_STATE);
   CU_ASSERT_EQ_FATAL (rc, 0);
   rc = dds_peek_instance_mask (rd, ptrs, si, 3, 3, ih, DDS_READ_SAMPLE_STATE);
   CU_ASSERT_EQ_FATAL (rc, 1);
-  CU_ASSERT_NEQ_FATAL (xs[0].long_1 == xs[0].long_2 && xs[0].long_2 == xs[0].long_3, 0);
+  CU_ASSERT_FATAL (xs[0].long_1 == xs[0].long_2 && xs[0].long_2 == xs[0].long_3);
   CU_ASSERT_EQ_FATAL (xs[0].long_1, expect);
   CU_ASSERT_EQ_FATAL (si[0].view_state, DDS_NOT_NEW_VIEW_STATE);
   CU_ASSERT_EQ_FATAL (si[0].sample_state, DDS_READ_SAMPLE_STATE);
@@ -3543,7 +3543,7 @@ CU_Test (ddsc_peek, next)
   {
     rc = dds_peek_next (rd, ptrs, si);
     CU_ASSERT_EQ_FATAL (rc, 1);
-    CU_ASSERT_NEQ_FATAL (xs[0].long_1 == xs[0].long_2 && xs[0].long_2 == xs[0].long_3, 0);
+    CU_ASSERT_FATAL (xs[0].long_1 == xs[0].long_2 && xs[0].long_2 == xs[0].long_3);
     CU_ASSERT_EQ_FATAL (si[0].view_state, DDS_NEW_VIEW_STATE);
     CU_ASSERT_EQ_FATAL (si[0].sample_state, DDS_NOT_READ_SAMPLE_STATE);
   }

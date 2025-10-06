@@ -70,33 +70,33 @@ CU_Test(ddsrt_atomics, compare_and_swap)
 
   /* Test ddsrt_atomic_cas32 */
   ret = ddsrt_atomic_cas32 (&uint32, expected, newval);
-  CU_ASSERT_NEQ (ddsrt_atomic_ld32 (&uint32) == newval && ret == 1, 0);
+  CU_ASSERT (ddsrt_atomic_ld32 (&uint32) == newval && ret == 1);
   ddsrt_atomic_st32 (&uint32, _osuint32);
   ret = ddsrt_atomic_cas32 (&uint32, expected, newval);
-  CU_ASSERT_NEQ (ddsrt_atomic_ld32 (&uint32) != newval && ret == 0, 0);
+  CU_ASSERT (ddsrt_atomic_ld32 (&uint32) != newval && ret == 0);
 
   /* Test ddsrt_atomic_cas64 */
 #if DDSRT_HAVE_ATOMIC64
   ret = ddsrt_atomic_cas64 (&uint64, expected, newval);
-  CU_ASSERT_NEQ (ddsrt_atomic_ld64 (&uint64) == newval && ret == 1, 0);
+  CU_ASSERT (ddsrt_atomic_ld64 (&uint64) == newval && ret == 1);
   ddsrt_atomic_st64 (&uint64, _osuint64);
   ret = ddsrt_atomic_cas64 (&uint64, expected, newval);
-  CU_ASSERT_NEQ (ddsrt_atomic_ld64 (&uint64) != newval && ret == 0, 0);
+  CU_ASSERT (ddsrt_atomic_ld64 (&uint64) != newval && ret == 0);
 #endif
 
   /* Test ddsrt_atomic_casptr */
   ret = ddsrt_atomic_casptr (&uintptr, addr_expected, addr_newval);
-  CU_ASSERT_NEQ (ddsrt_atomic_ldptr (&uintptr) == addr_newval && ret == 1, 0);
+  CU_ASSERT (ddsrt_atomic_ldptr (&uintptr) == addr_newval && ret == 1);
   ddsrt_atomic_stptr (&uintptr, _osaddress);
   ret = ddsrt_atomic_casptr (&uintptr, addr_expected, addr_newval);
-  CU_ASSERT_NEQ (ddsrt_atomic_ldptr (&uintptr) != addr_newval && ret == 0, 0);
+  CU_ASSERT (ddsrt_atomic_ldptr (&uintptr) != addr_newval && ret == 0);
 
   /* Test ddsrt_atomic_casvoidp */
   ret = ddsrt_atomic_casvoidp (&uintvoidp, void_expected, void_newval);
-  CU_ASSERT_NEQ (ddsrt_atomic_ldvoidp (&uintvoidp) == (uintptr_t*)void_newval && ret == 1, 0);
+  CU_ASSERT (ddsrt_atomic_ldvoidp (&uintvoidp) == (uintptr_t*)void_newval && ret == 1);
   ddsrt_atomic_stvoidp (&uintvoidp, _osvoidp);
   ret = ddsrt_atomic_casvoidp (&uintvoidp, void_expected, void_newval);
-  CU_ASSERT_NEQ (ddsrt_atomic_ldvoidp (&uintvoidp) == (uintptr_t*)1 && ret == 0, 0);
+  CU_ASSERT (ddsrt_atomic_ldvoidp (&uintvoidp) == (uintptr_t*)1 && ret == 0);
 }
 
 CU_Test(ddsrt_atomics, increment)

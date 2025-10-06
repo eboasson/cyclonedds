@@ -75,12 +75,12 @@ CU_Test (ddsc_guardcond, set_trigger)
   CU_ASSERT_GT_FATAL (gc, 0);
   rc = dds_read_guardcondition (gc, &trig);
   CU_ASSERT_EQ_FATAL (rc, 0);
-  CU_ASSERT_NEQ_FATAL (!trig, 0);
+  CU_ASSERT_FATAL (!trig);
   rc = dds_set_guardcondition (gc, true);
   CU_ASSERT_EQ_FATAL (rc, 0);
   rc = dds_read_guardcondition (gc, &trig);
   CU_ASSERT_EQ_FATAL (rc, 0);
-  CU_ASSERT_NEQ_FATAL (trig, 0);
+  CU_ASSERT_FATAL (trig);
   rc = dds_delete (par);
   CU_ASSERT_EQ_FATAL (rc, 0);
 }
@@ -96,15 +96,15 @@ CU_Test (ddsc_guardcond, take_trigger)
   CU_ASSERT_GT_FATAL (gc, 0);
   rc = dds_read_guardcondition (gc, &trig);
   CU_ASSERT_EQ_FATAL (rc, 0);
-  CU_ASSERT_NEQ_FATAL (!trig, 0);
+  CU_ASSERT_FATAL (!trig);
   rc = dds_set_guardcondition (gc, true);
   CU_ASSERT_EQ_FATAL (rc, 0);
   rc = dds_take_guardcondition (gc, &trig);
   CU_ASSERT_EQ_FATAL (rc, 0);
-  CU_ASSERT_NEQ_FATAL (trig, 0);
+  CU_ASSERT_FATAL (trig);
   rc = dds_read_guardcondition (gc, &trig);
   CU_ASSERT_EQ_FATAL (rc, 0);
-  CU_ASSERT_NEQ_FATAL (!trig, 0);
+  CU_ASSERT_FATAL (!trig);
   rc = dds_delete (par);
   CU_ASSERT_EQ_FATAL (rc, 0);
 }

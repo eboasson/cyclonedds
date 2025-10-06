@@ -645,8 +645,8 @@ CU_Test(ddssec_builtin_listeners_access_control, local_2secs)
     time_left -= DDS_MSECS(100);
   }
 
-  CU_ASSERT_NEQ (local_expired, 0);
-  CU_ASSERT_NEQ (remote_expired, 0);
+  CU_ASSERT (local_expired);
+  CU_ASSERT (remote_expired);
 
   access_control->return_permissions_handle(access_control, result, &exception);
 

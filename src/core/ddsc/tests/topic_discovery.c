@@ -73,8 +73,8 @@ CU_Theory ((uint32_t num_pp, uint32_t num_tp, bool hist_data, bool live_data), d
   tprintf ("ddsc_topic_discovery.remote_topics: %u participants, %u topics,%s%s\n", num_pp, num_tp, hist_data ? " historical-data" : "", live_data ? " live-data" : "");
 
   CU_ASSERT_GT_FATAL (num_pp, 0);
-  CU_ASSERT_NEQ_FATAL (num_tp > 0 && num_tp <= 64, 0);
-  CU_ASSERT_NEQ_FATAL (hist_data || live_data, 0);
+  CU_ASSERT_FATAL (num_tp > 0 && num_tp <= 64);
+  CU_ASSERT_FATAL (hist_data || live_data);
 
   char **topic_names = ddsrt_malloc (2 * num_pp * num_tp * sizeof (char *));
   uint64_t *seen = ddsrt_malloc (2 * num_pp * sizeof (*seen));
@@ -151,7 +151,7 @@ CU_Theory ((uint32_t num_pp, uint32_t num_tp, bool hist_data, bool live_data), d
     dds_sleepfor (DDS_MSECS (10));
   }
   while (!all_seen && dds_time () < t_exp);
-  CU_ASSERT_NEQ_FATAL (all_seen, 0);
+  CU_ASSERT_FATAL (all_seen);
 
   /* clean up */
   for (uint32_t p = 0; p < 2 * num_pp; p++)
@@ -355,7 +355,7 @@ static uint32_t read_topic_thread (void *varg)
       while ((n = dds_take (topic_rds[p], raw, sample_info, 1, 1)) > 0)
       {
         ret = dds_return_loan (topic_rds[p], raw, n);
-        CU_ASSERT_NEQ (ret == DDS_RETCODE_OK || ret == DDS_RETCODE_BAD_PARAMETER, 0); /* topic may be deleted */
+        CU_ASSERT (ret == DDS_RETCODE_OK || ret == DDS_RETCODE_BAD_PARAMETER); /* topic may be deleted */
       }
     }
   }
@@ -415,12 +415,12 @@ CU_Test (ddsc_topic_discovery, topic_qos_update, .init = topic_discovery_init, .
         v = ddsrt_random ();
         dds_qset_topicdata (qos, &v, sizeof (v));
         ret = dds_set_qos (topics[p][t], qos);
-        CU_ASSERT_NEQ_FATAL (ret == DDS_RETCODE_OK || ret == DDS_RETCODE_BAD_PARAMETER, 0); /* topic may be deleted */
+        CU_ASSERT_FATAL (ret == DDS_RETCODE_OK || ret == DDS_RETCODE_BAD_PARAMETER); /* topic may be deleted */
 
         v = ddsrt_random ();
         dds_qset_topicdata (qos, &v, sizeof (v));
         ret = dds_set_qos(topics_remote[p][t], qos);
-        CU_ASSERT_NEQ_FATAL (ret == DDS_RETCODE_OK || ret == DDS_RETCODE_BAD_PARAMETER, 0); /* topic may be deleted */
+        CU_ASSERT_FATAL (ret == DDS_RETCODE_OK || ret == DDS_RETCODE_BAD_PARAMETER); /* topic may be deleted */
 
         dds_sleepfor (DDS_MSECS (1));
         c++;

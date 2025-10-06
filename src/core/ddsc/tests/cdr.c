@@ -618,7 +618,7 @@ static void cdr_basic (struct ops const * const ops)
     dds_sample_info_t si;
     rc = dds_read_mask (rd, &raw, &si, 1, 1, DDS_NOT_READ_SAMPLE_STATE);
     CU_ASSERT_EQ_FATAL (rc, 1);
-    CU_ASSERT_NEQ_FATAL (!si.valid_data, 0);
+    CU_ASSERT_FATAL (!si.valid_data);
     CU_ASSERT_STREQ_FATAL (s.key, xs[0].key);
     dds_free (s.key);
   }
@@ -1004,7 +1004,7 @@ CU_Test(ddsc_cdr, forward_conv_serdata)
 
   struct sampletype ys = { 0 };
   bool ok = ddsi_serdata_to_sample (sd0, &ys, NULL, NULL);
-  CU_ASSERT_NEQ_FATAL (ok, 0);
+  CU_ASSERT_FATAL (ok);
   CU_ASSERT_STREQ_FATAL (ys.key, xs.key);
   CU_ASSERT_STREQ_FATAL (ys.value, xs.value);
   ddsi_sertype_free_sample (tw.st, &ys, DDS_FREE_CONTENTS);

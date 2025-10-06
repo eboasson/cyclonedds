@@ -98,29 +98,29 @@ static void check_default_qos_of_builtin_entity (dds_entity_t entity, enum cdqob
 
   bool x;
   x = dds_qget_durability(qos, &durability_kind);
-  CU_ASSERT_NEQ_FATAL (x || kind == CDQOBE_SUBSCRIBER, 0);
+  CU_ASSERT_FATAL (x || kind == CDQOBE_SUBSCRIBER);
   x = dds_qget_presentation(qos, &presentation_access_scope_kind, &presentation_coherent_access, &presentation_ordered_access);
-  CU_ASSERT_NEQ_FATAL (x || kind != CDQOBE_READER, 0);
+  CU_ASSERT_FATAL (x || kind != CDQOBE_READER);
   x = dds_qget_deadline(qos, &deadline);
-  CU_ASSERT_NEQ_FATAL (x || kind == CDQOBE_SUBSCRIBER, 0);
+  CU_ASSERT_FATAL (x || kind == CDQOBE_SUBSCRIBER);
   x = dds_qget_ownership(qos, &ownership_kind);
-  CU_ASSERT_NEQ_FATAL (x || kind == CDQOBE_SUBSCRIBER, 0);
+  CU_ASSERT_FATAL (x || kind == CDQOBE_SUBSCRIBER);
   x = dds_qget_liveliness(qos, &liveliness_kind, &liveliness_lease_duration);
-  CU_ASSERT_NEQ_FATAL (x || kind == CDQOBE_SUBSCRIBER, 0);
+  CU_ASSERT_FATAL (x || kind == CDQOBE_SUBSCRIBER);
   x = dds_qget_time_based_filter(qos, &minimum_separation);
-  CU_ASSERT_NEQ_FATAL (x || kind != CDQOBE_READER, 0);
+  CU_ASSERT_FATAL (x || kind != CDQOBE_READER);
   x = dds_qget_reliability(qos, &reliability_kind, &max_blocking_time);
-  CU_ASSERT_NEQ_FATAL (x || kind == CDQOBE_SUBSCRIBER, 0);
+  CU_ASSERT_FATAL (x || kind == CDQOBE_SUBSCRIBER);
   x = dds_qget_destination_order(qos, &destination_order_kind);
-  CU_ASSERT_NEQ_FATAL (x || kind == CDQOBE_SUBSCRIBER, 0);
+  CU_ASSERT_FATAL (x || kind == CDQOBE_SUBSCRIBER);
   x = dds_qget_history(qos, &history_kind, &history_depth);
-  CU_ASSERT_NEQ_FATAL (x || kind == CDQOBE_SUBSCRIBER, 0);
+  CU_ASSERT_FATAL (x || kind == CDQOBE_SUBSCRIBER);
   x = dds_qget_resource_limits(qos, &resource_limits_max_samples, &resource_limits_max_instances, &resource_limits_max_samples_per_instance);
-  CU_ASSERT_NEQ_FATAL (x || kind == CDQOBE_SUBSCRIBER, 0);
+  CU_ASSERT_FATAL (x || kind == CDQOBE_SUBSCRIBER);
   x = dds_qget_reader_data_lifecycle(qos, &autopurge_nowriter_samples_delay, &autopurge_disposed_samples_delay);
-  CU_ASSERT_NEQ_FATAL (x || kind != CDQOBE_READER, 0);
+  CU_ASSERT_FATAL (x || kind != CDQOBE_READER);
   x = dds_qget_partition(qos, &plen, &partitions);
-  CU_ASSERT_NEQ_FATAL (x || kind == CDQOBE_TOPIC, 0);
+  CU_ASSERT_FATAL (x || kind == CDQOBE_TOPIC);
 
   if (kind == CDQOBE_READER || kind == CDQOBE_TOPIC)
   {
@@ -247,7 +247,7 @@ CU_Test(ddsc_builtin_topics, read_subscription_data, .init = setup, .fini = tear
         dds_return_t get_qos_ret = dds_get_qos(j == 0 ? reader : g_reader, qos);
         CU_ASSERT_EQ_FATAL (get_qos_ret, DDS_RETCODE_OK);
         const bool eq = dds_qos_equal(qos, data->qos);
-        CU_ASSERT_NEQ_FATAL (eq, 0);
+        CU_ASSERT_FATAL (eq);
       }
     }
     if (strcmp (data->topic_name, "RoundTrip") == 0)
@@ -564,7 +564,7 @@ CU_Test(ddsc_builtin_topics, cant_use_real_topic)
     dds_return_t rc;
     dds_reader *rd_ent = NULL;
     rc = dds_reader_lock (rd, &rd_ent);
-    CU_ASSERT_NEQ_FATAL (rc == 0 && rd_ent != NULL, 0);
+    CU_ASSERT_FATAL (rc == 0 && rd_ent != NULL);
     const dds_entity_t real_topic = rd_ent->m_topic->m_entity.m_hdllink.hdl;
     dds_reader_unlock (rd_ent);
 

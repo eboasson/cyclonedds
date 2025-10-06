@@ -43,7 +43,7 @@ CU_Test(ddsrt_random, makeseed)
   for (size_t i = 0; i < N_PRNG; i++)
   {
     bool ok = ddsrt_prng_makeseed (&seeds[i]);
-    CU_ASSERT_NEQ_FATAL (ok, 0);
+    CU_ASSERT_FATAL (ok);
   }
 
   /* Any pair the same is possible, but the likelihood should be so small that it is worth accepting

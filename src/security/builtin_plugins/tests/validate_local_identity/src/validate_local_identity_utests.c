@@ -2009,7 +2009,7 @@ CU_Test(ddssec_builtin_validate_local_identity,return_freed_handle)
     reset_exception(&exception);
 
     success = auth->return_identity_handle(auth, local_identity_handle, &exception);
-    CU_ASSERT_NEQ_FATAL (success, 0);
+    CU_ASSERT_FATAL (success);
 
     if (!success) {
         printf("return_identity_handle failed: %s\n", exception.message ? exception.message : "Error message missing");

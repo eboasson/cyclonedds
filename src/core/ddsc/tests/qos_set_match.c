@@ -310,7 +310,7 @@ static void partition_check (const enum check_mode check_mode, const dds_qos_t *
   CU_ASSERT_EQ_FATAL (r, (check_mode != CM_UNSET));
   if (check_mode == CM_SET) {
     if (v[0] == 0) {
-      CU_ASSERT_NEQ_FATAL (n == 0 && ps == NULL, 0); // Beware: there is an open PR to change this case!
+      CU_ASSERT_FATAL (n == 0 && ps == NULL); // Beware: there is an open PR to change this case!
     } else {
       char name[13];
       snprintf (name, sizeof (name), "p%d", v[0]);

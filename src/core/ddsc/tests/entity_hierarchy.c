@@ -373,8 +373,8 @@ CU_Test(ddsc_entity_get_children, too_small, .init=hierarchy_init, .fini=hierarc
     dds_entity_t children[2];
     ret = dds_get_children(g_participant, children, 2);
     CU_ASSERT_EQ_FATAL (ret, 3);
-    CU_ASSERT_NEQ_FATAL ((children[0] == g_publisher) || (children[0] == g_subscriber)  || (children[0] == g_topic), 0);
-    CU_ASSERT_NEQ_FATAL ((children[1] == g_publisher) || (children[1] == g_subscriber)  || (children[1] == g_topic), 0);
+    CU_ASSERT_FATAL ((children[0] == g_publisher) || (children[0] == g_subscriber)  || (children[0] == g_topic));
+    CU_ASSERT_FATAL ((children[1] == g_publisher) || (children[1] == g_subscriber)  || (children[1] == g_topic));
     CU_ASSERT_NEQ_FATAL (children[0], children[1]);
 }
 /*************************************************************************************************/
@@ -386,9 +386,9 @@ CU_Test(ddsc_entity_get_children, participant, .init=hierarchy_init, .fini=hiera
     dds_entity_t children[4];
     ret = dds_get_children(g_participant, children, 4);
     CU_ASSERT_EQ_FATAL (ret, 3);
-    CU_ASSERT_NEQ_FATAL ((children[0] == g_publisher) || (children[0] == g_subscriber)  || (children[0] == g_topic), 0);
-    CU_ASSERT_NEQ_FATAL ((children[1] == g_publisher) || (children[1] == g_subscriber)  || (children[1] == g_topic), 0);
-    CU_ASSERT_NEQ_FATAL ((children[2] == g_publisher) || (children[2] == g_subscriber)  || (children[2] == g_topic), 0);
+    CU_ASSERT_FATAL ((children[0] == g_publisher) || (children[0] == g_subscriber)  || (children[0] == g_topic));
+    CU_ASSERT_FATAL ((children[1] == g_publisher) || (children[1] == g_subscriber)  || (children[1] == g_topic));
+    CU_ASSERT_FATAL ((children[2] == g_publisher) || (children[2] == g_subscriber)  || (children[2] == g_topic));
     CU_ASSERT_NEQ_FATAL (children[0], children[1]);
     CU_ASSERT_NEQ_FATAL (children[0], children[2]);
     CU_ASSERT_NEQ_FATAL (children[1], children[2]);
@@ -443,8 +443,8 @@ CU_Test(ddsc_entity_get_children, reader, .init=hierarchy_init, .fini=hierarchy_
     dds_entity_t children[2];
     ret = dds_get_children(g_reader, children, 2);
     CU_ASSERT_EQ_FATAL (ret, 2);
-    CU_ASSERT_NEQ_FATAL ((children[0] == g_readcond) || (children[0] == g_querycond), 0);
-    CU_ASSERT_NEQ_FATAL ((children[1] == g_readcond) || (children[1] == g_querycond), 0);
+    CU_ASSERT_FATAL ((children[0] == g_readcond) || (children[0] == g_querycond));
+    CU_ASSERT_FATAL ((children[1] == g_readcond) || (children[1] == g_querycond));
     CU_ASSERT_NEQ_FATAL (children[0], children[1]);
 }
 /*************************************************************************************************/
@@ -861,7 +861,7 @@ CU_Test(ddsc_entity_get_children, implicit_publisher)
 
     ret = dds_get_children(participant, child2, 2);
     CU_ASSERT_EQ_FATAL (ret, 1);
-    CU_ASSERT_NEQ_FATAL ((child2[0] == child[0]) || (child2[0] == child[1]) , 0);
+    CU_ASSERT_FATAL ((child2[0] == child[0]) || (child2[0] == child[1]) );
 
     dds_delete(topic);
     dds_delete(participant);
@@ -905,7 +905,7 @@ CU_Test(ddsc_entity_get_children, implicit_subscriber)
 
     ret = dds_get_children(participant, child2, 2);
     CU_ASSERT_EQ_FATAL (ret, 1);
-    CU_ASSERT_NEQ_FATAL ((child2[0] == child[0]) || (child2[0] == child[1]) , 0);
+    CU_ASSERT_FATAL ((child2[0] == child[0]) || (child2[0] == child[1]) );
 
     dds_delete(topic);
     dds_delete(participant);

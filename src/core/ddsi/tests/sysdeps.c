@@ -137,7 +137,7 @@ static void teardown (void)
 CU_Test (ddsi_sysdeps, log_stacktrace_self, .init = setup, .fini = teardown)
 {
   ddsi_log_stacktrace (&logconfig, "self", ddsrt_thread_self ());
-  CU_ASSERT_NEQ_FATAL (loggerstate == STL_TEST_PASSED || loggerstate == STL_INIT, 0);
+  CU_ASSERT_FATAL (loggerstate == STL_TEST_PASSED || loggerstate == STL_INIT);
 }
 
 struct log_stacktrace_thread_arg {
@@ -213,5 +213,5 @@ CU_Test (ddsi_sysdeps, log_stacktrace_other, .init = setup, .fini = teardown)
   ddsrt_mutex_unlock (&arg.lock);
   rc = ddsrt_thread_join (tid, NULL);
   CU_ASSERT_EQ_FATAL (rc, 0);
-  CU_ASSERT_NEQ_FATAL (loggerstate == STL_TEST_PASSED || loggerstate == STL_INIT, 0);
+  CU_ASSERT_FATAL (loggerstate == STL_TEST_PASSED || loggerstate == STL_INIT);
 }

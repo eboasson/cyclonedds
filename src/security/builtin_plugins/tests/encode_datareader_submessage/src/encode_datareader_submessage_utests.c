@@ -848,14 +848,14 @@ static void encode_datareader_submessage_not_signed(uint32_t transformation_kind
     printf("encode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
 
   reset_exception(&exception);
 
   result = check_encoded_data(&encoded_buffer, is_encrypted, &header, &footer, &data);
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
 
   CU_ASSERT_EQ (header->transform_identifier.transformation_kind[3], transformation_kind);
 
@@ -875,7 +875,7 @@ static void encode_datareader_submessage_not_signed(uint32_t transformation_kind
       printf("Decode failed\n");
     }
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
     CU_ASSERT_MEMEQ (plain_buffer._buffer, plain_buffer._length, decoded_buffer._buffer, decoded_buffer._length);
     DDS_Security_OctetSeq_deinit((&decoded_buffer));
   }
@@ -888,7 +888,7 @@ static void encode_datareader_submessage_not_signed(uint32_t transformation_kind
       printf("Decode failed\n");
     }
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
     CU_ASSERT_MEMEQ (plain_buffer._buffer, plain_buffer._length, data._buffer, data._length);
   }
 
@@ -999,7 +999,7 @@ static void encode_datareader_submessage_sign(uint32_t transformation_kind)
     printf("writer_crypto: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
 
@@ -1007,7 +1007,7 @@ static void encode_datareader_submessage_sign(uint32_t transformation_kind)
   buffer = NULL;
 
   result = check_encoded_data(&encoded_buffer, is_encrypted, &header, &footer, &data);
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
 
   CU_ASSERT_EQ (header->transform_identifier.transformation_kind[3], transformation_kind);
 
@@ -1026,7 +1026,7 @@ static void encode_datareader_submessage_sign(uint32_t transformation_kind)
       printf("Decode failed\n");
     }
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
     CU_ASSERT_MEMEQ (plain_buffer._buffer, plain_buffer._length, decoded_buffer._buffer, decoded_buffer._length);
     DDS_Security_OctetSeq_deinit((&decoded_buffer));
   }
@@ -1040,13 +1040,13 @@ static void encode_datareader_submessage_sign(uint32_t transformation_kind)
       printf("Decode failed\n");
     }
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
     CU_ASSERT_MEMEQ (plain_buffer._buffer, plain_buffer._length, data._buffer, data._length);
   }
 
   printf("num hmacs = %u\n", footer->length);
 
-  CU_ASSERT_NEQ (check_writer_signing(&writer_list, footer, session_id, header->session_id, session_keys->key_size), 0);
+  CU_ASSERT (check_writer_signing(&writer_list, footer, session_id, header->session_id, session_keys->key_size));
 
   for (i = 0; i < WRITERS_CNT; i++)
   {
@@ -1136,7 +1136,7 @@ CU_Test(ddssec_builtin_encode_datareader_submessage, invalid_args, .init = suite
     printf("encode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1156,7 +1156,7 @@ CU_Test(ddssec_builtin_encode_datareader_submessage, invalid_args, .init = suite
     printf("encode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1177,7 +1177,7 @@ CU_Test(ddssec_builtin_encode_datareader_submessage, invalid_args, .init = suite
     printf("encode_datareader_submessage: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1203,7 +1203,7 @@ CU_Test(ddssec_builtin_encode_datareader_submessage, invalid_args, .init = suite
 
   unregister_datareader(reader_crypto);
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 

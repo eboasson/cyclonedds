@@ -62,7 +62,7 @@ static void check_lease_duration (const dds_qos_t *qos, dds_duration_t exp_ldur)
   dds_liveliness_kind_t kind;
   dds_duration_t ldur;
   const bool lpresent = dds_qget_liveliness (qos, &kind, &ldur);
-  CU_ASSERT_NEQ_FATAL (lpresent, 0);
+  CU_ASSERT_FATAL (lpresent);
   CU_ASSERT_EQ_FATAL (kind, DDS_LIVELINESS_AUTOMATIC);
   CU_ASSERT_EQ_FATAL (ldur, exp_ldur);
 }
@@ -317,7 +317,7 @@ CU_Test(ddsc_participant_lease_duration, expiry)
   struct read_with_timeout_result rret;
   rret = read_with_timeout (rd, raw, si, 7, 3, DDS_ALIVE_INSTANCE_STATE, abstimeout);
   // all three should be alive now, no invalid samples
-  CU_ASSERT_NEQ_FATAL (rret.no_timeout && rret.ninstances == 3, 0);
+  CU_ASSERT_FATAL (rret.no_timeout && rret.ninstances == 3);
   ret = dds_return_loan (rd, raw, rret.nsamples);
   CU_ASSERT_EQ_FATAL (ret, 0);
 
@@ -335,14 +335,14 @@ CU_Test(ddsc_participant_lease_duration, expiry)
     tprintf ("calling make_pp0_deaf for its debug output on lease expiry\n");
     make_pp0_deaf (pp, ppg, tref_et);
   }
-  CU_ASSERT_NEQ_FATAL (rret.no_timeout && rret.ninstances == 2, 0);
+  CU_ASSERT_FATAL (rret.no_timeout && rret.ninstances == 2);
   const dds_time_t texpire = dds_time ();
   ret = dds_return_loan (rd, raw, rret.nsamples);
   CU_ASSERT_EQ_FATAL (ret, 0);
 
   // must not expire too soon (unless lax_check says we really don't know)
   assert (ldur[1] <= ldur[2]);
-  CU_ASSERT_NEQ_FATAL (lax_check || texpire - tdeaf > ldur[1], 0);
+  CU_ASSERT_FATAL (lax_check || texpire - tdeaf > ldur[1]);
   // must not have taken ridiculously long either (100ms margin is not enough on CI)
   CU_ASSERT_LT_FATAL (texpire - tdeaf, ldur[2] + DDS_MSECS (300));
   ret = dds_delete (DDS_CYCLONEDDS_HANDLE);

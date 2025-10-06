@@ -1503,6 +1503,6 @@ CU_Test(ddsc_set_status_mask, trigger_waitset)
 
     ok = targ.twait.v + DDS_MSECS (50) < ttrig.v && targ.twakeup.v < ttrig.v + DDS_MSECS (50);
   } while (!ok && attempts++ < 5);
-  CU_ASSERT_NEQ_FATAL (ok, 0);
+  CU_ASSERT_FATAL (ok);
   dds_delete (dp);
 }

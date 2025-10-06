@@ -26,7 +26,7 @@ CU_TheoryDataPoints(ddsrt_strcasecmp, basic) = {
 CU_Theory((const char *s1, const char *s2, eq_t e), ddsrt_strcasecmp, basic)
 {
   int r = ddsrt_strcasecmp(s1, s2);
-  CU_ASSERT_NEQ ((e == eq && r == 0) || (e == lt && r < 0) || (e == gt && r > 0), 0);
+  CU_ASSERT ((e == eq && r == 0) || (e == lt && r < 0) || (e == gt && r > 0));
 }
 
 CU_TheoryDataPoints(ddsrt_strncasecmp, basic) = {
@@ -39,7 +39,7 @@ CU_TheoryDataPoints(ddsrt_strncasecmp, basic) = {
 CU_Theory((const char *s1, const char *s2, size_t n, eq_t e), ddsrt_strncasecmp, basic)
 {
   int r = ddsrt_strncasecmp(s1, s2, n);
-  CU_ASSERT_NEQ ((e == eq && r == 0) || (e == lt && r < 0) || (e == gt && r > 0), 0);
+  CU_ASSERT ((e == eq && r == 0) || (e == lt && r < 0) || (e == gt && r > 0));
 }
 
 CU_TheoryDataPoints(ddsrt_strncasecmp, empty) = {
@@ -52,7 +52,7 @@ CU_TheoryDataPoints(ddsrt_strncasecmp, empty) = {
 CU_Theory((const char *s1, const char *s2, size_t n, eq_t e), ddsrt_strncasecmp, empty)
 {
   int r = ddsrt_strncasecmp(s1, s2, n);
-  CU_ASSERT_NEQ ((e == eq && r == 0) || (e == lt && r < 0) || (e == gt && r > 0), 0);
+  CU_ASSERT ((e == eq && r == 0) || (e == lt && r < 0) || (e == gt && r > 0));
 }
 
 CU_TheoryDataPoints(ddsrt_strncasecmp, length) = {
@@ -65,7 +65,7 @@ CU_TheoryDataPoints(ddsrt_strncasecmp, length) = {
 CU_Theory((const char *s1, const char *s2, size_t n, eq_t e), ddsrt_strncasecmp, length)
 {
   int r = ddsrt_strncasecmp(s1, s2, n);
-  CU_ASSERT_NEQ ((e == eq && r == 0) || (e == lt && r < 0) || (e == gt && r > 0), 0);
+  CU_ASSERT ((e == eq && r == 0) || (e == lt && r < 0) || (e == gt && r > 0));
 }
 
 CU_TheoryDataPoints(ddsrt_str_replace, basic) = {

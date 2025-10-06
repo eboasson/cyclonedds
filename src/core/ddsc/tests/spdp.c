@@ -245,7 +245,7 @@ static void run_one (int base_port, const struct cfg *cfg, const struct logger_a
       }
     }
   }
-  CU_ASSERT_NEQ_FATAL (all_ok, 0);
+  CU_ASSERT_FATAL (all_ok);
 }
 
 static const struct logger_arg larg_mut_disc = {

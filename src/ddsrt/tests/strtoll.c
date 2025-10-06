@@ -59,33 +59,33 @@ CU_Test(ddsrt_strtoll, strtoll)
   ll = -1;
   rc = ddsrt_strtoll(str, &ptr, 0, &ll);
   CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
-  CU_ASSERT_NEQ (ll == 0 && ptr == str, 0);
+  CU_ASSERT (ll == 0 && ptr == str);
 
   str = "+gibberish";
   ll = -2;
   rc = ddsrt_strtoll(str, &ptr, 0, &ll);
   CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
-  CU_ASSERT_NEQ (ll == 0 && ptr == str, 0);
+  CU_ASSERT (ll == 0 && ptr == str);
 
   str = "-gibberish";
   ll = -3;
   rc = ddsrt_strtoll(str, &ptr, 0, &ll);
   CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
-  CU_ASSERT_NEQ (ll == 0 && ptr == str, 0);
+  CU_ASSERT (ll == 0 && ptr == str);
 
   str = "gibberish";
   ptr = NULL;
   ll = -4;
   rc = ddsrt_strtoll(str, &ptr, 36, &ll);
   CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
-  CU_ASSERT_NEQ (ll == 46572948005345 && ptr && *ptr == '\0', 0);
+  CU_ASSERT (ll == 46572948005345 && ptr && *ptr == '\0');
 
   str = "1050505055";
   ptr = dummy;
   ll = -5;
   rc = ddsrt_strtoll(str, &ptr, 37, &ll);
   CU_ASSERT_EQ (rc, DDS_RETCODE_BAD_PARAMETER);
-  CU_ASSERT_NEQ (ll == -5 && ptr == dummy, 0);
+  CU_ASSERT (ll == -5 && ptr == dummy);
 
   str = " \t \n 1050505055";
   ll = -6;
@@ -105,26 +105,26 @@ CU_Test(ddsrt_strtoll, strtoll)
   ll = -8;
   rc = ddsrt_strtoll(str, &ptr, 10, &ll);
   CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
-  CU_ASSERT_NEQ (ll == 0LL && ptr == str, 0);
+  CU_ASSERT (ll == 0LL && ptr == str);
 
   str = "10x";
   ptr = NULL;
   ll = -9;
   rc = ddsrt_strtoll(str, &ptr, 10, &ll);
   CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
-  CU_ASSERT_NEQ (ll == 10LL && ptr && *ptr == 'x', 0);
+  CU_ASSERT (ll == 10LL && ptr && *ptr == 'x');
 
   str = "+10x";
   ll = -10;
   rc = ddsrt_strtoll(str, &ptr, 10, &ll);
   CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
-  CU_ASSERT_NEQ (ll == 10LL && ptr && *ptr == 'x', 0);
+  CU_ASSERT (ll == 10LL && ptr && *ptr == 'x');
 
   str = "-10x";
   ll = -11;
   rc = ddsrt_strtoll(str, &ptr, 10, &ll);
   CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
-  CU_ASSERT_NEQ (ll == -10LL && ptr && *ptr == 'x', 0);
+  CU_ASSERT (ll == -10LL && ptr && *ptr == 'x');
 
   str = (const char *)str_llmax;
   ll = -12;
@@ -142,7 +142,7 @@ CU_Test(ddsrt_strtoll, strtoll)
   ll = -14;
   rc = ddsrt_strtoll(str, &ptr, 10, &ll);
   CU_ASSERT_EQ (rc, DDS_RETCODE_OUT_OF_RANGE);
-  CU_ASSERT_NEQ (ll == llmax && *ptr == '1', 0);
+  CU_ASSERT (ll == llmax && *ptr == '1');
 
   str = "0x100";
   ll = -15;
@@ -197,14 +197,14 @@ CU_Test(ddsrt_strtoll, strtoll)
   ll = -23;
   rc = ddsrt_strtoll(str, &ptr, 10, &ll);
   CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
-  CU_ASSERT_NEQ (ll == 0 && ptr && *ptr == 'x', 0);
+  CU_ASSERT (ll == 0 && ptr && *ptr == 'x');
 
   /* calling os_strtoll with \"%s\" and base 0, expected result 256 */
   str = "0x100g";
   ll = -24;
   rc = ddsrt_strtoll(str, &ptr, 0, &ll);
   CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
-  CU_ASSERT_NEQ (ll == 256 && ptr && *ptr == 'g', 0);
+  CU_ASSERT (ll == 256 && ptr && *ptr == 'g');
 
   str = "0100";
   ll = -25;
@@ -236,7 +236,7 @@ CU_Test(ddsrt_strtoll, strtoll)
   ll = -29;
   rc = ddsrt_strtoll(str, &ptr, 8, &ll);
   CU_ASSERT_EQ (rc, DDS_RETCODE_OK);
-  CU_ASSERT_NEQ (ll == 64LL && ptr && *ptr == '8', 0);
+  CU_ASSERT (ll == 64LL && ptr && *ptr == '8');
 
   str = "00001010";
   ll = -30;

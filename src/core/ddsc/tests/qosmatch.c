@@ -253,11 +253,11 @@ static uint32_t pub_thread (void *varg)
   for (size_t i = 0; i < NPUB; i++)
   {
     setqos (qos, i * NWR_PUB, false, false);
-    CU_ASSERT_NEQ_FATAL (pubsub_qos_eq_h (qos, pub[i]), 0);
+    CU_ASSERT_FATAL (pubsub_qos_eq_h (qos, pub[i]));
     for (size_t j = 0; j < NWR_PUB; j++)
     {
       setqos (qos, i * NWR_PUB + j, false, false);
-      CU_ASSERT_NEQ_FATAL (writer_qos_eq_h (qos, wr[i][j]), 0);
+      CU_ASSERT_FATAL (writer_qos_eq_h (qos, wr[i][j]));
     }
   }
 
@@ -272,7 +272,7 @@ static uint32_t pub_thread (void *varg)
         dds_instance_handle_t ih;
         dds_builtintopic_endpoint_t *ep;
         rc = dds_get_matched_subscriptions (wr[i][j], &ih, 1);
-        CU_ASSERT_NEQ_FATAL (rc == 0 || rc == 1, 0);
+        CU_ASSERT_FATAL (rc == 0 || rc == 1);
         if (chk[i][j])
           continue;
         if (rc == 1)
@@ -395,11 +395,11 @@ static uint32_t sub_thread (void *varg)
   for (size_t i = 0; i < NPUB; i++)
   {
     setqos (qos, i * NWR_PUB, true, false);
-    CU_ASSERT_NEQ_FATAL (pubsub_qos_eq_h (qos, sub[i]), 0);
+    CU_ASSERT_FATAL (pubsub_qos_eq_h (qos, sub[i]));
     for (size_t j = 0; j < NWR_PUB; j++)
     {
       setqos (qos, i * NWR_PUB + j, true, false);
-      CU_ASSERT_NEQ_FATAL (reader_qos_eq_h (qos, rd[i][j]), 0);
+      CU_ASSERT_FATAL (reader_qos_eq_h (qos, rd[i][j]));
     }
   }
 
@@ -414,7 +414,7 @@ static uint32_t sub_thread (void *varg)
         dds_instance_handle_t ih;
         dds_builtintopic_endpoint_t *ep;
         rc = dds_get_matched_publications (rd[i][j], &ih, 1);
-        CU_ASSERT_NEQ_FATAL (rc == 0 || rc == 1, 0);
+        CU_ASSERT_FATAL (rc == 0 || rc == 1);
         if (chk[i][j])
           continue;
         if (rc == 1)

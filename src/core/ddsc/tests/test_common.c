@@ -91,7 +91,7 @@ void xcdr2_ser (const void *obj, const dds_topic_descriptor_t *topic_desc, dds_o
   os->x.m_xcdr_version = DDSI_RTPS_CDR_ENC_VERSION_2;
   bool ret = dds_stream_write_sampleLE (os, &dds_cdrstream_default_allocator, obj, &desc);
   dds_cdrstream_desc_fini (&desc, &dds_cdrstream_default_allocator);
-  CU_ASSERT_NEQ_FATAL (ret, 0);
+  CU_ASSERT_FATAL (ret);
 }
 
 void xcdr2_deser (const unsigned char *buf, uint32_t sz, void **obj, const dds_topic_descriptor_t *desc)

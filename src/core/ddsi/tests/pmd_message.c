@@ -299,7 +299,7 @@ static void send_pmd_message (uint32_t seqlo, uint16_t encoding, uint16_t option
   // wait until PMD message has been processed
   wait_for_dqueue ();
 
-  CU_ASSERT_NEQ_FATAL (msg_is_valid == (ddsrt_atomic_ld32 (&logger_arg.match) == 1), 0);
+  CU_ASSERT_FATAL (msg_is_valid == (ddsrt_atomic_ld32 (&logger_arg.match) == 1));
 }
 
 CU_Test (ddsi_pmd_message, valid, .init = setup_and_start, .fini = stop_and_teardown)

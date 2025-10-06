@@ -398,7 +398,7 @@ CU_Test(ddsc_waitset_attach_detach, combinations, .init=ddsc_waitset_init, .fini
 
     // set must match expectations
     ret = dds_waitset_get_entities (waitset, es, sizeof (es) / sizeof (es[0]));
-    CU_ASSERT_NEQ_FATAL (ret > 0 && ret <= (dds_return_t) count, 0);
+    CU_ASSERT_FATAL (ret > 0 && ret <= (dds_return_t) count);
     uint32_t actset = 0;
     for (dds_return_t j = 0; j < ret; j++)
     {
@@ -409,7 +409,7 @@ CU_Test(ddsc_waitset_attach_detach, combinations, .init=ddsc_waitset_init, .fini
       // it must be one of the known entities
       CU_ASSERT_LT_FATAL (k, count);
       // must not be seen yet, must be expected to be seen
-      CU_ASSERT_NEQ_FATAL (!(actset & (1u << k)), 0);
+      CU_ASSERT_FATAL (!(actset & (1u << k)));
       CU_ASSERT_NEQ_FATAL ((set & (1u << k)), 0);
       actset |= 1u << k;
     }
@@ -617,7 +617,7 @@ CU_Theory((size_t size), ddsc_waitset_get_entities, array_sizes, .init=ddsc_wait
       }
     }
     CU_ASSERT_NEQ_FATAL (flag, 0);
-    CU_ASSERT_NEQ_FATAL (!(found & flag), 0);
+    CU_ASSERT_FATAL (!(found & flag));
     found |= flag;
     count++;
   }

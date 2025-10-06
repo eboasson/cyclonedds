@@ -191,7 +191,7 @@ CU_Test (ddsi_plist_generic, ser_and_deser)
         CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
       /* the compare function should be happy with it */
       if (!ddsi_plist_equal_generic (descs[i].exp_data ? descs[i].exp_data : descs[i].data, &mem, descs[i].desc))
-        CU_ASSERT_NEQ (!(bool)"plist_equal_generic", 0);
+        CU_ASSERT (!(bool)"plist_equal_generic");
       /* content should be identical except when an XO, XS or XQ is present (because the first two
        alias the serialised form and XQ to freshly allocated memory), so we do a limited check */
       bool can_memcmp = true;
@@ -228,7 +228,7 @@ CU_Test (ddsi_plist_generic, unalias)
     memset (ser, 0xee, sersize);
     ddsrt_free (ser);
     if (!ddsi_plist_equal_generic (descs[i].exp_data ? descs[i].exp_data : descs[i].data, &mem, descs[i].desc))
-      CU_ASSERT_NEQ (!(bool)"plist_equal_generic", 0);
+      CU_ASSERT (!(bool)"plist_equal_generic");
     ddsi_plist_fini_generic (&mem, descs[i].desc, false);
   }
 }

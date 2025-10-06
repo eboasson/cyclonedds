@@ -104,14 +104,14 @@ CU_Test (ddsc_instance_handle, a, .init = instance_handle_init, .fini = instance
     rc = dds_take (rd[0], &rawA, &siA, 1, 1);
     CU_ASSERT_EQ_FATAL (rc, 1);
     CU_ASSERT_NEQ_FATAL (siA.valid_data, 0);
-    CU_ASSERT_NEQ_FATAL (1 <= a.k && a.k <= 5 && a.v == a.k, 0);
+    CU_ASSERT_FATAL (1 <= a.k && a.k <= 5 && a.v == a.k);
 
     /* take one sample from B using the instance handle just returned */
     rc = dds_take_instance (rd[1], &rawB, &siB, 1, 1, siA.instance_handle);
     CU_ASSERT_EQ_FATAL (rc, 1);
     CU_ASSERT_NEQ_FATAL (siB.valid_data, 0);
     CU_ASSERT_EQ_FATAL (siB.instance_handle, siA.instance_handle);
-    CU_ASSERT_NEQ_FATAL (b.k == a.k && b.v == 2 * a.k, 0);
+    CU_ASSERT_FATAL (b.k == a.k && b.v == 2 * a.k);
 
     /* take one sample from C using the instance handle just returned, this should work
        for different topic that have the same key type */
@@ -119,7 +119,7 @@ CU_Test (ddsc_instance_handle, a, .init = instance_handle_init, .fini = instance
     CU_ASSERT_EQ_FATAL (rc, 1);
     CU_ASSERT_NEQ_FATAL (siC.valid_data, 0);
     CU_ASSERT_EQ_FATAL (siC.instance_handle, siA.instance_handle);
-    CU_ASSERT_NEQ_FATAL (c.k == a.k && c.v == 3 * a.k, 0);
+    CU_ASSERT_FATAL (c.k == a.k && c.v == 3 * a.k);
   }
 
   /* there should be no data left */

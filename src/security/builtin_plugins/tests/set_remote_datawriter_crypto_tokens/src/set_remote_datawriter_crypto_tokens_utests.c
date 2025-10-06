@@ -365,7 +365,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, happy_day, .init = s
     printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
   DDS_Security_DataHolderSeq_deinit(&tokens);
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
   reset_exception(&exception);
@@ -398,7 +398,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, single_token, .init 
     printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
   DDS_Security_DataHolderSeq_deinit(&tokens);
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
   reset_exception(&exception);
@@ -431,7 +431,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_args, .init 
   if (!result)
     printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
   reset_exception(&exception);
@@ -447,7 +447,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_args, .init 
   if (!result)
     printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
   reset_exception(&exception);
@@ -463,7 +463,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_args, .init 
   if (!result)
     printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
   reset_exception(&exception);
@@ -479,7 +479,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_args, .init 
   if (!result)
     printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
   reset_exception(&exception);
@@ -495,7 +495,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_args, .init 
   if (!result)
     printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
   reset_exception(&exception);
@@ -532,7 +532,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_tokens, .ini
     if (!result)
       printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -552,7 +552,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_tokens, .ini
     if (!result)
       printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -573,7 +573,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_tokens, .ini
     if (!result)
       printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -595,7 +595,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_tokens, .ini
     if (!result)
       printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -616,7 +616,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_tokens, .ini
     if (!result)
       printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -636,7 +636,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_tokens, .ini
     if (!result)
       printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -658,7 +658,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_tokens, .ini
     if (!result)
       printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -681,7 +681,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_tokens, .ini
     if (!result)
       printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -704,7 +704,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_tokens, .ini
     if (!result)
       printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -743,7 +743,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_key_material
     if (!result)
       printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -765,7 +765,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_key_material
     if (!result)
       printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -792,7 +792,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_key_material
     if (!result)
       printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -817,7 +817,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_key_material
     if (!result)
       printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -842,7 +842,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_key_material
     if (!result)
       printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -870,7 +870,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_key_material
     if (!result)
       printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -895,7 +895,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_key_material
     if (!result)
       printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -921,7 +921,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_key_material
     if (!result)
       printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -949,7 +949,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_key_material
     if (!result)
       printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -974,7 +974,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_key_material
     if (!result)
       printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -1000,7 +1000,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_key_material
     if (!result)
       printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);
@@ -1027,7 +1027,7 @@ CU_Test(ddssec_builtin_set_remote_datawriter_crypto_tokens, invalid_key_material
     if (!result)
       printf("set_remote_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
     reset_exception(&exception);

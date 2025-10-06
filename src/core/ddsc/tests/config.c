@@ -459,7 +459,7 @@ CU_Test(ddsc_config, multiple_domains, .init = ddsrt_init, .fini = ddsrt_fini)
   dds_set_trace_sink (&logger, (void *) exp[1]);
   found = 0;
   doms[1] = dds_create_domain (54, config);
-  CU_ASSERT_NEQ_FATAL (doms[1] > 0 && doms[1] != doms[0], 0);
+  CU_ASSERT_FATAL (doms[1] > 0 && doms[1] != doms[0]);
   tprintf ("found = %d\n", found);
   CU_ASSERT_EQ_FATAL (found, 7);
 
@@ -467,7 +467,7 @@ CU_Test(ddsc_config, multiple_domains, .init = ddsrt_init, .fini = ddsrt_fini)
   dds_set_trace_sink (&logger, (void *) exp[2]);
   found = 0;
   doms[2] = dds_create_domain (57, config);
-  CU_ASSERT_NEQ_FATAL (doms[2] > 0 && doms[2] != doms[1] && doms[2] != doms[0], 0);
+  CU_ASSERT_FATAL (doms[2] > 0 && doms[2] != doms[1] && doms[2] != doms[0]);
   tprintf ("found = %d\n", found);
   CU_ASSERT_EQ_FATAL (found, 7);
 

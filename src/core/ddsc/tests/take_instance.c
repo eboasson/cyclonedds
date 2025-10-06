@@ -280,7 +280,7 @@ CU_Theory((dds_entity_t *ent, void **buf, dds_sample_info_t *si, size_t bufsz, u
     dds_return_t ret;
     /* The only valid permutation is when non of the buffer values are
      * invalid and neither is the handle. So, don't test that. */
-    CU_ASSERT_NEQ_FATAL ((buf != g_samples) || (si != g_info) || (bufsz == 0) || (maxs == 0) || (bufsz < maxs), 0);
+    CU_ASSERT_FATAL ((buf != g_samples) || (si != g_info) || (bufsz == 0) || (maxs == 0) || (bufsz < maxs));
     /* TODO: CHAM-306, currently, a buffer is automatically 'promoted' to a loan when a buffer is
      * provided with NULL pointers. So, in fact, there's currently no real difference between calling
      * dds_take() dds_take_wl() (except for the provided bufsz). This will change, which means that
@@ -308,7 +308,7 @@ CU_Theory((dds_entity_t *ent, void **buf, dds_sample_info_t *si, uint32_t maxs),
     dds_return_t ret;
     /* The only valid permutation is when non of the buffer values are
      * invalid and neither is the handle. So, don't test that. */
-    CU_ASSERT_NEQ_FATAL ((buf != g_loans) || (si != g_info) || (maxs == 0), 0);
+    CU_ASSERT_FATAL ((buf != g_loans) || (si != g_info) || (maxs == 0));
     ret = dds_take_instance_wl(*ent, buf, si, maxs, g_hdl_valid);
     CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_BAD_PARAMETER);
 }
@@ -328,7 +328,7 @@ CU_Theory((dds_entity_t *ent, void **buf, dds_sample_info_t *si, size_t bufsz, u
     dds_return_t ret;
     /* The only valid permutation is when non of the buffer values are
      * invalid and neither is the handle. So, don't test that. */
-    CU_ASSERT_NEQ_FATAL ((buf != g_samples) || (si != g_info) || (bufsz == 0) || (maxs == 0) || (bufsz < maxs), 0);
+    CU_ASSERT_FATAL ((buf != g_samples) || (si != g_info) || (bufsz == 0) || (maxs == 0) || (bufsz < maxs));
     /* TODO: CHAM-306, currently, a buffer is automatically 'promoted' to a loan when a buffer is
      * provided with NULL pointers. So, in fact, there's currently no real difference between calling
      * dds_take() dds_take_wl() (except for the provided bufsz). This will change, which means that
@@ -357,7 +357,7 @@ CU_Theory((dds_entity_t *ent, void **buf, dds_sample_info_t *si, uint32_t maxs),
     dds_return_t ret;
     /* The only valid permutation is when non of the buffer values are
      * invalid and neither is the handle. So, don't test that. */
-    CU_ASSERT_NEQ_FATAL ((buf != g_loans) || (si != g_info) || (maxs == 0), 0);
+    CU_ASSERT_FATAL ((buf != g_loans) || (si != g_info) || (maxs == 0));
     ret = dds_take_instance_mask_wl(*ent, buf, si, maxs, g_hdl_valid, mask);
     CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_BAD_PARAMETER);
 }

@@ -532,7 +532,7 @@ static void decode_rtps_message_not_authenticated(DDS_Security_CryptoTransformKi
   register_remote_participant_for_participantB(local_participantB_crypto, local_participantA_identity, &remote_particpantA_crypto);
 
   result = set_remote_participant_tokens(local_participantA_crypto, remote_cryptos[0], local_participantB_crypto, remote_particpantA_crypto);
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
 
   reader_list._length = reader_list._maximum = 1;
   reader_list._buffer = DDS_Security_ParticipantCryptoHandleSeq_allocbuf(1);
@@ -554,7 +554,7 @@ static void decode_rtps_message_not_authenticated(DDS_Security_CryptoTransformKi
     printf("encode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
 
@@ -574,7 +574,7 @@ static void decode_rtps_message_not_authenticated(DDS_Security_CryptoTransformKi
     printf("decode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
   reset_exception(&exception);
@@ -655,7 +655,7 @@ static void decode_rtps_message_authenticated(DDS_Security_CryptoTransformKind_E
   register_remote_participant_for_participantB(local_participantB_crypto, local_participantA_identity, &remote_particpantA_crypto);
 
   result = set_remote_participant_tokens(local_participantA_crypto, remote_cryptos[0], local_participantB_crypto, remote_particpantA_crypto);
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
 
   remote_reader_list._length = remote_reader_list._maximum = 4;
   remote_reader_list._buffer = DDS_Security_ParticipantCryptoHandleSeq_allocbuf(4);
@@ -685,7 +685,7 @@ static void decode_rtps_message_authenticated(DDS_Security_CryptoTransformKind_E
       printf("encode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
     CU_ASSERT_EQ (exception.code, 0);
     CU_ASSERT_EQ (exception.message, NULL);
 
@@ -710,7 +710,7 @@ static void decode_rtps_message_authenticated(DDS_Security_CryptoTransformKind_E
       printf("decode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
     CU_ASSERT_EQ (exception.code, 0);
     CU_ASSERT_EQ (exception.message, NULL);
 
@@ -784,7 +784,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_args, .init = suite_decode_r
   register_remote_participant_for_participantB(local_participantB_crypto, local_participantA_identity, &remote_particpantA_crypto);
 
   result = set_remote_participant_tokens(local_participantA_crypto, remote_cryptos[0], local_participantB_crypto, remote_particpantA_crypto);
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
 
   reader_list._length = reader_list._maximum = 1;
   reader_list._buffer = DDS_Security_ParticipantCryptoHandleSeq_allocbuf(1);
@@ -806,7 +806,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_args, .init = suite_decode_r
     printf("encode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
 
@@ -826,7 +826,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_args, .init = suite_decode_r
     printf("decode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -846,7 +846,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_args, .init = suite_decode_r
     printf("decode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -866,7 +866,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_args, .init = suite_decode_r
     printf("decode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -886,7 +886,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_args, .init = suite_decode_r
     printf("decode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -941,7 +941,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
   register_remote_participant_for_participantB(local_participantB_crypto, local_participantA_identity, &remote_particpantA_crypto);
 
   result = set_remote_participant_tokens(local_participantA_crypto, remote_cryptos[0], local_participantB_crypto, remote_particpantA_crypto);
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
 
   reader_list._length = reader_list._maximum = 1;
   reader_list._buffer = DDS_Security_ParticipantCryptoHandleSeq_allocbuf(1);
@@ -963,7 +963,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
     printf("encode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
 
@@ -993,7 +993,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
       printf("decode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1026,7 +1026,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
       printf("decode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1059,7 +1059,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
       printf("decode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1092,7 +1092,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
       printf("decode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1125,7 +1125,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
       printf("decode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1158,7 +1158,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
       printf("decode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1191,7 +1191,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
       printf("decode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1223,7 +1223,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
       printf("decode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1255,7 +1255,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
       printf("decode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1287,7 +1287,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
       printf("decode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1321,7 +1321,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
       printf("decode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1353,7 +1353,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
       printf("decode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1388,7 +1388,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
       printf("decode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
     }
 
-    CU_ASSERT_NEQ (!result, 0);
+    CU_ASSERT (!result);
     CU_ASSERT_NEQ (exception.code, 0);
     CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1426,7 +1426,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
             printf("decode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
         }
 
-        CU_ASSERT_NEQ (!result, 0);
+        CU_ASSERT (!result);
         CU_ASSERT_NEQ (exception.code, 0);
         CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -1463,7 +1463,7 @@ CU_Test(ddssec_builtin_decode_rtps_message, invalid_data, .init = suite_decode_r
             printf("decode_rtps_message: %s\n", exception.message ? exception.message : "Error message missing");
         }
 
-        CU_ASSERT_NEQ (!result, 0);
+        CU_ASSERT (!result);
         CU_ASSERT_NEQ (exception.code, 0);
         CU_ASSERT_NEQ (exception.message, NULL);
 

@@ -158,7 +158,7 @@ static void test_insert(void)
       goto fail;
 
     bool store_result = dds_rhc_store(((struct dds_reader*)e_ptr)->m_rhc, &wi, sd, ti);
-    CU_ASSERT_NEQ (store_result, 0);
+    CU_ASSERT (store_result);
 
 fail:
     if (sd)

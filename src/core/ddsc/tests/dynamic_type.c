@@ -385,16 +385,16 @@ CU_Test (ddsc_dynamic_type, enum_type, .init = dynamic_type_init, .fini = dynami
   CU_ASSERT_EQ_FATAL (type->xt._u.enum_type.literals.length, 4);
 
   CU_ASSERT_EQ_FATAL (type->xt._u.enum_type.literals.seq[0].value, 0);
-  CU_ASSERT_NEQ_FATAL (!(type->xt._u.enum_type.literals.seq[0].flags & DDS_XTypes_IS_DEFAULT), 0);
+  CU_ASSERT_FATAL (!(type->xt._u.enum_type.literals.seq[0].flags & DDS_XTypes_IS_DEFAULT));
 
   CU_ASSERT_EQ_FATAL (type->xt._u.enum_type.literals.seq[1].value, 1);
   CU_ASSERT_NEQ_FATAL (type->xt._u.enum_type.literals.seq[1].flags & DDS_XTypes_IS_DEFAULT, 0);
 
   CU_ASSERT_EQ_FATAL (type->xt._u.enum_type.literals.seq[2].value, (1u << 31) - 1);
-  CU_ASSERT_NEQ_FATAL (!(type->xt._u.enum_type.literals.seq[2].flags & DDS_XTypes_IS_DEFAULT), 0);
+  CU_ASSERT_FATAL (!(type->xt._u.enum_type.literals.seq[2].flags & DDS_XTypes_IS_DEFAULT));
 
   CU_ASSERT_EQ_FATAL (type->xt._u.enum_type.literals.seq[3].value, 2);
-  CU_ASSERT_NEQ_FATAL (!(type->xt._u.enum_type.literals.seq[3].flags & DDS_XTypes_IS_DEFAULT), 0);
+  CU_ASSERT_FATAL (!(type->xt._u.enum_type.literals.seq[3].flags & DDS_XTypes_IS_DEFAULT));
 
   dds_dynamic_type_unref (&denum);
 }
@@ -466,22 +466,22 @@ CU_Test (ddsc_dynamic_type, struct_member_prop, .init = dynamic_type_init, .fini
   CU_ASSERT_EQ_FATAL (type->xt._u.structure.members.length, 3);
 
   CU_ASSERT_EQ_FATAL (type->xt._u.structure.members.seq[0].id, ddsi_dynamic_type_member_hashid ("m1"));
-  CU_ASSERT_NEQ_FATAL (!(type->xt._u.structure.members.seq[0].flags & DDS_XTypes_IS_KEY), 0);
-  CU_ASSERT_NEQ_FATAL (!(type->xt._u.structure.members.seq[0].flags & DDS_XTypes_IS_OPTIONAL), 0);
-  CU_ASSERT_NEQ_FATAL (!(type->xt._u.structure.members.seq[0].flags & DDS_XTypes_IS_EXTERNAL), 0);
-  CU_ASSERT_NEQ_FATAL (!(type->xt._u.structure.members.seq[0].flags & DDS_XTypes_IS_MUST_UNDERSTAND), 0);
+  CU_ASSERT_FATAL (!(type->xt._u.structure.members.seq[0].flags & DDS_XTypes_IS_KEY));
+  CU_ASSERT_FATAL (!(type->xt._u.structure.members.seq[0].flags & DDS_XTypes_IS_OPTIONAL));
+  CU_ASSERT_FATAL (!(type->xt._u.structure.members.seq[0].flags & DDS_XTypes_IS_EXTERNAL));
+  CU_ASSERT_FATAL (!(type->xt._u.structure.members.seq[0].flags & DDS_XTypes_IS_MUST_UNDERSTAND));
 
   CU_ASSERT_EQ_FATAL (type->xt._u.structure.members.seq[1].id, ddsi_dynamic_type_member_hashid ("m2_name"));
   CU_ASSERT_NEQ_FATAL (type->xt._u.structure.members.seq[1].flags & DDS_XTypes_IS_KEY, 0);
-  CU_ASSERT_NEQ_FATAL (!(type->xt._u.structure.members.seq[1].flags & DDS_XTypes_IS_OPTIONAL), 0);
+  CU_ASSERT_FATAL (!(type->xt._u.structure.members.seq[1].flags & DDS_XTypes_IS_OPTIONAL));
   CU_ASSERT_NEQ_FATAL (type->xt._u.structure.members.seq[1].flags & DDS_XTypes_IS_EXTERNAL, 0);
   CU_ASSERT_NEQ_FATAL (type->xt._u.structure.members.seq[1].flags & DDS_XTypes_IS_MUST_UNDERSTAND, 0);
 
   CU_ASSERT_EQ_FATAL (type->xt._u.structure.members.seq[2].id, ddsi_dynamic_type_member_hashid ("m3"));
-  CU_ASSERT_NEQ_FATAL (!(type->xt._u.structure.members.seq[2].flags & DDS_XTypes_IS_KEY), 0);
+  CU_ASSERT_FATAL (!(type->xt._u.structure.members.seq[2].flags & DDS_XTypes_IS_KEY));
   CU_ASSERT_NEQ_FATAL (type->xt._u.structure.members.seq[2].flags & DDS_XTypes_IS_OPTIONAL, 0);
-  CU_ASSERT_NEQ_FATAL (!(type->xt._u.structure.members.seq[2].flags & DDS_XTypes_IS_EXTERNAL), 0);
-  CU_ASSERT_NEQ_FATAL (!(type->xt._u.structure.members.seq[2].flags & DDS_XTypes_IS_MUST_UNDERSTAND), 0);
+  CU_ASSERT_FATAL (!(type->xt._u.structure.members.seq[2].flags & DDS_XTypes_IS_EXTERNAL));
+  CU_ASSERT_FATAL (!(type->xt._u.structure.members.seq[2].flags & DDS_XTypes_IS_MUST_UNDERSTAND));
 
   dds_dynamic_type_unref (&dstruct);
 }
@@ -539,15 +539,15 @@ CU_Test (ddsc_dynamic_type, union_member_prop, .init = dynamic_type_init, .fini 
   CU_ASSERT_EQ_FATAL (type->xt._u.union_type.members.length, 3);
 
   CU_ASSERT_EQ_FATAL (type->xt._u.union_type.members.seq[0].id, ddsi_dynamic_type_member_hashid ("m1"));
-  CU_ASSERT_NEQ_FATAL (!(type->xt._u.union_type.members.seq[0].flags & DDS_XTypes_IS_EXTERNAL), 0);
-  CU_ASSERT_NEQ_FATAL (!(type->xt._u.union_type.members.seq[0].flags & DDS_XTypes_IS_DEFAULT), 0);
+  CU_ASSERT_FATAL (!(type->xt._u.union_type.members.seq[0].flags & DDS_XTypes_IS_EXTERNAL));
+  CU_ASSERT_FATAL (!(type->xt._u.union_type.members.seq[0].flags & DDS_XTypes_IS_DEFAULT));
 
   CU_ASSERT_EQ_FATAL (type->xt._u.union_type.members.seq[1].id, ddsi_dynamic_type_member_hashid ("m2_name"));
   CU_ASSERT_NEQ_FATAL (type->xt._u.union_type.members.seq[1].flags & DDS_XTypes_IS_EXTERNAL, 0);
-  CU_ASSERT_NEQ_FATAL (!(type->xt._u.union_type.members.seq[1].flags & DDS_XTypes_IS_DEFAULT), 0);
+  CU_ASSERT_FATAL (!(type->xt._u.union_type.members.seq[1].flags & DDS_XTypes_IS_DEFAULT));
 
   CU_ASSERT_EQ_FATAL (type->xt._u.union_type.members.seq[2].id, ddsi_dynamic_type_member_hashid ("md"));
-  CU_ASSERT_NEQ_FATAL (!(type->xt._u.union_type.members.seq[2].flags & DDS_XTypes_IS_EXTERNAL), 0);
+  CU_ASSERT_FATAL (!(type->xt._u.union_type.members.seq[2].flags & DDS_XTypes_IS_EXTERNAL));
   CU_ASSERT_NEQ_FATAL (type->xt._u.union_type.members.seq[2].flags & DDS_XTypes_IS_DEFAULT, 0);
 
   dds_dynamic_type_unref (&dunion);
@@ -709,7 +709,7 @@ CU_Test (ddsc_dynamic_type, existing, .init = dynamic_type_init, .fini = dynamic
   type2 = ddsi_type_lookup_locked (gv, type_id2);
   CU_ASSERT_NEQ_FATAL (type2, NULL);
   bool resolved = ddsi_type_resolved_locked (gv, type2, DDSI_TYPE_IGNORE_DEPS);
-  CU_ASSERT_NEQ_FATAL (!resolved, 0);
+  CU_ASSERT_FATAL (!resolved);
 
   /* Create the same type for a local writer and confirm that the type
      id is the same and the type is resolved. */
@@ -718,7 +718,7 @@ CU_Test (ddsc_dynamic_type, existing, .init = dynamic_type_init, .fini = dynamic
   type = ddsi_type_lookup_locked (gv, type_id);
   CU_ASSERT_NEQ_FATAL (type, NULL);
   resolved = ddsi_type_resolved_locked (gv, type, DDSI_TYPE_IGNORE_DEPS);
-  CU_ASSERT_NEQ_FATAL (resolved, 0);
+  CU_ASSERT_FATAL (resolved);
 
   // Clean-up
   ddsi_typeid_fini (type_id);

@@ -562,7 +562,7 @@ static void encode_serialized_payload_check(uint32_t key_size, bool encrypted)
   writer_crypto = register_local_datawriter(encrypted);
   CU_ASSERT_NEQ_FATAL (writer_crypto, 0);
 
-  CU_ASSERT_NEQ (check_protection_kind(writer_crypto, encrypted ? DDS_SECURITY_BASICPROTECTION_KIND_ENCRYPT : DDS_SECURITY_BASICPROTECTION_KIND_SIGN), 0);
+  CU_ASSERT (check_protection_kind(writer_crypto, encrypted ? DDS_SECURITY_BASICPROTECTION_KIND_ENCRYPT : DDS_SECURITY_BASICPROTECTION_KIND_SIGN));
 
   session_keys = get_datawriter_session(writer_crypto);
   session_keys->master_key_material->transformation_kind = get_transformation_kind(key_size, encrypted);
@@ -581,14 +581,14 @@ static void encode_serialized_payload_check(uint32_t key_size, bool encrypted)
   {
     printf("[ERROR] encode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
   }
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
   reset_exception(&exception);
 
   result = split_encoded_data(encoded_buffer._buffer, encoded_buffer._length, &header, &encoded_payload, &footer, encrypted);
   CU_ASSERT_EQ_FATAL (result, true);
-  CU_ASSERT_NEQ (check_payload_encoded(&encoded_payload, &plain_buffer, encrypted), 0);
+  CU_ASSERT (check_payload_encoded(&encoded_payload, &plain_buffer, encrypted));
 
   session_id = ddsrt_fromBE4u(*(uint32_t *)header->session_id);
 
@@ -603,8 +603,8 @@ static void encode_serialized_payload_check(uint32_t key_size, bool encrypted)
     {
       printf("[ERROR] Decryption failed\n");
     }
-    CU_ASSERT_NEQ_FATAL (result, 0);
-    CU_ASSERT_NEQ (check_payload_decoded(&decoded_buffer, &plain_buffer), 0);
+    CU_ASSERT_FATAL (result);
+    CU_ASSERT (check_payload_decoded(&decoded_buffer, &plain_buffer));
     DDS_Security_OctetSeq_deinit(&decoded_buffer);
   }
   else
@@ -614,7 +614,7 @@ static void encode_serialized_payload_check(uint32_t key_size, bool encrypted)
     {
       printf("[ERROR] Signature check failed\n");
     }
-    CU_ASSERT_NEQ_FATAL (result, 0);
+    CU_ASSERT_FATAL (result);
   }
 
   DDS_Security_OctetSeq_deinit(&encoded_buffer);
@@ -690,7 +690,7 @@ CU_Test(ddssec_builtin_encode_serialized_payload, invalid_args, .init = suite_en
     printf("encode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -710,7 +710,7 @@ CU_Test(ddssec_builtin_encode_serialized_payload, invalid_args, .init = suite_en
     printf("encode_serialized_payload: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 

@@ -369,13 +369,13 @@ CU_Test(ddssec_builtin_create_local_datawriter_crypto_tokens, happy_day, .init =
     printf("create_local_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
 
   reset_exception(&exception);
 
-  CU_ASSERT_NEQ (check_token_validity(&tokens), 0);
+  CU_ASSERT (check_token_validity(&tokens));
 
   result = crypto->crypto_key_exchange->return_crypto_tokens(crypto->crypto_key_exchange, &tokens, &exception);
 
@@ -384,7 +384,7 @@ CU_Test(ddssec_builtin_create_local_datawriter_crypto_tokens, happy_day, .init =
     printf("return_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ_FATAL (result, 0);
+  CU_ASSERT_FATAL (result);
   CU_ASSERT_EQ (exception.code, 0);
   CU_ASSERT_EQ (exception.message, NULL);
 
@@ -420,7 +420,7 @@ CU_Test(ddssec_builtin_create_local_datawriter_crypto_tokens, invalid_args, .ini
     printf("create_local_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -439,7 +439,7 @@ CU_Test(ddssec_builtin_create_local_datawriter_crypto_tokens, invalid_args, .ini
     printf("create_local_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -458,7 +458,7 @@ CU_Test(ddssec_builtin_create_local_datawriter_crypto_tokens, invalid_args, .ini
     printf("create_local_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -477,7 +477,7 @@ CU_Test(ddssec_builtin_create_local_datawriter_crypto_tokens, invalid_args, .ini
     printf("create_local_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 
@@ -496,7 +496,7 @@ CU_Test(ddssec_builtin_create_local_datawriter_crypto_tokens, invalid_args, .ini
     printf("create_local_datawriter_crypto_tokens: %s\n", exception.message ? exception.message : "Error message missing");
   }
 
-  CU_ASSERT_NEQ (!result, 0);
+  CU_ASSERT (!result);
   CU_ASSERT_NEQ (exception.code, 0);
   CU_ASSERT_NEQ (exception.message, NULL);
 

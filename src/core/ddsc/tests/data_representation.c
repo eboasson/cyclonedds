@@ -164,7 +164,7 @@ static dds_instance_handle_t write_read_sample (dds_entity_t ws, dds_entity_t wr
   if (sample_equal)
   {
     bool eq = sample_equal (sample, rds[0]);
-    CU_ASSERT_NEQ_FATAL (eq, 0);
+    CU_ASSERT_FATAL (eq);
   }
   dds_return_loan (rd, rds, 1);
   return dds_lookup_instance (rd, sample);
@@ -351,7 +351,7 @@ static void exp_qos (dds_entity_t ent, const datarep_qos_exp_t *d)
   dds_return_t ret = dds_get_qos (ent, qos);
   CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
   bool qget = dds_qget_data_representation (qos, &n, &values);
-  CU_ASSERT_NEQ_FATAL (qget, 0);
+  CU_ASSERT_FATAL (qget);
   CU_ASSERT_EQ_FATAL (n, d->exp.n);
   for (uint32_t i = 0; i < n; i++)
     CU_ASSERT_EQ_FATAL (values[i], d->exp.d[i]);

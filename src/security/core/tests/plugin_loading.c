@@ -332,7 +332,7 @@ CU_Test(ddssec_security_plugin_loading, no_library_in_path, .init = ddsrt_init, 
   dds_delete(domain);
   reset_logger();
 
-  CU_ASSERT_NEQ_FATAL (found == 0x19 || found == 0x1a || found == 0x1c, 0);
+  CU_ASSERT_FATAL (found == 0x19 || found == 0x1a || found == 0x1c);
 }
 
 CU_Test(ddssec_security_plugin_loading, init_error, .init = ddsrt_init, .fini = ddsrt_fini)

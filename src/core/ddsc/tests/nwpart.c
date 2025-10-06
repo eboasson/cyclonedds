@@ -271,8 +271,8 @@ CU_Theory ((struct ddsi_config_networkpartition_listelem ps, bool allow_mc, cons
   } else {
     CU_ASSERT_EQ_FATAL (rc, 0);
     CU_ASSERT_EQ_FATAL (errcount, 0);
-    CU_ASSERT_NEQ_FATAL (check_address_list (uc, ps.uc_addresses), 0);
-    CU_ASSERT_NEQ_FATAL (check_address_list (mc, ps.asm_addresses), 0);
+    CU_ASSERT_FATAL (check_address_list (uc, ps.uc_addresses));
+    CU_ASSERT_FATAL (check_address_list (mc, ps.asm_addresses));
   }
   ddsi_free_config_nwpart_addresses (&gv);
   teardown (&gv);

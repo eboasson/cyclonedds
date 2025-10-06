@@ -319,7 +319,7 @@ static void do_psmxif_shared_memory (const char *dummylib)
     {
       // Assert that there is exactly one psmx instance.
       dds_entity* x = NULL;
-      CU_ASSERT_NEQ_FATAL (dds_entity_pin(domain, &x) == DDS_RETCODE_OK && dds_entity_kind(x) == DDS_KIND_DOMAIN, 0);
+      CU_ASSERT_FATAL (dds_entity_pin(domain, &x) == DDS_RETCODE_OK && dds_entity_kind(x) == DDS_KIND_DOMAIN);
       CU_ASSERT_EQ_FATAL (((dds_domain*)x)->psmx_instances.length, psmx_interface_counts[i]);
       dds_entity_unpin(x);
     }
@@ -453,14 +453,14 @@ static void check_psmx_instances (dds_entity_t e, size_t nexp, const char **vexp
   uint32_t n;
   char **v;
   const bool getres = dds_qget_psmx_instances (qos, &n, &v);
-  CU_ASSERT_NEQ_FATAL (getres, 0);
+  CU_ASSERT_FATAL (getres);
   CU_ASSERT_EQ_FATAL (n, nexp);
   for (size_t i = 0; i < nexp; i++)
   {
     bool found = false;
     for (uint32_t j = 0; j < n && !found; j++)
       found = (strcmp (vexp[i], v[j]) == 0);
-    CU_ASSERT_NEQ_FATAL (found, 0);
+    CU_ASSERT_FATAL (found);
   }
   for (uint32_t j = 0; j < n; j++)
     dds_free (v[j]);

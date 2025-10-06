@@ -86,7 +86,7 @@ static void suite_register_local_datareader_init(void)
   shared_secret_handle = (DDS_Security_SharedSecretHandle)shared_secret_handle_impl;
 
   /* Check if we actually have the validate_local_identity() function. */
-  CU_ASSERT_NEQ_FATAL (crypto != NULL && crypto->crypto_key_factory != NULL && crypto->crypto_key_factory->register_local_participant != NULL, 0);
+  CU_ASSERT_FATAL (crypto != NULL && crypto->crypto_key_factory != NULL && crypto->crypto_key_factory->register_local_participant != NULL);
   memset(&exception, 0, sizeof(DDS_Security_SecurityException));
   memset(&participant_properties, 0, sizeof(participant_properties));
   prepare_participant_security_attributes(&participant_security_attributes);

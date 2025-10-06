@@ -52,7 +52,7 @@ test_inheritance(inherit_spec_test_t test) {
     idl_struct_t *base = (idl_struct_t*)pstate->root;
     idl_struct_t *derived = (idl_struct_t*)idl_next(base);
 
-    CU_ASSERT_NEQ_FATAL (idl_is_struct(base) && idl_is_struct(derived), 0);
+    CU_ASSERT_FATAL (idl_is_struct(base) && idl_is_struct(derived));
 
     CU_ASSERT_STREQ (idl_identifier(base), "base");
     CU_ASSERT_EQ (base->extensibility.value, test.base_ext);
@@ -60,7 +60,7 @@ test_inheritance(inherit_spec_test_t test) {
     CU_ASSERT_STREQ (idl_identifier(derived), "derived");
     CU_ASSERT_EQ (derived->extensibility.value, test.inh_ext);
 
-    CU_ASSERT_NEQ (derived->inherit_spec && derived->inherit_spec->base == base, 0);
+    CU_ASSERT (derived->inherit_spec && derived->inherit_spec->base == base);
 
     idl_delete_pstate(pstate);
   }

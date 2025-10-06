@@ -298,12 +298,12 @@ static int get_current_match_count (dds_entity_t rd_or_wr)
   {
     rc = dds_get_subscription_matched_status (rd_or_wr, &sm);
     CU_ASSERT_EQ_FATAL (rc, 0);
-    CU_ASSERT_NEQ_FATAL (sm.current_count == 0 || sm.current_count == 1, 0);
+    CU_ASSERT_FATAL (sm.current_count == 0 || sm.current_count == 1);
     return (int) sm.current_count;
   }
   else
   {
-    CU_ASSERT_NEQ_FATAL (rc == 0 || rc == DDS_RETCODE_ILLEGAL_OPERATION, 0);
+    CU_ASSERT_FATAL (rc == 0 || rc == DDS_RETCODE_ILLEGAL_OPERATION);
     return -1;
   }
 }
@@ -875,11 +875,11 @@ static void dotest (const dds_topic_descriptor_t *tpdesc, const void *sample, bo
       }
       fputs ("\n", stdout);
       fflush (stdout);
-      CU_ASSERT_NEQ_FATAL (!fatal, 0);
+      CU_ASSERT_FATAL (!fatal);
 
     skip:
       // delete the readers, keep the writer
-      CU_ASSERT_NEQ_FATAL (nrds_active == MAX_DOMAINS * MAX_READERS_PER_DOMAIN || rds[nrds_active] == 0, 0);
+      CU_ASSERT_FATAL (nrds_active == MAX_DOMAINS * MAX_READERS_PER_DOMAIN || rds[nrds_active] == 0);
       for (int i = 0; i < nrds_active; i++)
       {
         rc = dds_delete (rds[i]);
@@ -962,7 +962,7 @@ CU_Test(ddsc_psmx, one_writer, .timeout = 240)
 {
   failed = false;
   dotest (&PsmxType1_desc, &(const PsmxType1){ {5, 3}, 53 }, eq_PsmxType1, LDM_NONE, WM_NORMAL, false);
-  CU_ASSERT_NEQ (!failed, 0);
+  CU_ASSERT (!failed);
 }
 
 CU_Test(ddsc_psmx, one_writer_dynsize, .timeout = 240)
@@ -976,7 +976,7 @@ CU_Test(ddsc_psmx, one_writer_dynsize, .timeout = 240)
       ._buffer = (int32_t[]) { 193, 272, 54, 277 }
     }
   }, eq_DynamicData_Msg, LDM_NONE, WM_NORMAL, false);
-  CU_ASSERT_NEQ (!failed, 0);
+  CU_ASSERT (!failed);
 }
 
 CU_Test(ddsc_psmx, one_writer_dynsize_strkey, .timeout = 240)
@@ -990,49 +990,49 @@ CU_Test(ddsc_psmx, one_writer_dynsize_strkey, .timeout = 240)
       ._buffer = (int32_t[]) { 193, 272, 54, 277 }
     }
   }, eq_DynamicData_KMsg, LDM_NONE, WM_NORMAL, false);
-  CU_ASSERT_NEQ (!failed, 0);
+  CU_ASSERT (!failed);
 }
 
 CU_Test(ddsc_psmx, one_writer_fastpath, .timeout = 240)
 {
   failed = false;
   dotest (&PsmxType1_desc, &(const PsmxType1){ {7, 3}, 73 }, eq_PsmxType1, LDM_FASTPATH, WM_NORMAL, false);
-  CU_ASSERT_NEQ (!failed, 0);
+  CU_ASSERT (!failed);
 }
 
 CU_Test(ddsc_psmx, one_writer_slowpath, .timeout = 240)
 {
   failed = false;
   dotest (&Space_Type3_desc, &(const PsmxType1){ {2, 3}, 23 }, eq_PsmxType1, LDM_SLOWPATH, WM_NORMAL, false);
-  CU_ASSERT_NEQ (!failed, 0);
+  CU_ASSERT (!failed);
 }
 
 CU_Test(ddsc_psmx, one_writer_wloan, .timeout = 240)
 {
   failed = false;
   dotest (&PsmxType1_desc, &(const PsmxType1){ {3, 7}, 37 }, eq_PsmxType1, LDM_NONE, WM_LOAN, false);
-  CU_ASSERT_NEQ (!failed, 0);
+  CU_ASSERT (!failed);
 }
 
 CU_Test(ddsc_psmx, one_writer_rloan, .timeout = 240)
 {
   failed = false;
   dotest (&PsmxType1_desc, &(const PsmxType1){ {11, 17}, 251 }, eq_PsmxType1, LDM_NONE, WM_NORMAL, true);
-  CU_ASSERT_NEQ (!failed, 0);
+  CU_ASSERT (!failed);
 }
 
 CU_Test(ddsc_psmx, one_writer_wrloan, .timeout = 240)
 {
   failed = false;
   dotest (&PsmxType1_desc, &(const PsmxType1){ {5113, 51}, 13 }, eq_PsmxType1, LDM_NONE, WM_LOAN, true);
-  CU_ASSERT_NEQ (!failed, 0);
+  CU_ASSERT (!failed);
 }
 
 CU_Test(ddsc_psmx, one_writer_forwardcdr, .timeout = 240)
 {
   failed = false;
   dotest (&PsmxType1_desc, &(const PsmxType1){ {5, 3}, 53 }, eq_PsmxType1, LDM_NONE, WM_FORWARDCDR, false);
-  CU_ASSERT_NEQ (!failed, 0);
+  CU_ASSERT (!failed);
 }
 
 CU_Test(ddsc_psmx, one_writer_forwardcdr_dynsize, .timeout = 240)
@@ -1046,7 +1046,7 @@ CU_Test(ddsc_psmx, one_writer_forwardcdr_dynsize, .timeout = 240)
       ._buffer = (int32_t[]) { 193, 272, 54, 277 }
     }
   }, eq_DynamicData_Msg, LDM_NONE, WM_FORWARDCDR, false);
-  CU_ASSERT_NEQ (!failed, 0);
+  CU_ASSERT (!failed);
 }
 
 CU_Test(ddsc_psmx, one_writer_forwardcdr_dynsize_strkey, .timeout = 240)
@@ -1060,7 +1060,7 @@ CU_Test(ddsc_psmx, one_writer_forwardcdr_dynsize_strkey, .timeout = 240)
       ._buffer = (int32_t[]) { 193, 272, 54, 277 }
     }
   }, eq_DynamicData_KMsg, LDM_NONE, WM_FORWARDCDR, false);
-  CU_ASSERT_NEQ (!failed, 0);
+  CU_ASSERT (!failed);
 }
 
 CU_Test(ddsc_psmx, return_loan)
@@ -1165,9 +1165,9 @@ CU_Test(ddsc_psmx, partition_xtalk)
       dds_sleepfor (DDS_MSECS (10));
     CU_ASSERT_EQ_FATAL (rc, 1);
     if (checkwr == 0) {
-      CU_ASSERT_NEQ_FATAL (t.xy.x == 1 && t.xy.y == 2 && t.z == 3, 0);
+      CU_ASSERT_FATAL (t.xy.x == 1 && t.xy.y == 2 && t.z == 3);
     } else {
-      CU_ASSERT_NEQ_FATAL (t.xy.x == 4 && t.xy.y == 5 && t.z == 6, 0);
+      CU_ASSERT_FATAL (t.xy.x == 4 && t.xy.y == 5 && t.z == 6);
     }
 
     rc = dds_delete (wr);
@@ -1208,8 +1208,8 @@ CU_Test(ddsc_psmx, no_shared_memory)
   reader = dds_create_reader(participant, topic, NULL, NULL);
   CU_ASSERT_GT_FATAL (reader, 0);
 
-  CU_ASSERT_NEQ_FATAL (!dds_is_shared_memory_available(writer), 0);
-  CU_ASSERT_NEQ_FATAL (!dds_is_shared_memory_available(reader), 0);
+  CU_ASSERT_FATAL (!dds_is_shared_memory_available(writer));
+  CU_ASSERT_FATAL (!dds_is_shared_memory_available(reader));
   dds_delete(dds_get_parent(participant));
 }
 
@@ -1233,12 +1233,12 @@ CU_Test (ddsc_psmx, basic)
   writer = dds_create_writer (participant, topic, NULL, NULL);
   CU_ASSERT_GT_FATAL (writer, 0);
   psmx_enabled = endpoint_has_psmx_enabled (writer);
-  CU_ASSERT_NEQ_FATAL (psmx_enabled, 0);
+  CU_ASSERT_FATAL (psmx_enabled);
 
   reader = dds_create_reader (participant, topic, NULL, NULL);
   CU_ASSERT_GT_FATAL (reader, 0);
   psmx_enabled = endpoint_has_psmx_enabled (reader);
-  CU_ASSERT_NEQ_FATAL (psmx_enabled, 0);
+  CU_ASSERT_FATAL (psmx_enabled);
 
   sync_reader_writer (participant, reader, participant, writer);
 
@@ -1543,7 +1543,7 @@ CU_Test (ddsc_psmx, writer_loan)
               rc = dds_take (rd, &rddata, &si, 1, 1);
               CU_ASSERT_EQ_FATAL (rc, 1);
               printf (" | rddata %p", rddata); fflush (stdout);
-              CU_ASSERT_NEQ_FATAL (data_equal (cases[k].desc, wrdata, rddata, justkey), 0);
+              CU_ASSERT_FATAL (data_equal (cases[k].desc, wrdata, rddata, justkey));
               if (!rdloan)
                 dds_sample_free (rddata, cases[k].desc, DDS_FREE_ALL);
               else
@@ -1589,10 +1589,10 @@ CU_Test (ddsc_psmx, reader_loan_on_delete)
   dds_delete_qos (qos);
   const dds_entity_t wr = dds_create_writer (dpw, tpw, NULL, NULL);
   CU_ASSERT_GT_FATAL (wr, 0);
-  CU_ASSERT_NEQ_FATAL (endpoint_has_psmx_enabled (wr), 0);
+  CU_ASSERT_FATAL (endpoint_has_psmx_enabled (wr));
   const dds_entity_t rd = dds_create_reader (dpr, tpr, NULL, NULL);
   CU_ASSERT_GT_FATAL (rd, 0);
-  CU_ASSERT_NEQ_FATAL (endpoint_has_psmx_enabled (rd), 0);
+  CU_ASSERT_FATAL (endpoint_has_psmx_enabled (rd));
   const dds_entity_t ws = dds_create_waitset (DDS_CYCLONEDDS_HANDLE);
   rc = dds_set_status_mask (wr, DDS_PUBLICATION_MATCHED_STATUS);
   CU_ASSERT_EQ_FATAL (rc, 0);
