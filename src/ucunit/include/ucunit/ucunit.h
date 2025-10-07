@@ -39,7 +39,20 @@ extern "C" {
     CU_UNREACHABLE; \
   } while (0)
 
-#if defined __STDC__ && __STDC_VERSION__ >= 201100L
+#if defined __STDC__ && __STDC_VERSION__ >= 202311L
+
+#if defined(__GNUC__) && ((__GNUC__ * 100) + __GNUC_MINOR__) >= 406
+#define CU_ASSERT_SUPPRESS_WARNINGS \
+  _Pragma("GCC diagnostic push") \
+  _Pragma("GCC diagnostic ignored \"-Wsign-compare\"")
+#define CU_ASSERT_RESTORE_WARNINGS \
+  _Pragma("GCC diagnostic pop")
+#endif
+
+#if !(defined CU_ASSERT_SUPPRESS_WARNINGS && defined CU_ASSERT_RESTORE_WARNINGS)
+#define CU_ASSERT_SUPPRESS_WARNINGS
+#define CU_ASSERT_RESTORE_WARNINGS
+#endif
 
 #define CU_ASSERT_PRINTF_FORMAT(T_)             \
   _Generic ((T_),                               \
@@ -62,8 +75,9 @@ extern "C" {
   )
 
 #define CU_ASSERT_OP_MAYBE_FATAL(x_, op_, y_, fatal_) do {              \
+  CU_ASSERT_SUPPRESS_WARNINGS \
   typeof (x_) xv__ = (x_);                                              \
-  typeof (x_) yv__ = (y_); /* note: typeof x_ here, not typeof y_) */   \
+  typeof (y_) yv__ = (y_);                                              \
   const bool fatal__ = (fatal_);                                        \
   const bool satisfied__ = (xv__) op_ (yv__);                           \
   if (!satisfied__) {                                                   \
@@ -78,6 +92,7 @@ extern "C" {
     "(" #x_ ") " #op_ " (" #y_ ")", __FILE__, "", fatal__);             \
   if (!satisfied__ && fatal__)                                          \
     CU_UNREACHABLE;                                                     \
+  CU_ASSERT_RESTORE_WARNINGS \
 } while (0)
 
 #else
