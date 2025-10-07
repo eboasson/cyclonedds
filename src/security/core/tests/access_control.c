@@ -644,7 +644,7 @@ static void test_discovery_liveliness_protection(enum test_discovery_liveliness 
   if (log != NULL)
   {
     print_test_msg ("encode_datawriter_submessage count for %s: %u\n", builtin_wr_descr, log->count);
-    CU_ASSERT_NEQ_FATAL (log->count > 0, 0);
+    CU_ASSERT_GT_FATAL (log->count, 0);
     ddsrt_free (log);
   }
 

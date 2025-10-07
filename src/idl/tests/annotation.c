@@ -590,7 +590,7 @@ void test_id(
           n++;
         }
       } else {
-        CU_ASSERT_NEQ_FATAL (0, 0);
+        CU_FAIL_FATAL ("neither struct nor union");
       }
     }
   }

@@ -86,7 +86,7 @@ static uint32_t pp_thread (void *varg)
         size_t usz = 0;
         if (!dds_qget_userdata (sample->qos, &ud, &usz))
         {
-          CU_ASSERT_NEQ_FATAL (0, 0);
+          CU_FAIL_FATAL ("no user data present in QoS");
         }
         if (ud == NULL || strncmp (ud, prefix, sizeof (prefix) - 1) != 0)
         {
@@ -142,7 +142,7 @@ static uint32_t pp_thread (void *varg)
           void *chkud = NULL;
           size_t chkusz = 0;
           if (!dds_qget_userdata (chk, &chkud, &chkusz))
-            CU_ASSERT_NEQ_FATAL (0, 0);
+            CU_FAIL_FATAL ("no user data present in QoS");
           CU_ASSERT_FATAL (chkusz == expusz && (expusz == 0 || memcmp (chkud, expud, expusz) == 0));
           dds_free (chkud);
           dds_delete_qos (chk);
@@ -330,7 +330,7 @@ static uint32_t rw_thread (void *varg)
         size_t usz = 0;
         if (!qget (sample->qos, &ud, &usz))
         {
-          CU_ASSERT_NEQ_FATAL (0, 0);
+          CU_FAIL_FATAL ("no user/topic/group data present in QoS");
         }
         else if (!synced && (ud == NULL || strcmp (ud, expud) != 0))
         {
@@ -375,7 +375,7 @@ static uint32_t rw_thread (void *varg)
           void *chkud = NULL;
           size_t chkusz = 0;
           if (!qget (chk, &chkud, &chkusz))
-            CU_ASSERT_NEQ_FATAL (0, 0);
+            CU_FAIL_FATAL ("no user/topic/group data present in QoS");
           CU_ASSERT_FATAL (chkusz == expusz && (expusz == 0 || (chkud != NULL && expud != NULL && memcmp (chkud, expud, expusz) == 0)));
           dds_free (chkud);
           dds_delete_qos (chk);

@@ -403,7 +403,7 @@ static const char *sst_str (uint32_t sst)
     case DDS_ANY_SAMPLE_STATE: return "any";
     case DDS_READ_SAMPLE_STATE: return "read";
     case DDS_NOT_READ_SAMPLE_STATE: return "not_read";
-    default: CU_ASSERT_NEQ_FATAL (0, 0); return "INVALID";
+    default: CU_FAIL_FATAL ("invalid value for sample state"); return "INVALID";
   }
 }
 
@@ -414,7 +414,7 @@ static const char *vst_str (uint32_t vst)
     case DDS_ANY_VIEW_STATE: return "any";
     case DDS_NEW_VIEW_STATE: return "new";
     case DDS_NOT_NEW_VIEW_STATE: return "old";
-    default: CU_ASSERT_NEQ_FATAL (0, 0); return "INVALID";
+    default: CU_FAIL_FATAL ("invalid value for view state"); return "INVALID";
   }
 }
 
@@ -432,7 +432,7 @@ static const char *ist_str (uint32_t ist)
       return "!nowriters";
     case DDS_NOT_ALIVE_NO_WRITERS_INSTANCE_STATE | DDS_NOT_ALIVE_DISPOSED_INSTANCE_STATE:
       return "!alive";
-    default: CU_ASSERT_NEQ_FATAL (0, 0); return "INVALID";
+    default: CU_FAIL_FATAL ("invalid value for instance state"); return "INVALID";
   }
 }
 
