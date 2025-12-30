@@ -67,7 +67,7 @@ static dds_return_t get_topic_and_typeobj (const char *topic_name, dds_duration_
     void *epraw = NULL;
     dds_sample_info_t si;
     dds_entity_t triggered_reader = (dds_entity_t) triggered_reader_x;
-    if (dds_take (triggered_reader, &epraw, &si, 1, 1) <= 0)
+    if (dds_take (triggered_reader, &epraw, &si, 1, 1) <= 0 || !si.valid_data)
       continue;
     dds_builtintopic_endpoint_t *ep = epraw;
     const dds_typeinfo_t *typeinfo = NULL;
