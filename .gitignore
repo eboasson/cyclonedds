@@ -10,3 +10,4 @@ build/
 .zed
 .cache
 compile_commands.json
+[A-Z][A-Z]/
