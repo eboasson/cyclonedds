@@ -170,8 +170,11 @@ static void print_sample1_ti (const unsigned char *sample, const DDS_XTypes_Type
         if (c->needs_comma) fputc (',', stdout);
         if (label) printf ("\"%s\":", label);
         printf ("[");
-        for (uint32_t i = 0; i < p->_length; i++)
+        const uint32_t n = (p->_length <= 100) ? p->_length : 100;
+        for (uint32_t i = 0; i < n; i++)
           print_sample1_ti (p->_buffer, et, 0, &c1, NULL, false, false);
+        if (n < p->_length)
+          printf (",...(%"PRIu32")", p->_length - n);
         printf ("]");
         c->needs_comma = true;
       }
