@@ -304,7 +304,7 @@ static char *   expand_std(
     char *  cp;
 
     has_pragma = FALSE;                     /* Have to re-initialize*/
-    macro_line = (ssize_t)src_line;         /* Line number for diag */
+    macro_line = (long)src_line;         /* Line number for diag */
     macro_name = defp->name;
     rescan_level = 0;
     trace_macro = (mcpp_mode == STD) && (mcpp_debug & MACRO_CALL)
@@ -2216,7 +2216,7 @@ static char *   expand_prestd(
 
     (void)line_col;
 
-    macro_line = (ssize_t)src_line;         /* Line number for diag.*/
+    macro_line = (long)src_line;         /* Line number for diag.*/
     unget_string( identifier, identifier);  /* To re-read           */
     macro_name = defp->name;
     rescan_level = 0;
