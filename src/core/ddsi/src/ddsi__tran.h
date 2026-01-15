@@ -102,8 +102,8 @@ struct ddsi_network_packet_info {
 };
 
 /* Function pointer types */
-typedef ssize_t (*ddsi_tran_read_fn_t) (struct ddsi_tran_conn *, unsigned char *, size_t, bool, struct ddsi_network_packet_info *pktinfo);
-typedef ssize_t (*ddsi_tran_write_fn_t) (struct ddsi_tran_conn *, const ddsi_locator_t *, const ddsi_tran_write_msgfrags_t *, uint32_t);
+typedef dds_return_t (*ddsi_tran_read_fn_t) (struct ddsi_tran_conn *, unsigned char *, size_t, bool, struct ddsi_network_packet_info *pktinfo, size_t *) ddsrt_nonnull((1, 2, 6)) ddsrt_attribute_warn_unused_result;
+typedef dds_return_t (*ddsi_tran_write_fn_t) (struct ddsi_tran_conn *, const ddsi_locator_t *, const ddsi_tran_write_msgfrags_t *, uint32_t, size_t *) ddsrt_nonnull((1, 2, 3));
 typedef int (*ddsi_tran_locator_fn_t) (struct ddsi_tran_factory *, struct ddsi_tran_base *, ddsi_locator_t *);
 typedef bool (*ddsi_tran_supports_fn_t) (const struct ddsi_tran_factory *, int32_t);
 typedef ddsrt_socket_t (*ddsi_tran_handle_fn_t) (struct ddsi_tran_base *);
@@ -388,13 +388,15 @@ inline int ddsi_conn_locator (struct ddsi_tran_conn * conn, ddsi_locator_t * loc
 }
 
 /** @component transport */
-inline ssize_t ddsi_conn_write (struct ddsi_tran_conn * conn, const ddsi_locator_t *dst, const ddsi_tran_write_msgfrags_t *msgfrags, uint32_t flags) {
-  return conn->m_closed ? -1 : (conn->m_write_fn) (conn, dst, msgfrags, flags);
+ddsrt_nonnull ((1, 2, 3))
+inline dds_return_t ddsi_conn_write (struct ddsi_tran_conn * conn, const ddsi_locator_t *dst, const ddsi_tran_write_msgfrags_t *msgfrags, uint32_t flags, size_t *bytes_written) {
+  return conn->m_closed ? DDS_RETCODE_ALREADY_DELETED : (conn->m_write_fn) (conn, dst, msgfrags, flags, bytes_written);
 }
 
 /** @component transport */
-inline ssize_t ddsi_conn_read (struct ddsi_tran_conn * conn, unsigned char * buf, size_t len, bool allow_spurious, struct ddsi_network_packet_info *pktinfo) {
-  return conn->m_closed ? -1 : conn->m_read_fn (conn, buf, len, allow_spurious, pktinfo);
+ddsrt_nonnull ((1, 2, 6)) ddsrt_attribute_warn_unused_result
+inline dds_return_t ddsi_conn_read (struct ddsi_tran_conn * conn, unsigned char * buf, size_t len, bool allow_spurious, struct ddsi_network_packet_info *pktinfo, size_t *bytes_read) {
+  return conn->m_closed ? DDS_RETCODE_ALREADY_DELETED : conn->m_read_fn (conn, buf, len, allow_spurious, pktinfo, bytes_read);
 }
 
 /** @component transport */
