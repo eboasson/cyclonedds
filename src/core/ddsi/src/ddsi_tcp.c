@@ -707,34 +707,29 @@ static dds_return_t ddsi_tcp_conn_write (struct ddsi_tran_conn * base, const dds
 #endif
     msg.msg_name = NULL;
     msg.msg_namelen = 0;
-    do {
-      rc = ddsrt_sendmsg (conn->m_sock, &msg, sendflags, &cursor);
-    } while (rc == DDS_RETCODE_INTERRUPTED);
-    if (rc == DDS_RETCODE_TRY_AGAIN)
+    rc = ddsrt_sendmsg (conn->m_sock, &msg, sendflags, &cursor);
+    switch (rc)
     {
-      // continue in piecewise mode
-      rc = DDS_RETCODE_OK;
-    }
-    else if (rc != DDS_RETCODE_OK)
-    {
-      switch (rc)
-      {
-        case DDS_RETCODE_NO_CONNECTION:
-        case DDS_RETCODE_ILLEGAL_OPERATION:
-          GVLOG (DDS_LC_TCP, "tcp write: sock %"PRIdSOCK" DDS_RETCODE_NO_CONNECTION\n", conn->m_sock);
-          break;
-        default:
-          if (! conn->m_base.m_closed && (conn->m_sock != DDSRT_INVALID_SOCKET))
-            GVWARNING ("tcp write failed on socket %"PRIdSOCK" with errno %"PRId32"\n", conn->m_sock, rc);
-          break;
-      }
-      ddsrt_mutex_unlock (&conn->m_mutex);
-      ddsi_tcp_cache_remove (conn);
-      return rc;
-    }
-    else if (cursor == 0)
-    {
-      GVLOG (DDS_LC_TCP, "tcp write: sock %"PRIdSOCK" eof\n", conn->m_sock);
+      case DDS_RETCODE_OK:
+        // possibly partial write
+        break;
+      case DDS_RETCODE_INTERRUPTED:
+      case DDS_RETCODE_TRY_AGAIN:
+        // continue in piecewise mode as if nothing went wrong
+        rc = DDS_RETCODE_OK;
+        break;
+      case DDS_RETCODE_NO_CONNECTION:
+      case DDS_RETCODE_ILLEGAL_OPERATION:
+        GVLOG (DDS_LC_TCP, "tcp write: sock %"PRIdSOCK" DDS_RETCODE_NO_CONNECTION\n", conn->m_sock);
+        ddsrt_mutex_unlock (&conn->m_mutex);
+        ddsi_tcp_cache_remove (conn);
+        return rc;
+      default:
+        if (! conn->m_base.m_closed && (conn->m_sock != DDSRT_INVALID_SOCKET))
+          GVWARNING ("tcp write failed on socket %"PRIdSOCK" with errno %"PRId32"\n", conn->m_sock, rc);
+        ddsrt_mutex_unlock (&conn->m_mutex);
+        ddsi_tcp_cache_remove (conn);
+        return rc;
     }
   }
 
@@ -747,16 +742,14 @@ static dds_return_t ddsi_tcp_conn_write (struct ddsi_tran_conn * base, const dds
       wr = ddsi_tcp_conn_write_ssl;
 #endif
 
-    int i = 0;
+    size_t i = 0;
     assert (msg.msg_iov[i].iov_len > 0);
     while (cursor >= msg.msg_iov[i].iov_len)
-    {
       cursor -= msg.msg_iov[i++].iov_len;
-    }
-    assert (i < (int) msg.msg_iovlen);
+    assert (i < (size_t) msg.msg_iovlen);
     size_t n;
     rc = ddsi_tcp_block_write (wr, conn, (const char *) msg.msg_iov[i].iov_base + cursor, msg.msg_iov[i].iov_len - (size_t) cursor, &n);
-    while (rc == DDS_RETCODE_OK && n > 0 && ++i < (int) msg.msg_iovlen)
+    while (rc == DDS_RETCODE_OK && n > 0 && ++i < (size_t) msg.msg_iovlen)
       rc = ddsi_tcp_block_write (wr, conn, msg.msg_iov[i].iov_base, msg.msg_iov[i].iov_len, &n);
   }
   ddsrt_mutex_unlock (&conn->m_mutex);
