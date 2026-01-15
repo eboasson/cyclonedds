@@ -19,7 +19,7 @@ variables:
 
 jobs:
 - job: build_and_test
-  displayName: Build and test Cyclone
+  displayName: BaT
   pool:
     vmImage: $(image)
   strategy:
