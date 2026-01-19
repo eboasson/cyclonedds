@@ -520,10 +520,9 @@ int ddsi_sock_waitset_next_event (struct ddsi_sock_waitset_ctx * ctx, struct dds
     }
     else
     {
-      /* trigger pipe, read & try again */
+      /* usually means pipe was triggered, read & try again */
       char dummy;
-      if (read (entry->fd, &dummy, 1) < 0)
-        abort ();
+      (void) read (entry->fd, &dummy, 1);
     }
   }
   return -1;
