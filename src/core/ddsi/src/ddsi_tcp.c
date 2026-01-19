@@ -722,13 +722,13 @@ static dds_return_t ddsi_tcp_conn_write (struct ddsi_tran_conn * base, const dds
       case DDS_RETCODE_ILLEGAL_OPERATION:
         GVLOG (DDS_LC_TCP, "tcp write: sock %"PRIdSOCK" DDS_RETCODE_NO_CONNECTION\n", conn->m_sock);
         ddsrt_mutex_unlock (&conn->m_mutex);
-        ddsi_tcp_cache_remove (conn);
+        (void) ddsrt_shutdown (conn->m_sock, DDSRT_SHUTDOWN_READ_WRITE);
         return rc;
       default:
         if (! conn->m_base.m_closed && (conn->m_sock != DDSRT_INVALID_SOCKET))
           GVWARNING ("tcp write failed on socket %"PRIdSOCK" with errno %"PRId32"\n", conn->m_sock, rc);
         ddsrt_mutex_unlock (&conn->m_mutex);
-        ddsi_tcp_cache_remove (conn);
+        (void) ddsrt_shutdown (conn->m_sock, DDSRT_SHUTDOWN_READ_WRITE);
         return rc;
     }
   }
@@ -763,7 +763,7 @@ static dds_return_t ddsi_tcp_conn_write (struct ddsi_tran_conn * base, const dds
 #endif
 
   if (rc != DDS_RETCODE_OK || cursor == 0)
-    ddsi_tcp_cache_remove (conn);
+    (void) ddsrt_shutdown (conn->m_sock, DDSRT_SHUTDOWN_READ_WRITE);
 
   if (bytes_written)
     *bytes_written = cursor;
