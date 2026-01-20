@@ -251,9 +251,8 @@ fail:
   return rc;
 }
 
-static void ddsi_tcp_node_free (void * ptr)
+static void ddsi_tcp_node_free (ddsi_tcp_node_t node)
 {
-  ddsi_tcp_node_t node = (ddsi_tcp_node_t) ptr;
   ddsi_conn_free ((struct ddsi_tran_conn *) node->m_conn);
   ddsrt_free (node);
 }
@@ -345,7 +344,7 @@ static void ddsi_tcp_cache_add (struct ddsi_tran_factory_tcp *fact, ddsi_tcp_con
   }
 
   sockaddr_to_string_with_port(buff, sizeof(buff), &conn->m_peer_addr.a);
-  GVLOG (DDS_LC_TCP, "tcp cache %s %s socket %"PRIdSOCK" to %s\n", action, conn->m_base.m_server ? "server" : "client", conn->m_sock, buff);
+  GVLOG (DDS_LC_TCP, "tcp cache %s %s socket %"PRIdSOCK" to %s (%p)\n", action, conn->m_base.m_server ? "server" : "client", conn->m_sock, buff, (void *) conn);
 }
 
 static void ddsi_tcp_cache_remove (ddsi_tcp_conn_t conn)
@@ -361,7 +360,7 @@ static void ddsi_tcp_cache_remove (ddsi_tcp_conn_t conn)
   if (node)
   {
     sockaddr_to_string_with_port(buff, sizeof(buff), &conn->m_peer_addr.a);
-    GVLOG (DDS_LC_TCP, "tcp cache removed socket %"PRIdSOCK" to %s\n", conn->m_sock, buff);
+    GVLOG (DDS_LC_TCP, "tcp cache removed socket %"PRIdSOCK" to %s (%p)\n", conn->m_sock, buff, (void *) conn);
     ddsrt_avl_delete_dpath (&ddsi_tcp_treedef, &fact->ddsi_tcp_cache_g, node, &path);
     ddsi_tcp_node_free (node);
   }
@@ -388,43 +387,38 @@ static ddsi_tcp_conn_t ddsi_tcp_cache_find (struct ddsi_tran_factory_tcp *fact, 
 
   ddsrt_mutex_lock (&fact->ddsi_tcp_cache_lock_g);
   node = ddsrt_avl_lookup_ipath (&ddsi_tcp_treedef, &fact->ddsi_tcp_cache_g, &key, &path);
-  if (node)
+  if (node && !node->m_conn->m_base.m_closed)
+    ret = node->m_conn;
+  else
   {
-    if (node->m_conn->m_base.m_closed)
+    if (node)
     {
+      struct ddsi_domaingv * const gv = node->m_conn->m_base.m_factory->gv;
+      GVLOG (DDS_LC_TCP, "tcp drop in cache find (%p)\n", (void *) node->m_conn);
       ddsrt_avl_delete (&ddsi_tcp_treedef, &fact->ddsi_tcp_cache_g, node);
       ddsi_tcp_node_free (node);
+      // path is no longer valid because we deleted the node, so compute it anew
+      (void) ddsrt_avl_lookup_ipath (&ddsi_tcp_treedef, &fact->ddsi_tcp_cache_g, &key, &path);
     }
-    else
-    {
-      ret = node->m_conn;
-    }
-  }
-  if (ret == NULL)
-  {
     ret = ddsi_tcp_new_conn (fact, NULL, DDSRT_INVALID_SOCKET, false, &key.m_peer_addr.a);
     ddsi_tcp_cache_add (fact, ret, &path);
   }
   ddsrt_mutex_unlock (&fact->ddsi_tcp_cache_lock_g);
-
   return ret;
 }
 
-static ssize_t ddsi_tcp_conn_read_plain (ddsi_tcp_conn_t tcp, void * buf, size_t len, dds_return_t *rc)
+ddsrt_nonnull ((1, 2, 4)) ddsrt_attribute_warn_unused_result
+static dds_return_t ddsi_tcp_conn_read_plain (ddsi_tcp_conn_t tcp, void * buf, size_t len, size_t *bytes_read)
 {
-  ssize_t rcvd = -1;
-
-  assert(rc != NULL);
-  *rc = ddsrt_recv(tcp->m_sock, buf, len, 0, &rcvd);
-
-  return (*rc == DDS_RETCODE_OK ? rcvd : -1);
+  return ddsrt_recv (tcp->m_sock, buf, len, 0, bytes_read);
 }
 
 #ifdef DDS_HAS_TCP_TLS
-static ssize_t ddsi_tcp_conn_read_ssl (ddsi_tcp_conn_t tcp, void * buf, size_t len, dds_return_t *rc)
+ddsrt_nonnull ((1, 2))
+static dds_return_t ddsi_tcp_conn_read_ssl (ddsi_tcp_conn_t tcp, void * buf, size_t len, size_t *bytes_written)
 {
   struct ddsi_tran_factory_tcp * const fact = (struct ddsi_tran_factory_tcp *) tcp->m_base.m_factory;
-  return (fact->ddsi_tcp_ssl_plugin.read) (tcp->m_ssl, buf, len, rc);
+  return (fact->ddsi_tcp_ssl_plugin.read) (tcp->m_ssl, buf, len, bytes_written);
 }
 #endif
 
@@ -464,15 +458,15 @@ static int32_t addrfam_to_locator_kind (int af)
   return (af == AF_INET) ? DDSI_LOCATOR_KIND_TCPv4 : DDSI_LOCATOR_KIND_TCPv6;
 }
 
-static ssize_t ddsi_tcp_conn_read (struct ddsi_tran_conn * conn, unsigned char *buf, size_t len, bool allow_spurious, struct ddsi_network_packet_info *pktinfo)
+ddsrt_nonnull((1, 2, 6)) ddsrt_attribute_warn_unused_result
+static dds_return_t ddsi_tcp_conn_read (struct ddsi_tran_conn * conn, unsigned char *buf, size_t len, bool allow_spurious, struct ddsi_network_packet_info *pktinfo, size_t *bytes_read)
 {
   struct ddsi_tran_factory_tcp * const fact = (struct ddsi_tran_factory_tcp *) conn->m_factory;
   struct ddsi_domaingv const * const gv = fact->fact.gv;
   dds_return_t rc;
   ddsi_tcp_conn_t tcp = (ddsi_tcp_conn_t) conn;
-  ssize_t (*rd) (ddsi_tcp_conn_t, void *, size_t, dds_return_t * err) = ddsi_tcp_conn_read_plain;
+  dds_return_t (*rd) (ddsi_tcp_conn_t, void *, size_t, size_t *) = ddsi_tcp_conn_read_plain;
   size_t pos = 0;
-  ssize_t n;
 
 #ifdef DDS_HAS_TCP_TLS
   if (fact->ddsi_tcp_ssl_plugin.read)
@@ -483,26 +477,30 @@ static ssize_t ddsi_tcp_conn_read (struct ddsi_tran_conn * conn, unsigned char *
 
   while (true)
   {
-    n = rd (tcp, (char *) buf + pos, len - pos, &rc);
-    if (n > 0)
+    size_t n;
+    if ((rc = rd (tcp, (char *) buf + pos, len - pos, &n)) == DDS_RETCODE_OK)
     {
-      pos += (size_t) n;
-      if (pos == len)
+      if (n > 0)
       {
-        if (pktinfo)
+        pos += n;
+        if (pos == len)
         {
-          const int32_t kind = addrfam_to_locator_kind (tcp->m_peer_addr.a.sa_family);
-          ddsi_ipaddr_to_loc (&pktinfo->src, &tcp->m_peer_addr.a, kind);
-          pktinfo->if_index = 0;
-          pktinfo->dst.kind = DDSI_LOCATOR_KIND_INVALID;
+          if (pktinfo)
+          {
+            const int32_t kind = addrfam_to_locator_kind (tcp->m_peer_addr.a.sa_family);
+            ddsi_ipaddr_to_loc (&pktinfo->src, &tcp->m_peer_addr.a, kind);
+            pktinfo->if_index = 0;
+            pktinfo->dst.kind = DDSI_LOCATOR_KIND_INVALID;
+          }
+          *bytes_read = pos;
+          return DDS_RETCODE_OK;
         }
-        return (ssize_t) pos;
       }
-    }
-    else if (n == 0)
-    {
-      GVLOG (DDS_LC_TCP, "tcp read: sock %"PRIdSOCK" closed-by-peer\n", tcp->m_sock);
-      break;
+      else if (n == 0)
+      {
+        GVLOG (DDS_LC_TCP, "tcp read: sock %"PRIdSOCK" closed-by-peer\n", tcp->m_sock);
+        break;
+      }
     }
     else
     {
@@ -511,7 +509,11 @@ static ssize_t ddsi_tcp_conn_read (struct ddsi_tran_conn * conn, unsigned char *
         if (rc == DDS_RETCODE_TRY_AGAIN)
         {
           if (allow_spurious && pos == 0)
-            return 0;
+          {
+            // FIXME: change to TRY_AGAIN?
+            *bytes_read = 0;
+            return DDS_RETCODE_OK;
+          }
           const int64_t timeout = gv->config.tcp_read_timeout;
           if (ddsi_tcp_select (gv, tcp->m_sock, true, pos, timeout) == false)
             break;
@@ -526,68 +528,73 @@ static ssize_t ddsi_tcp_conn_read (struct ddsi_tran_conn * conn, unsigned char *
   }
 
   ddsi_tcp_cache_remove (tcp);
-  return -1;
+  return DDS_RETCODE_ERROR;
 }
 
-static ssize_t ddsi_tcp_conn_write_plain (ddsi_tcp_conn_t conn, const void * buf, size_t len, dds_return_t *rc)
+ddsrt_nonnull ((1, 2))
+static dds_return_t ddsi_tcp_conn_write_plain (ddsi_tcp_conn_t conn, const void * buf, size_t len, size_t *bytes_written)
 {
-  ssize_t sent = -1;
   int sendflags = 0;
-
 #ifdef MSG_NOSIGNAL
   sendflags |= MSG_NOSIGNAL;
 #endif
-  *rc = ddsrt_send(conn->m_sock, buf, len, sendflags, &sent);
-
-  return (*rc == DDS_RETCODE_OK ? sent : -1);
+  return ddsrt_send(conn->m_sock, buf, len, sendflags, bytes_written);
 }
 
 #ifdef DDS_HAS_TCP_TLS
-static ssize_t ddsi_tcp_conn_write_ssl (ddsi_tcp_conn_t conn, const void * buf, size_t len, dds_return_t *rc)
+ddsrt_nonnull ((1, 2))
+static dds_return_t ddsi_tcp_conn_write_ssl (ddsi_tcp_conn_t conn, const void * buf, size_t len, size_t *bytes_written)
 {
   struct ddsi_tran_factory_tcp * const fact = (struct ddsi_tran_factory_tcp *) conn->m_base.m_factory;
-  return (fact->ddsi_tcp_ssl_plugin.write) (conn->m_ssl, buf, len, rc);
+  return (fact->ddsi_tcp_ssl_plugin.write) (conn->m_ssl, buf, len, bytes_written);
 }
 #endif
 
-static ssize_t ddsi_tcp_block_write (ssize_t (*wr) (ddsi_tcp_conn_t, const void *, size_t, dds_return_t *), ddsi_tcp_conn_t conn, const void * buf, size_t sz)
+ddsrt_nonnull ((1, 2, 3))
+static dds_return_t ddsi_tcp_block_write (dds_return_t (*wr) (ddsi_tcp_conn_t, const void *, size_t, size_t *), ddsi_tcp_conn_t conn, const void * buf, size_t sz, size_t *bytes_written)
 {
   /* Write all bytes of buf even in the presence of signals,
      partial writes and blocking (typically write buffer full) */
   struct ddsi_domaingv const * const gv = conn->m_base.m_base.gv;
-  dds_return_t rc;
+  dds_return_t rc = DDS_RETCODE_OK;
   size_t pos = 0;
-  ssize_t n = -1;
 
   while (pos != sz)
   {
-    n = (wr) (conn, (const char *) buf + pos, sz - pos, &rc);
-    if (n > 0)
+    size_t n;
+    rc = (wr) (conn, (const char *) buf + pos, sz - pos, &n);
+    if (rc == DDS_RETCODE_INTERRUPTED)
     {
-      pos += (size_t) n;
+      // try again
     }
-    else if (n == -1)
+    else if (rc == DDS_RETCODE_TRY_AGAIN)
     {
-      if (rc != DDS_RETCODE_INTERRUPTED)
+      const int64_t timeout = gv->config.tcp_write_timeout;
+      if (ddsi_tcp_select (gv, conn->m_sock, false, pos, timeout) == false)
       {
-        if (rc == DDS_RETCODE_TRY_AGAIN)
-        {
-          const int64_t timeout = gv->config.tcp_write_timeout;
-          if (ddsi_tcp_select (gv, conn->m_sock, false, pos, timeout) == false)
-          {
-            break;
-          }
-        }
-        else
-        {
-          GVLOG (DDS_LC_TCP, "tcp write: sock %"PRIdSOCK" error %"PRId32"\n", conn->m_sock, rc);
-          break;
-        }
+        rc = DDS_RETCODE_TIMEOUT;
+        break;
       }
+    }
+    else if (rc != DDS_RETCODE_OK)
+    {
+      GVLOG (DDS_LC_TCP, "tcp write: sock %"PRIdSOCK" error %"PRId32"\n", conn->m_sock, rc);
+      break;
+    }
+    else if (n == 0)
+    {
+      // EOF
+      break;
+    }
+    else
+    {
+      pos += n;
     }
   }
 
-  return (pos == sz) ? (ssize_t) pos : -1;
+  if (bytes_written)
+    *bytes_written = pos;
+  return rc;
 }
 
 static size_t iovlen_sum (size_t niov, const ddsrt_iovec_t *iov)
@@ -604,18 +611,17 @@ static void set_msghdr_iov (ddsrt_msghdr_t *mhdr, ddsrt_iovec_t *iov, size_t iov
   mhdr->msg_iovlen = (ddsrt_msg_iovlen_t)iovlen;
 }
 
-static ssize_t ddsi_tcp_conn_write (struct ddsi_tran_conn * base, const ddsi_locator_t *dst, const ddsi_tran_write_msgfrags_t *msgfrags, uint32_t flags)
+ddsrt_nonnull ((1, 2, 3))
+static dds_return_t ddsi_tcp_conn_write (struct ddsi_tran_conn * base, const ddsi_locator_t *dst, const ddsi_tran_write_msgfrags_t *msgfrags, uint32_t flags, size_t *bytes_written)
 {
   struct ddsi_tran_factory_tcp * const fact = (struct ddsi_tran_factory_tcp *) base->m_factory;
   struct ddsi_domaingv const * const gv = fact->fact.gv;
 #ifdef DDS_HAS_TCP_TLS
   char msgbuf[4096]; /* stack buffer for merging smallish writes without requiring allocations */
-  ddsrt_iovec_t iovec; /* iovec used for msgbuf */
+  ddsrt_iovec_t iovec = { .iov_len = 0, .iov_base = NULL }; /* iovec used for msgbuf */
 #endif
-  ssize_t ret = -1;
   size_t len;
   ddsi_tcp_conn_t conn;
-  int piecewise;
   bool connect = false;
   ddsrt_msghdr_t msg;
   union {
@@ -637,7 +643,7 @@ static ssize_t ddsi_tcp_conn_write (struct ddsi_tran_conn * base, const ddsi_loc
   conn = ddsi_tcp_cache_find (fact, &msg);
   if (conn == NULL)
   {
-    return -1;
+    return DDS_RETCODE_ERROR;
   }
 
   ddsrt_mutex_lock (&conn->m_mutex);
@@ -651,7 +657,7 @@ static ssize_t ddsi_tcp_conn_write (struct ddsi_tran_conn * base, const ddsi_loc
     if (conn->m_sock == DDSRT_INVALID_SOCKET)
     {
       ddsrt_mutex_unlock (&conn->m_mutex);
-      return -1;
+      return DDS_RETCODE_ERROR;
     }
     connect = true;
   }
@@ -662,16 +668,20 @@ static ssize_t ddsi_tcp_conn_write (struct ddsi_tran_conn * base, const ddsi_loc
   {
     GVLOG (DDS_LC_TCP, "tcp write: sock %"PRIdSOCK" message filtered\n", conn->m_sock);
     ddsrt_mutex_unlock (&conn->m_mutex);
-    return (ssize_t) len;
+    if (bytes_written)
+      *bytes_written = len;
+    return DDS_RETCODE_OK;
   }
 
+  dds_return_t rc = DDS_RETCODE_OK;
+  size_t cursor = 0;
 #ifdef DDS_HAS_TCP_TLS
   if (gv->config.ssl_enable)
   {
-    /* SSL doesn't have sendmsg, ret = 0 so writing starts at first byte.
-       Rumor is that it is much better to merge small writes, which do here
-       rather in than in SSL-specific code for simplicity - perhaps ought
-       to move this copying into xpack_send */
+    /* SSL doesn't have sendmsg, cursor = 0 so writing starts at first byte.
+       Rumor is that it is much better to merge small writes, which we do here
+       rather in than in SSL-specific code for simplicity - perhaps ought to
+       move this copying into xpack_send */
     if (msg.msg_iovlen > 1)
     {
       int i;
@@ -687,99 +697,84 @@ static ssize_t ddsi_tcp_conn_write (struct ddsi_tran_conn * base, const ddsi_loc
       msg.msg_iov = &iovec;
       msg.msg_iovlen = 1;
     }
-    piecewise = 1;
-    ret = 0;
   }
   else
 #endif
   {
     int sendflags = 0;
-    dds_return_t rc;
 #ifdef MSG_NOSIGNAL
     sendflags |= MSG_NOSIGNAL;
 #endif
     msg.msg_name = NULL;
     msg.msg_namelen = 0;
-    do
+    do {
+      rc = ddsrt_sendmsg (conn->m_sock, &msg, sendflags, &cursor);
+    } while (rc == DDS_RETCODE_INTERRUPTED);
+    if (rc == DDS_RETCODE_TRY_AGAIN)
     {
-      rc = ddsrt_sendmsg (conn->m_sock, &msg, sendflags, &ret);
+      // continue in piecewise mode
+      rc = DDS_RETCODE_OK;
     }
-    while (rc == DDS_RETCODE_INTERRUPTED);
-    if (ret == -1)
+    else if (rc != DDS_RETCODE_OK)
     {
-      if (rc == DDS_RETCODE_TRY_AGAIN)
+      switch (rc)
       {
-        piecewise = 1;
-        ret = 0;
+        case DDS_RETCODE_NO_CONNECTION:
+        case DDS_RETCODE_ILLEGAL_OPERATION:
+          GVLOG (DDS_LC_TCP, "tcp write: sock %"PRIdSOCK" DDS_RETCODE_NO_CONNECTION\n", conn->m_sock);
+          break;
+        default:
+          if (! conn->m_base.m_closed && (conn->m_sock != DDSRT_INVALID_SOCKET))
+            GVWARNING ("tcp write failed on socket %"PRIdSOCK" with errno %"PRId32"\n", conn->m_sock, rc);
+          break;
       }
-      else
-      {
-        piecewise = 0;
-        switch (rc)
-        {
-          case DDS_RETCODE_NO_CONNECTION:
-          case DDS_RETCODE_ILLEGAL_OPERATION:
-            GVLOG (DDS_LC_TCP, "tcp write: sock %"PRIdSOCK" DDS_RETCODE_NO_CONNECTION\n", conn->m_sock);
-            break;
-          default:
-            if (! conn->m_base.m_closed && (conn->m_sock != DDSRT_INVALID_SOCKET))
-              GVWARNING ("tcp write failed on socket %"PRIdSOCK" with errno %"PRId32"\n", conn->m_sock, rc);
-            break;
-        }
-      }
+      ddsrt_mutex_unlock (&conn->m_mutex);
+      ddsi_tcp_cache_remove (conn);
+      return rc;
     }
-    else
+    else if (cursor == 0)
     {
-      if (ret == 0)
-      {
-        GVLOG (DDS_LC_TCP, "tcp write: sock %"PRIdSOCK" eof\n", conn->m_sock);
-      }
-      piecewise = (ret > 0 && (size_t) ret < len);
+      GVLOG (DDS_LC_TCP, "tcp write: sock %"PRIdSOCK" eof\n", conn->m_sock);
     }
   }
 
-  if (piecewise)
+  assert (rc == DDS_RETCODE_OK);
+  if (cursor < len)
   {
-    ssize_t (*wr) (ddsi_tcp_conn_t, const void *, size_t, dds_return_t *) = ddsi_tcp_conn_write_plain;
-    int i = 0;
+    dds_return_t (*wr) (ddsi_tcp_conn_t, const void *, size_t, size_t *) = ddsi_tcp_conn_write_plain;
 #ifdef DDS_HAS_TCP_TLS
     if (fact->ddsi_tcp_ssl_plugin.write)
-    {
       wr = ddsi_tcp_conn_write_ssl;
-    }
 #endif
 
+    int i = 0;
     assert (msg.msg_iov[i].iov_len > 0);
-    while (ret >= (ssize_t) msg.msg_iov[i].iov_len)
+    while (cursor >= msg.msg_iov[i].iov_len)
     {
-      ret -= (ssize_t) msg.msg_iov[i++].iov_len;
+      cursor -= msg.msg_iov[i++].iov_len;
     }
     assert (i < (int) msg.msg_iovlen);
-    ret = ddsi_tcp_block_write (wr, conn, (const char *) msg.msg_iov[i].iov_base + ret, msg.msg_iov[i].iov_len - (size_t) ret);
-    while (ret > 0 && ++i < (int) msg.msg_iovlen)
-    {
-      ret = ddsi_tcp_block_write (wr, conn, msg.msg_iov[i].iov_base, msg.msg_iov[i].iov_len);
-    }
+    size_t n;
+    rc = ddsi_tcp_block_write (wr, conn, (const char *) msg.msg_iov[i].iov_base + cursor, msg.msg_iov[i].iov_len - (size_t) cursor, &n);
+    while (rc == DDS_RETCODE_OK && n > 0 && ++i < (int) msg.msg_iovlen)
+      rc = ddsi_tcp_block_write (wr, conn, msg.msg_iov[i].iov_base, msg.msg_iov[i].iov_len, &n);
   }
+  ddsrt_mutex_unlock (&conn->m_mutex);
 
 #ifdef DDS_HAS_TCP_TLS
   /* If allocated memory for merging original fragments into a single buffer, free it */
   DDSRT_WARNING_MSVC_OFF(28199)
-  if (msg.msg_iov == &iovec && iovec.iov_base != msgbuf)
-  {
+  if (iovec.iov_base && iovec.iov_base != msgbuf)
     ddsrt_free (iovec.iov_base);
-  }
   DDSRT_WARNING_MSVC_ON(28199)
 #endif
 
-  ddsrt_mutex_unlock (&conn->m_mutex);
-
-  if (ret == -1)
-  {
+  if (rc != DDS_RETCODE_OK || cursor == 0)
     ddsi_tcp_cache_remove (conn);
-  }
 
-  return ((size_t) ret == len) ? ret : -1;
+  if (bytes_written)
+    *bytes_written = cursor;
+  return rc;
 }
 
 static ddsrt_socket_t ddsi_tcp_conn_handle (struct ddsi_tran_base * base)
@@ -965,6 +960,10 @@ static ddsi_tcp_conn_t ddsi_tcp_new_conn (struct ddsi_tran_factory_tcp *fact, co
   conn->m_base.m_base.m_port = INVALID_PORT;
   ddsi_tcp_conn_set_socket (conn, sock);
 
+  char buff[DDSI_LOCSTRLEN];
+  struct ddsi_domaingv * const gv = fact->fact.gv;
+  sockaddr_to_string_with_port(buff, sizeof(buff), &conn->m_peer_addr.a);
+  GVLOG (DDS_LC_TCP, "tcp new %s connection on socket %"PRIdSOCK" to %s (%p)\n", conn->m_base.m_server ? "server" : "client", conn->m_sock, buff, (void *) conn);
   return conn;
 }
 
@@ -1015,7 +1014,7 @@ static void ddsi_tcp_conn_delete (ddsi_tcp_conn_t conn)
   struct ddsi_domaingv const * const gv = fact->fact.gv;
   char buff[DDSI_LOCSTRLEN];
   sockaddr_to_string_with_port(buff, sizeof(buff), &conn->m_peer_addr.a);
-  GVLOG (DDS_LC_TCP, "tcp free %s connection on socket %"PRIdSOCK" to %s\n", conn->m_base.m_server ? "server" : "client", conn->m_sock, buff);
+  GVLOG (DDS_LC_TCP, "tcp free %s connection on socket %"PRIdSOCK" to %s (%p)\n", conn->m_base.m_server ? "server" : "client", conn->m_sock, buff, (void *) conn);
 
 #ifdef DDS_HAS_TCP_TLS
   if (fact->ddsi_tcp_ssl_plugin.ssl_free)
@@ -1123,11 +1122,23 @@ static void ddsi_tcp_release_listener (struct ddsi_tran_listener * listener)
   ddsrt_free (tl);
 }
 
+static void ddsi_tcp_release_factory_free_cache_node (void *vnode)
+{
+  ddsi_tcp_node_t node = vnode;
+  struct ddsi_domaingv * const gv = node->m_conn->m_base.m_factory->gv;
+  GVLOG (DDS_LC_TCP, "tcp cache free on shutdown (%p)\n", (void *) node->m_conn);
+  // TCP support code really is broken ... it doesn't ordinarily leak connections,
+  // but it does sometimes when a connection is created by a message sent to a
+  // peer that was removed just before. The TCP code should be rewritten entirely.
+  ddsrt_atomic_st32 (&node->m_conn->m_base.m_count, 1);
+  ddsi_tcp_node_free (node);
+}
+
 static void ddsi_tcp_release_factory (struct ddsi_tran_factory *fact_cmn)
 {
   struct ddsi_tran_factory_tcp * const fact = (struct ddsi_tran_factory_tcp *) fact_cmn;
   struct ddsi_domaingv const * const gv = fact->fact.gv;
-  ddsrt_avl_free (&ddsi_tcp_treedef, &fact->ddsi_tcp_cache_g, ddsi_tcp_node_free);
+  ddsrt_avl_free (&ddsi_tcp_treedef, &fact->ddsi_tcp_cache_g, ddsi_tcp_release_factory_free_cache_node);
   ddsrt_mutex_destroy (&fact->ddsi_tcp_cache_lock_g);
 #ifdef DDS_HAS_TCP_TLS
   if (fact->ddsi_tcp_ssl_plugin.fini)

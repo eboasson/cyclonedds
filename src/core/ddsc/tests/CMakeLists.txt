@@ -153,6 +153,11 @@ if(ENABLE_QOS_PROVIDER)
     "qos_provider.c")
 endif()
 
+if(ENABLE_TCP)
+  list(APPEND ddsc_test_sources
+    "tcp.c")
+endif()
+
 add_cunit_executable(cunit_ddsc ${ddsc_test_sources})
 
 if(MSVC)
