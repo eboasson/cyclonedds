@@ -8,8 +8,14 @@
 //
 // SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 
-#ifndef DYNSUB_H
-#define DYNSUB_H
+#ifndef SCAN_SAMPLE_H
+#define SCAN_SAMPLE_H
 
+#include "dds/dds.h"
+#include "dds/ddsi/ddsi_xt_typeinfo.h"
 
-#endif /* DYNSUB_H */
+#include "domtree.h"
+
+void *scan_sample (const struct elem *input, const DDS_XTypes_CompleteTypeObject *typeobj);
+
+#endif /* PRINT_SAMPLE_H */

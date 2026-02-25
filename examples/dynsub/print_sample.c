@@ -23,10 +23,8 @@
 #include <assert.h>
 #include <wchar.h>
 
-#include "dds/dds.h"
-#include "dds/ddsi/ddsi_xt_typeinfo.h"
-
-#include "dynsub.h"
+#include "type_cache.h"
+#include "print_sample.h"
 
 struct context {
   bool valid_data;
@@ -80,6 +78,32 @@ static bool print_sample1_simple (const unsigned char *sample, const uint8_t dis
     case CASE(STRING8, char *, printf ("\"%s\"", is_opt ? (char *)p : *p));
     case CASE(STRING16, wchar_t *, printf ("\"%ls\"", is_opt ? (wchar_t *)p : *p));
 #undef CASE
+    case DDS_XTypes_TK_FLOAT128: { // FIXME
+      const unsigned char *p = align (sample, c, 8, 16);
+      uint64_t u;
+      double d;
+      // no proper handling of NaN, Inf, subnormals, rounding
+      // double: sign (1) + exp (11) + mantissa (52 + 1 implicit), exp bias = 16383
+      // quad:   sign (1) + exp (15) + mantissa (112 + 1 implicit), exp bias = 1023
+#if DDSRT_ENDIAN == DDSRT_LITTLE_ENDIAN
+      const bool sign = p[15] & 0x80;
+      const int exp = (int) (((p[15] << 8) | p[14]) & ~0x8000) - 16383;
+      const unsigned char lsb = p[7];
+      memcpy (&u, p + 8, sizeof (u));
+#else
+      const bool sign = p[0] & 0x80;
+      const int exp = (int) (((p[0] << 8) | p[1]) & ~0x8000) - 16383;
+      const unsigned char lsb = p[8];
+      memcpy (&u, p, sizeof (u));
+#endif
+      u = ((u << 4) | (lsb >> 4)) & (~(uint64_t)0 >> 12);
+      u |= (uint64_t)((exp + 1023) & 0x7ff) << 52;
+      if (sign)
+        u |= (uint64_t)1 << 63;
+      memcpy (&d, &u, sizeof (d));
+      if (c->key || c->valid_data) { if (c->needs_comma) fputc (',', stdout); if (label) printf ("\"%s\":", label); printf ("%g", d); c->needs_comma = true; }
+      return true;
+    }
   }
   return false;
 }

@@ -16,8 +16,10 @@
 
 #include "dds/dds.h"
 #include "dds/ddsi/ddsi_xt_typeinfo.h"
+#include "dds/ddsrt/heap.h"
 
-#include "dynsub.h"
+#include "type_cache.h"
+#include "print_type.h"
 
 // TypeObjects can (and often do) refer to other types via an opaque id.  We don't want to have to request
 // the corresponding type object every time we need it (it can be quite costly) and so have cache them in
@@ -57,7 +59,7 @@ static struct type_hashid_map * type_hashid_map_lookup (struct type_hashid_map *
   return ddsrt_hh_lookup (type_hashid_map, templ);
 }
 
-static void type_hashid_map_add (struct type_hashid_map *info)
+void type_hashid_map_add (struct type_hashid_map *info)
 {
   ddsrt_hh_add (type_hashid_map, info);
 }
@@ -65,7 +67,7 @@ static void type_hashid_map_add (struct type_hashid_map *info)
 static void free_type_hashid_map (void *vinfo, void *varg)
 {
   (void) varg;
-  free (vinfo);
+  ddsrt_free (vinfo);
 }
 
 static void type_hashid_map_free (void)
@@ -115,7 +117,7 @@ static void free_typeinfo (void *vinfo, void *varg)
   (void) varg;
   if (info->release)
     dds_free_typeobj ((dds_typeobj_t *) info->release);
-  free (info);
+  ddsrt_free (info);
 }
 
 void type_cache_free (void)
@@ -159,7 +161,6 @@ static bool build_typecache_simple (const uint8_t disc, size_t *align, size_t *s
     case CASE(UINT64, uint64_t);
     case CASE(FLOAT32, float);
     case CASE(FLOAT64, double);
-      // FLOAT128
     case CASE(INT8, int8_t);
     case CASE(UINT8, uint8_t);
     case CASE(CHAR8, int8_t);
@@ -167,6 +168,10 @@ static bool build_typecache_simple (const uint8_t disc, size_t *align, size_t *s
     case CASE(STRING8, unsigned char *);
     case CASE(STRING16, wchar_t *);
 #undef CASE
+    case DDS_XTypes_TK_FLOAT128: // FIXME:
+      *align = 8;
+      *size = 16;
+      return true;
   }
   return false;
 }
@@ -277,8 +282,7 @@ static void build_typecache_ti (const DDS_XTypes_TypeIdentifier *typeid, size_t 
       } else {
         const DDS_XTypes_CompleteTypeObject *tobj = get_complete_typeobj_for_hashid (typeid->_u.equivalence_hash);
         build_typecache_to (tobj, align, size);
-        info = malloc (sizeof (*info));
-        assert (info);
+        info = ddsrt_malloc (sizeof (*info));
         *info = (struct typeinfo){ .key = { .key = (uintptr_t) typeid }, .typeobj = tobj, .release = NULL, .align = *align, .size = *size };
         type_cache_add (info);
       }
@@ -315,10 +319,9 @@ void build_typecache_to (const DDS_XTypes_CompleteTypeObject *typeobj, size_t *a
         }
         *align = sizeof (int);
         *size = sizeof (int);
-        info = malloc (sizeof (*info));
-        assert (info);
+        info = ddsrt_malloc (sizeof (*info));
         *info = (struct typeinfo){ .key = { .key = (uintptr_t) typeobj }, .typeobj = typeobj, .release = NULL, .align = *align, .size = *size };
-        ddsrt_hh_add (typecache, info);
+        type_cache_add (info);
       }
       break;
     }
@@ -337,10 +340,9 @@ void build_typecache_to (const DDS_XTypes_CompleteTypeObject *typeobj, size_t *a
           *align = *size = 2;
         else
           *align = *size = 1;
-        info = malloc (sizeof (*info));
-        assert (info);
+        info = ddsrt_malloc (sizeof (*info));
         *info = (struct typeinfo){ .key = { .key = (uintptr_t) typeobj }, .typeobj = typeobj, .release = NULL, .align = *align, .size = *size };
-        ddsrt_hh_add (typecache, info);
+        type_cache_add (info);
       }
       break;
     }
@@ -355,10 +357,9 @@ void build_typecache_to (const DDS_XTypes_CompleteTypeObject *typeobj, size_t *a
         build_typecache_ti (&x->element.common.type, &a, &s);
         *align = a;
         *size = s;
-        info = malloc (sizeof (*info));
-        assert (info);
+        info = ddsrt_malloc (sizeof (*info));
         *info = (struct typeinfo){ .key = { .key = (uintptr_t) typeobj }, .typeobj = typeobj, .release = NULL, .align = *align, .size = *size };
-        ddsrt_hh_add (typecache, info);
+        type_cache_add (info);
       }
       break;
     }
@@ -386,10 +387,9 @@ void build_typecache_to (const DDS_XTypes_CompleteTypeObject *typeobj, size_t *a
         }
         if (*size % *align)
           *size += *align - (*size % *align);
-        info = malloc (sizeof (*info));
-        assert (info);
+        info = ddsrt_malloc (sizeof (*info));
         *info = (struct typeinfo){ .key = { .key = (uintptr_t) typeobj }, .typeobj = typeobj, .release = NULL, .align = *align, .size = *size };
-        ddsrt_hh_add (typecache, info);
+        type_cache_add (info);
       }
       break;
     }
@@ -424,10 +424,9 @@ void build_typecache_to (const DDS_XTypes_CompleteTypeObject *typeobj, size_t *a
           *align = disc_align;
         if (*size % *align)
           *size += *align - (*size % *align);
-        info = malloc (sizeof (*info));
-        assert (info);
+        info = ddsrt_malloc (sizeof (*info));
         *info = (struct typeinfo){ .key = { .key = (uintptr_t) typeobj }, .typeobj = typeobj, .release = NULL, .align = *align, .size = *size };
-        ddsrt_hh_add (typecache, info);
+        type_cache_add (info);
       }
       break;
     }
@@ -437,7 +436,6 @@ void build_typecache_to (const DDS_XTypes_CompleteTypeObject *typeobj, size_t *a
     }
   }
 }
-
 
 static bool load_deps_failed (void)
 {
@@ -506,8 +504,7 @@ static bool load_deps_ti (dds_entity_t participant, const DDS_XTypes_TypeIdentif
         if (dds_get_typeobj (participant, (const dds_typeid_t *) typeid, 0, &typeobj) < 0)
           return load_deps_failed ();
         DDS_XTypes_TypeObject * const xtypeobj = (DDS_XTypes_TypeObject *) typeobj;
-        info = malloc (sizeof (*info));
-        assert (info);
+        info = ddsrt_malloc (sizeof (*info));
         memcpy (info->id, typeid->_u.equivalence_hash, sizeof (info->id));
         info->typeobj = xtypeobj;
         info->lineno = 0;
@@ -526,8 +523,7 @@ static bool load_deps_ti (dds_entity_t participant, const DDS_XTypes_TypeIdentif
         if (dds_get_typeobj (participant, (const dds_typeid_t *) typeid, 0, &typeobj) < 0)
           return load_deps_failed ();
         DDS_XTypes_TypeObject * const xtypeobj = (DDS_XTypes_TypeObject *) typeobj;
-        info = malloc (sizeof (*info));
-        assert (info);
+        info = ddsrt_malloc (sizeof (*info));
         memcpy (info->id, typeid->_u.equivalence_hash, sizeof (info->id));
         info->typeobj = xtypeobj;
         info->lineno = 0;
@@ -625,9 +621,8 @@ static bool load_deps_to_min (dds_entity_t participant, const DDS_XTypes_Minimal
   }
 }
 
-DDS_XTypes_TypeObject *load_type_with_deps (dds_entity_t participant, const dds_typeinfo_t *typeinfo, struct ppc *ppc)
+const DDS_XTypes_TypeObject *load_type_with_deps_impl (dds_entity_t participant, const DDS_XTypes_TypeInformation *xtypeinfo, struct ppc *ppc)
 {
-  DDS_XTypes_TypeInformation const * const xtypeinfo = (DDS_XTypes_TypeInformation *) typeinfo;
   if (!load_deps_ti (participant, &xtypeinfo->complete.typeid_with_size.type_id))
     return NULL;
   struct type_hashid_map templ, *info;
@@ -635,13 +630,12 @@ DDS_XTypes_TypeObject *load_type_with_deps (dds_entity_t participant, const dds_
   if ((info = type_hashid_map_lookup (&templ)) == NULL)
     return NULL;
   if (ppc)
-  ppc_print_ti (ppc, &xtypeinfo->complete.typeid_with_size.type_id);
+    ppc_print_ti (ppc, &xtypeinfo->complete.typeid_with_size.type_id);
   return (DDS_XTypes_TypeObject *) info->typeobj;
 }
 
-DDS_XTypes_TypeObject *load_type_with_deps_min (dds_entity_t participant, const dds_typeinfo_t *typeinfo, struct ppc *ppc)
+const DDS_XTypes_TypeObject *load_type_with_deps_min_impl (dds_entity_t participant, const DDS_XTypes_TypeInformation *xtypeinfo, struct ppc *ppc)
 {
-  DDS_XTypes_TypeInformation const * const xtypeinfo = (DDS_XTypes_TypeInformation *) typeinfo;
   if (!load_deps_ti (participant, &xtypeinfo->minimal.typeid_with_size.type_id))
     return NULL;
   struct type_hashid_map templ, *info;
@@ -651,4 +645,14 @@ DDS_XTypes_TypeObject *load_type_with_deps_min (dds_entity_t participant, const 
   if (ppc)
     ppc_print_ti (ppc, &xtypeinfo->minimal.typeid_with_size.type_id);
   return (DDS_XTypes_TypeObject *) info->typeobj;
+}
+
+const DDS_XTypes_TypeObject *load_type_with_deps (dds_entity_t participant, const dds_typeinfo_t *typeinfo, struct ppc *ppc)
+{
+  return load_type_with_deps_impl (participant, (DDS_XTypes_TypeInformation *) typeinfo, ppc);
+}
+
+const DDS_XTypes_TypeObject *load_type_with_deps_min (dds_entity_t participant, const dds_typeinfo_t *typeinfo, struct ppc *ppc)
+{
+  return load_type_with_deps_min_impl (participant, (DDS_XTypes_TypeInformation *) typeinfo, ppc);
 }

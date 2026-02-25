@@ -15,15 +15,29 @@ if(NOT TARGET CycloneDDS::ddsc)
   find_package(CycloneDDS REQUIRED)
 endif()
 
-set(headers
-  dynsub.h)
-set(sources
+add_executable(dynsub
   dynsub.c
   type_cache.c
+  type_cache.h
   print_type.c
-  print_sample.c)
-
-add_executable(dynsub ${sources} ${headers})
+  print_type.h
+  print_sample.c
+  print_sample.h
+)
+add_executable(xmltype
+  xmltype.c
+  xmltype.h
+  domtree.c
+  domtree.h
+  type_cache.c
+  type_cache.h
+  print_type.c
+  print_type.h
+  print_sample.c
+  print_sample.h
+  scan_sample.c
+  scan_sample.h
+)
 
 if(TARGET CycloneDDS::ddsc)
   # shouldn't need this ...
@@ -31,8 +45,13 @@ if(TARGET CycloneDDS::ddsc)
     PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/../../src/core/cdr/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/../../src/core/ddsi/include")
+  target_include_directories(xmltype
+    PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../src/core/cdr/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../src/core/ddsi/include")
 endif()
 target_link_libraries(dynsub CycloneDDS::ddsc)
+target_link_libraries(xmltype CycloneDDS::ddsc)
 
 add_executable(variouspub variouspub.c)
 idlc_generate(TARGET variouspub_lib FILES "variouspub_types.idl" WARNINGS no-implicit-extensibility)
