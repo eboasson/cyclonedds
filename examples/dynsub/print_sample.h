@@ -8,8 +8,12 @@
 //
 // SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 
-#ifndef DYNSUB_H
-#define DYNSUB_H
+#ifndef PRINT_SAMPLE_H
+#define PRINT_SAMPLE_H
 
+#include "dds/dds.h"
+#include "dds/ddsi/ddsi_xt_typeinfo.h"
 
-#endif /* DYNSUB_H */
+void print_sample (bool valid_data, const void *sample, const DDS_XTypes_CompleteTypeObject *typeobj);
+
+#endif /* PRINT_SAMPLE_H */

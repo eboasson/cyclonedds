@@ -13,10 +13,8 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "dds/dds.h"
-#include "dds/ddsi/ddsi_xt_typeinfo.h"
-
-#include "dynsub.h"
+#include "type_cache.h"
+#include "print_type.h"
 
 void ppc_init (struct ppc *ppc)
 {

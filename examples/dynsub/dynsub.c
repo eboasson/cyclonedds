@@ -19,7 +19,11 @@
 #endif
 
 #include "dds/dds.h"
-#include "dynsub.h"
+#include "dds/ddsrt/heap.h"
+
+#include "type_cache.h"
+#include "print_type.h"
+#include "print_sample.h"
 
 // Interpreting the data of an arbitrary topic requires interpreting the type object that describes the data.
 // The type object type is defined by the XTypes specification (https://www.omg.org/spec/DDS-XTypes/) and it
@@ -50,7 +54,7 @@ static dds_entity_t termcond;
 // Helper function to wait for a DCPSPublication/DCPSSubscription to show up with the desired topic name,
 // then calls dds_find_topic to create a topic for that data writer's/reader's type up the retrieves the
 // type object.
-static dds_return_t get_topic_and_typeobj (const char *topic_name, dds_duration_t timeout, dds_entity_t *topic, DDS_XTypes_TypeObject **xtypeobj)
+static dds_return_t get_topic_and_typeobj (const char *topic_name, dds_duration_t timeout, dds_entity_t *topic, const DDS_XTypes_TypeObject **xtypeobj)
 {
   const dds_entity_t waitset = dds_create_waitset (participant);
   const dds_entity_t dcpspublication_reader = dds_create_reader (participant, DDS_BUILTIN_TOPIC_DCPSPUBLICATION, NULL, NULL);
@@ -140,8 +144,7 @@ static dds_return_t get_topic_and_typeobj (const char *topic_name, dds_duration_
     else
     {
       // not sure whether this is at all possible
-      info = malloc (sizeof (*info));
-      assert (info);
+      info = ddsrt_malloc (sizeof (*info));
       *info = (struct typeinfo){ .key = { .key = (uintptr_t) *xtypeobj }, .typeobj = &(*xtypeobj)->_u.complete, .release = *xtypeobj, .align = align, .size = size };
       type_cache_add (info);
     }
@@ -244,7 +247,7 @@ static bool print_sample_cdr (dds_entity_t reader, const DDS_XTypes_TypeObject *
       ddsi_serdata_to_ser_unref (refsd, &iov);
     }
 
-    void *raw = calloc (1, sd->type->sizeof_type);
+    void *raw = ddsrt_calloc (1, sd->type->sizeof_type);
     if (raw == NULL)
       abort ();
 
@@ -262,7 +265,7 @@ static bool print_sample_cdr (dds_entity_t reader, const DDS_XTypes_TypeObject *
     else
       printf ("(conversion to sample failed)\n");
     ddsi_sertype_free_sample (sd->type, raw, DDS_FREE_CONTENTS);
-    free (raw);
+    ddsrt_free (raw);
 
     ddsi_serdata_unref (sd);
   }
@@ -322,7 +325,7 @@ int main (int argc, char **argv)
   }
 
   // The one magic step: get a topic and type object ...
-  DDS_XTypes_TypeObject *xtypeobj;
+  const DDS_XTypes_TypeObject *xtypeobj;
   type_cache_init ();
   if ((ret = get_topic_and_typeobj (topic_name, DDS_SECS (10), &topic, &xtypeobj)) < 0)
   {
