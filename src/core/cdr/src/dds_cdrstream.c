@@ -4374,10 +4374,13 @@ static enum dds_stream_normalize_result normalize_seq (char * restrict data, uin
     }
     case DDS_OP_VAL_SEQ: case DDS_OP_VAL_BSQ: case DDS_OP_VAL_ARR: case DDS_OP_VAL_UNI: case DDS_OP_VAL_STU: {
       const uint32_t jmp = DDS_OP_ADR_JMP ((*ops)[3 + bound_op]);
-      uint32_t const * jsr_ops = *ops + DDS_OP_ADR_JSR ((*ops)[3 + bound_op]);
+      uint32_t const * const jsr_ops = *ops + DDS_OP_ADR_JSR ((*ops)[3 + bound_op]);
       for (uint32_t i = 0; i < num; i++)
-        if ((res = stream_normalize_data_impl (data, off, size1, bswap, xcdr_version, mid_table, &jsr_ops, false, cdr_kind)) != DDS_STREAM_NORMALIZE_SUCCESS)
+      {
+        uint32_t const * jsr_ops1 = jsr_ops;
+        if ((res = stream_normalize_data_impl (data, off, size1, bswap, xcdr_version, mid_table, &jsr_ops1, false, cdr_kind)) != DDS_STREAM_NORMALIZE_SUCCESS)
           return res;
+      }
       *ops += jmp ? jmp : (4 + bound_op); /* FIXME: why would jmp be 0? */
       break;
     }
@@ -4456,10 +4459,12 @@ static enum dds_stream_normalize_result normalize_arr (char * restrict data, uin
     }
     case DDS_OP_VAL_SEQ: case DDS_OP_VAL_BSQ: case DDS_OP_VAL_ARR: case DDS_OP_VAL_UNI: case DDS_OP_VAL_STU: {
       const uint32_t jmp = DDS_OP_ADR_JMP ((*ops)[3]);
-      uint32_t const * jsr_ops = *ops + DDS_OP_ADR_JSR ((*ops)[3]);
-      for (uint32_t i = 0; i < num; i++)
-        if ((res = stream_normalize_data_impl (data, off, size1, bswap, xcdr_version, mid_table, &jsr_ops, false, cdr_kind)) != DDS_STREAM_NORMALIZE_SUCCESS)
+      uint32_t const * const jsr_ops = *ops + DDS_OP_ADR_JSR ((*ops)[3]);
+      for (uint32_t i = 0; i < num; i++) {
+        uint32_t const * jsr_ops1 = jsr_ops;
+        if ((res = stream_normalize_data_impl (data, off, size1, bswap, xcdr_version, mid_table, &jsr_ops1, false, cdr_kind)) != DDS_STREAM_NORMALIZE_SUCCESS)
           return res;
+      }
       *ops += jmp ? jmp : 5;
       break;
     }
@@ -5106,7 +5111,8 @@ static enum dds_stream_normalize_result stream_normalize_data_impl (char * restr
         break;
       }
       case DDS_OP_JSR: {
-        if ((res = stream_normalize_data_impl (data, off, size, bswap, xcdr_version, mid_table, ops + DDS_OP_JUMP (insn), is_mutable_member, cdr_kind)) != DDS_STREAM_NORMALIZE_SUCCESS)
+        uint32_t const * jsr_ops = *ops + DDS_OP_JUMP (insn);
+        if ((res = stream_normalize_data_impl (data, off, size, bswap, xcdr_version, mid_table, &jsr_ops, is_mutable_member, cdr_kind)) != DDS_STREAM_NORMALIZE_SUCCESS)
           return res;
         (*ops)++;
         break;
