@@ -515,14 +515,18 @@ enum dds_stream_typecode_subtype {
  * - enum
  * - bounded string
  * - bounded sequence
+ * Overlaps DDS_OP_FLAG_BASE, which is only used i.c.w. DDS_OP_PLM and with
+ * DDS_OP_ADR + DDS_OP_TYPE_EXT
  */
-#define DDS_OP_FLAG_TC_DEF   (1u << 1)
+#define DDS_OP_FLAG_TC_DEF   (1u << 4)
 
 /**
  * @anchor DDS_OP_FLAG_TC_TRIM
  * @ingroup serialization
  * @brief Try-construct fail-action TRIM. For applicability,
  * see @ref DDS_OP_FLAG_TC_DEF
+ *
+ * Overlaps DDS_OP_FLAG_SGN, which is only used for nBY en arrays/sequences of them
  */
 #define DDS_OP_FLAG_TC_TRIM  (1u << 2)
 
@@ -530,7 +534,7 @@ enum dds_stream_typecode_subtype {
  * @anchor DDS_OP_FLAG_FP
  * @ingroup serialization
  * @brief floating-point,
- * applicable to {4,8}BY and arrays, sequences of them
+ * applicable to {4,8,16}BY and arrays, sequences of them
  */
 #define DDS_OP_FLAG_FP   (1u << 1)
 
@@ -538,7 +542,8 @@ enum dds_stream_typecode_subtype {
  * @anchor DDS_OP_FLAG_SGN
  * @ingroup serialization
  * @brief signed,
- * applicable to {1,2,4,8}BY and arrays, sequences of them
+ * applicable to {1,2,4,8,16}BY and arrays, sequences of them
+ * over
  */
 #define DDS_OP_FLAG_SGN  (1u << 2)
 
