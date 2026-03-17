@@ -2815,7 +2815,7 @@ static const uint32_t *dds_stream_read_seq (dds_istream_t *is, char * restrict a
   dds_sequence_t * const seq = (dds_sequence_t *) addr;
   const enum dds_stream_typecode subtype = DDS_OP_SUBTYPE (insn);
   const uint32_t bound_op = seq_is_bounded (DDS_OP_TYPE (insn)) ? 1 : 0;
-  const uint32_t bound = bound_op ? ops[2] : UINT32_MAX;
+  const uint32_t bound = bound_op ? (ops[2] & 0x7fffffff) : UINT32_MAX;
   if (is_dheader_needed (subtype, is->m_xcdr_version))
   {
     /* skip DHEADER */
@@ -2825,6 +2825,9 @@ static const uint32_t *dds_stream_read_seq (dds_istream_t *is, char * restrict a
   const uint32_t num_cdr = dds_is_get4 (is);
   if (num_cdr == 0)
     return initialize_and_skip_sequence (seq, insn, ops, sample_state);
+
+  // if oversize, try-construct for the sequence must be TRIM
+  assert (num_cdr <= bound || (ops[2] & 0x80000000));
   const uint32_t num = (num_cdr > bound) ? bound : num_cdr;
 
   switch (subtype)
@@ -4298,7 +4301,7 @@ static enum dds_stream_normalize_result normalize_seq (char * restrict data, uin
   enum dds_stream_normalize_result res;
   const enum dds_stream_typecode subtype = DDS_OP_SUBTYPE (insn);
   uint32_t bound_op = seq_is_bounded (DDS_OP_TYPE (insn)) ? 1 : 0;
-  uint32_t bound = bound_op ? (*ops)[2] : UINT32_MAX;
+  uint32_t bound = bound_op ? ((*ops)[2] & 0x7fffffff) : UINT32_MAX;
   bool has_dheader;
   uint32_t size1;
   if (!read_and_normalize_collection_dheader (&has_dheader, &size1, data, off, size, bswap, subtype, xcdr_version))
@@ -4314,10 +4317,12 @@ static enum dds_stream_normalize_result normalize_seq (char * restrict data, uin
       return normalize_error ();
     return normalize_success ();
   }
-  if (num > bound)
+  if (bound_op && num > bound)
   {
-    // FIXME: try-construct for sequence bound
-    return normalize_discard ();
+    // msb of bound field is now reused as "trim", if it is clear, discard
+    // all elements should be valid, so let us not skip the discarded tail
+    if (!((*ops)[2] & 0x80000000))
+      return normalize_discard ();
   }
   switch (subtype)
   {
