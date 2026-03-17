@@ -1179,8 +1179,12 @@ static char *dds_stream_reuse_string_bound (dds_istream_t *is, char * restrict s
 {
   const uint32_t length = dds_is_get4 (is);
   const void *src = is->m_buffer + is->m_index;
-  // Oversize bounded string is possible if try-construct is TRIM
+  // Oversize bounded string is possible if try-construct is TRIM/USE_DEFAULT
+  // string contents have already been patched to have terminating '\0' at the reduced length
+  // I don't mind copying the extra bytes
   memcpy (str, src, length > size ? size : length);
+  // Strictly speaking this is unnecessary, but it should be a rare code path and prevent a
+  // buffer overrun if there's a bug in some path through normalize for bounded strings
   if (length > size)
     str[size - 1] = '\0';
   is->m_index += length;
@@ -1240,14 +1244,16 @@ static void wstring_from_utf16 (wchar_t * restrict dst, size_t dstlen, const uin
   assert (dstlen > 0);
   if (sizeof (wchar_t) == 2)
   {
-    // Oversize bounded string is possible if try-construct is TRIM
+    // Oversize bounded string is possible if try-construct is TRIM / USE_DEFAULT
+    // string contents have already been patched to have terminating '\0' at the reduced length
+    // I don't mind copying the extra bytes
     memcpy (dst, src, 2 * (dstlen < srclen ? dstlen : srclen));
     dst[dstlen - 1] = L'\0';
   }
   else
   {
     // resulting string may end up shorter than srclen because of surrogate pairs in input
-    // or if try-construct is TRIM
+    // or if try-construct is TRIM / USE_DEFAULT (for which, see above)
     uint16_t w1 = 0;
     uint32_t di = 0;
     for (uint32_t i = 0; i < srclen && di < dstlen - 1; i++)
@@ -1345,61 +1351,6 @@ static bool key_optimized_allowed (uint32_t insn)
 }
 #endif
 
-ddsrt_nonnull_all
-static void apply_try_construct_enum_array (char * restrict const buffer, const uint32_t num, const uint32_t max, const enum tryconstruct tc)
-{
-  if (tc == TC_REJECT || tc == TC_DISCARD)
-  {
-    // no samples make it this far if reject/discard selected
-    return;
-  }
-  uint32_t * const xs = (uint32_t *) buffer;
-  for (uint32_t i = 0; i < num; i++)
-    if (xs[i] > max)
-      xs[i] = max;
-}
-
-ddsrt_nonnull_all
-static void apply_try_construct_bitmask_array (char * restrict const buffer, const uint32_t elem_size, const uint32_t num, const uint32_t bits_h, const uint32_t bits_l, const enum tryconstruct tc)
-{
-  if (tc == TC_REJECT || tc == TC_DISCARD)
-  {
-    // no samples make it this far if reject/discard selected
-    return;
-  }
-  switch (elem_size)
-  {
-    case 1: {
-      uint8_t * const xs = (uint8_t *) buffer;
-      for (uint32_t i = 0; i < num; i++)
-        if (!bitmask_value_valid (0, xs[i], bits_h, bits_l))
-          xs[i] = 0;
-      break;
-    }
-    case 2: {
-      uint16_t * const xs = (uint16_t *) buffer;
-      for (uint32_t i = 0; i < num; i++)
-        if (!bitmask_value_valid (0, xs[i], bits_h, bits_l))
-          xs[i] = 0;
-      break;
-    }
-    case 4: {
-      uint32_t * const xs = (uint32_t *) buffer;
-      for (uint32_t i = 0; i < num; i++)
-        if (!bitmask_value_valid (0, xs[i], bits_h, bits_l))
-          xs[i] = 0;
-      break;
-    }
-    case 8: {
-      uint64_t * const xs = (uint64_t *) buffer;
-      for (uint32_t i = 0; i < num; i++)
-        if (!bitmask_value_valid ((uint32_t) (xs[i] >> 32), (uint32_t) xs[i], bits_h, bits_l))
-          xs[i] = 0;
-      break;
-    }
-  }
-}
-
 ddsrt_attribute_warn_unused_result
 static enum tryconstruct tryconstruct_mode (const uint32_t insn)
 {
@@ -1431,7 +1382,7 @@ static uint32_t read_varsized_as_uint32 (dds_istream_t *is, uint32_t insn)
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
-static uint32_t read_union_discriminant (dds_istream_t *is, uint32_t insn, uint32_t const * const ops)
+static uint32_t read_union_discriminant (dds_istream_t *is, uint32_t insn)
 {
   enum dds_stream_typecode type = DDS_OP_SUBTYPE (insn);
   assert (is_primitive_or_enum_type (type));
@@ -1441,16 +1392,7 @@ static uint32_t read_union_discriminant (dds_istream_t *is, uint32_t insn, uint3
     case DDS_OP_VAL_2BY: return dds_is_get2 (is);
     case DDS_OP_VAL_4BY: return dds_is_get4 (is);
     case DDS_OP_VAL_8BY: return (uint32_t) dds_is_get8 (is); // FIXME: should fully support 64-bit discrimant
-    case DDS_OP_VAL_ENU: {
-      uint32_t v = read_varsized_as_uint32 (is, insn);
-      apply_try_construct_enum_array ((char *) &v, 1, ops[4], tryconstruct_mode (insn));
-      return v;
-    }
-    case DDS_OP_VAL_BMK: { // FIXME: should fully support 64-bit discrimant, 0 for bits_h is a hack
-      uint32_t v = read_varsized_as_uint32 (is, insn);
-      apply_try_construct_bitmask_array ((char *) &v, DDS_OP_TYPE_SZ (insn), 1, 0, ops[4], tryconstruct_mode (insn));
-      return v;
-    }
+    case DDS_OP_VAL_ENU: return read_varsized_as_uint32 (is, insn); // FIXME: 64-bit bitmask
     default: return 0;
   }
   abort ();
@@ -2925,7 +2867,6 @@ static const uint32_t *dds_stream_read_seq (dds_istream_t *is, char * restrict a
       }
       if (seq->_length < num_cdr)
         dds_stream_skip_forward (is, num_cdr - seq->_length, elem_size);
-      apply_try_construct_enum_array ((char *) seq->_buffer, seq->_length, ops[2 + bound_op], tryconstruct_mode (insn));
       return ops + 3 + bound_op;
     }
     case DDS_OP_VAL_BMK: {
@@ -2935,7 +2876,6 @@ static const uint32_t *dds_stream_read_seq (dds_istream_t *is, char * restrict a
       dds_is_get_bytes (is, seq->_buffer, seq->_length, elem_size);
       if (seq->_length < num_cdr)
         dds_stream_skip_forward (is, num_cdr - seq->_length, elem_size);
-      apply_try_construct_bitmask_array ((char *) seq->_buffer, elem_size, seq->_length, ops[2 + bound_op], ops[3 + bound_op], tryconstruct_mode (insn));
       return ops + 4 + bound_op;
     }
     case DDS_OP_VAL_STR: {
@@ -3057,13 +2997,11 @@ static const uint32_t *dds_stream_read_arr (dds_istream_t *is, char * restrict a
         default:
           abort ();
       }
-      apply_try_construct_enum_array (addr, num, ops[3], tryconstruct_mode (insn));
       return ops + 4;
     }
     case DDS_OP_VAL_BMK: {
       const uint32_t elem_size = DDS_OP_TYPE_SZ (insn);
       dds_is_get_bytes (is, addr, num, elem_size);
-      apply_try_construct_bitmask_array (addr, elem_size, num, ops[3], ops[4], tryconstruct_mode (insn));
       return ops + 5;
     }
     case DDS_OP_VAL_STR: {
@@ -3111,7 +3049,7 @@ static const uint32_t *dds_stream_read_arr (dds_istream_t *is, char * restrict a
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
 static const uint32_t *dds_stream_read_uni (dds_istream_t *is, char * restrict discaddr, char * restrict baseaddr, const struct dds_cdrstream_allocator *allocator, const uint32_t *ops, uint32_t insn, enum cdr_data_kind cdr_kind, enum sample_data_state sample_state)
 {
-  const uint32_t disc = read_union_discriminant (is, insn, ops);
+  const uint32_t disc = read_union_discriminant (is, insn);
   uint32_t const * const jeq_op = stream_union_switch_case (insn, disc, discaddr, baseaddr, allocator, ops, &sample_state);
   ops += DDS_OP_ADR_JMP (ops[3]);
   if (jeq_op)
@@ -3138,7 +3076,6 @@ static const uint32_t *dds_stream_read_uni (dds_istream_t *is, char * restrict d
           case 4: *((uint32_t *) valaddr) = dds_is_get4 (is); break;
           default: abort ();
         }
-        apply_try_construct_enum_array (valaddr, 1, jeq_op[3], tryconstruct_mode (jeq_op[0]));
         break;
       case DDS_OP_VAL_STR:
         *(char **) valaddr = dds_stream_reuse_string (is, *((char **) valaddr), allocator, sample_state);
@@ -3245,7 +3182,6 @@ static inline const uint32_t *dds_stream_read_adr (uint32_t insn, dds_istream_t 
         case 4: *((uint32_t *) addr) = dds_is_get4 (&is1); break;
         default: abort ();
       }
-      apply_try_construct_enum_array (addr, 1, ops[2], tryconstruct_mode (insn));
       ops += 3;
       break;
     }
@@ -3258,7 +3194,6 @@ static inline const uint32_t *dds_stream_read_adr (uint32_t insn, dds_istream_t 
         case 8: *((uint64_t *) addr) = dds_is_get8 (&is1); break;
         default: abort ();
       }
-      apply_try_construct_bitmask_array (addr, DDS_OP_TYPE_SZ (insn), 1, ops[2], ops[3], tryconstruct_mode (insn));
       ops += 4;
       break;
     }
@@ -3904,7 +3839,7 @@ static bool peek_and_normalize_uint32 (uint32_t * restrict val, char * restrict 
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
-static enum dds_stream_normalize_result read_normalize_enum_tryconstruct (uint32_t *val, uint32_t insn, uint32_t max)
+static enum dds_stream_normalize_result read_normalize_enum_tryconstruct (uint32_t *val, uint32_t insn, uint32_t max, char * restrict post_data)
 {
   if (*val <= max)
     return normalize_success ();
@@ -3916,7 +3851,9 @@ static enum dds_stream_normalize_result read_normalize_enum_tryconstruct (uint32
     case TC_DISCARD:
       return normalize_discard ();
     case TC_TRIM: case TC_USE_DEFAULT:
-      *val = 0; // FIXME: deal with no consecutive enum values one day
+      // FIXME: deal with no consecutive enum values one day
+      memset (post_data - DDS_OP_TYPE_SZ (insn), 0, DDS_OP_TYPE_SZ (insn));
+      *val = 0;
       return normalize_success ();
   }
   return normalize_error ();
@@ -3930,25 +3867,25 @@ static enum dds_stream_normalize_result read_normalize_enum (uint32_t * restrict
     case 1: {
       uint8_t val8;
       if (!read_and_normalize_uint8 (&val8, data, off, size))
-        break;
+        return normalize_error ();
       *val = val8;
-      return read_normalize_enum_tryconstruct (val, insn, max);
+      break;
     }
     case 2: {
       uint16_t val16;
       if (!read_and_normalize_uint16 (&val16, data, off, size, bswap))
-        break;
+        return normalize_error ();
       *val = val16;
-      return read_normalize_enum_tryconstruct (val, insn, max);
+      break;
     }
     case 4:
       if (!read_and_normalize_uint32 (val, data, off, size, bswap))
-        break;
-      return read_normalize_enum_tryconstruct (val, insn, max);
-    default:
+        return normalize_error ();
       break;
+    default:
+      assert (0);
   }
-  return normalize_error ();
+  return read_normalize_enum_tryconstruct (val, insn, max, data + *off);
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
@@ -3959,7 +3896,7 @@ static enum dds_stream_normalize_result normalize_enum (char * restrict data, ui
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
-static enum dds_stream_normalize_result read_normalize_bitmask_tryconstruct (uint64_t *val, uint32_t insn, uint32_t bits_h, uint32_t bits_l)
+static enum dds_stream_normalize_result read_normalize_bitmask_tryconstruct (uint64_t *val, uint32_t insn, uint32_t bits_h, uint32_t bits_l, char * restrict post_data)
 {
   if (bitmask_value_valid ((uint32_t) (*val >> 32), (uint32_t) *val, bits_h, bits_l))
     return normalize_success ();
@@ -3971,6 +3908,7 @@ static enum dds_stream_normalize_result read_normalize_bitmask_tryconstruct (uin
     case TC_DISCARD:
       return normalize_discard ();
     case TC_TRIM: case TC_USE_DEFAULT:
+      memset (post_data - DDS_OP_TYPE_SZ (insn), 0, DDS_OP_TYPE_SZ (insn));
       *val = 0;
       return normalize_success ();
   }
@@ -4010,7 +3948,7 @@ static enum dds_stream_normalize_result read_normalize_bitmask (uint64_t * restr
     default:
       assert (0);
   }
-  return read_normalize_bitmask_tryconstruct (val, insn, bits_h, bits_l);
+  return read_normalize_bitmask_tryconstruct (val, insn, bits_h, bits_l, data + *off);
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
@@ -4031,8 +3969,28 @@ static enum dds_stream_normalize_result normalize_string (char * restrict data, 
     return normalize_error ();
   if (data[*off + sz - 1] != 0)
     return normalize_error ();
+  if (sz > maxsz)
+  {
+    switch (tc)
+    {
+      case TC_REJECT:
+        return normalize_error ();
+      case TC_DISCARD:
+        return normalize_discard ();
+      case TC_TRIM:
+        // Patch contents, but leave length untouched: else we need to move
+        // the remainder of the CDR forward
+        data[*off + maxsz - 1] = 0;
+        break;
+      case TC_USE_DEFAULT:
+        // Patch contents, but leave length untouched: else we need to move
+        // the remainder of the CDR forward
+        data[*off] = 0;
+        break;
+    }
+  }
   *off += sz;
-  return (sz <= maxsz) ? normalize_success () : normalize_from_tryconstruct (tc);
+  return normalize_success ();
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
@@ -4087,8 +4045,30 @@ static enum dds_stream_normalize_result normalize_wstring (char * restrict data,
       }
     }
   }
+  if (sz / 2 > maxsz - 1)
+  {
+    switch (tc)
+    {
+      case TC_REJECT:
+        return normalize_error ();
+      case TC_DISCARD:
+        return normalize_discard ();
+      case TC_TRIM:
+        // Patch contents, but leave length untouched: else we need to move
+        // the remainder of the CDR forward
+        data[*off + 2 * (maxsz - 1)] = 0;
+        data[*off + 2 * (maxsz - 1) + 1] = 0;
+        break;
+      case TC_USE_DEFAULT:
+        // Patch contents, but leave length untouched: else we need to move
+        // the remainder of the CDR forward
+        data[*off] = 0;
+        data[*off + 1] = 0;
+        break;
+    }
+  }
   *off += sz;
-  return (sz / 2 <= maxsz - 1) ? normalize_success () : normalize_from_tryconstruct (tc);
+  return normalize_success ();
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
@@ -4158,10 +4138,13 @@ static enum dds_stream_normalize_result normalize_enumarray (char * restrict dat
       if ((*off = check_align_prim_many (*off, size, 0, 0, num)) == UINT32_MAX)
         return normalize_error ();
       uint8_t * const xs = (uint8_t *) (data + *off);
-      if (tc == TC_REJECT || tc == TC_DISCARD) {
-        for (uint32_t i = 0; i < num; i++)
-          if (xs[i] > max)
+      for (uint32_t i = 0; i < num; i++) {
+        if (xs[i] > max) {
+          if (tc == TC_REJECT || tc == TC_DISCARD)
             return normalize_from_tryconstruct (tc);
+          else
+            xs[i] = 0;
+        }
       }
       *off += num;
       break;
@@ -4172,10 +4155,12 @@ static enum dds_stream_normalize_result normalize_enumarray (char * restrict dat
       uint16_t * const xs = (uint16_t *) (data + *off);
       if (bswap)
         dds_stream_swap (xs, 2, num);
-      if (tc == TC_REJECT || tc == TC_DISCARD) {
-        for (uint32_t i = 0; i < num; i++) {
-          if (xs[i] > max)
+      for (uint32_t i = 0; i < num; i++) {
+        if (xs[i] > max) {
+          if (tc == TC_REJECT || tc == TC_DISCARD)
             return normalize_from_tryconstruct (tc);
+          else
+            xs[i] = 0;
         }
       }
       *off += 2 * num;
@@ -4187,10 +4172,13 @@ static enum dds_stream_normalize_result normalize_enumarray (char * restrict dat
       uint32_t * const xs = (uint32_t *) (data + *off);
       if (bswap)
         dds_stream_swap (xs, 4, num);
-      if (tc == TC_REJECT || tc == TC_DISCARD) {
-        for (uint32_t i = 0; i < num; i++)
-          if (xs[i] > max)
+      for (uint32_t i = 0; i < num; i++) {
+        if (xs[i] > max) {
+          if (tc == TC_REJECT || tc == TC_DISCARD)
             return normalize_from_tryconstruct (tc);
+          else
+            xs[i] = 0;
+        }
       }
       *off += 4 * num;
       break;
@@ -4210,11 +4198,13 @@ static enum dds_stream_normalize_result normalize_bitmaskarray (char * restrict 
       if ((*off = check_align_prim_many (*off, size, 0, 0, num)) == UINT32_MAX)
         return normalize_error ();
       uint8_t * const xs = (uint8_t *) (data + *off);
-      if (tc == TC_REJECT || tc == TC_DISCARD)
-      {
-        for (uint32_t i = 0; i < num; i++)
-          if (!bitmask_value_valid (0, xs[i], bits_h, bits_l))
+      for (uint32_t i = 0; i < num; i++) {
+        if (!bitmask_value_valid (0, xs[i], bits_h, bits_l)) {
+          if (tc == TC_REJECT || tc == TC_DISCARD)
             return normalize_from_tryconstruct (tc);
+          else
+            xs[i] = 0;
+        }
       }
       *off += num;
       break;
@@ -4225,11 +4215,13 @@ static enum dds_stream_normalize_result normalize_bitmaskarray (char * restrict 
       uint16_t * const xs = (uint16_t *) (data + *off);
       if (bswap)
         dds_stream_swap (xs, 2, num);
-      if (tc == TC_REJECT || tc == TC_DISCARD)
-      {
-        for (uint32_t i = 0; i < num; i++)
-          if (!bitmask_value_valid (0, xs[i], bits_h, bits_l))
+      for (uint32_t i = 0; i < num; i++) {
+        if (!bitmask_value_valid (0, xs[i], bits_h, bits_l)) {
+          if (tc == TC_REJECT || tc == TC_DISCARD)
             return normalize_from_tryconstruct (tc);
+          else
+            xs[i] = 0;
+        }
       }
       *off += 2 * num;
       break;
@@ -4240,11 +4232,13 @@ static enum dds_stream_normalize_result normalize_bitmaskarray (char * restrict 
       uint32_t * const xs = (uint32_t *) (data + *off);
       if (bswap)
         dds_stream_swap (xs, 4, num);
-      if (tc == TC_REJECT || tc == TC_DISCARD)
-      {
-        for (uint32_t i = 0; i < num; i++)
-          if (!bitmask_value_valid (0, xs[i], bits_h, bits_l))
+      for (uint32_t i = 0; i < num; i++) {
+        if (!bitmask_value_valid (0, xs[i], bits_h, bits_l)) {
+          if (tc == TC_REJECT || tc == TC_DISCARD)
             return normalize_from_tryconstruct (tc);
+          else
+            xs[i] = 0;
+        }
       }
       *off += 4 * num;
       break;
@@ -4255,17 +4249,19 @@ static enum dds_stream_normalize_result normalize_bitmaskarray (char * restrict 
       uint32_t * const xs = (uint32_t *) (data + *off);
       if (bswap)
         dds_stream_swap (xs, 8, num);
-      if (tc == TC_REJECT || tc == TC_DISCARD)
+      for (uint32_t i = 0; i < num; i++)
       {
-        for (uint32_t i = 0; i < num; i++)
-        {
 #if DDSRT_ENDIAN == DDSRT_LITTLE_ENDIAN
-          if (!bitmask_value_valid (xs[2*i+1], xs[2*i], bits_h, bits_l))
-            return normalize_from_tryconstruct (tc);
+        const bool valid = bitmask_value_valid (xs[2*i+1], xs[2*i], bits_h, bits_l);
 #else
-          if (!bitmask_value_valid (xs[2*i], xs[2*i+1], bits_h, bits_l))
-            return normalize_from_tryconstruct (tc);
+        const bool valid = bitmask_value_valid (xs[2*i], xs[2*i+1], bits_h, bits_l);
 #endif
+        if (!valid)
+        {
+          if (tc == TC_REJECT || tc == TC_DISCARD)
+            return normalize_from_tryconstruct (tc);
+          else
+            xs[2*i] = xs[2*i+1] = 0;
         }
       }
       *off += 8 * num;
@@ -5577,7 +5573,6 @@ static void dds_stream_extract_key_from_key_prim_op (dds_istream_t *is, restrict
     case DDS_OP_VAL_8BY: dds_os_put8 (os, allocator, dds_is_get8 (is)); break;
     case DDS_OP_VAL_16BY: dds_os_put16 (os, allocator, dds_is_get16 (is)); break;
     case DDS_OP_VAL_ENU: case DDS_OP_VAL_BMK:
-      // FIXME: try-construct
       switch (DDS_OP_TYPE_SZ (insn))
       {
         case 1: dds_os_put1 (os, allocator, dds_is_get1 (is)); break;
@@ -5587,13 +5582,29 @@ static void dds_stream_extract_key_from_key_prim_op (dds_istream_t *is, restrict
         default: abort ();
       }
       break;
-    case DDS_OP_VAL_STR: case DDS_OP_VAL_BST:
-    case DDS_OP_VAL_WSTR: case DDS_OP_VAL_BWSTR: {
-      // FIXME: try-construct
+    case DDS_OP_VAL_STR: case DDS_OP_VAL_WSTR: {
       uint32_t sz = dds_is_get4 (is);
       dds_os_put4 (os, allocator, sz);
       dds_os_put_bytes_base (&os->x, allocator, is->m_buffer + is->m_index, sz);
       is->m_index += sz;
+      break;
+    }
+    case DDS_OP_VAL_BST:  {
+      const uint32_t maxsz = ops[2]; // maxsz and CDR both include '\0'
+      const uint32_t srcsz = dds_is_get4 (is); // string length remains unpatched
+      const uint32_t dstsz = (srcsz <= maxsz) ? srcsz : (tryconstruct_mode (insn) == TC_TRIM) ? maxsz : 1;
+      dds_os_put4 (os, allocator, dstsz);
+      dds_os_put_bytes_base (&os->x, allocator, is->m_buffer + is->m_index, dstsz);
+      is->m_index += srcsz;
+      break;
+    }
+    case DDS_OP_VAL_BWSTR: {
+      const uint32_t maxsz = 2 * (ops[2] - 1); // maxsz includes L'\0', CDR excludes it
+      const uint32_t srcsz = dds_is_get4 (is); // string length remains unpatched
+      const uint32_t dstsz = (srcsz <= maxsz) ? srcsz : (tryconstruct_mode (insn) == TC_TRIM) ? maxsz : 0;
+      dds_os_put4 (os, allocator, dstsz);
+      dds_os_put_bytes_base (&os->x, allocator, is->m_buffer + is->m_index, dstsz);
+      is->m_index += srcsz;
       break;
     }
     case DDS_OP_VAL_ARR: {
@@ -5623,7 +5634,6 @@ static void dds_stream_extract_key_from_key_prim_op (dds_istream_t *is, restrict
       dds_cdr_alignto_clear_and_resize_base (&os->x, allocator, os_cdr_align, num * elem_size);
       void * const dst = os->x.m_buffer + os->x.m_index;
       dds_is_get_bytes (is, dst, num, elem_size);
-      // FIXME: try-construct
       os->x.m_index += num * elem_size;
       /* set DHEADER */
       if (is_dheader_needed (subtype, os_xcdrv))
@@ -5703,12 +5713,29 @@ static void dds_stream_extract_keyBE_from_key_prim_op (dds_istream_t *is, restri
         default: abort ();
       }
       break;
-    case DDS_OP_VAL_STR: case DDS_OP_VAL_BST:
-    case DDS_OP_VAL_WSTR: case DDS_OP_VAL_BWSTR: {
+    case DDS_OP_VAL_STR: case DDS_OP_VAL_WSTR: {
       uint32_t sz = dds_is_get4 (is);
       dds_os_put4BE (os, allocator, sz);
       dds_os_put_bytes_base (&os->x, allocator, is->m_buffer + is->m_index, sz);
       is->m_index += sz;
+      break;
+    }
+    case DDS_OP_VAL_BST:  {
+      const uint32_t maxsz = ops[2]; // maxsz and CDR both include '\0'
+      const uint32_t srcsz = dds_is_get4 (is); // string length remains unpatched
+      const uint32_t dstsz = (srcsz <= maxsz) ? srcsz : (tryconstruct_mode (insn) == TC_TRIM) ? maxsz : 1;
+      dds_os_put4BE (os, allocator, dstsz);
+      dds_os_put_bytes_base (&os->x, allocator, is->m_buffer + is->m_index, dstsz);
+      is->m_index += srcsz;
+      break;
+    }
+    case DDS_OP_VAL_BWSTR: {
+      const uint32_t maxsz = 2 * (ops[2] - 1); // maxsz includes L'\0', CDR excludes it
+      const uint32_t srcsz = dds_is_get4 (is); // string length remains unpatched
+      const uint32_t dstsz = (srcsz <= maxsz) ? srcsz : (tryconstruct_mode (insn) == TC_TRIM) ? maxsz : 0;
+      dds_os_put4BE (os, allocator, dstsz);
+      dds_os_put_bytes_base (&os->x, allocator, is->m_buffer + is->m_index, dstsz);
+      is->m_index += srcsz;
       break;
     }
     case DDS_OP_VAL_ARR: {
@@ -5860,7 +5887,7 @@ static const uint32_t *dds_stream_extract_key_from_data_skip_union (dds_istream_
 {
   const uint32_t insn = *ops;
   assert (DDS_OP_TYPE (insn) == DDS_OP_VAL_UNI);
-  const uint32_t disc = read_union_discriminant (is, insn, ops);
+  const uint32_t disc = read_union_discriminant (is, insn);
   uint32_t const * const jeq_op = find_union_case (ops, disc);
   if (jeq_op)
     dds_stream_extract_key_from_data_skip_subtype (is, 1, jeq_op[0], DDS_JEQ_TYPE (jeq_op[0]), jeq_op + DDS_OP_ADR_JSR (jeq_op[0]));
@@ -5978,9 +6005,8 @@ static void dds_stream_read_key_impl (dds_istream_t *is, char *sample, const str
         case 1: *((uint32_t *) dst) = dds_is_get1 (is); break;
         case 2: *((uint32_t *) dst) = dds_is_get2 (is); break;
         case 4: *((uint32_t *) dst) = dds_is_get4 (is); break;
-        default: abort ();
+        default: assert (0);
       }
-      apply_try_construct_enum_array (dst, 1, ops[2], tryconstruct_mode (insn));
       break;
     case DDS_OP_VAL_BMK:
       switch (DDS_OP_TYPE_SZ (insn))
@@ -5989,9 +6015,8 @@ static void dds_stream_read_key_impl (dds_istream_t *is, char *sample, const str
         case 2: *((uint16_t *) dst) = dds_is_get2 (is); break;
         case 4: *((uint32_t *) dst) = dds_is_get4 (is); break;
         case 8: *((uint64_t *) dst) = dds_is_get8 (is); break;
-        default: abort ();
+        default: assert (0);
       }
-      apply_try_construct_bitmask_array (dst, DDS_OP_TYPE_SZ (insn), 1, ops[2], ops[3], tryconstruct_mode (insn));
       break;
     case DDS_OP_VAL_STR: *((char **) dst) = dds_stream_reuse_string (is, *((char **) dst), allocator, sample_state); break;
     case DDS_OP_VAL_WSTR: *((wchar_t **) dst) = dds_stream_reuse_wstring (is, *((wchar_t **) dst), allocator, sample_state); break;
@@ -6023,12 +6048,10 @@ static void dds_stream_read_key_impl (dds_istream_t *is, char *sample, const str
               dds_is_get_bytes (is, dst, num, 4);
               break;
           }
-          apply_try_construct_enum_array (dst, num, ops[3], tryconstruct_mode (insn));
           break;
         case DDS_OP_VAL_BMK: {
           const uint32_t elem_size = DDS_OP_TYPE_SZ (insn);
           dds_is_get_bytes (is, dst, num, elem_size);
-          apply_try_construct_bitmask_array (dst, elem_size, num, ops[3], ops[4], tryconstruct_mode (insn));
           break;
         }
         default:
@@ -6473,7 +6496,7 @@ static const uint32_t *prtf_arr (char **buf, size_t *bufsize, dds_istream_t *is,
 ddsrt_attribute_warn_unused_result
 static const uint32_t *prtf_uni (char **buf, size_t *bufsize, dds_istream_t *is, const uint32_t *ops, uint32_t insn, enum cdr_data_kind cdr_kind)
 {
-  const uint32_t disc = read_union_discriminant (is, insn, ops);
+  const uint32_t disc = read_union_discriminant (is, insn);
   uint32_t const * const jeq_op = find_union_case (ops, disc);
   if (!prtf (buf, bufsize, "%"PRIu32":", disc))
     return NULL;
