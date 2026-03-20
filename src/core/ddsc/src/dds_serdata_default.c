@@ -393,7 +393,7 @@ static struct dds_serdata_default *serdata_default_from_ser_common (const struct
     goto err;
 
   uint32_t actual_size;
-  if (d->pos < pad || !dds_stream_normalize (d->data, d->pos - pad, needs_bswap, xcdr_version, &tp->type, kind == SDK_KEY, &actual_size))
+  if (d->pos < pad || dds_stream_normalize (d->data, d->pos - pad, needs_bswap, xcdr_version, &tp->type, kind == SDK_KEY, &actual_size) != DDS_STREAM_NORMALIZE_SUCCESS)
     goto err;
 
   dds_istream_t is;
@@ -440,7 +440,7 @@ static struct dds_serdata_default *serdata_default_from_ser_iov_common (const st
     goto err;
 
   uint32_t actual_size;
-  if (d->pos < pad || !dds_stream_normalize (d->data, d->pos - pad, needs_bswap, xcdr_version, &tp->type, kind == SDK_KEY, &actual_size))
+  if (d->pos < pad || (dds_stream_normalize (d->data, d->pos - pad, needs_bswap, xcdr_version, &tp->type, kind == SDK_KEY, &actual_size) != DDS_STREAM_NORMALIZE_SUCCESS))
     goto err;
 
   dds_istream_t is;
@@ -948,7 +948,7 @@ static struct ddsi_serdata * serdata_default_from_psmx (const struct ddsi_sertyp
       uint32_t actual_size;
 
       // FIXME: how much do we trust PSMX-provided data? If we *really* trust it, we can skip this
-      if (!dds_stream_normalize (loaned_sample->sample_ptr, md->sample_size - pad, false, xcdr_version, &tp->type, just_key, &actual_size))
+      if (dds_stream_normalize (loaned_sample->sample_ptr, md->sample_size - pad, false, xcdr_version, &tp->type, just_key, &actual_size) != DDS_STREAM_NORMALIZE_SUCCESS)
       {
         ddsi_serdata_unref (&d->c);
         return NULL;

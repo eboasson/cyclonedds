@@ -1125,8 +1125,8 @@ CU_Test (ddsc_cdrstream, appendable_mutable, .init = cdrstream_init, .fini = cdr
 
         uint32_t act_size;
         void *cdr_copy = ddsrt_memdup (os.m_buffer, os.m_index);
-        const bool res = dds_stream_normalize (cdr_copy, os.m_index, false, os.m_xcdr_version, &desc_rd, false, &act_size);
-        CU_ASSERT_FATAL (res);
+        const enum dds_stream_normalize_result res = dds_stream_normalize (cdr_copy, os.m_index, false, os.m_xcdr_version, &desc_rd, false, &act_size);
+        CU_ASSERT_FATAL (res == DDS_STREAM_NORMALIZE_SUCCESS);
         ddsrt_free (cdr_copy);
 
         void *msg_rd = ddsrt_calloc (1, desc_rd.size);
@@ -1643,8 +1643,8 @@ CU_Test(ddsc_cdrstream, init_sequence_in_external_struct)
   dds_cdrstream_desc_init_with_nops (&descr, &dds_cdrstream_default_allocator, sizeof (ExternMutStructSeq), dds_alignof (ExternMutStructSeq), 0, ExternMutStructSeq_ops, sizeof (ExternMutStructSeq_ops) / sizeof (ExternMutStructSeq_ops[0]), NULL, 0);
   uint32_t actual_size;
   const bool byteswap = (DDSRT_ENDIAN != DDSRT_LITTLE_ENDIAN);
-  const bool norm_ok = dds_stream_normalize (cdr, sizeof (cdr), byteswap, DDSI_RTPS_CDR_ENC_VERSION_2, &descr, false, &actual_size);
-  CU_ASSERT_FATAL (norm_ok && actual_size == sizeof (cdr));
+  const enum dds_stream_normalize_result norm_ok = dds_stream_normalize (cdr, sizeof (cdr), byteswap, DDSI_RTPS_CDR_ENC_VERSION_2, &descr, false, &actual_size);
+  CU_ASSERT_FATAL (norm_ok == DDS_STREAM_NORMALIZE_SUCCESS && actual_size == sizeof (cdr));
   dds_istream_t is;
   dds_istream_init (&is, sizeof (cdr), cdr, DDSI_RTPS_CDR_ENC_VERSION_2);
   ExternMutStructSeq * sample = ddsrt_calloc (1, sizeof (*sample));
@@ -1772,13 +1772,13 @@ CU_Test (ddsc_cdrstream, check_normalize_boolean)
 
     void *cdr = ddsrt_memdup (tests[i].cdr, tests[i].cdrsize);
     uint32_t act_size;
-    bool ret = dds_stream_normalize (cdr, tests[i].cdrsize, false, DDSI_RTPS_CDR_ENC_VERSION_2, &desc, false, &act_size);
-    CU_ASSERT_FATAL (ret);
+    enum dds_stream_normalize_result ret = dds_stream_normalize (cdr, tests[i].cdrsize, false, DDSI_RTPS_CDR_ENC_VERSION_2, &desc, false, &act_size);
+    CU_ASSERT_EQ_FATAL (ret, DDS_STREAM_NORMALIZE_SUCCESS);
     CU_ASSERT_MEMEQ_FATAL (cdr, act_size, tests[i].ncdr, tests[i].cdrsize);
     if (desc.keys.nkeys)
     {
       ret = dds_stream_normalize (cdr, tests[i].cdrsize, true, DDSI_RTPS_CDR_ENC_VERSION_2, &desc, false, &act_size);
-      CU_ASSERT_FATAL (ret);
+      CU_ASSERT_EQ_FATAL (ret, DDS_STREAM_NORMALIZE_SUCCESS);
       CU_ASSERT_MEMEQ_FATAL (cdr, act_size, tests[i].ncdr, tests[i].cdrsize);
     }
     ddsrt_free (cdr);
@@ -1827,7 +1827,8 @@ static void test_cdr (const struct test_cdr_params *test)
   }
 
   uint32_t act_size;
-  const bool nok = dds_stream_normalize (os.m_buffer, test->cdrsize, false, test->xcdr_version, &desc, false, &act_size);
+  const enum dds_stream_normalize_result norm_res = dds_stream_normalize (os.m_buffer, test->cdrsize, false, test->xcdr_version, &desc, false, &act_size);
+  const bool nok = norm_res == DDS_STREAM_NORMALIZE_SUCCESS;
   CU_ASSERT_EQ (test->xcdr_valid, nok);
   if (!nok)
     goto done;
@@ -1888,7 +1889,8 @@ static void test_cdr_key (const struct test_cdr_params *test)
   }
 
   uint32_t act_size;
-  const bool nok = dds_stream_normalize (os.m_buffer, test->cdrsize_key, false, test->xcdr_version, &desc, true, &act_size);
+  const enum dds_stream_normalize_result norm_res = dds_stream_normalize (os.m_buffer, test->cdrsize_key, false, test->xcdr_version, &desc, true, &act_size);
+  const bool nok = norm_res == DDS_STREAM_NORMALIZE_SUCCESS;
   CU_ASSERT_EQ (test->xcdr_key_valid, nok);
   if (!nok)
     goto done;
@@ -2518,7 +2520,8 @@ CU_Test (ddsc_cdrstream, check_wstring_normalize)
     dds_ostream_init (&os, &dds_cdrstream_default_allocator, 0, DDSI_RTPS_CDR_ENC_VERSION_2);
     uint32_t act_size;
     void *cdr = ddsrt_memdup (tests[i].cdr, tests[i].cdrsize);
-    const bool nok = dds_stream_normalize (cdr, tests[i].cdrsize, false, DDSI_RTPS_CDR_ENC_VERSION_2, &desc, false, &act_size);
+    const enum dds_stream_normalize_result norm_res = dds_stream_normalize (cdr, tests[i].cdrsize, false, DDSI_RTPS_CDR_ENC_VERSION_2, &desc, false, &act_size);
+    const bool nok = norm_res == DDS_STREAM_NORMALIZE_SUCCESS;
     CU_ASSERT_FATAL (!nok);
     ddsrt_free (cdr);
     dds_cdrstream_desc_fini (&desc, &dds_cdrstream_default_allocator);
@@ -2533,7 +2536,8 @@ static void run_test_xcdr1_normalize (const dds_topic_descriptor_t *tdesc, const
   dds_ostream_t os;
   dds_ostream_init (&os, &dds_cdrstream_default_allocator, 0, DDSI_RTPS_CDR_ENC_VERSION_1);
   void *cdr_copy = ddsrt_memdup (cdr, cdrsize);
-  const bool res = dds_stream_normalize (cdr_copy, cdrsize, false, DDSI_RTPS_CDR_ENC_VERSION_1, &desc, false, act_size);
+  const enum dds_stream_normalize_result norm_res = dds_stream_normalize (cdr_copy, cdrsize, false, DDSI_RTPS_CDR_ENC_VERSION_1, &desc, false, act_size);
+  const bool res = norm_res == DDS_STREAM_NORMALIZE_SUCCESS;
   CU_ASSERT_EQ_FATAL (res, valid);
   ddsrt_free (cdr_copy);
   dds_cdrstream_desc_fini (&desc, &dds_cdrstream_default_allocator);
