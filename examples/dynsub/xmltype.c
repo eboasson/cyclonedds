@@ -194,7 +194,7 @@ static dds_dynamic_type_spec_t get_typespec (const struct make_context *ctxt, co
   else if (strcmp (type, "int64") == 0)
     mtspec = DDS_DYNAMIC_TYPE_SPEC_PRIM (DDS_DYNAMIC_INT64);
   else if (strcmp (type, "uint64") == 0)
-    mtspec = DDS_DYNAMIC_TYPE_SPEC_PRIM (DDS_DYNAMIC_INT64);
+    mtspec = DDS_DYNAMIC_TYPE_SPEC_PRIM (DDS_DYNAMIC_UINT64);
   else if (strcmp (type, "boolean") == 0)
     mtspec = DDS_DYNAMIC_TYPE_SPEC_PRIM (DDS_DYNAMIC_BOOLEAN);
   else if (strcmp (type, "float32") == 0)
