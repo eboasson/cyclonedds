@@ -172,6 +172,21 @@ static void set_member_flag (dds_dynamic_type_t *dtype, const struct elem *m, co
   }
 }
 
+static enum dds_dynamic_type_try_construct get_try_construct (const struct elem *m, const char *name)
+{
+  const char *tc = getattr (m, name);
+  enum dds_dynamic_type_try_construct res = DDS_DYNAMIC_MEMBER_TRY_CONSTRUCT_DISCARD;
+  if (tc == NULL || strcmp (tc, "discard") == 0)
+    res = DDS_DYNAMIC_MEMBER_TRY_CONSTRUCT_DISCARD;
+  else if (strcmp (tc, "") == 0 || strcmp (tc, "use_default") == 0)
+    res = DDS_DYNAMIC_MEMBER_TRY_CONSTRUCT_USE_DEFAULT;
+  else if (strcmp (tc, "trim") == 0)
+    res = DDS_DYNAMIC_MEMBER_TRY_CONSTRUCT_TRIM;
+  else
+    exitelem (m, "unknown try_construct %s\n", tc);
+  return res;
+}
+
 static dds_dynamic_type_spec_t get_typespec (const struct make_context *ctxt, const struct elem *m, const char *ns)
 {
   const char *type = getattr (m, "type");
@@ -249,6 +264,10 @@ static dds_dynamic_type_spec_t get_typespec (const struct make_context *ctxt, co
       .bounds = (uint32_t[]) { seqmaxlength },
       .num_bounds = (seqmaxlength == UINT32_MAX) ? 0 : 1
     });
+    // FIXME: spec doesn't define a way to specify try-construct for a sequence element, this is my own hack
+    dds_return_t rc = dds_dynamic_type_set_try_construct (&dseq, get_try_construct (m, "elementTryConstruct"));
+    if (rc != DDS_RETCODE_OK)
+      exitelem (m, "set_try_construct failed: %s\n", dds_strretcode (rc));
     mtspec = DDS_DYNAMIC_TYPE_SPEC (dseq);
   }
 
@@ -323,6 +342,10 @@ static void add_member (const struct make_context *ctxt, struct dds_dynamic_type
 
   set_member_flag (dtype, m, "key", dds_dynamic_member_set_key);
   set_member_flag (dtype, m, "mustUnderstand", dds_dynamic_member_set_must_understand);
+
+  rc = dds_dynamic_member_set_try_construct (dtype, DDS_DYNAMIC_MEMBER_ID_AUTO, get_try_construct (m, "tryConstruct"));
+  if (rc != DDS_RETCODE_OK)
+    exitelem (m, "set_try_construct failed: %s\n", dds_strretcode (rc));
 
   // not in test suite, they are just guesses:
   set_member_flag (dtype, m, "optional", dds_dynamic_member_set_optional);
@@ -603,6 +626,47 @@ static bool nameequal (const void *va, const void *vb)
   return strcmp (a->name, b->name) == 0;
 }
 
+static struct type *find_type (struct ddsrt_hh *typelib, const char *name)
+{
+  if (*name == ':') // fq name: hash lookup
+    return ddsrt_hh_lookup (typelib, &(struct type){ .name = (char *) name });
+  else // non-fq name: pick the shortest match (breaking ties arbitrarily)
+  {
+    struct ddsrt_hh_iter it;
+    size_t matchlen = SIZE_MAX;
+    for (struct type *t = ddsrt_hh_iter_first (typelib, &it); t; t = ddsrt_hh_iter_next (&it))
+    {
+      size_t arglen = strlen (name);
+      size_t len = strlen (t->name);
+      if (len < matchlen
+          && len >= arglen + 2
+          && strncmp (t->name + len - arglen - 2, "::", 2) == 0
+          && strcmp (t->name + len - arglen, name) == 0)
+      {
+        return t;
+      }
+    }
+  }
+  return NULL;
+}
+
+static bool find_type_pair (struct ddsrt_hh *typelib, const char *names, struct type **wrtype, struct type **rdtype)
+{
+  char *wtname = strdup (names);
+  char *rtname = strchr (wtname, '/');
+  if (rtname)
+    *rtname++ = 0;
+  else
+    rtname = wtname;
+  printf ("T %s/%s", wtname, rtname); fflush (stdout);
+  *wrtype = find_type (typelib, wtname);
+  *rdtype = find_type (typelib, rtname);
+  free (wtname);
+  if (*wrtype && *rdtype)
+    printf (" = %s/%s\n", (*wrtype)->name, (*rdtype)->name);
+  return (*wrtype != NULL && *rdtype != NULL);
+}
+
 int main (int argc, char **argv)
 {
   if (argc < 2)
@@ -636,59 +700,46 @@ int main (int argc, char **argv)
   };
   make_types (&ctxt, root->children->children, "");
 
-  struct type *type = NULL;
-  dds_topic_descriptor_t *descriptor = NULL;
-  dds_entity_t tp = 0, wr = 0, rd = 0, ws = 0;
+  struct type *wrtype = NULL, *rdtype = NULL;
+  dds_topic_descriptor_t *wrdescriptor = NULL, *rddescriptor = NULL;
+  dds_entity_t wrtp = 0, rdtp = 0, wr = 0, rd = 0, ws = 0;
   for (int argi = 2; argi < argc; argi++)
   {
     size_t arglen = strlen (argv[argi]);
     dds_return_t rc;
     if (arglen <= 4 || strcmp (argv[argi] + arglen - 4, ".xml") != 0)
     {
-      printf ("T %s", argv[argi]); fflush (stdout);
-      if (*argv[argi] == ':') // fq name: hash lookup
-        type = ddsrt_hh_lookup (typelib, &(struct type){ .name = argv[argi] });
-      else // non-fq name: pick the shortest match (breaking ties arbitrarily)
-      {
-        struct ddsrt_hh_iter it;
-        size_t matchlen = SIZE_MAX;
-        for (struct type *t = ddsrt_hh_iter_first (typelib, &it); t; t = ddsrt_hh_iter_next (&it))
-        {
-          size_t len = strlen (t->name);
-          if (len < matchlen
-              && len >= arglen + 2
-              && strncmp (t->name + len - arglen - 2, "::", 2) == 0
-              && strcmp (t->name + len - arglen, argv[argi]) == 0)
-          {
-            type = t;
-          }
-        }
-      }
-      if (type == NULL)
+      if (!find_type_pair (typelib, argv[argi], &wrtype, &rdtype))
         exitfmt ("create topic: type %s not found, skipping\n", argv[argi]);
-      printf (" = %s\n", type->name);
 
-      if (descriptor)
-      {
-        // Can be freed immediately after creating topic, but we use it for freeing samples
-        dds_delete_topic_descriptor (descriptor);
+      // Can be freed immediately after creating topic, but we use it for freeing samples
+      if (wrdescriptor)
+        dds_delete_topic_descriptor (wrdescriptor);
+      if (rddescriptor)
+        dds_delete_topic_descriptor (rddescriptor);
 
-        dds_delete (ws);
-        dds_delete (rd);
-        dds_delete (wr);
-        dds_delete (tp);
-      }
+      dds_delete (ws);
+      dds_delete (rd);
+      dds_delete (wr);
+      dds_delete (wrtp);
+      dds_delete (rdtp);
 
-      rc = dds_create_topic_descriptor (DDS_FIND_SCOPE_LOCAL_DOMAIN, dp, type->typeinfo, 0, &descriptor);
+      rc = dds_create_topic_descriptor (DDS_FIND_SCOPE_LOCAL_DOMAIN, dp, wrtype->typeinfo, 0, &wrdescriptor);
       if (rc != 0)
         exitfmt ("dds_create_topic_descriptor: %s\n", dds_strretcode (rc));
-       tp = dds_create_topic (dp, descriptor, "T", NULL, NULL);
-      if (tp < 0)
-        exitfmt ("dds_create_topic: %s\n", dds_strretcode (tp));
-      wr = dds_create_writer (dp, tp, NULL, NULL);
+      wrtp = dds_create_topic (dp, wrdescriptor, "T", NULL, NULL);
+      if (wrtp < 0)
+        exitfmt ("dds_create_topic: %s\n", dds_strretcode (wrtp));
+      rc = dds_create_topic_descriptor (DDS_FIND_SCOPE_LOCAL_DOMAIN, dp, rdtype->typeinfo, 0, &rddescriptor);
+      if (rc != 0)
+        exitfmt ("dds_create_topic_descriptor: %s\n", dds_strretcode (rc));
+      rdtp = dds_create_topic (dp, rddescriptor, "T", NULL, NULL);
+      if (rdtp < 0)
+        exitfmt ("dds_create_topic: %s\n", dds_strretcode (rdtp));
+      wr = dds_create_writer (dp, wrtp, NULL, NULL);
       if (wr < 0)
         exitfmt ("dds_create_writer: %s\n", dds_strretcode (wr));
-      rd = dds_create_reader (dp, tp, NULL, NULL);
+      rd = dds_create_reader (dp, rdtp, NULL, NULL);
       if (rd < 0)
         exitfmt ("dds_create_reader: %s\n", dds_strretcode (rd));
       rc = dds_set_status_mask (rd, DDS_DATA_AVAILABLE_STATUS);
@@ -704,20 +755,22 @@ int main (int argc, char **argv)
       struct ppc ppc;
       ppc_init (&ppc);
       size_t align, size;
-      build_typecache_to (&type->typeobj->_u.complete, &align, &size);
-      ppc_print_to (&ppc, &type->typeobj->_u.complete);
+      build_typecache_to (&wrtype->typeobj->_u.complete, &align, &size);
+      ppc_print_to (&ppc, &wrtype->typeobj->_u.complete);
+      build_typecache_to (&rdtype->typeobj->_u.complete, &align, &size);
+      ppc_print_to (&ppc, &rdtype->typeobj->_u.complete);
     }
     else
     {
       // data file
-      if (type == NULL)
+      if (rdtype == NULL || wrtype == NULL)
         exitfmt ("%s: data file given, but no type set yet\n", argv[argi]);
 
       struct elem *input = domtree_from_file (argv[argi]);
       if (input == NULL)
         exitfmt ("%s: %s: can't read sample\n", argv[0], argv[argi]);
       domtree_print (input);
-      void *sample = scan_sample (input, &type->typeobj->_u.complete);
+      void *sample = scan_sample (input, &wrtype->typeobj->_u.complete);
       if (sample == NULL)
         exitfmt ("%s: %s: can't convert to sample\n", argv[0], argv[argi]);
       if ((rc = dds_write (wr, sample)) != 0)
@@ -726,7 +779,7 @@ int main (int argc, char **argv)
         .malloc = ddsrt_malloc,
         .free = ddsrt_free,
         .realloc = ddsrt_realloc };
-      dds_stream_free_sample (sample, &a, descriptor->m_ops);
+      dds_stream_free_sample (sample, &a, wrdescriptor->m_ops);
       ddsrt_free (sample);
 
       rc = dds_waitset_wait (ws, NULL, 0, DDS_SECS (1));
@@ -736,7 +789,7 @@ int main (int argc, char **argv)
       dds_sample_info_t si;
       while ((rc = dds_take (rd, &ptr, &si, 1, 1)) == 1)
       {
-        print_sample (si.valid_data, ptr, &type->typeobj->_u.complete);
+        print_sample (si.valid_data, ptr, &rdtype->typeobj->_u.complete);
         dds_return_loan (rd, &ptr, 1);
       }
       if (rc < 0)
