@@ -281,6 +281,7 @@ struct idl_sequence {
   idl_node_t node;
   idl_type_spec_t *type_spec;
   uint32_t maximum;
+  IDL_ANNOTATABLE(idl_try_construct_t) elem_try_construct;
 };
 
 typedef struct idl_string idl_string_t;
