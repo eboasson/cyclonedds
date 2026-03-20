@@ -510,6 +510,41 @@ stash_bitmask_bits(
   return stash_single (pstate, instructions, index, (uint32_t) (bits & 0xffffffffu));
 }
 
+static void set_try_construct (uint32_t *flags, idl_try_construct_t tc)
+{
+  switch (tc)
+  {
+    case IDL_DISCARD:
+      *flags |= 0;
+      break;
+    case IDL_TRIM:
+      *flags |= DDS_OP_FLAG_TC_TRIM;
+      break;
+    case IDL_USE_DEFAULT:
+      *flags |= DDS_OP_FLAG_TC_DEF;
+      break;
+  }
+}
+
+static bool try_construct_applies(const idl_type_spec_t *type_spec)
+{
+  type_spec = idl_strip(type_spec, IDL_STRIP_ALIASES|IDL_STRIP_FORWARD);
+  assert(!idl_is_typedef(type_spec) && !idl_is_forward(type_spec));
+  switch (idl_type(type_spec))
+  {
+    case IDL_STRING:
+    case IDL_WSTRING:
+      return (idl_is_bounded(type_spec));
+    case IDL_SEQUENCE:
+      return true; // used for element try-construct
+    case IDL_ENUM:
+    case IDL_BITMASK:
+      return true;
+    default:
+      return false;
+  }
+}
+
 static idl_retcode_t add_typecode(const idl_pstate_t *pstate, const idl_type_spec_t *type_spec, uint32_t shift, bool struct_union_ext, uint32_t *add_to)
 {
   assert(add_to && (shift == 8 || shift == 16));
@@ -604,8 +639,7 @@ static idl_retcode_t add_typecode(const idl_pstate_t *pstate, const idl_type_spe
     case IDL_STRUCT:
       *add_to |= ((uint32_t)(struct_union_ext ? DDS_OP_VAL_EXT : DDS_OP_VAL_STU) << shift);
       break;
-    case IDL_BITMASK:
-    {
+    case IDL_BITMASK: {
       *add_to |= ((uint32_t)DDS_OP_VAL_BMK << shift);
       uint32_t bit_bound = idl_bound(type_spec);
       assert (bit_bound > 0 && bit_bound <= 64);
@@ -617,7 +651,6 @@ static idl_retcode_t add_typecode(const idl_pstate_t *pstate, const idl_type_spe
         *add_to |= 1 << DDS_OP_FLAG_SZ_SHIFT;
       break;
     }
-      break;
     default:
       idl_error (pstate, type_spec, "Unsupported type for opcode generation");
       return IDL_RETCODE_UNSUPPORTED;
@@ -823,6 +856,7 @@ emit_case(
     } else {
       if ((ret = add_typecode(pstate, type_spec, TYPE, false, &opcode)))
         return ret;
+      // FIXME: try_construct?
       if (idl_is_struct(type_spec) || idl_is_union(type_spec))
         case_type = EXTERNAL;
       else if (idl_is_array(type_spec) || idl_is_bounded_xstring(type_spec) || idl_is_sequence(type_spec) || idl_is_bitmask(type_spec))
@@ -937,6 +971,8 @@ emit_switch_type_spec(
   opcode = DDS_OP_ADR | DDS_OP_TYPE_UNI;
   if ((ret = add_typecode(pstate, type_spec, SUBTYPE, false, &opcode)))
     return ret;
+
+  // FIXME: try_construct?
 
   // XTypes spec 7.2.2.4.4.4.6: In a union type, the discriminator member shall always have the 'must understand' attribute set to true.
   opcode |= DDS_OP_FLAG_MU;
@@ -1223,6 +1259,11 @@ emit_sequence(
     opcode |= idl_is_bounded(node) ? DDS_OP_TYPE_BSQ : DDS_OP_TYPE_SEQ;
     if ((ret = add_typecode(pstate, type_spec, SUBTYPE, false, &opcode)))
       return ret;
+
+    if (try_construct_applies (type_spec))
+      set_try_construct (&opcode, ((idl_sequence_t *)node)->elem_try_construct.value);
+
+    idl_try_construct_t tc = IDL_DISCARD;
     if (idl_is_struct(stype->ctype->node))
     {
       if (nested_collection_key (stype, path))
@@ -1255,6 +1296,9 @@ emit_sequence(
         opcode |= DDS_OP_FLAG_OPT | DDS_OP_FLAG_EXT;
       if (idl_is_must_understand(member_node))
         opcode |= DDS_OP_FLAG_MU;
+
+      // Remeber try-construct so we can set it in the bound
+      tc = ((idl_member_t *)member_node)->try_construct.value;
     }
 
     off = ctype->instructions.count;
@@ -1264,7 +1308,10 @@ emit_sequence(
       return ret;
     if (idl_is_bounded(node)) {
       /* generate seq bound field */
-      if ((ret = stash_single(pstate, &ctype->instructions, nop, idl_bound(node))))
+      uint32_t bound = idl_bound(node);
+      if (tc == IDL_TRIM)
+        bound |= 0x80000000;
+      if ((ret = stash_single(pstate, &ctype->instructions, nop, bound)))
         return ret;
     }
     if (idl_is_enum(type_spec)) {
@@ -1403,6 +1450,9 @@ emit_array(
         opcode |= DDS_OP_FLAG_OPT | DDS_OP_FLAG_EXT;
       if (idl_is_must_understand(parent))
         opcode |= DDS_OP_FLAG_MU;
+
+      if (try_construct_applies(type_spec))
+        set_try_construct (&opcode, ((idl_member_t *)parent)->try_construct.value);
     }
 
     off = ctype->instructions.count;
@@ -1592,6 +1642,9 @@ emit_declarator(
     if ((ret = add_typecode(pstate, type_spec, TYPE, true, &opcode)))
       return ret;
 
+    if (idl_is_member(parent) && try_construct_applies(type_spec))
+      set_try_construct (&opcode, ((idl_member_t *)parent)->try_construct.value);
+
     /* Mark this DDS_OP_ADR as key if @key annotation is present, even in case the referring
         member is not part of the key (which resulted in idl_is_topic_key returning false).
         The reason for adding the key flag here, is that if any other member (that is a key)
@@ -1664,6 +1717,48 @@ emit_declarator(
   return IDL_RETCODE_OK;
 }
 
+static bool print_as_tc (uint32_t insn)
+{
+  switch (DDS_OP (insn))
+  {
+    case DDS_OP_ADR:
+      switch (DDS_OP_TYPE(insn)) {
+        case DDS_OP_VAL_ENU:
+        case DDS_OP_VAL_BMK:
+        case DDS_OP_VAL_BST:
+        case DDS_OP_VAL_BWSTR:
+          return true;
+        case DDS_OP_VAL_SEQ:
+        case DDS_OP_VAL_BSQ:
+        case DDS_OP_VAL_ARR:
+        case DDS_OP_VAL_UNI:
+          switch (DDS_OP_SUBTYPE(insn)) {
+            case DDS_OP_VAL_ENU:
+            case DDS_OP_VAL_BMK:
+            case DDS_OP_VAL_BST:
+            case DDS_OP_VAL_BWSTR:
+              return true;
+            default:
+              return false;
+          }
+        default:
+          return false;
+      }
+    case DDS_OP_JEQ4:
+      switch (DDS_OP_TYPE(insn)) {
+        case DDS_OP_VAL_ENU:
+        case DDS_OP_VAL_BMK:
+        case DDS_OP_VAL_BST:
+        case DDS_OP_VAL_BWSTR:
+          return true;
+        default:
+          return false;
+      }
+    default:
+      return false;
+  }
+}
+
 static int print_opcode(FILE *fp, const struct instruction *inst)
 {
   char buf[32];
@@ -1705,10 +1800,13 @@ static int print_opcode(FILE *fp, const struct instruction *inst)
       break;
   }
 
+  const bool as_tc = print_as_tc(inst->data.opcode.code);
+
   if (opcode == DDS_OP_ADR) {
     /* FLAG_BASE to indicate EXT 'parent' field */
+    assert (DDS_OP_FLAG_BASE == DDS_OP_FLAG_TC_DEF);
     if (inst->data.opcode.code & DDS_OP_FLAG_BASE)
-      vec[len++] = " | DDS_OP_FLAG_BASE";
+      vec[len++] = as_tc ? " | DDS_OP_FLAG_TC_DEF" : " | DDS_OP_FLAG_BASE";
     if (inst->data.opcode.code & DDS_OP_FLAG_KEY)
       vec[len++] = " | DDS_OP_FLAG_KEY";
     if (inst->data.opcode.code & DDS_OP_FLAG_MU)
@@ -1720,6 +1818,7 @@ static int print_opcode(FILE *fp, const struct instruction *inst)
     if (DDS_PLM_FLAGS(inst->data.opcode.code) & DDS_OP_FLAG_BASE)
       vec[len++] = " | (DDS_OP_FLAG_BASE << 16)";
   }
+
 
   if (opcode == DDS_OP_ADR || opcode == DDS_OP_JEQ4) {
     if (inst->data.opcode.code & DDS_OP_FLAG_EXT)
@@ -1801,8 +1900,9 @@ static int print_opcode(FILE *fp, const struct instruction *inst)
       vec[len++] = " | DDS_OP_FLAG_DEF";
     else if (inst->data.opcode.code & DDS_OP_FLAG_FP)
       vec[len++] = " | DDS_OP_FLAG_FP";
+    assert (DDS_OP_FLAG_SGN == DDS_OP_FLAG_TC_TRIM);
     if (inst->data.opcode.code & DDS_OP_FLAG_SGN)
-      vec[len++] = " | DDS_OP_FLAG_SGN";
+      vec[len++] = as_tc ? " | DDS_OP_FLAG_TC_TRIM" : " | DDS_OP_FLAG_SGN";
   }
 
   for (size_t cnt=0; cnt < len; cnt++) {
