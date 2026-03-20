@@ -341,6 +341,18 @@ static uint32_t get_bitbound_flags (uint32_t bit_bound)
   return flags;
 }
 
+static uint32_t get_tryconstruct_flags (enum typebuilder_try_construct tc)
+{
+  switch (tc)
+  {
+    case TBTC_REJECT: break;
+    case TBTC_DISCARD: return DDS_OP_FLAG_TC_DEF | DDS_OP_FLAG_TC_TRIM;
+    case TBTC_USE_DEFAULT: return DDS_OP_FLAG_TC_DEF;
+    case TBTC_TRIM: return DDS_OP_FLAG_TC_TRIM;
+  }
+  return 0;
+}
+
 static void align_to (uint32_t *offs, uint32_t align)
 {
   *offs = (*offs + align - 1) & ~(align - 1);
@@ -379,11 +391,11 @@ static enum typebuilder_try_construct get_tc (uint16_t flags)
   {
     case 0: // illegal
       break;
-    case DDS_XTypes_TRY_CONSTRUCT1: // FIXME: is this correct?
+    case DDS_XTypes_TRY_CONSTRUCT_DISCARD:
       return TBTC_DISCARD;
-    case DDS_XTypes_TRY_CONSTRUCT2: // FIXME: is this correct?
+    case DDS_XTypes_TRY_CONSTRUCT_USE_DEFAULT:
       return TBTC_USE_DEFAULT;
-    case DDS_XTypes_TRY_CONSTRUCT1 | DDS_XTypes_TRY_CONSTRUCT2:
+    case DDS_XTypes_TRY_CONSTRUCT_TRIM:
       return TBTC_TRIM;
   }
   return TBTC_REJECT;
@@ -910,9 +922,15 @@ static uint32_t get_type_flags (const struct typebuilder_type *tb_type)
       break;
     case DDS_OP_VAL_ENU:
       flags |= get_bitbound_flags (tb_type->args.enum_args.bit_bound);
+      flags |= get_tryconstruct_flags (tb_type->args.enum_args.tc);
       break;
     case DDS_OP_VAL_BMK:
       flags |= get_bitbound_flags (tb_type->args.bitmask_args.bit_bound);
+      flags |= get_tryconstruct_flags (tb_type->args.bitmask_args.tc);
+      break;
+    case DDS_OP_VAL_BST:
+    case DDS_OP_VAL_BWSTR:
+      flags |= get_tryconstruct_flags (tb_type->args.string_args.tc);
       break;
     default:
       break;
@@ -961,11 +979,13 @@ static dds_return_t get_ops_type (struct typebuilder_type *tb_type, uint32_t fla
       PUSH_ARG (member_offset);
       break;
     case DDS_OP_VAL_BST:
+      flags |= get_type_flags (tb_type);
       PUSH_OP ((uint32_t) DDS_OP_ADR | (uint32_t) DDS_OP_TYPE_BST | flags);
       PUSH_ARG (member_offset);
       PUSH_ARG (tb_type->args.string_args.max_size);
       break;
     case DDS_OP_VAL_BWSTR:
+      flags |= get_type_flags (tb_type);
       PUSH_OP ((uint32_t) DDS_OP_ADR | (uint32_t) DDS_OP_TYPE_BWSTR | flags);
       PUSH_ARG (member_offset);
       PUSH_ARG (tb_type->args.string_args.max_size);
@@ -992,8 +1012,15 @@ static dds_return_t get_ops_type (struct typebuilder_type *tb_type, uint32_t fla
       if (bounded)
       {
         uint32_t bound = tb_type->args.collection_args.bound;
+        if (bound > INT32_MAX)
+        {
+          ret = DDS_RETCODE_UNSUPPORTED;
+          goto err;
+        }
         if (tb_type->args.collection_args.tc == TBTC_TRIM)
+        {
           bound |= 0x80000000;
+        }
         PUSH_ARG (bound);
       }
       switch (element_type->type_code)
