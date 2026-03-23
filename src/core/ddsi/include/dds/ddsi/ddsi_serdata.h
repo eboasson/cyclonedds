@@ -71,7 +71,7 @@ typedef struct ddsi_serdata * (*ddsi_serdata_from_ser_t) (const struct ddsi_sert
 typedef struct ddsi_serdata * (*ddsi_serdata_from_ser_iov_t) (const struct ddsi_sertype *type, enum ddsi_serdata_kind kind, ddsrt_msg_iovlen_t niov, const ddsrt_iovec_t *iov, size_t size)
   ddsrt_nonnull_all ddsrt_attribute_warn_unused_result;
 
-/* Construct a serdata from a keyhash (an SDK_KEY by definition) */
+/* Construct a serdata from a keyhash (an SDK_KEY by definition, may return DDSI_SERDATA_FROM_SER_DISCARD) */
 typedef struct ddsi_serdata * (*ddsi_serdata_from_keyhash_t) (const struct ddsi_sertype *type, const struct ddsi_keyhash *keyhash)
   ddsrt_nonnull_all ddsrt_attribute_warn_unused_result;
 
