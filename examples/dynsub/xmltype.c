@@ -574,7 +574,9 @@ static void make_bitmask (const struct make_context *ctxt, const struct elem *el
     const char *mname = getattr (m, "name");
     if (mname == NULL)
       exitelem (m, "name missing\n");
-    const char *valuestr = getattr (m, "value");
+    const char *valuestr = getattr (m, "position"); // XSD says "position"
+    if (valuestr == NULL)
+      valuestr = getattr (m, "value"); // interop test uses "value" ...
     if (valuestr == NULL)
       exitelem (m, "value missing\n");
     int32_t value;
@@ -710,7 +712,7 @@ int main (int argc, char **argv)
     if (arglen <= 4 || strcmp (argv[argi] + arglen - 4, ".xml") != 0)
     {
       if (!find_type_pair (typelib, argv[argi], &wrtype, &rdtype))
-        exitfmt ("create topic: type %s not found, skipping\n", argv[argi]);
+        exitfmt ("\ncreate topic: type %s not found, skipping\n", argv[argi]);
 
       // Can be freed immediately after creating topic, but we use it for freeing samples
       if (wrdescriptor)
