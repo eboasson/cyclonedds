@@ -463,7 +463,7 @@ static dds_return_t typebuilder_add_type (struct typebuilder_data *tbd, uint32_t
       bool bounded = (type->xt._u.str8.bound > 0);
       tb_type->type_code = bounded ? DDS_OP_VAL_BST : DDS_OP_VAL_STR;
       tb_type->args.string_args.max_size = type->xt._u.str8.bound + 1; // +1 for terminating '\0'
-      tb_type->args.string_args.tc = bounded ? tc : TYPEBUILDER_TC_REJECT;
+      tb_type->args.string_args.tc = bounded ? tc : TYPEBUILDER_TC_DISCARD;
       *align = ALGN (uint8_t, !bounded || is_ext);
       if (bounded && !is_ext)
         *size = tb_type->args.string_args.max_size * (uint32_t) sizeof (char);
@@ -476,7 +476,7 @@ static dds_return_t typebuilder_add_type (struct typebuilder_data *tbd, uint32_t
       bool bounded = (type->xt._u.str16.bound > 0);
       tb_type->type_code = bounded ? DDS_OP_VAL_BWSTR : DDS_OP_VAL_WSTR;
       tb_type->args.string_args.max_size = type->xt._u.str16.bound + 1; // +1 for terminating L'\0'
-      tb_type->args.string_args.tc = bounded ? tc : TYPEBUILDER_TC_REJECT;
+      tb_type->args.string_args.tc = bounded ? tc : TYPEBUILDER_TC_DISCARD;
       *align = ALGN (wchar_t, !bounded || is_ext);
       if (bounded && !is_ext)
         *size = tb_type->args.string_args.max_size * (uint32_t) sizeof (wchar_t);
@@ -496,9 +496,11 @@ static dds_return_t typebuilder_add_type (struct typebuilder_data *tbd, uint32_t
       tb_type->type_code = DDS_OP_VAL_ENU;
       tb_type->args.enum_args.max = max;
       tb_type->args.enum_args.bit_bound = type->xt._u.enum_type.bit_bound;
+#if 0 // FIXME: does this make sense?
       if (type->xt._u.enum_type.flags & DDS_XTypes_IS_FINAL)
         tb_type->args.enum_args.tc = TYPEBUILDER_TC_REJECT;
       else
+#endif
         tb_type->args.enum_args.tc = tc;
       *align = ALGN (uint32_t, is_ext);
       *size = SZ (uint32_t, is_ext);
@@ -512,9 +514,11 @@ static dds_return_t typebuilder_add_type (struct typebuilder_data *tbd, uint32_t
       tb_type->args.bitmask_args.bits_l = (uint32_t) (bits & 0xffffffffu);
       tb_type->args.bitmask_args.bits_h = (uint32_t) (bits >> 32);
       tb_type->args.bitmask_args.bit_bound = type->xt._u.bitmask.bit_bound;
+#if 0 // FIXME: does this make sense?
       if (type->xt._u.bitmask.flags & DDS_XTypes_IS_FINAL)
         tb_type->args.bitmask_args.tc = TYPEBUILDER_TC_REJECT;
       else
+#endif
         tb_type->args.bitmask_args.tc = tc;
       if (type->xt._u.bitmask.bit_bound > 32)
       {
@@ -580,7 +584,7 @@ static dds_return_t typebuilder_add_type (struct typebuilder_data *tbd, uint32_t
 
       tb_type->type_code = DDS_OP_VAL_ARR;
       tb_type->args.collection_args.bound = bound;
-      tb_type->args.collection_args.tc = TYPEBUILDER_TC_REJECT;
+      tb_type->args.collection_args.tc = TYPEBUILDER_TC_DISCARD;
       if (!(tb_type->args.collection_args.element_type.type = ddsrt_calloc (1, sizeof (*tb_type->args.collection_args.element_type.type))))
       {
         ret = DDS_RETCODE_OUT_OF_RESOURCES;
@@ -675,7 +679,7 @@ static dds_return_t typebuilder_add_struct (struct typebuilder_data *tbd, struct
       ret = DDS_RETCODE_OUT_OF_RESOURCES;
       goto err;
     }
-    if ((ret = typebuilder_add_type (tbd, &sz, &align, tb_aggrtype->base_type, type->xt._u.structure.base_type, false, true, TYPEBUILDER_TC_REJECT)) != DDS_RETCODE_OK)
+    if ((ret = typebuilder_add_type (tbd, &sz, &align, tb_aggrtype->base_type, type->xt._u.structure.base_type, false, true, TYPEBUILDER_TC_DISCARD)) != DDS_RETCODE_OK)
     {
       goto err;
     }
