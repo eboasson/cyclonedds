@@ -496,11 +496,9 @@ static dds_return_t typebuilder_add_type (struct typebuilder_data *tbd, uint32_t
       tb_type->type_code = DDS_OP_VAL_ENU;
       tb_type->args.enum_args.max = max;
       tb_type->args.enum_args.bit_bound = type->xt._u.enum_type.bit_bound;
-#if 0 // FIXME: does this make sense?
       if (type->xt._u.enum_type.flags & DDS_XTypes_IS_FINAL)
         tb_type->args.enum_args.tc = TYPEBUILDER_TC_REJECT;
       else
-#endif
         tb_type->args.enum_args.tc = tc;
       *align = ALGN (uint32_t, is_ext);
       *size = SZ (uint32_t, is_ext);
@@ -514,11 +512,9 @@ static dds_return_t typebuilder_add_type (struct typebuilder_data *tbd, uint32_t
       tb_type->args.bitmask_args.bits_l = (uint32_t) (bits & 0xffffffffu);
       tb_type->args.bitmask_args.bits_h = (uint32_t) (bits >> 32);
       tb_type->args.bitmask_args.bit_bound = type->xt._u.bitmask.bit_bound;
-#if 0 // FIXME: does this make sense?
       if (type->xt._u.bitmask.flags & DDS_XTypes_IS_FINAL)
         tb_type->args.bitmask_args.tc = TYPEBUILDER_TC_REJECT;
       else
-#endif
         tb_type->args.bitmask_args.tc = tc;
       if (type->xt._u.bitmask.bit_bound > 32)
       {

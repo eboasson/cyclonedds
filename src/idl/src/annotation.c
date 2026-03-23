@@ -1101,6 +1101,11 @@ annotate_try_construct(
     ts = st->type_spec;
     try_construct_p = &(st->elem_try_construct.value);
     annotation_appl_p = &(st->elem_try_construct.annotation);
+  } else if (idl_is_switch_type_spec(node)) {
+    idl_switch_type_spec_t *ut = (idl_switch_type_spec_t*)node;
+    ts = ut->type_spec;
+    try_construct_p = &(ut->try_construct.value);
+    annotation_appl_p = &(ut->try_construct.annotation);
   } else {
     idl_error(pstate, idl_location(annotation_appl),
       "@try_construct can only be applied to struct members, union cases and sequence element types");

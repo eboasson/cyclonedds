@@ -641,6 +641,8 @@ static idl_retcode_t add_typecode(const idl_pstate_t *pstate, const idl_type_spe
         *add_to |= 2 << DDS_OP_FLAG_SZ_SHIFT;
       else if (bit_bound > 8)
         *add_to |= 1 << DDS_OP_FLAG_SZ_SHIFT;
+      if (idl_is_extensible(type_spec, IDL_FINAL))
+        *add_to |= DDS_OP_FLAG_TC_DEF | DDS_OP_FLAG_TC_TRIM;
       break;
     }
     case IDL_UNION:
@@ -659,6 +661,8 @@ static idl_retcode_t add_typecode(const idl_pstate_t *pstate, const idl_type_spe
         *add_to |= 2 << DDS_OP_FLAG_SZ_SHIFT;
       else if (bit_bound > 8)
         *add_to |= 1 << DDS_OP_FLAG_SZ_SHIFT;
+      if (idl_is_extensible(type_spec, IDL_FINAL))
+        *add_to |= DDS_OP_FLAG_TC_DEF | DDS_OP_FLAG_TC_TRIM;
       break;
     }
     default:
@@ -863,7 +867,7 @@ emit_case(
     } else {
       if ((ret = add_typecode(pstate, type_spec, TYPE, false, &opcode)))
         return ret;
-      // FIXME: try_construct?
+
       if (idl_is_struct(type_spec) || idl_is_union(type_spec))
         case_type = EXTERNAL;
       else if (idl_is_array(type_spec) || idl_is_bounded_xstring(type_spec) || idl_is_sequence(type_spec) || idl_is_bitmask(type_spec))
@@ -873,6 +877,9 @@ emit_case(
         case_type = INLINE;
       }
     }
+
+    if (try_construct_applies (type_spec))
+      set_try_construct (&opcode, _case->try_construct.value);
 
     if ((ret = push_field(descriptor, _case, NULL)))
       return ret;
@@ -979,7 +986,8 @@ emit_switch_type_spec(
   if ((ret = add_typecode(pstate, type_spec, SUBTYPE, false, &opcode)))
     return ret;
 
-  // FIXME: try_construct?
+  if (try_construct_applies (type_spec))
+    set_try_construct (&opcode, ((idl_switch_type_spec_t *)node)->try_construct.value);
 
   // XTypes spec 7.2.2.4.4.4.6: In a union type, the discriminator member shall always have the 'must understand' attribute set to true.
   opcode |= DDS_OP_FLAG_MU;
@@ -1668,6 +1676,8 @@ emit_declarator(
 
     if (idl_is_member(parent) && try_construct_applies(type_spec))
       set_try_construct (&opcode, ((idl_member_t *)parent)->try_construct.value);
+    else if (idl_is_case (parent) && try_construct_applies(type_spec))
+      set_try_construct (&opcode, ((idl_case_t *)parent)->try_construct.value);
 
     /* Mark this DDS_OP_ADR as key if @key annotation is present, even in case the referring
         member is not part of the key (which resulted in idl_is_topic_key returning false).
@@ -1771,9 +1781,6 @@ static bool print_as_tc (uint32_t insn)
     case DDS_OP_JEQ4:
       switch (DDS_OP_TYPE(insn)) {
         case DDS_OP_VAL_ENU:
-        case DDS_OP_VAL_BMK:
-        case DDS_OP_VAL_BST:
-        case DDS_OP_VAL_BWSTR:
           return true;
         default:
           return false;
@@ -1832,7 +1839,7 @@ static int print_opcode(FILE *fp, const struct instruction *inst)
     /* FLAG_BASE to indicate EXT 'parent' field (or flag TC_DEF to set try-construct
        on enum/bitmask/string) */
     assert (DDS_OP_FLAG_BASE == DDS_OP_FLAG_TC_DEF);
-    if (inst->data.opcode.code & DDS_OP_FLAG_BASE)
+    if (inst->data.opcode.code & DDS_OP_FLAG_BASE && !as_tc)
       vec[len++] = as_tc ? " | DDS_OP_FLAG_TC_DEF" : " | DDS_OP_FLAG_BASE";
     if (inst->data.opcode.code & DDS_OP_FLAG_KEY)
       vec[len++] = " | DDS_OP_FLAG_KEY";
@@ -1882,7 +1889,7 @@ static int print_opcode(FILE *fp, const struct instruction *inst)
     vec[len++] = buf;
   } else if (opcode == DDS_OP_JEQ4) {
     enum dds_stream_typecode type = DDS_OP_TYPE(inst->data.opcode.code);
-    if (type == DDS_OP_VAL_ENU) {
+    if (type == DDS_OP_VAL_ENU || type == DDS_OP_VAL_BMK) {
       idl_snprintf(buf, sizeof(buf), " | (%u << DDS_OP_FLAG_SZ_SHIFT)", (inst->data.opcode.code & DDS_OP_FLAG_SZ_MASK) >> DDS_OP_FLAG_SZ_SHIFT);
       vec[len++] = buf;
     } else if (type != DDS_OP_VAL_BLN && type != DDS_OP_VAL_1BY && type != DDS_OP_VAL_2BY && type != DDS_OP_VAL_4BY && type != DDS_OP_VAL_8BY && type != DDS_OP_VAL_STR && type != DDS_OP_VAL_WSTR) {
@@ -1927,9 +1934,18 @@ static int print_opcode(FILE *fp, const struct instruction *inst)
     else if (inst->data.opcode.code & DDS_OP_FLAG_FP)
       vec[len++] = " | DDS_OP_FLAG_FP";
 
+    if (inst->data.opcode.code & DDS_OP_FLAG_SGN && !as_tc)
+      vec[len++] = " | DDS_OP_FLAG_SGN";
+  }
+
+  if (as_tc)
+  {
+    assert (DDS_OP_FLAG_BASE == DDS_OP_FLAG_TC_DEF);
     assert (DDS_OP_FLAG_SGN == DDS_OP_FLAG_TC_TRIM);
-    if (inst->data.opcode.code & DDS_OP_FLAG_SGN)
-      vec[len++] = as_tc ? " | DDS_OP_FLAG_TC_TRIM" : " | DDS_OP_FLAG_SGN";
+    if (inst->data.opcode.code & DDS_OP_FLAG_TC_DEF)
+      vec[len++] = " | DDS_OP_FLAG_TC_DEF";
+    if (inst->data.opcode.code & DDS_OP_FLAG_TC_TRIM)
+      vec[len++] = " | DDS_OP_FLAG_TC_TRIM";
   }
 
   for (size_t cnt=0; cnt < len; cnt++) {
