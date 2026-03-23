@@ -2811,7 +2811,7 @@ static const uint32_t *initialize_and_skip_sequence (dds_sequence_t *seq, uint32
 
 static uint32_t get_sequence_bound (uint32_t bound_with_trim)
 {
-  if (bound_with_trim >= 0)
+  if ((int32_t)bound_with_trim >= 0)
     return bound_with_trim;
   else
     return (uint32_t) (-(int32_t)bound_with_trim);
