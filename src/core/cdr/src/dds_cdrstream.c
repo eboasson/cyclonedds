@@ -1359,12 +1359,12 @@ static enum tryconstruct tryconstruct_mode (const uint32_t insn)
   // BST, BWSTR, ENU, BMK: applies to type
   switch (insn & (DDS_OP_FLAG_TC_DEF | DDS_OP_FLAG_TC_TRIM))
   {
-    case 0: return TC_REJECT;
+    case 0: return TC_DISCARD;
     case DDS_OP_FLAG_TC_TRIM: return TC_TRIM;
     case DDS_OP_FLAG_TC_DEF: return TC_USE_DEFAULT;
       //case DDS_OP_FLAG_TC_DEF | DDS_OP_FLAG_TC_TRIM: fall-through
   }
-  return TC_DISCARD;
+  return TC_REJECT;
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
@@ -2809,13 +2809,21 @@ static const uint32_t *initialize_and_skip_sequence (dds_sequence_t *seq, uint32
   return skip_sequence_insns (insn, ops);
 }
 
+static uint32_t get_sequence_bound (uint32_t bound_with_trim)
+{
+  if (bound_with_trim >= 0)
+    return bound_with_trim;
+  else
+    return (uint32_t) (-(int32_t)bound_with_trim);
+}
+
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
 static const uint32_t *dds_stream_read_seq (dds_istream_t *is, char * restrict addr, const struct dds_cdrstream_allocator *allocator, const uint32_t *ops, uint32_t insn, enum cdr_data_kind cdr_kind, enum sample_data_state sample_state)
 {
   dds_sequence_t * const seq = (dds_sequence_t *) addr;
   const enum dds_stream_typecode subtype = DDS_OP_SUBTYPE (insn);
   const uint32_t bound_op = seq_is_bounded (DDS_OP_TYPE (insn)) ? 1 : 0;
-  const uint32_t bound = bound_op ? (ops[2] & 0x7fffffff) : UINT32_MAX;
+  const uint32_t bound = bound_op ? get_sequence_bound (ops[2]) : UINT32_MAX;
   if (is_dheader_needed (subtype, is->m_xcdr_version))
   {
     /* skip DHEADER */
@@ -2827,7 +2835,7 @@ static const uint32_t *dds_stream_read_seq (dds_istream_t *is, char * restrict a
     return initialize_and_skip_sequence (seq, insn, ops, sample_state);
 
   // if oversize, try-construct for the sequence must be TRIM
-  assert (num_cdr <= bound || (ops[2] & 0x80000000));
+  assert (num_cdr <= bound || (int32_t) ops[2] < 0);
   const uint32_t num = (num_cdr > bound) ? bound : num_cdr;
 
   switch (subtype)
@@ -2932,25 +2940,19 @@ static const uint32_t *dds_stream_read_seq (dds_istream_t *is, char * restrict a
       adjust_sequence_buffer_initialize (seq, allocator, num, elem_size, &sample_state);
       seq->_length = (num <= seq->_maximum) ? num : seq->_maximum;
       char *ptr = (char *) seq->_buffer;
-      if (num == num_cdr) {
-        // FIXME: this is fine, but doesn't do trim
-        for (uint32_t i = 0; i < num; i++)
-          (void) dds_stream_read_impl (is, ptr + i * elem_size, allocator, jsr_ops, false, cdr_kind, sample_state);
-      } else {
-        // FIXME: this if fugly
-        // read first N-1 elements like normal
-        for (uint32_t i = 0; i < num - 1; i++)
-          (void) dds_stream_read_impl (is, ptr + i * elem_size, allocator, jsr_ops, false, cdr_kind, sample_state);
-        // remember where the Nth element is in the stream and in memory, then continue
-        // deserializing all remaining elements in the input into the final element in
-        // memory
-        dds_istream_t is_final_elt = *is;
-        char * const ptr_final_elt = ptr + (num - 1) * elem_size;
-        for (uint32_t i = num - 1; i < num_cdr; i++)
-          (void) dds_stream_read_impl (is, ptr_final_elt, allocator, jsr_ops, false, cdr_kind, sample_state);
-        // re-deserialize the Nth element
-        (void) dds_stream_read_impl (&is_final_elt, ptr_final_elt, allocator, jsr_ops, false, cdr_kind, sample_state);
-      }
+      // FIXME: this if fugly
+      // read first N-1 elements like normal
+      for (uint32_t i = 0; i < num - 1; i++)
+        (void) dds_stream_read_impl (is, ptr + i * elem_size, allocator, jsr_ops, false, cdr_kind, sample_state);
+      // remember where the Nth element is in the stream and in memory, then continue
+      // deserializing all remaining elements in the input into the final element in
+      // memory
+      dds_istream_t is_final_elt = *is;
+      char * const ptr_final_elt = ptr + (num - 1) * elem_size;
+      for (uint32_t i = num - 1; i < num_cdr; i++)
+        (void) dds_stream_read_impl (is, ptr_final_elt, allocator, jsr_ops, false, cdr_kind, sample_state);
+      // re-deserialize the Nth element
+      (void) dds_stream_read_impl (&is_final_elt, ptr_final_elt, allocator, jsr_ops, false, cdr_kind, sample_state);
       return ops + (jmp ? jmp : (4 + bound_op)); /* FIXME: why would jmp be 0? */
     }
     case DDS_OP_VAL_EXT: {
@@ -4301,7 +4303,7 @@ static enum dds_stream_normalize_result normalize_seq (char * restrict data, uin
   enum dds_stream_normalize_result res;
   const enum dds_stream_typecode subtype = DDS_OP_SUBTYPE (insn);
   uint32_t bound_op = seq_is_bounded (DDS_OP_TYPE (insn)) ? 1 : 0;
-  uint32_t bound = bound_op ? ((*ops)[2] & 0x7fffffff) : UINT32_MAX;
+  uint32_t bound = (bound_op && ((int32_t) (*ops)[2]) > 0) ? (*ops)[2] : UINT32_MAX;
   bool has_dheader;
   uint32_t size1;
   if (!read_and_normalize_collection_dheader (&has_dheader, &size1, data, off, size, bswap, subtype, xcdr_version))
@@ -4317,12 +4319,11 @@ static enum dds_stream_normalize_result normalize_seq (char * restrict data, uin
       return normalize_error ();
     return normalize_success ();
   }
-  if (bound_op && num > bound)
+  if (num > bound)
   {
-    // msb of bound field is now reused as "trim", if it is clear, discard
-    // all elements should be valid, so let us not skip the discarded tail
-    if (!((*ops)[2] & 0x80000000))
-      return normalize_discard ();
+    // bound < UINT32_MAX only for bounded sequences with try-construct set to
+    // "discard"
+    return normalize_discard ();
   }
   switch (subtype)
   {

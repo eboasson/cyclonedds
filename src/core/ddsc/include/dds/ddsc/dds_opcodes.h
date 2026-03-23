@@ -221,60 +221,61 @@ enum dds_stream_opcode {
   DDS_OP_RTS = 0x00 << 24,
 
   /** data field
-     [ADR, nBY,   0, f] [offset]
+     [ADR, nBY,   0, f | ar] [offset]
      [ADR, BLN,   0, f] [offset]
      [ADR, WCHAR,   0, f] [offset]
-     [ADR, ENU,   0, f] [offset] [max]
-     [ADR, BMK,   0, f] [offset] [bits-high] [bits-low]
+     [ADR, ENU,   0, f | tc] [offset] [max]
+     [ADR, BMK,   0, f | tc] [offset] [bits-high] [bits-low]
      [ADR, STR,   0, f] [offset]
      [ADR, WSTR,   0, f] [offset]
-     [ADR, BST,   0, f] [offset] [max-size]
-     [ADR, BWSTR,   0, f] [offset] [max-size]
+     [ADR, BST,   0, f | tc] [offset] [max-size]
+     [ADR, BWSTR,   0, f | tc] [offset] [max-size]
 
-     [ADR, SEQ, nBY, f] [offset]
+     [ADR, SEQ, nBY, f | ar] [offset]
      [ADR, SEQ, BLN, f] [offset]
      [ADR, SEQ, WCHAR, f] [offset]
-     [ADR, SEQ, ENU, f] [offset] [max]
-     [ADR, SEQ, BMK, f] [offset] [bits-high] [bits-low]
+     [ADR, SEQ, ENU, f | tc] [offset] [max]
+     [ADR, SEQ, BMK, f | tc] [offset] [bits-high] [bits-low]
      [ADR, SEQ, STR, f] [offset]
      [ADR, SEQ, WSTR, f] [offset]
-     [ADR, SEQ, BST, f] [offset] [max-size]
-     [ADR, SEQ, BWSTR, f] [offset] [max-size]
+     [ADR, SEQ, BST, f | tc] [offset] [max-size]
+     [ADR, SEQ, BWSTR, f | tc] [offset] [max-size]
      [ADR, SEQ,   s, f] [offset] [elem-size] [next-insn, elem-insn]
        where s = {SEQ,ARR,UNI,STU,BSQ}
      [ADR, SEQ, EXT, f] *** not supported
 
-     [ADR, BSQ, nBY, f] [offset] [sbound]
+     [ADR, BSQ, nBY, f | ar] [offset] [sbound]
      [ADR, BSQ, BLN, f] [offset] [sbound]
      [ADR, BSQ, WCHAR, f] [offset] [sbound]
-     [ADR, BSQ, ENU, f] [offset] [sbound] [max]
-     [ADR, BSQ, BMK, f] [offset] [sbound] [bits-high] [bits-low]
+     [ADR, BSQ, ENU, f | tc] [offset] [sbound] [max]
+     [ADR, BSQ, BMK, f | tc] [offset] [sbound] [bits-high] [bits-low]
      [ADR, BSQ, STR, f] [offset] [sbound]
      [ADR, BSQ, WSTR, f] [offset] [sbound]
-     [ADR, BSQ, BST, f] [offset] [sbound] [max-size]
-     [ADR, BSQ, BWSTR, f] [offset] [sbound] [max-size]
+     [ADR, BSQ, BST, f | tc] [offset] [sbound] [max-size]
+     [ADR, BSQ, BWSTR, f | tc] [offset] [sbound] [max-size]
      [ADR, BSQ,   s, f] [offset] [sbound] [elem-size] [next-insn, elem-insn]
        where s = {SEQ,ARR,UNI,STU,BSQ}
      [ADR, BSQ, EXT, f] *** not supported
 
-     [ADR, ARR, nBY, f] [offset] [alen]
+     [ADR, ARR, nBY, f | ar] [offset] [alen]
      [ADR, ARR, BLN, f] [offset] [alen]
      [ADR, ARR, WCHAR, f] [offset] [alen]
-     [ADR, ARR, ENU, f] [offset] [alen] [max]
-     [ADR, ARR, BMK, f] [offset] [alen] [bits-high] [bits-low]
+     [ADR, ARR, ENU, f | tc] [offset] [alen] [max]
+     [ADR, ARR, BMK, f | tc] [offset] [alen] [bits-high] [bits-low]
      [ADR, ARR, STR, f] [offset] [alen]
      [ADR, ARR, WSTR, f] [offset] [alen]
-     [ADR, ARR, BST, f] [offset] [alen] [0] [max-size]
-     [ADR, ARR, BWSTR, f] [offset] [alen] [0] [max-size]
+     [ADR, ARR, BST, f | tc] [offset] [alen] [0] [max-size]
+     [ADR, ARR, BWSTR, f | tc] [offset] [alen] [0] [max-size]
      [ADR, ARR,   s, f] [offset] [alen] [next-insn, elem-insn] [elem-size]
          where s = {SEQ,ARR,UNI,STU,BSQ}
      [ADR, ARR, EXT, f] *** not supported
 
-     [ADR, UNI,   d, z] [offset] [alen] [next-insn, cases]
-     [ADR, UNI, ENU, z] [offset] [alen] [next-insn, cases] [max]
+     [ADR, UNI,   d, z | ar] [offset] [alen] [next-insn, cases]
+     [ADR, UNI, ENU, z | tc] [offset] [alen] [next-insn, cases] [max]
+     [ADR, UNI, BMK, z | tc] [offset] [alen] [next-insn, cases] [bits-low]
      [ADR, UNI, EXT, f] *** not supported
        where
-         d = discriminant type of {1BY,2BY,4BY,BLN}
+         d = discriminant type of {1BY,2BY,4BY,8BY,BLN}, 8BY must have top 32-bits 0
          z = default present/not present (DDS_OP_FLAG_DEF)
          offset = discriminant offset
          max = max enum value
@@ -291,13 +292,22 @@ enum dds_stream_opcode {
                     - optional (DDS_OP_FLAG_OPT)
                     - must-understand (DDS_OP_FLAG_MU)
                     - storage size, only for ENU and BMK (n << DDS_OP_FLAG_SZ_SHIFT)
+     ar           = "arithmetic" flags:
+                    - floating-point instead of integer (DDS_OP_FLAG_FP)
+                    - signed integer instead of unsigned (DDS_OP_FLAG_SGN)
+     tc           = "try-construct" flags (for bounded sequences: element try-construct, see also "sbound")
+                    - flags are DDS_OP_FLAG_TC_DEF, DDS_OP_FLAG_TC_TRIM
+                    - (0,0): discard
+                    - (1,0): use_default
+                    - (0,1): trim
+                    - (1,1): reserved
      [offset]     = field offset from start of element in memory
      [elem-size]  = element size in memory (elem-size is only included in case 'external' flag is set)
      [max-size]   = string bound + 1
      [max]        = max enum value
      [bits-..]    = identified bits in the bitmask, split into high and low 32 bits
      [alen]       = array length, number of cases
-     [sbound]     = bounded sequence maximum number of elements
+     [sbound]     = bounded sequence maximum number of elements (0 .. 2^31-1) and TRIM (2^31)
      [next-insn]  = (unsigned 16 bits) offset to instruction for next field, from start of insn
      [elem-insn]  = (unsigned 16 bits) offset to first instruction for element, from start of insn
      [cases]      = (unsigned 16 bits) offset to first case label, from start of insn

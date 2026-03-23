@@ -65,10 +65,10 @@ struct typebuilder_type_ref
 
 enum typebuilder_try_construct
 {
-  TBTC_REJECT,
-  TBTC_DISCARD,
-  TBTC_TRIM,
-  TBTC_USE_DEFAULT
+  TYPEBUILDER_TC_REJECT,
+  TYPEBUILDER_TC_DISCARD,
+  TYPEBUILDER_TC_TRIM,
+  TYPEBUILDER_TC_USE_DEFAULT
 };
 
 struct typebuilder_type
@@ -345,12 +345,12 @@ static uint32_t get_tryconstruct_flags (enum typebuilder_try_construct tc)
 {
   switch (tc)
   {
-    case TBTC_REJECT: break;
-    case TBTC_DISCARD: return DDS_OP_FLAG_TC_DEF | DDS_OP_FLAG_TC_TRIM;
-    case TBTC_USE_DEFAULT: return DDS_OP_FLAG_TC_DEF;
-    case TBTC_TRIM: return DDS_OP_FLAG_TC_TRIM;
+    case TYPEBUILDER_TC_DISCARD: return 0;
+    case TYPEBUILDER_TC_USE_DEFAULT: return DDS_OP_FLAG_TC_DEF;
+    case TYPEBUILDER_TC_TRIM: return DDS_OP_FLAG_TC_TRIM;
+    case TYPEBUILDER_TC_REJECT: break;
   }
-  return 0;
+  return DDS_OP_FLAG_TC_DEF | DDS_OP_FLAG_TC_TRIM;
 }
 
 static void align_to (uint32_t *offs, uint32_t align)
@@ -392,13 +392,13 @@ static enum typebuilder_try_construct get_tc (uint16_t flags)
     case 0: // illegal
       break;
     case DDS_XTypes_TRY_CONSTRUCT_DISCARD:
-      return TBTC_DISCARD;
+      return TYPEBUILDER_TC_DISCARD;
     case DDS_XTypes_TRY_CONSTRUCT_USE_DEFAULT:
-      return TBTC_USE_DEFAULT;
+      return TYPEBUILDER_TC_USE_DEFAULT;
     case DDS_XTypes_TRY_CONSTRUCT_TRIM:
-      return TBTC_TRIM;
+      return TYPEBUILDER_TC_TRIM;
   }
-  return TBTC_REJECT;
+  return TYPEBUILDER_TC_REJECT;
 }
 
 static dds_return_t typebuilder_add_type (struct typebuilder_data *tbd, uint32_t *size, uint32_t *align, struct typebuilder_type *tb_type, const struct ddsi_type *type, bool is_ext, bool use_ext_type, enum typebuilder_try_construct tc)
@@ -463,7 +463,7 @@ static dds_return_t typebuilder_add_type (struct typebuilder_data *tbd, uint32_t
       bool bounded = (type->xt._u.str8.bound > 0);
       tb_type->type_code = bounded ? DDS_OP_VAL_BST : DDS_OP_VAL_STR;
       tb_type->args.string_args.max_size = type->xt._u.str8.bound + 1; // +1 for terminating '\0'
-      tb_type->args.string_args.tc = bounded ? tc : TBTC_REJECT;
+      tb_type->args.string_args.tc = bounded ? tc : TYPEBUILDER_TC_REJECT;
       *align = ALGN (uint8_t, !bounded || is_ext);
       if (bounded && !is_ext)
         *size = tb_type->args.string_args.max_size * (uint32_t) sizeof (char);
@@ -476,7 +476,7 @@ static dds_return_t typebuilder_add_type (struct typebuilder_data *tbd, uint32_t
       bool bounded = (type->xt._u.str16.bound > 0);
       tb_type->type_code = bounded ? DDS_OP_VAL_BWSTR : DDS_OP_VAL_WSTR;
       tb_type->args.string_args.max_size = type->xt._u.str16.bound + 1; // +1 for terminating L'\0'
-      tb_type->args.string_args.tc = bounded ? tc : TBTC_REJECT;
+      tb_type->args.string_args.tc = bounded ? tc : TYPEBUILDER_TC_REJECT;
       *align = ALGN (wchar_t, !bounded || is_ext);
       if (bounded && !is_ext)
         *size = tb_type->args.string_args.max_size * (uint32_t) sizeof (wchar_t);
@@ -497,7 +497,7 @@ static dds_return_t typebuilder_add_type (struct typebuilder_data *tbd, uint32_t
       tb_type->args.enum_args.max = max;
       tb_type->args.enum_args.bit_bound = type->xt._u.enum_type.bit_bound;
       if (type->xt._u.enum_type.flags & DDS_XTypes_IS_FINAL)
-        tb_type->args.enum_args.tc = TBTC_REJECT;
+        tb_type->args.enum_args.tc = TYPEBUILDER_TC_REJECT;
       else
         tb_type->args.enum_args.tc = tc;
       *align = ALGN (uint32_t, is_ext);
@@ -513,7 +513,7 @@ static dds_return_t typebuilder_add_type (struct typebuilder_data *tbd, uint32_t
       tb_type->args.bitmask_args.bits_h = (uint32_t) (bits >> 32);
       tb_type->args.bitmask_args.bit_bound = type->xt._u.bitmask.bit_bound;
       if (type->xt._u.bitmask.flags & DDS_XTypes_IS_FINAL)
-        tb_type->args.bitmask_args.tc = TBTC_REJECT;
+        tb_type->args.bitmask_args.tc = TYPEBUILDER_TC_REJECT;
       else
         tb_type->args.bitmask_args.tc = tc;
       if (type->xt._u.bitmask.bit_bound > 32)
@@ -541,12 +541,12 @@ static dds_return_t typebuilder_add_type (struct typebuilder_data *tbd, uint32_t
     case DDS_XTypes_TK_SEQUENCE: {
       bool bounded = type->xt._u.seq.bound > 0;
       tb_type->type_code = bounded ? DDS_OP_VAL_BSQ : DDS_OP_VAL_SEQ;
-      tb_type->args.collection_args.tc = TBTC_DISCARD;
+      tb_type->args.collection_args.tc = TYPEBUILDER_TC_DISCARD;
       if (bounded)
       {
         tb_type->args.collection_args.bound = type->xt._u.seq.bound;
-        if (tc != TBTC_REJECT && tc != TBTC_DISCARD)
-          tb_type->args.collection_args.tc = TBTC_TRIM;
+        if (tc != TYPEBUILDER_TC_REJECT && tc != TYPEBUILDER_TC_DISCARD)
+          tb_type->args.collection_args.tc = TYPEBUILDER_TC_TRIM;
       }
       if (!(tb_type->args.collection_args.element_type.type = ddsrt_calloc (1, sizeof (*tb_type->args.collection_args.element_type.type))))
       {
@@ -580,7 +580,7 @@ static dds_return_t typebuilder_add_type (struct typebuilder_data *tbd, uint32_t
 
       tb_type->type_code = DDS_OP_VAL_ARR;
       tb_type->args.collection_args.bound = bound;
-      tb_type->args.collection_args.tc = TBTC_REJECT;
+      tb_type->args.collection_args.tc = TYPEBUILDER_TC_REJECT;
       if (!(tb_type->args.collection_args.element_type.type = ddsrt_calloc (1, sizeof (*tb_type->args.collection_args.element_type.type))))
       {
         ret = DDS_RETCODE_OUT_OF_RESOURCES;
@@ -675,7 +675,7 @@ static dds_return_t typebuilder_add_struct (struct typebuilder_data *tbd, struct
       ret = DDS_RETCODE_OUT_OF_RESOURCES;
       goto err;
     }
-    if ((ret = typebuilder_add_type (tbd, &sz, &align, tb_aggrtype->base_type, type->xt._u.structure.base_type, false, true, TBTC_REJECT)) != DDS_RETCODE_OK)
+    if ((ret = typebuilder_add_type (tbd, &sz, &align, tb_aggrtype->base_type, type->xt._u.structure.base_type, false, true, TYPEBUILDER_TC_REJECT)) != DDS_RETCODE_OK)
     {
       goto err;
     }
@@ -1011,17 +1011,15 @@ static dds_return_t get_ops_type (struct typebuilder_type *tb_type, uint32_t fla
       PUSH_ARG (member_offset);
       if (bounded)
       {
-        uint32_t bound = tb_type->args.collection_args.bound;
-        if (bound > INT32_MAX)
+        if (tb_type->args.collection_args.bound > INT32_MAX)
         {
           ret = DDS_RETCODE_UNSUPPORTED;
           goto err;
         }
-        if (tb_type->args.collection_args.tc == TBTC_TRIM)
-        {
-          bound |= 0x80000000;
-        }
-        PUSH_ARG (bound);
+        int32_t bound = (int32_t) tb_type->args.collection_args.bound;
+        if (tb_type->args.collection_args.tc == TYPEBUILDER_TC_TRIM)
+          bound = -bound;
+        PUSH_ARG ((uint32_t) bound);
       }
       switch (element_type->type_code)
       {

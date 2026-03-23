@@ -35,6 +35,7 @@ struct instruction {
     CONSTANT,
     COUPLE,
     SINGLE,
+    SINGLE_SIGNED,
     ELEM_OFFSET,            /* lower 16 bits have the offset of an external type (for EXT instruction), higher 16 bits offset to next instruction */
     JEQ_OFFSET,             /* JEQ for union case */
     MEMBER_OFFSET,          /* PLM with offset to the member instruction within the current type */
@@ -64,6 +65,7 @@ struct instruction {
       uint16_t low;
     } couple;
     uint32_t single;
+    int32_t single_signed;
     struct {
       const idl_node_t *node;
       union {

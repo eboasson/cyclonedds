@@ -494,6 +494,14 @@ stash_single(
 }
 
 static idl_retcode_t
+stash_single_signed(
+  const idl_pstate_t *pstate, struct instructions *instructions, uint32_t index, int32_t single)
+{
+  struct instruction inst = { SINGLE_SIGNED, { .single_signed = single } };
+  return stash_instruction(pstate, instructions, index, &inst);
+}
+
+static idl_retcode_t
 stash_bitmask_bits(
   const idl_pstate_t *pstate, struct instructions *instructions, uint32_t index, const idl_bitmask_t * bitmask)
 {
@@ -536,7 +544,9 @@ static bool try_construct_applies(const idl_type_spec_t *type_spec)
     case IDL_WSTRING:
       return (idl_is_bounded(type_spec));
     case IDL_SEQUENCE:
-      return true; // used for element try-construct
+      // sequence bound handled separately
+      // sequence element-type handled in element type
+      return false;
     case IDL_ENUM:
     case IDL_BITMASK:
       return true;
@@ -843,9 +853,6 @@ emit_case(
     const idl_case_t *_case = node;
     const idl_case_label_t *label;
     const idl_type_spec_t *type_spec;
-
-    if (_case->try_construct.annotation)
-      idl_warning(pstate, IDL_WARN_UNSUPPORTED_ANNOTATIONS, idl_location(node), "The @try_construct annotation is not supported yet in the C generator, the default try-construct behavior will be used");
 
     type_spec = idl_strip(idl_type_spec(node), IDL_STRIP_ALIASES|IDL_STRIP_FORWARD);
     if (idl_is_external(node) && !idl_is_unbounded_xstring(type_spec))
@@ -1263,7 +1270,6 @@ emit_sequence(
     if (try_construct_applies (type_spec))
       set_try_construct (&opcode, ((idl_sequence_t *)node)->elem_try_construct.value);
 
-    idl_try_construct_t tc = IDL_DISCARD;
     if (idl_is_struct(stype->ctype->node))
     {
       if (nested_collection_key (stype, path))
@@ -1296,9 +1302,24 @@ emit_sequence(
         opcode |= DDS_OP_FLAG_OPT | DDS_OP_FLAG_EXT;
       if (idl_is_must_understand(member_node))
         opcode |= DDS_OP_FLAG_MU;
+    }
 
-      // Remeber try-construct so we can set it in the bound
-      tc = ((idl_member_t *)member_node)->try_construct.value;
+    // See if try-construct is set
+    idl_try_construct_t tc = IDL_DISCARD;
+    struct stack_type *owning_member_or_case = descriptor->type_stack;
+    while (idl_is_array (owning_member_or_case->node))
+      owning_member_or_case = owning_member_or_case->previous;
+    if (idl_is_struct (owning_member_or_case->node))
+    {
+      idl_node_t *m = idl_parent(owning_member_or_case->fields->node);
+      assert (idl_is_member (m));
+      tc = ((idl_member_t *) m)->try_construct.value;
+    }
+    else if (idl_is_union (owning_member_or_case->node))
+    {
+      idl_node_t *m = (idl_node_t *) owning_member_or_case->fields->node;
+      assert (idl_is_case (m));
+      tc = ((idl_case_t *)m)->try_construct.value;
     }
 
     off = ctype->instructions.count;
@@ -1308,10 +1329,15 @@ emit_sequence(
       return ret;
     if (idl_is_bounded(node)) {
       /* generate seq bound field */
-      uint32_t bound = idl_bound(node);
+      if (idl_bound(node) > INT32_MAX)
+      {
+        ret = IDL_RETCODE_UNSUPPORTED;
+        return ret;
+      }
+      int32_t bound = (int32_t) idl_bound(node);
       if (tc == IDL_TRIM)
-        bound |= 0x80000000;
-      if ((ret = stash_single(pstate, &ctype->instructions, nop, bound)))
+        bound = -bound;
+      if ((ret = stash_single_signed(pstate, &ctype->instructions, nop, bound)))
         return ret;
     }
     if (idl_is_enum(type_spec)) {
@@ -1516,8 +1542,6 @@ emit_member(
   const idl_member_t *member = (const idl_member_t *)node;
   if (member->value.annotation)
     idl_warning(pstate, IDL_WARN_UNSUPPORTED_ANNOTATIONS, idl_location(node), "Explicit defaults are not supported yet in the C generator, the value from the @default annotation will not be used");
-  if (member->try_construct.annotation)
-    idl_warning(pstate, IDL_WARN_UNSUPPORTED_ANNOTATIONS, idl_location(node), "The @try_construct annotation is not supported yet in the C generator, the default try-construct behavior will be used");
   return IDL_RETCODE_OK;
 }
 
@@ -1800,10 +1824,13 @@ static int print_opcode(FILE *fp, const struct instruction *inst)
       break;
   }
 
+  // Try-construct encoding overlaps with other flags. Some types have the one,
+  // other types the other. We try to output the semantically correct macros.
   const bool as_tc = print_as_tc(inst->data.opcode.code);
 
   if (opcode == DDS_OP_ADR) {
-    /* FLAG_BASE to indicate EXT 'parent' field */
+    /* FLAG_BASE to indicate EXT 'parent' field (or flag TC_DEF to set try-construct
+       on enum/bitmask/string) */
     assert (DDS_OP_FLAG_BASE == DDS_OP_FLAG_TC_DEF);
     if (inst->data.opcode.code & DDS_OP_FLAG_BASE)
       vec[len++] = as_tc ? " | DDS_OP_FLAG_TC_DEF" : " | DDS_OP_FLAG_BASE";
@@ -1818,7 +1845,6 @@ static int print_opcode(FILE *fp, const struct instruction *inst)
     if (DDS_PLM_FLAGS(inst->data.opcode.code) & DDS_OP_FLAG_BASE)
       vec[len++] = " | (DDS_OP_FLAG_BASE << 16)";
   }
-
 
   if (opcode == DDS_OP_ADR || opcode == DDS_OP_JEQ4) {
     if (inst->data.opcode.code & DDS_OP_FLAG_EXT)
@@ -1900,6 +1926,7 @@ static int print_opcode(FILE *fp, const struct instruction *inst)
       vec[len++] = " | DDS_OP_FLAG_DEF";
     else if (inst->data.opcode.code & DDS_OP_FLAG_FP)
       vec[len++] = " | DDS_OP_FLAG_FP";
+
     assert (DDS_OP_FLAG_SGN == DDS_OP_FLAG_TC_TRIM);
     if (inst->data.opcode.code & DDS_OP_FLAG_SGN)
       vec[len++] = as_tc ? " | DDS_OP_FLAG_TC_TRIM" : " | DDS_OP_FLAG_SGN";
@@ -1953,6 +1980,12 @@ static int print_single(FILE *fp, const struct instruction *inst)
 {
   assert(inst->type == SINGLE);
   return idl_fprintf(fp, "%"PRIu32"u", inst->data.single);
+}
+
+static int print_single_signed(FILE *fp, const struct instruction *inst)
+{
+  assert(inst->type == SINGLE_SIGNED);
+  return idl_fprintf(fp, "%"PRId32"u", inst->data.single_signed);
 }
 
 static int print_opcodes(FILE *fp, const struct descriptor *descriptor, uint32_t *kof_offs)
@@ -2053,6 +2086,10 @@ static int print_opcodes(FILE *fp, const struct descriptor *descriptor, uint32_t
           break;
         case SINGLE:
           if (fputs(sep, fp) < 0 || print_single(fp, inst) < 0)
+            return -1;
+          break;
+        case SINGLE_SIGNED:
+          if (fputs(sep, fp) < 0 || print_single_signed(fp, inst) < 0)
             return -1;
           break;
         case ELEM_OFFSET:
