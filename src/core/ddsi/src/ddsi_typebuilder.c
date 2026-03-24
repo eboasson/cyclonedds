@@ -1305,9 +1305,11 @@ static dds_return_t get_ops_union (const struct typebuilder_union *tb_union, uin
       break;
     case DDS_OP_VAL_ENU:
       flags |= get_bitbound_flags (tb_union->disc_type.args.enum_args.bit_bound);
+      flags |= get_tryconstruct_flags (tb_union->disc_type.args.enum_args.tc);
       break;
     case DDS_OP_VAL_BMK:
       flags |= get_bitbound_flags (tb_union->disc_type.args.bitmask_args.bit_bound);
+      flags |= get_tryconstruct_flags (tb_union->disc_type.args.bitmask_args.tc);
       break;
     default:
       break;
