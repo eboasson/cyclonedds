@@ -3855,11 +3855,13 @@ static enum dds_stream_normalize_result read_normalize_enum_tryconstruct (uint32
       break;
     case TC_DISCARD:
       return normalize_discard ();
-    case TC_TRIM: case TC_USE_DEFAULT:
+    case TC_TRIM: case TC_USE_DEFAULT: {
       // FIXME: deal with no consecutive enum values one day
-      memset (post_data - DDS_OP_TYPE_SZ (insn), 0, DDS_OP_TYPE_SZ (insn));
+      const uint32_t sz = DDS_OP_TYPE_SZ (insn);
+      memset (post_data - sz, 0, sz);
       *val = 0;
       return normalize_success ();
+    }
   }
   return normalize_error ();
 }
@@ -3889,6 +3891,7 @@ static enum dds_stream_normalize_result read_normalize_enum (uint32_t * restrict
       break;
     default:
       assert (0);
+      return normalize_error ();
   }
   return read_normalize_enum_tryconstruct (val, insn, max, data + *off);
 }
@@ -3912,10 +3915,12 @@ static enum dds_stream_normalize_result read_normalize_bitmask_tryconstruct (uin
       break;
     case TC_DISCARD:
       return normalize_discard ();
-    case TC_TRIM: case TC_USE_DEFAULT:
-      memset (post_data - DDS_OP_TYPE_SZ (insn), 0, DDS_OP_TYPE_SZ (insn));
+    case TC_TRIM: case TC_USE_DEFAULT: {
+      const uint32_t sz = DDS_OP_TYPE_SZ (insn);
+      memset (post_data - sz, 0, sz);
       *val = 0;
       return normalize_success ();
+    }
   }
   return normalize_error ();
 }
@@ -4729,7 +4734,7 @@ static enum dds_stream_normalize_result stream_normalize_adr_impl (uint32_t insn
     case DDS_OP_VAL_2BY: if (!normalize_uint16 (data, off, size, bswap)) return normalize_error (); *ops += 2; break;
     case DDS_OP_VAL_4BY: if (!normalize_uint32 (data, off, size, bswap)) return normalize_error (); *ops += 2; break;
     case DDS_OP_VAL_8BY: if (!normalize_uint64 (data, off, size, bswap, xcdr_version)) return normalize_error (); *ops += 2; break;
-    case DDS_OP_VAL_16BY: if (!normalize_uint128 (data, off, size, bswap, xcdr_version)) return normalize_error (); ops += 2; break;
+    case DDS_OP_VAL_16BY: if (!normalize_uint128 (data, off, size, bswap, xcdr_version)) return normalize_error (); *ops += 2; break;
     case DDS_OP_VAL_STR: if ((res = normalize_string (data, off, size, bswap, SIZE_MAX, TC_REJECT)) != DDS_STREAM_NORMALIZE_SUCCESS) return res; *ops += 2; break;
     case DDS_OP_VAL_WSTR: if ((res = normalize_wstring (data, off, size, bswap, SIZE_MAX, TC_REJECT)) != DDS_STREAM_NORMALIZE_SUCCESS) return res; *ops += 2; break;
     case DDS_OP_VAL_BST: if ((res = normalize_string (data, off, size, bswap, (*ops)[2], tryconstruct_mode (insn))) != DDS_STREAM_NORMALIZE_SUCCESS) return res; *ops += 3; break;
@@ -4810,7 +4815,7 @@ static enum dds_stream_normalize_result stream_normalize_adr (uint32_t insn, cha
         uint32_t off1 = 0;
         enum dds_stream_normalize_result res;
         if ((res = stream_normalize_adr_impl (insn, data + input_offset, &off1, param_length, bswap, xcdr_version, mid_table, ops, cdr_kind)) != DDS_STREAM_NORMALIZE_SUCCESS)
-          return normalize_error ();
+          return res;
         assert (off1 <= param_length);
         // move forward by parameter length, ignoring any extraneous bytes
         *off += param_length;
@@ -5192,7 +5197,7 @@ static enum dds_stream_normalize_result stream_normalize_key_impl (void * restri
       assert (key_offset_count > 0);
       const uint32_t *jsr_ops = ops + DDS_OP_ADR_JSR (ops[2]) + *key_offset_insn;
       if ((res = stream_normalize_key_impl (data, size, offs, bswap, xcdr_version, mid_table, jsr_ops, --key_offset_count, ++key_offset_insn)) != DDS_STREAM_NORMALIZE_SUCCESS)
-        return normalize_error ();
+        return res;
       break;
     }
     case DDS_OP_VAL_SEQ: case DDS_OP_VAL_BSQ: case DDS_OP_VAL_UNI: case DDS_OP_VAL_STU:
