@@ -524,6 +524,8 @@ static bool scan_sample1_ti (unsigned char * obj, DDS_XTypes_TypeIdentifier cons
     case DDS_XTypes_TI_STRING8_LARGE:
       if (is_unbounded_string_ti (typeid))
         *(char **) obj = ddsrt_strdup (elem->data);
+      else if (!elem->data)
+        strcpy ((char *) obj, "");
       else if (strlen (elem->data) > bounded_string_bound_ti (typeid))
         exitelem (elem, "oversize bounded string\n");
       else
