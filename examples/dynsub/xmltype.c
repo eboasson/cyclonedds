@@ -82,7 +82,7 @@ static void make_module (const struct make_context *ctxt, const struct elem *ele
   ddsrt_free (newns);
 }
 
-static dds_dynamic_type_t lookup_type (const struct make_context *ctxt, const char *ns, const char *nbtype)
+static struct type *lookup_type (const struct make_context *ctxt, const char *ns, const char *nbtype)
 {
   struct type *t;
   if (strncmp (nbtype, "::", 2) == 0)
@@ -108,7 +108,7 @@ static dds_dynamic_type_t lookup_type (const struct make_context *ctxt, const ch
   }
   if (t == NULL)
     exitfmt ("%s: type lookup namespace=%s type=%s failed\n", ctxt->file, ns, nbtype);
-  return dds_dynamic_type_ref (t->dtype);
+  return t;
 }
 
 static void register_type (const struct make_context *ctxt, const struct elem *elem, dds_dynamic_type_t *dtype, char *fqname)
@@ -209,7 +209,7 @@ static dds_dynamic_type_spec_t get_typespec (const struct make_context *ctxt, co
   else if (strcmp (type, "int64") == 0)
     mtspec = DDS_DYNAMIC_TYPE_SPEC_PRIM (DDS_DYNAMIC_INT64);
   else if (strcmp (type, "uint64") == 0)
-    mtspec = DDS_DYNAMIC_TYPE_SPEC_PRIM (DDS_DYNAMIC_INT64);
+    mtspec = DDS_DYNAMIC_TYPE_SPEC_PRIM (DDS_DYNAMIC_UINT64);
   else if (strcmp (type, "boolean") == 0)
     mtspec = DDS_DYNAMIC_TYPE_SPEC_PRIM (DDS_DYNAMIC_BOOLEAN);
   else if (strcmp (type, "float32") == 0)
@@ -242,7 +242,7 @@ static dds_dynamic_type_spec_t get_typespec (const struct make_context *ctxt, co
     const char *nbtype = getattr (m, "nonBasicTypeName");
     if (nbtype == NULL)
       exitelem (m, "non-basic type, but nonBasicTypeName missing\n");
-    mtspec = DDS_DYNAMIC_TYPE_SPEC (lookup_type (ctxt, ns, nbtype));
+    mtspec = DDS_DYNAMIC_TYPE_SPEC (dds_dynamic_type_ref (lookup_type (ctxt, ns, nbtype)->dtype));
   }
   else
   {
@@ -420,6 +420,7 @@ static void make_union (const struct make_context *ctxt, const struct elem *elem
   ddsrt_asprintf (&fqname, "%s::%s", ns, name);
 
   // We require the discriminator type at the time of creating the union, so go look for it
+  const struct elem *discriminator_elem = NULL;
   dds_dynamic_type_spec_t discts = DDS_DYNAMIC_TYPE_SPEC_PRIM (DDS_DYNAMIC_BOOLEAN);
   {
     bool discts_set = false;
@@ -427,6 +428,7 @@ static void make_union (const struct make_context *ctxt, const struct elem *elem
     {
       if (strcmp (c->name, "discriminator") != 0)
         continue;
+      discriminator_elem = c;
       discts = get_typespec (ctxt, c, ns);
       discts_set = true;
       break;
@@ -467,12 +469,28 @@ static void make_union (const struct make_context *ctxt, const struct elem *elem
         exitelem (m, "too many labels\n");
       else
       {
-        // FIXME: enum symbols are allowed, we just don't keep them around in an easily accessible manner here
-        // usual C syntax for other bases seems to be allowed
         char *endptr;
         labs[nlabs++] = (int32_t) strtol (valstr, &endptr, 0);
         if (*endptr)
-          exitelem (m, "junk at end of value\n");
+        {
+          if (strcmp(getattr(discriminator_elem, "type"), "nonBasic") != 0)
+            exitelem (m, "junk at end of value\n");
+          struct type* d_enum = lookup_type(ctxt, ns, getattr(discriminator_elem, "nonBasicTypeName"));
+          if (d_enum->typeobj->_u.complete._d != DDS_XTypes_TK_ENUM)
+            exitelem (m, "Non eunm type for literal values\n");
+          const DDS_XTypes_CompleteEnumeratedType *c_enum = &d_enum->typeobj->_u.complete._u.enumerated_type;
+          bool enum_contains_value = false;
+          for (uint32_t i = 0; i < c_enum->literal_seq._length; i++)
+          {
+            if (strcmp(valstr, c_enum->literal_seq._buffer[i].detail.name) != 0)
+              continue;
+            enum_contains_value = true;
+            labs[nlabs - 1] = c_enum->literal_seq._buffer[i].common.value;
+            break;
+          }
+          if (!enum_contains_value)
+            exitelem(m, "Enum does not contain value\n");
+        }
       }
     }
 
