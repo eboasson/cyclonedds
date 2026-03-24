@@ -4553,7 +4553,7 @@ ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
 static enum dds_stream_normalize_result normalize_uni (char * restrict data, uint32_t * restrict off, uint32_t size, bool bswap, uint32_t xcdr_version, const struct dds_cdrstream_desc_mid_table *mid_table, const uint32_t **ops, uint32_t insn, enum cdr_data_kind cdr_kind)
 {
   enum dds_stream_normalize_result res;
-  uint32_t disc;
+  uint32_t disc = 0;
   if ((res = read_normalize_uni_disc (&disc, data, off, size, bswap, xcdr_version, insn, *ops)) != DDS_STREAM_NORMALIZE_SUCCESS)
     return res;
   uint32_t const * const jeq_op = find_union_case (*ops, disc);
