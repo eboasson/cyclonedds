@@ -2019,7 +2019,7 @@ static int print_single(FILE *fp, const struct instruction *inst)
 static int print_single_signed(FILE *fp, const struct instruction *inst)
 {
   assert(inst->type == SINGLE_SIGNED);
-  return idl_fprintf(fp, "%"PRId32"u", inst->data.single_signed);
+  return idl_fprintf(fp, "(uint32_t)%"PRId32, inst->data.single_signed);
 }
 
 static int print_opcodes(FILE *fp, const struct descriptor *descriptor, uint32_t *kof_offs)
