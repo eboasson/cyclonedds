@@ -1314,20 +1314,38 @@ emit_sequence(
 
     // See if try-construct is set
     idl_try_construct_t tc = IDL_DISCARD;
-    struct stack_type *owning_member_or_case = descriptor->type_stack;
-    while (idl_is_array (owning_member_or_case->node))
-      owning_member_or_case = owning_member_or_case->previous;
-    if (idl_is_struct (owning_member_or_case->node))
+    struct stack_type *owner = descriptor->type_stack;
+    while (idl_is_array (owner->node))
+      owner = owner->previous;
+    if (idl_is_struct (owner->node))
     {
-      idl_node_t *m = idl_parent(owning_member_or_case->fields->node);
-      assert (idl_is_member (m));
-      tc = ((idl_member_t *) m)->try_construct.value;
+      assert (idl_is_member (idl_parent(owner->fields->node)));
+      idl_member_t *m = (idl_member_t *) idl_parent(owner->fields->node);
+      tc = m->try_construct.value;
     }
-    else if (idl_is_union (owning_member_or_case->node))
+    else if (idl_is_union (owner->node))
     {
-      idl_node_t *m = (idl_node_t *) owning_member_or_case->fields->node;
-      assert (idl_is_case (m));
-      tc = ((idl_case_t *)m)->try_construct.value;
+      assert (idl_is_case (owner->fields->node));
+      idl_case_t *m = (idl_case_t *) owner->fields->node;
+      tc = m->try_construct.value;
+    }
+    else if (idl_is_sequence (owner->node))
+    {
+      idl_sequence_t *m = (idl_sequence_t *) owner->node;
+      tc = m->elem_try_construct.value;
+    }
+    else
+    {
+      // FIXME: at least
+      //   typedef long arr_def[300];
+      //   typedef sequence<arr_def> seq_arr_def[2];
+      //   struct {
+      //     seq_arr_def f16;
+      //   }
+      // gets here with owner->node a declarator, and that probably means
+      // we may be missing a try_construct ...
+
+      //printf ("W %"PRIx64"\n", ((idl_node_t *) owner->node)->mask);
     }
 
     off = ctype->instructions.count;
