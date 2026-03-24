@@ -873,12 +873,12 @@ emit_case(
       else if (idl_is_array(type_spec) || idl_is_bounded_xstring(type_spec) || idl_is_sequence(type_spec) || idl_is_bitmask(type_spec))
         case_type = IN_UNION;
       else {
-        assert (idl_is_base_type(type_spec) || idl_is_unbounded_xstring(type_spec) || idl_is_bitmask(type_spec) || idl_is_enum(type_spec));
+        assert (idl_is_base_type(type_spec) || idl_is_unbounded_xstring(type_spec) || idl_is_enum(type_spec));
         case_type = INLINE;
       }
     }
 
-    if (try_construct_applies (type_spec))
+    if (case_type == INLINE && try_construct_applies (type_spec))
       set_try_construct (&opcode, _case->try_construct.value);
 
     if ((ret = push_field(descriptor, _case, NULL)))
