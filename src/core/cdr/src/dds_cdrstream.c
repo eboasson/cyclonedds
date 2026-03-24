@@ -3957,6 +3957,7 @@ static enum dds_stream_normalize_result read_normalize_bitmask (uint64_t * restr
       break;
     default:
       assert (0);
+      return normalize_error ();
   }
   return read_normalize_bitmask_tryconstruct (val, insn, bits_h, bits_l, data + *off);
 }
