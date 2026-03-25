@@ -2661,9 +2661,13 @@ static bool eq_CdrStreamTryconstruct_t4 (const void *va, const void *vb)
 {
   const CdrStreamTryconstruct_t4 *a = va;
   const CdrStreamTryconstruct_t4 *b = vb;
-  if (a->f1._length != b->f1._length || memcmp (a->f1._buffer, b->f1._buffer, a->f1._length) != 0)
+  if (a->f1._length != b->f1._length)
     return false;
-  if (a->f2._length != b->f2._length || memcmp (a->f2._buffer, b->f2._buffer, a->f2._length) != 0)
+  if (a->f1._length > 0 && memcmp (a->f1._buffer, b->f1._buffer, a->f1._length) != 0)
+    return false;
+  if (a->f2._length != b->f2._length)
+    return false;
+  if (a->f2._length > 0 && memcmp (a->f2._buffer, b->f2._buffer, a->f2._length) != 0)
     return false;
   if (a->f3._length != b->f3._length)
     return false;
@@ -2689,9 +2693,13 @@ static bool eq_CdrStreamTryconstruct_t5 (const void *va, const void *vb)
 {
   const CdrStreamTryconstruct_t5 *a = va;
   const CdrStreamTryconstruct_t5 *b = vb;
-  if (a->f1._length != b->f1._length || memcmp (a->f1._buffer, b->f1._buffer, a->f1._length) != 0)
+  if (a->f1._length != b->f1._length)
     return false;
-  if (a->f2._length != b->f2._length || memcmp (a->f2._buffer, b->f2._buffer, a->f2._length) != 0)
+  if (a->f1._length > 0 && memcmp (a->f1._buffer, b->f1._buffer, a->f1._length) != 0)
+    return false;
+  if (a->f2._length != b->f2._length)
+    return false;
+  if (a->f2._length > 0 && memcmp (a->f2._buffer, b->f2._buffer, a->f2._length) != 0)
     return false;
   if (a->f3._length != b->f3._length)
     return false;
