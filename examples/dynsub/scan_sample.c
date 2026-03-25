@@ -10,6 +10,8 @@
 
 #define _CRT_SECURE_NO_WARNINGS // mbstowcs, strcpy, wcscpy
 
+#include <locale.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -369,8 +371,9 @@ static bool getuint8 (const char *data, uint8_t *v)
 
 static wchar_t *s2w_strdup (const char *s)
 {
-  // at most one wchar_t per input char, I s'pose
-  size_t n = strlen (s);
+  // FIXME: Should probably not be setting locale
+  setlocale(LC_ALL, "");
+  size_t n = mbstowcs (NULL, s, 0);
   wchar_t *w = ddsrt_malloc ((n + 1) * sizeof (*w));
   if (mbstowcs (w, s, n + 1) == (size_t) -1)
   {
