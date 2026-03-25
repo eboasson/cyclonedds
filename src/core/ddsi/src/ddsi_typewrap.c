@@ -2645,6 +2645,11 @@ static bool xt_is_assignable_from_struct (struct ddsi_domaingv *gv, const struct
     for (uint32_t i2 = i1; i2 < i2_max + i1; i2++)
     {
       struct xt_struct_member *m2 = &te2->_u.structure.members.seq[i2 % i2_max];
+      if (!tce->ignore_member_names && xt_namehash_eq (&m1->detail.name_hash, &m2->detail.name_hash) && m1->id != m2->id)
+      {
+        xt_non_assignable (reason, DDSI_NONASSIGN_MEMBER_ID_DIFFERS, t1, t2, m1->id);
+        goto struct_failed;
+      }
       if (m1->id == m2->id)
       {
         bool m2_k = (m2->flags & DDS_XTypes_IS_KEY);
