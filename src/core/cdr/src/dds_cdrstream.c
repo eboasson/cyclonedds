@@ -3662,7 +3662,7 @@ static uint32_t check_align_prim (uint32_t off, uint32_t size, uint32_t a_lg2, u
 {
   assert (a_lg2 <= 3);
   const uint32_t a = 1u << a_lg2;
-  assert (c_lg2 <= 3);
+  assert (c_lg2 <= 4);
   const uint32_t c = 1u << c_lg2;
   assert (size <= CDR_SIZE_MAX);
   assert (off <= size);
@@ -3736,7 +3736,7 @@ static bool normalize_uint64 (char * restrict data, uint32_t * restrict off, uin
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
 static bool normalize_uint128 (char * restrict data, uint32_t * restrict off, uint32_t size, bool bswap, uint32_t xcdr_version)
 {
-  if ((*off = check_align_prim (*off, size, xcdr_version == DDSI_RTPS_CDR_ENC_VERSION_2 ? 2 : 4, 4)) == UINT32_MAX)
+  if ((*off = check_align_prim (*off, size, xcdr_version == DDSI_RTPS_CDR_ENC_VERSION_2 ? 2 : 3, 4)) == UINT32_MAX)
     return false;
   if (bswap)
   {
