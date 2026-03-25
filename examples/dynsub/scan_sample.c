@@ -428,8 +428,8 @@ static bool scan_sample1_simple (unsigned char * const base, const uint8_t disc,
   return false;
 }
 
-static bool scan_sample1_to (unsigned char *obj, DDS_XTypes_CompleteTypeObject const * const typeobj, struct elem const * const elem, const bool is_opt_or_ext);
-static bool scan_sample1_ti (unsigned char *obj, DDS_XTypes_TypeIdentifier const * const typeid, struct elem const * const elem, const bool is_opt_or_ext);
+static bool scan_sample1_to (unsigned char *obj, DDS_XTypes_CompleteTypeObject const * const typeobj, struct elem const * const elem, const bool is_opt_or_ext, const bool ignore_unknown_members);
+static bool scan_sample1_ti (unsigned char *obj, DDS_XTypes_TypeIdentifier const * const typeid, struct elem const * const elem, const bool is_opt_or_ext, const bool ignore_unknown_members);
 
 static size_t get_typeid_typeobj_size (const uint8_t disc, void const * const key)
 {
@@ -463,7 +463,7 @@ static size_t get_typeobj_size (DDS_XTypes_CompleteTypeObject const * const type
   return get_typeid_typeobj_size (typeobj->_d, typeobj);
 }
 
-static bool scan_sequence (struct dds_sequence * const seq, DDS_XTypes_TypeIdentifier const * const typeid, uint32_t bound, struct elem const * const elem)
+static bool scan_sequence (struct dds_sequence * const seq, DDS_XTypes_TypeIdentifier const * const typeid, uint32_t bound, struct elem const * const elem, const bool ignore_unknown_members)
 {
   uint32_t n = 0;
   for (const struct elem *it = elem->children; it; n++, it = it->next)
@@ -483,14 +483,14 @@ static bool scan_sequence (struct dds_sequence * const seq, DDS_XTypes_TypeIdent
     for (const struct elem *it = elem->children; it; n++, it = it->next)
     {
       unsigned char *obj = advance_ti (seq->_buffer, &off, typeid, false);
-      if (!scan_sample1_ti (obj, typeid, it, false))
+      if (!scan_sample1_ti (obj, typeid, it, false, ignore_unknown_members))
         return false;
     }
   }
   return true;
 }
 
-static bool scan_array (void * const ary, DDS_XTypes_TypeIdentifier const * const typeid, uint32_t bound, struct elem const * const elem)
+static bool scan_array (void * const ary, DDS_XTypes_TypeIdentifier const * const typeid, uint32_t bound, struct elem const * const elem, const bool ignore_unknown_members)
 {
   const struct elem *it;
   uint32_t idx = 0;
@@ -499,7 +499,7 @@ static bool scan_array (void * const ary, DDS_XTypes_TypeIdentifier const * cons
   {
     if (strcmp (it->name, "item") != 0)
       exitelem (it, "expected \"item\", got \"%s\"\n", it->name);
-    if (!scan_sample1_ti (advance_ti (ary, &off, typeid, false), typeid, it, false))
+    if (!scan_sample1_ti (advance_ti (ary, &off, typeid, false), typeid, it, false, ignore_unknown_members))
       return false;
   }
   if (it != NULL || idx != bound)
@@ -507,7 +507,7 @@ static bool scan_array (void * const ary, DDS_XTypes_TypeIdentifier const * cons
   return true;
 }
 
-static bool scan_sample1_ti (unsigned char * obj, DDS_XTypes_TypeIdentifier const * const typeid, struct elem const * const elem, const bool is_opt_or_ext)
+static bool scan_sample1_ti (unsigned char * obj, DDS_XTypes_TypeIdentifier const * const typeid, struct elem const * const elem, const bool is_opt_or_ext, const bool ignore_unknown_members)
 {
   if (is_opt_or_ext && !is_unbounded_string_ti (typeid))
   {
@@ -550,28 +550,28 @@ static bool scan_sample1_ti (unsigned char * obj, DDS_XTypes_TypeIdentifier cons
     }
 
     case DDS_XTypes_TI_PLAIN_SEQUENCE_SMALL:
-      return scan_sequence ((struct dds_sequence *) obj, typeid->_u.seq_sdefn.element_identifier, typeid->_u.seq_sdefn.bound, elem);
+      return scan_sequence ((struct dds_sequence *) obj, typeid->_u.seq_sdefn.element_identifier, typeid->_u.seq_sdefn.bound, elem, ignore_unknown_members);
 
     case DDS_XTypes_TI_PLAIN_SEQUENCE_LARGE:
-      return scan_sequence ((struct dds_sequence *) obj, typeid->_u.seq_ldefn.element_identifier, typeid->_u.seq_ldefn.bound, elem);
+      return scan_sequence ((struct dds_sequence *) obj, typeid->_u.seq_ldefn.element_identifier, typeid->_u.seq_ldefn.bound, elem, ignore_unknown_members);
 
     case DDS_XTypes_TI_PLAIN_ARRAY_SMALL: {
       uint32_t nelem = 1;
       for (uint32_t i = 0; i < typeid->_u.array_sdefn.array_bound_seq._length; i++)
         nelem *= typeid->_u.array_sdefn.array_bound_seq._buffer[i];
-      return scan_array (obj, typeid->_u.array_sdefn.element_identifier, nelem, elem);
+      return scan_array (obj, typeid->_u.array_sdefn.element_identifier, nelem, elem, ignore_unknown_members);
     }
 
     case DDS_XTypes_TI_PLAIN_ARRAY_LARGE: {
       uint32_t nelem = 1;
       for (uint32_t i = 0; i < typeid->_u.array_ldefn.array_bound_seq._length; i++)
         nelem *= typeid->_u.array_ldefn.array_bound_seq._buffer[i];
-      return scan_array (obj, typeid->_u.array_ldefn.element_identifier, nelem, elem);
+      return scan_array (obj, typeid->_u.array_ldefn.element_identifier, nelem, elem, ignore_unknown_members);
     }
 
     case DDS_XTypes_EK_COMPLETE: {
       struct typeinfo templ = { .key = { .key = (uintptr_t) typeid } }, *info = type_cache_lookup (&templ);
-      return scan_sample1_to (obj, info->typeobj, elem, false);
+      return scan_sample1_to (obj, info->typeobj, elem, false, ignore_unknown_members);
     }
   }
 
@@ -626,7 +626,7 @@ static const DDS_XTypes_CompleteStructMember *find_struct_member (unsigned char 
   return find_struct_member1 (m_base, obj, &off, t, name);
 }
 
-static bool scan_sample1_to (unsigned char *obj, DDS_XTypes_CompleteTypeObject const * const typeobj, struct elem const * const elem, const bool is_opt_or_ext)
+static bool scan_sample1_to (unsigned char *obj, DDS_XTypes_CompleteTypeObject const * const typeobj, struct elem const * const elem, const bool is_opt_or_ext, const bool ignore_unknown_members)
 {
   if (is_opt_or_ext && !is_unbounded_string_to (typeobj))
   {
@@ -642,10 +642,10 @@ static bool scan_sample1_to (unsigned char *obj, DDS_XTypes_CompleteTypeObject c
   switch (typeobj->_d)
   {
     case DDS_XTypes_TK_ALIAS:
-      return scan_sample1_ti (obj, &typeobj->_u.alias_type.body.common.related_type, elem, false);
+      return scan_sample1_ti (obj, &typeobj->_u.alias_type.body.common.related_type, elem, false, ignore_unknown_members);
 
     case DDS_XTypes_TK_SEQUENCE:
-      return scan_sequence ((struct dds_sequence *) obj, &typeobj->_u.sequence_type.element.common.type, typeobj->_u.sequence_type.header.common.bound, elem);
+      return scan_sequence ((struct dds_sequence *) obj, &typeobj->_u.sequence_type.element.common.type, typeobj->_u.sequence_type.header.common.bound, elem, ignore_unknown_members);
 
     case DDS_XTypes_TK_STRUCTURE: {
       const DDS_XTypes_CompleteStructType *t = &typeobj->_u.struct_type;
@@ -655,13 +655,16 @@ static bool scan_sample1_to (unsigned char *obj, DDS_XTypes_CompleteTypeObject c
         unsigned char *m_base;
         if ((m = find_struct_member (&m_base, obj, t, melem->name)) == NULL)
         {
-          exitelem (melem, "member %s not found\n", melem->name);
-          return false;
+          if (!ignore_unknown_members)
+          {
+            exitelem (melem, "member %s not found\n", melem->name);
+            return false;
+          }
         }
         else
         {
           const bool m_is_opt_or_ext = m->common.member_flags & (DDS_XTypes_IS_OPTIONAL | DDS_XTypes_IS_EXTERNAL);
-          scan_sample1_ti (m_base, &m->common.member_type_id, melem, m_is_opt_or_ext);
+          scan_sample1_ti (m_base, &m->common.member_type_id, melem, m_is_opt_or_ext, ignore_unknown_members);
         }
       }
       return true;
@@ -715,7 +718,7 @@ static bool scan_sample1_to (unsigned char *obj, DDS_XTypes_CompleteTypeObject c
         for (uint32_t l = 0; l < m->common.label_seq._length; l++)
         {
           if (m->common.label_seq._buffer[l] == disc_value)
-            scan_sample1_ti (p, &m->common.type_id, 0, &c1, *m->detail.name ? m->detail.name : NULL, false, false);
+            scan_sample1_ti (p, &m->common.type_id, 0, &c1, *m->detail.name ? m->detail.name : NULL, false, false, ignore_unknown_members);
         }
       }
       printf ("}");
@@ -728,10 +731,10 @@ static bool scan_sample1_to (unsigned char *obj, DDS_XTypes_CompleteTypeObject c
   return false;
 }
 
-void *scan_sample (const struct elem *input, const DDS_XTypes_CompleteTypeObject *typeobj)
+void *scan_sample (const struct elem *input, const DDS_XTypes_CompleteTypeObject *typeobj, const bool ignore_unknown_members)
 {
   unsigned char *sample = ddsrt_calloc (1, get_typeobj_size (typeobj));
-  if (scan_sample1_to (sample, typeobj, input, false))
+  if (scan_sample1_to (sample, typeobj, input, false, ignore_unknown_members))
     return sample;
   else
   {

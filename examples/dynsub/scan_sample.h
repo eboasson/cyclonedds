@@ -16,6 +16,6 @@
 
 #include "domtree.h"
 
-void *scan_sample (const struct elem *input, const DDS_XTypes_CompleteTypeObject *typeobj);
+void *scan_sample (const struct elem *input, const DDS_XTypes_CompleteTypeObject *typeobj, const bool ignore_unknown_members);
 
 #endif /* PRINT_SAMPLE_H */
