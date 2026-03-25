@@ -656,17 +656,57 @@ static bool find_type_pair (struct ddsrt_hh *typelib, const char *names, struct 
 {
   char *wtname = strdup (names);
   char *rtname = strchr (wtname, '/');
+  bool res = true;
   if (rtname)
     *rtname++ = 0;
   else
     rtname = wtname;
-  printf ("T %s/%s", wtname, rtname); fflush (stdout);
-  *wrtype = find_type (typelib, wtname);
-  *rdtype = find_type (typelib, rtname);
+  *wrtype = *rdtype = NULL;
+  if (*wtname) {
+    printf ("T wr %s = ", wtname); fflush (stdout);
+    if ((*wrtype = find_type (typelib, wtname)) == NULL) {
+      printf ("unknown\n");
+      res = false;
+    } else {
+      printf ("%s\n", (*wrtype)->name);
+    }
+  }
+  if (*rtname) {
+    printf ("T rd %s = ", rtname); fflush (stdout);
+    if ((*rdtype = find_type (typelib, rtname)) == NULL) {
+      printf ("unknown\n");
+      res = false;
+    } else {
+      printf ("%s\n", (*rdtype)->name);
+    }
+  }
   free (wtname);
-  if (*wrtype && *rdtype)
-    printf (" = %s/%s\n", (*wrtype)->name, (*rdtype)->name);
-  return (*wrtype != NULL && *rdtype != NULL);
+  return res;
+}
+
+static bool doread (const dds_entity_t ws, const dds_entity_t rd, DDS_XTypes_TypeObject const * const typeobj, bool exit_on_timeout)
+{
+  dds_return_t rc;
+  rc = dds_waitset_wait (ws, NULL, 0, DDS_SECS (1));
+  if (rc < 0)
+    exitfmt ("dds_waitset_wait: %s\n", dds_strretcode (rc));
+  if (rc == 0 && exit_on_timeout)
+    return false;
+  void *ptr = NULL;
+  dds_sample_info_t si;
+  while ((rc = dds_take (rd, &ptr, &si, 1, 1)) == 1)
+  {
+    print_sample (si.valid_data, ptr, &typeobj->_u.complete);
+    dds_return_loan (rd, &ptr, 1);
+  }
+  if (rc < 0)
+    exitfmt ("dds_take: %s\n", dds_strretcode (rc));
+
+  dds_subscription_matched_status_t st;
+  rc = dds_get_subscription_matched_status (rd, &st);
+  if (rc < 0)
+    exitfmt ("dds_get_subscription_matched_status: %s\n", dds_strretcode (rc));
+  return (st.current_count > 0 || st.current_count_change >= 0);
 }
 
 int main (int argc, char **argv)
@@ -712,7 +752,7 @@ int main (int argc, char **argv)
     if (arglen <= 4 || strcmp (argv[argi] + arglen - 4, ".xml") != 0)
     {
       if (!find_type_pair (typelib, argv[argi], &wrtype, &rdtype))
-        exitfmt ("\ncreate topic: type %s not found, skipping\n", argv[argi]);
+        exitfmt ("\ncreate topic: type lookup failed\n");
 
       // Can be freed immediately after creating topic, but we use it for freeing samples
       if (wrdescriptor)
@@ -720,59 +760,72 @@ int main (int argc, char **argv)
       if (rddescriptor)
         dds_delete_topic_descriptor (rddescriptor);
 
-      dds_delete (ws);
-      dds_delete (rd);
-      dds_delete (wr);
-      dds_delete (wrtp);
-      dds_delete (rdtp);
+      dds_delete (ws); ws = 0;
+      dds_delete (rd); rd = 0;
+      dds_delete (wr); wr = 0;
+      dds_delete (wrtp); wrtp = 0;
+      dds_delete (rdtp); rdtp = 0;
 
-      rc = dds_create_topic_descriptor (DDS_FIND_SCOPE_LOCAL_DOMAIN, dp, wrtype->typeinfo, 0, &wrdescriptor);
-      if (rc != 0)
-        exitfmt ("dds_create_topic_descriptor: %s\n", dds_strretcode (rc));
-      wrtp = dds_create_topic (dp, wrdescriptor, "T", NULL, NULL);
-      if (wrtp < 0)
-        exitfmt ("dds_create_topic: %s\n", dds_strretcode (wrtp));
-      rc = dds_create_topic_descriptor (DDS_FIND_SCOPE_LOCAL_DOMAIN, dp, rdtype->typeinfo, 0, &rddescriptor);
-      if (rc != 0)
-        exitfmt ("dds_create_topic_descriptor: %s\n", dds_strretcode (rc));
-      rdtp = dds_create_topic (dp, rddescriptor, "T", NULL, NULL);
-      if (rdtp < 0)
-        exitfmt ("dds_create_topic: %s\n", dds_strretcode (rdtp));
-      wr = dds_create_writer (dp, wrtp, NULL, NULL);
-      if (wr < 0)
-        exitfmt ("dds_create_writer: %s\n", dds_strretcode (wr));
-      rd = dds_create_reader (dp, rdtp, NULL, NULL);
-      if (rd < 0)
-        exitfmt ("dds_create_reader: %s\n", dds_strretcode (rd));
-      rc = dds_set_status_mask (rd, DDS_DATA_AVAILABLE_STATUS);
-      if (rc != 0)
-        exitfmt ("dds_set_status_mask: %s\n", dds_strretcode (rc));
-      ws = dds_create_waitset (dp);
-      if (ws < 0)
-        exitfmt ("dds_create_waitset: %s\n", dds_strretcode (rd));
-      rc = dds_waitset_attach (ws, rd, 0);
-      if (rc != 0)
-        exitfmt ("dds_waitset_attach reader: %s\n", dds_strretcode (rc));
+      if (wrtype) {
+        rc = dds_create_topic_descriptor (DDS_FIND_SCOPE_LOCAL_DOMAIN, dp, wrtype->typeinfo, 0, &wrdescriptor);
+        if (rc != 0)
+          exitfmt ("dds_create_topic_descriptor: %s\n", dds_strretcode (rc));
+        wrtp = dds_create_topic (dp, wrdescriptor, "T", NULL, NULL);
+        if (wrtp < 0)
+          exitfmt ("dds_create_topic: %s\n", dds_strretcode (wrtp));
+        wr = dds_create_writer (dp, wrtp, NULL, NULL);
+        if (wr < 0)
+          exitfmt ("dds_create_writer: %s\n", dds_strretcode (wr));
+      }
+      if (rdtype) {
+        rc = dds_create_topic_descriptor (DDS_FIND_SCOPE_LOCAL_DOMAIN, dp, rdtype->typeinfo, 0, &rddescriptor);
+        if (rc != 0)
+          exitfmt ("dds_create_topic_descriptor: %s\n", dds_strretcode (rc));
+        rdtp = dds_create_topic (dp, rddescriptor, "T", NULL, NULL);
+        if (rdtp < 0)
+          exitfmt ("dds_create_topic: %s\n", dds_strretcode (rdtp));
+        rd = dds_create_reader (dp, rdtp, NULL, NULL);
+        if (rd < 0)
+          exitfmt ("dds_create_reader: %s\n", dds_strretcode (rd));
+        rc = dds_set_status_mask (rd, DDS_DATA_AVAILABLE_STATUS | DDS_SUBSCRIPTION_MATCHED_STATUS);
+        if (rc != 0)
+          exitfmt ("dds_set_status_mask: %s\n", dds_strretcode (rc));
+        ws = dds_create_waitset (dp);
+        if (ws < 0)
+          exitfmt ("dds_create_waitset: %s\n", dds_strretcode (rd));
+        rc = dds_waitset_attach (ws, rd, 0);
+        if (rc != 0)
+          exitfmt ("dds_waitset_attach reader: %s\n", dds_strretcode (rc));
+      }
 
       struct ppc ppc;
       ppc_init (&ppc);
       size_t align, size;
-      build_typecache_to (&wrtype->typeobj->_u.complete, &align, &size);
-      ppc_print_to (&ppc, &wrtype->typeobj->_u.complete);
-      build_typecache_to (&rdtype->typeobj->_u.complete, &align, &size);
-      ppc_print_to (&ppc, &rdtype->typeobj->_u.complete);
+      if (wrtype)
+      {
+        build_typecache_to (&wrtype->typeobj->_u.complete, &align, &size);
+        ppc_print_to (&ppc, &wrtype->typeobj->_u.complete);
+      }
+      if (rdtype)
+      {
+        build_typecache_to (&rdtype->typeobj->_u.complete, &align, &size);
+        ppc_print_to (&ppc, &rdtype->typeobj->_u.complete);
+      }
+
+      // short sleep before writing so a remote reader is likely to have been discovered before the sample is written
+      dds_sleepfor (DDS_MSECS (100));
     }
     else
     {
       // data file
-      if (rdtype == NULL || wrtype == NULL)
-        exitfmt ("%s: data file given, but no type set yet\n", argv[argi]);
+      if (wr == 0)
+        exitfmt ("%s: data file given, but no writer type set yet\n", argv[argi]);
 
       struct elem *input = domtree_from_file (argv[argi]);
       if (input == NULL)
         exitfmt ("%s: %s: can't read sample\n", argv[0], argv[argi]);
       domtree_print (input);
-      void *sample = scan_sample (input, &wrtype->typeobj->_u.complete);
+      void *sample = scan_sample (input, &wrtype->typeobj->_u.complete, true);
       if (sample == NULL)
         exitfmt ("%s: %s: can't convert to sample\n", argv[0], argv[argi]);
       if ((rc = dds_write (wr, sample)) != 0)
@@ -784,23 +837,19 @@ int main (int argc, char **argv)
       dds_stream_free_sample (sample, &a, wrdescriptor->m_ops);
       ddsrt_free (sample);
 
-      rc = dds_waitset_wait (ws, NULL, 0, DDS_SECS (1));
-      if (rc <= 0)
-        exitfmt ("dds_waitset_wait: %s\n", dds_strretcode (rc));
-      void *ptr = NULL;
-      dds_sample_info_t si;
-      while ((rc = dds_take (rd, &ptr, &si, 1, 1)) == 1)
-      {
-        print_sample (si.valid_data, ptr, &rdtype->typeobj->_u.complete);
-        dds_return_loan (rd, &ptr, 1);
-      }
-      if (rc < 0)
-        exitfmt ("dds_take: %s\n", dds_strretcode (rc));
+      if (rd)
+        doread (ws, rd, rdtype->typeobj, true);
 
       // sleep a bit after writing data
       if (argi < argc)
         dds_sleepfor (DDS_MSECS (500));
     }
+  }
+
+  if (rd)
+  {
+    while (doread (ws, rd, rdtype->typeobj, false))
+      ;
   }
 
   type_cache_free ();
