@@ -766,14 +766,25 @@ int main (int argc, char **argv)
       dds_delete (wrtp); wrtp = 0;
       dds_delete (rdtp); rdtp = 0;
 
+      dds_qos_t *tpqos = dds_create_qos ();
+      dds_qset_reliability (tpqos, DDS_RELIABILITY_RELIABLE, DDS_SECS (1));
+      dds_qos_t *epqos = dds_create_qos ();
+      dds_qset_type_consistency (
+              epqos, DDS_TYPE_CONSISTENCY_ALLOW_TYPE_COERCION,
+              true,
+              true,
+              false,
+              false,
+              false);
+
       if (wrtype) {
         rc = dds_create_topic_descriptor (DDS_FIND_SCOPE_LOCAL_DOMAIN, dp, wrtype->typeinfo, 0, &wrdescriptor);
         if (rc != 0)
           exitfmt ("dds_create_topic_descriptor: %s\n", dds_strretcode (rc));
-        wrtp = dds_create_topic (dp, wrdescriptor, "T", NULL, NULL);
+        wrtp = dds_create_topic (dp, wrdescriptor, "T", tpqos, NULL);
         if (wrtp < 0)
           exitfmt ("dds_create_topic: %s\n", dds_strretcode (wrtp));
-        wr = dds_create_writer (dp, wrtp, NULL, NULL);
+        wr = dds_create_writer (dp, wrtp, epqos, NULL);
         if (wr < 0)
           exitfmt ("dds_create_writer: %s\n", dds_strretcode (wr));
       }
@@ -781,10 +792,10 @@ int main (int argc, char **argv)
         rc = dds_create_topic_descriptor (DDS_FIND_SCOPE_LOCAL_DOMAIN, dp, rdtype->typeinfo, 0, &rddescriptor);
         if (rc != 0)
           exitfmt ("dds_create_topic_descriptor: %s\n", dds_strretcode (rc));
-        rdtp = dds_create_topic (dp, rddescriptor, "T", NULL, NULL);
+        rdtp = dds_create_topic (dp, rddescriptor, "T", tpqos, NULL);
         if (rdtp < 0)
           exitfmt ("dds_create_topic: %s\n", dds_strretcode (rdtp));
-        rd = dds_create_reader (dp, rdtp, NULL, NULL);
+        rd = dds_create_reader (dp, rdtp, epqos, NULL);
         if (rd < 0)
           exitfmt ("dds_create_reader: %s\n", dds_strretcode (rd));
         rc = dds_set_status_mask (rd, DDS_DATA_AVAILABLE_STATUS | DDS_SUBSCRIPTION_MATCHED_STATUS);
@@ -797,6 +808,9 @@ int main (int argc, char **argv)
         if (rc != 0)
           exitfmt ("dds_waitset_attach reader: %s\n", dds_strretcode (rc));
       }
+
+      dds_delete_qos (epqos);
+      dds_delete_qos (tpqos);
 
       struct ppc ppc;
       ppc_init (&ppc);
@@ -846,6 +860,8 @@ int main (int argc, char **argv)
     }
   }
 
+  if (wr)
+    dds_delete (wr);
   if (rd)
   {
     while (doread (ws, rd, rdtype->typeobj, false))
