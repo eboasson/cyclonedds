@@ -35,6 +35,8 @@ add_executable(xmltype
   print_type.h
   print_sample.c
   print_sample.h
+  compare_samples.c
+  compare_samples.h
   scan_sample.c
   scan_sample.h
 )
