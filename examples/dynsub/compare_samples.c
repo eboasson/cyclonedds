@@ -344,6 +344,7 @@ static int samples_eq1_to (const unsigned char *sample1, const unsigned char *sa
   }
 }
 
+// FIXME: Still requires support for mutable types when ordering of members may be different
 int compare_samples (bool valid_data, const void *sample1, const void* sample2, const DDS_XTypes_CompleteTypeObject *typeobj)
 {
   struct context c1 = { .valid_data = valid_data, .key = true, .offset = 0, .maxalign = 1, .needs_comma = false };
