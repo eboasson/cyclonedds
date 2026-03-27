@@ -49,6 +49,8 @@ static int samples_eq1_to (const unsigned char *sample1, const unsigned char *sa
 
 static int samples_eq1_simple (const unsigned char *sample1, const unsigned char *sample2, const uint8_t disc, struct context *c1, struct context *c2, const char *label, int32_t *union_disc_value, bool is_opt)
 {
+  (void) label;
+  (void) is_opt;
   switch (disc)
   {
 #define CASEI(disc, type, fmt) DDS_XTypes_TK_##disc: { \
@@ -221,6 +223,7 @@ static int samples_eq1_ti (const unsigned char *sample1, const unsigned char *sa
 
 static int samples_eq1_to (const unsigned char *sample1, const unsigned char *sample2, const DDS_XTypes_CompleteTypeObject *typeobj, struct context *c1, struct context *c2, const char *label, bool is_base_type, bool is_opt)
 {
+  (void) is_base_type;
   int tmp = samples_eq1_simple(sample1, sample2, typeobj->_d, c1, c2, label, NULL, is_opt);
   if (tmp >= 0)
     return tmp;
@@ -296,7 +299,6 @@ static int samples_eq1_to (const unsigned char *sample1, const unsigned char *sa
     }
     case DDS_XTypes_TK_ENUM: {
       struct typeinfo templ = { .key = { .key = (uintptr_t) typeobj } }, *info = type_cache_lookup (&templ);
-      const DDS_XTypes_CompleteEnumeratedType *t = &typeobj->_u.enumerated_type;
       const int *p1 = align (sample1, c1, info->align, info->size);
       const int *p2 = align (sample2, c2, info->align, info->size);
       return *p1 == *p2;
@@ -342,6 +344,7 @@ static int samples_eq1_to (const unsigned char *sample1, const unsigned char *sa
       c2->needs_comma = true;
     }
   }
+  return -1;
 }
 
 // FIXME: Still requires support for mutable types when ordering of members may be different
