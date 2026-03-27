@@ -80,6 +80,15 @@ static size_t simple_size (const uint8_t disc)
     return s;
 }
 
+static size_t simple_align (const uint8_t disc)
+{
+  size_t a, s;
+  if (!simple_alignof_sizeof (disc, &a, &s))
+    return 0;
+  else
+    return a;
+}
+
 static void *advance_simple (unsigned char *base, size_t *off, const uint8_t disc)
 {
   size_t a, s;
@@ -446,6 +455,18 @@ static size_t get_typeid_typeobj_size (const uint8_t disc, void const * const ke
   }
 }
 
+static size_t get_typeid_typeobj_align (const uint8_t disc, void const * const key)
+{
+  size_t size = simple_align (disc);
+  if (size != 0)
+    return size;
+  else
+  {
+    struct typeinfo templ = { .key = { .key = (uintptr_t) key } }, *info = type_cache_lookup (&templ);
+    return info->align;
+  }
+}
+
 static size_t get_typeid_size (DDS_XTypes_TypeIdentifier const * const typeid)
 {
   if (is_unbounded_string_ti (typeid))
@@ -461,10 +482,40 @@ static size_t get_typeid_size (DDS_XTypes_TypeIdentifier const * const typeid)
   }
 }
 
+static size_t get_typeid_align (DDS_XTypes_TypeIdentifier const * const typeid)
+{
+  if (is_unbounded_string_ti (typeid))
+    return _Alignof (char *);
+  else if (is_bounded_string_ti (typeid))
+    return 1;
+  else
+  {
+    switch (typeid->_d)
+    {
+      case DDS_XTypes_TI_PLAIN_SEQUENCE_SMALL:
+      case DDS_XTypes_TI_PLAIN_SEQUENCE_LARGE:
+        return _Alignof (dds_sequence_t);
+      case DDS_XTypes_TI_PLAIN_ARRAY_SMALL:
+        return get_typeid_align (typeid->_u.array_sdefn.element_identifier);
+      case DDS_XTypes_TI_PLAIN_ARRAY_LARGE:
+        return get_typeid_align (typeid->_u.array_ldefn.element_identifier);
+      default:
+        return get_typeid_typeobj_align (typeid->_d, typeid);
+    }
+  }
+}
+
 static size_t get_typeobj_size (DDS_XTypes_CompleteTypeObject const * const typeobj)
 {
   return get_typeid_typeobj_size (typeobj->_d, typeobj);
 }
+
+#if 0
+static size_t get_typeobj_align (DDS_XTypes_CompleteTypeObject const * const typeobj)
+{
+  return get_typeid_typeobj_align (typeobj->_d, typeobj);
+}
+#endif
 
 static bool scan_sequence (struct dds_sequence * const seq, DDS_XTypes_TypeIdentifier const * const typeid, uint32_t bound, struct elem const * const elem, const bool ignore_unknown_members)
 {
@@ -692,44 +743,83 @@ static bool scan_sample1_to (unsigned char *obj, DDS_XTypes_CompleteTypeObject c
       return false;
     }
 
-#if 0
     case DDS_XTypes_TK_UNION: {
-      struct typeinfo templ = { .key = { .key = (uintptr_t) typeobj } }, *info = type_cache_lookup (&templ);
       const DDS_XTypes_CompleteUnionType *t = &typeobj->_u.union_type;
-      const unsigned char *p = align (base, c, info->align, info->size);
-      if (c->needs_comma) fputc (',', stdout);
-      if (label) printf ("\"%s\":", label);
-      printf ("{");
-      int32_t disc_value = 0;
-      struct scan_context c1 = { .key = c->key, .valid_data = c->valid_data, .offset = 0, .maxalign = 1, .needs_comma = false };
-      if (t->discriminator.common.type_id._d == DDS_XTypes_EK_COMPLETE)
+      uint64_t disc_value = 0;
+      // discriminator is always at offset 0
+      if (elem->children == NULL ||
+          strcmp (elem->children->name, "discriminator") != 0 ||
+          elem->children->next == NULL || elem->children->next->next != NULL)
       {
-        struct typeinfo templ_disc = { .key = { .key = (uintptr_t) &t->discriminator.common.type_id } }, *info_disc = type_cache_lookup (&templ_disc);
-        if (info_disc->typeobj->_d != DDS_XTypes_TK_ENUM)
-        {
-          printf ("unsupported union discriminant value %u\n", info_disc->typeobj->_d);
-          abort ();
-        }
-        disc_value = * (int32_t *) p;
-        scan_sample1_to (p, info_disc->typeobj, &c1, "_d", false, false);
+        exitelem (elem, "union: expected first child 'discriminator' and second child matching union case\n");
+        return false;
       }
-      else if (!scan_sample1_simple (p, t->discriminator.common.type_id._d, &c1, "_d", &disc_value, false))
+      if (!scan_sample1_ti (obj, &t->discriminator.common.type_id, elem->children, false, false))
+        return false;
+      const size_t disc_size = get_typeid_size (&t->discriminator.common.type_id);
+      switch (t->discriminator.common.type_id._d)
       {
-        abort ();
+        case DDS_XTypes_TK_INT8:  disc_value = (uint64_t) *((int8_t *) obj); break;
+        case DDS_XTypes_TK_INT16: disc_value = (uint64_t) *((int16_t *) obj); break;
+        case DDS_XTypes_TK_INT32: disc_value = (uint64_t) *((int32_t *) obj); break;
+        case DDS_XTypes_TK_INT64: disc_value = (uint64_t) *((int64_t *) obj); break;
+        default:
+          switch (disc_size)
+          {
+            case 1: disc_value = *((uint8_t *) obj); break;
+            case 2: disc_value = *((uint16_t *) obj); break;
+            case 4: disc_value = *((uint32_t *) obj); break;
+            case 8: disc_value = *((uint64_t *) obj); break;
+            default: abort ();
+          }
+          break;
       }
+      size_t data_off = disc_size;
       for (uint32_t i = 0; i < t->member_seq._length; i++)
       {
-        const DDS_XTypes_CompleteUnionMember *m = &t->member_seq._buffer[i];
-        for (uint32_t l = 0; l < m->common.label_seq._length; l++)
+        // FIXME: shouldn't need to recompute this every time
+        DDS_XTypes_CompleteUnionMember const * const m = &t->member_seq._buffer[i];
+        size_t a;
+        if (m->common.member_flags & (DDS_XTypes_IS_OPTIONAL | DDS_XTypes_IS_EXTERNAL))
+          a = _Alignof (char *);
+        else
+          a = get_typeid_align (&m->common.type_id);
+        if (a > data_off)
+          data_off = a;
+      }
+      uint32_t memberidx;
+      for (memberidx = 0; memberidx < t->member_seq._length; memberidx++)
+      {
+        DDS_XTypes_CompleteUnionMember const * const m = &t->member_seq._buffer[memberidx];
+        if (strcmp (m->detail.name, elem->children->next->name) == 0)
+          break;
+      }
+      if (memberidx == t->member_seq._length)
+      {
+        exitelem (elem, "union case not found");
+        return false;
+      }
+      DDS_XTypes_CompleteUnionMember const * const m = &t->member_seq._buffer[memberidx];
+      if (!(m->common.member_flags & DDS_XTypes_IS_DEFAULT))
+      {
+        uint32_t labelidx;
+        for (labelidx = 0; labelidx < m->common.label_seq._length; labelidx++)
         {
-          if (m->common.label_seq._buffer[l] == disc_value)
-            scan_sample1_ti (p, &m->common.type_id, 0, &c1, *m->detail.name ? m->detail.name : NULL, false, false, ignore_unknown_members);
+          // FIXME: it looks like label_seq holds 32-bit ints in type obj. If so, how are
+          // 64-bit discriminators supposed to be supported?
+          if (disc_value == (uint64_t) m->common.label_seq._buffer[labelidx])
+            break;
+        }
+        if (labelidx == m->common.label_seq._length)
+        {
+          exitelem (elem, "case labels do not include discriminator");
+          return false;
         }
       }
-      printf ("}");
-      c->needs_comma = true;
+      const bool case_is_opt_or_ext = m->common.member_flags & (DDS_XTypes_IS_OPTIONAL | DDS_XTypes_IS_EXTERNAL);
+      scan_sample1_ti (obj + data_off, &m->common.type_id, elem->children->next, case_is_opt_or_ext, ignore_unknown_members);
+      return true;
     }
-#endif
   }
 
   abort ();
