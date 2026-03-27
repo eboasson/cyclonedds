@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <getopt.h>
 
 #include "dds/dds.h"
 #include "dds/ddsrt/hopscotch.h"
@@ -720,31 +721,73 @@ static bool doread (const dds_entity_t ws, const dds_entity_t rd, DDS_XTypes_Typ
   if (rc < 0)
     exitfmt ("dds_take: %s\n", dds_strretcode (rc));
 
-  dds_subscription_matched_status_t st;
-  rc = dds_get_subscription_matched_status (rd, &st);
+  dds_requested_incompatible_qos_status_t riq;
+  rc = dds_get_requested_incompatible_qos_status (rd, &riq);
+  if (rc < 0)
+    exitfmt ("dds_get_requested_incompatible_qos_status: %s\n", dds_strretcode (rc));
+  if (riq.total_count_change != 0)
+    printf ("riq policy %"PRIu32"\n", riq.last_policy_id);
+
+  dds_subscription_matched_status_t sm;
+  rc = dds_get_subscription_matched_status (rd, &sm);
   if (rc < 0)
     exitfmt ("dds_get_subscription_matched_status: %s\n", dds_strretcode (rc));
-  return (st.current_count > 0 || st.current_count_change >= 0);
+  return (riq.total_count == 0 && (sm.current_count > 0 || sm.current_count_change >= 0));
+}
+
+static void usage (const char *argv0)
+{
+  fprintf (stderr, "usage: %s [OPTIONS] xmlfile TYPE DATA...\n\
+\n\
+OPTIONS:\n\
+-c BINDIGITS   set type consistency enforcement to BINDIGITS, which must\n\
+               consist of five 0 or 1 digits:\n\
+                - ignore sequence bounds\n\
+                - ignore string bounds\n\
+                - ignore member names\n\
+                - prevent type widening\n\
+                - force type validation\n\
+",
+           argv0);
+  exit (2);
 }
 
 int main (int argc, char **argv)
 {
-  if (argc < 2)
+  int opt;
+  uint32_t tce = 0x18; // default true,true,false,false,false
+  while ((opt = getopt (argc, argv, "c:")) != EOF)
   {
-    fprintf (stderr, "usage: %s xmlfile TYPE DATA...\n", argv[0]);
-    return 2;
+    switch (opt)
+    {
+      case 'c':
+        if (strspn (optarg, "01") != 5 || optarg[5] != 0) {
+          fprintf (stderr, "%s: %s is not a valid type consistency enforcement setting\n", argv[0], optarg);
+          exit (2);
+        }
+        tce = 0;
+        for (const char *p = optarg; *p; p++)
+          tce = (tce << 1) | (*p == '1');
+        break;
+      default:
+        usage (argv[0]);
+        break;
+    }
   }
 
-  struct elem *root = domtree_from_file (argv[1]);
+  if (argc - optind < 2)
+    usage (argv[0]);
+
+  struct elem *root = domtree_from_file (argv[optind]);
   if (root == NULL)
   {
-    fprintf (stderr, "%s: %s: can't read type definition\n", argv[0], argv[1]);
+    fprintf (stderr, "%s: %s: can't read type definition\n", argv[0], argv[optind]);
     return 2;
   }
   //domtree_print (root);
 
   if (root == NULL || strcmp (root->name, "dds") != 0 || root->children == NULL || strcmp (root->children->name, "types") != 0)
-    exitfmt ("%s: %s: expected <dds><types>...\n", argv[0], argv[1]);
+    exitfmt ("%s: %s: expected <dds><types>...\n", argv[0], argv[optind]);
 
   dds_entity_t dp = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
   if (dp < 0)
@@ -754,7 +797,7 @@ int main (int argc, char **argv)
 
   struct ddsrt_hh *typelib = ddsrt_hh_new (32, namehash, nameequal);
   struct make_context ctxt = {
-    .file = argv[1],
+    .file = argv[optind],
     .dp = dp,
     .typelib = typelib
   };
@@ -763,7 +806,7 @@ int main (int argc, char **argv)
   struct type *wrtype = NULL, *rdtype = NULL;
   dds_topic_descriptor_t *wrdescriptor = NULL, *rddescriptor = NULL;
   dds_entity_t wrtp = 0, rdtp = 0, wr = 0, rd = 0, ws = 0;
-  for (int argi = 2; argi < argc; argi++)
+  for (int argi = optind + 1; argi < argc; argi++)
   {
     size_t arglen = strlen (argv[argi]);
     dds_return_t rc;
@@ -789,11 +832,11 @@ int main (int argc, char **argv)
       dds_qos_t *epqos = dds_create_qos ();
       dds_qset_type_consistency (
               epqos, DDS_TYPE_CONSISTENCY_ALLOW_TYPE_COERCION,
-              true,
-              true,
-              false,
-              false,
-              false);
+              (tce >> 4) & 1,
+              (tce >> 3) & 1,
+              (tce >> 2) & 1,
+              (tce >> 1) & 1,
+              tce & 1);
 
       if (wrtype) {
         rc = dds_create_topic_descriptor (DDS_FIND_SCOPE_LOCAL_DOMAIN, dp, wrtype->typeinfo, 0, &wrdescriptor);
@@ -805,6 +848,9 @@ int main (int argc, char **argv)
         wr = dds_create_writer (dp, wrtp, epqos, NULL);
         if (wr < 0)
           exitfmt ("dds_create_writer: %s\n", dds_strretcode (wr));
+        rc = dds_set_status_mask (wr, DDS_OFFERED_INCOMPATIBLE_QOS_STATUS);
+        if (rc != 0)
+          exitfmt ("dds_set_status_mask: %s\n", dds_strretcode (rc));
       }
       if (rdtype) {
         rc = dds_create_topic_descriptor (DDS_FIND_SCOPE_LOCAL_DOMAIN, dp, rdtype->typeinfo, 0, &rddescriptor);
@@ -816,7 +862,7 @@ int main (int argc, char **argv)
         rd = dds_create_reader (dp, rdtp, epqos, NULL);
         if (rd < 0)
           exitfmt ("dds_create_reader: %s\n", dds_strretcode (rd));
-        rc = dds_set_status_mask (rd, DDS_DATA_AVAILABLE_STATUS | DDS_SUBSCRIPTION_MATCHED_STATUS);
+        rc = dds_set_status_mask (rd, DDS_DATA_AVAILABLE_STATUS | DDS_SUBSCRIPTION_MATCHED_STATUS | DDS_REQUESTED_INCOMPATIBLE_QOS_STATUS);
         if (rc != 0)
           exitfmt ("dds_set_status_mask: %s\n", dds_strretcode (rc));
         ws = dds_create_waitset (dp);
@@ -876,6 +922,16 @@ int main (int argc, char **argv)
       if (argi < argc)
         dds_sleepfor (DDS_MSECS (500));
     }
+  }
+
+  if (wr)
+  {
+    dds_offered_incompatible_qos_status_t oiq;
+    dds_return_t rc = dds_get_offered_incompatible_qos_status (wr, &oiq);
+    if (rc < 0)
+      exitfmt ("dds_get_offered_incompatible_matched_status: %s\n", dds_strretcode (rc));
+    if (oiq.total_count_change != 0)
+      printf ("oiq policy %"PRIu32"\n", oiq.last_policy_id);
   }
 
   if (wr)

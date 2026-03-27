@@ -51,7 +51,7 @@ if(TARGET CycloneDDS::ddsc)
     "${CMAKE_CURRENT_SOURCE_DIR}/../../src/core/ddsi/include")
 endif()
 target_link_libraries(dynsub CycloneDDS::ddsc)
-target_link_libraries(xmltype CycloneDDS::ddsc)
+target_link_libraries(xmltype CycloneDDS::ddsc compat)
 
 add_executable(variouspub variouspub.c)
 idlc_generate(TARGET variouspub_lib FILES "variouspub_types.idl" WARNINGS no-implicit-extensibility)
