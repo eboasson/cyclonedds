@@ -269,6 +269,7 @@ static dds_dynamic_type_spec_t get_typespec (const struct make_context *ctxt, co
     dds_return_t rc = dds_dynamic_type_set_try_construct (&dseq, get_try_construct (m, "elementTryConstruct"));
     if (rc != DDS_RETCODE_OK)
       exitelem (m, "set_try_construct failed: %s\n", dds_strretcode (rc));
+    ddsrt_free (seqname);
     mtspec = DDS_DYNAMIC_TYPE_SPEC (dseq);
   }
 
@@ -299,6 +300,7 @@ static dds_dynamic_type_spec_t get_typespec (const struct make_context *ctxt, co
       .bounds = dims,
       .num_bounds = ndims
     });
+    ddsrt_free (aryname);
     mtspec = DDS_DYNAMIC_TYPE_SPEC (dary);
 #undef MAXDIMS
   }
