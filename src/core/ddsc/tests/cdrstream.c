@@ -2657,8 +2657,9 @@ static bool eq_CdrStreamTryconstruct_t3 (const void *va, const void *vb)
   return wcscmp (a->f1, b->f1) == 0 && wcscmp (a->f2, b->f2) == 0 && wcscmp (a->f3, b->f3) == 0 && wcscmp (a->f4, b->f4) == 0;
 }
 
-static bool eq_CdrStreamTryconstruct_t4 (const void *va, const void *vb)
+static bool eq_CdrStreamTryconstruct_t456 (const void *va, const void *vb)
 {
+  // t4, t5, t6 are the same except for try construct
   const CdrStreamTryconstruct_t4 *a = va;
   const CdrStreamTryconstruct_t4 *b = vb;
   if (a->f1._length != b->f1._length)
@@ -2689,36 +2690,19 @@ static bool eq_CdrStreamTryconstruct_t4 (const void *va, const void *vb)
   return true;
 }
 
+static bool eq_CdrStreamTryconstruct_t4 (const void *va, const void *vb)
+{
+  return eq_CdrStreamTryconstruct_t456 (va, vb);
+}
+
 static bool eq_CdrStreamTryconstruct_t5 (const void *va, const void *vb)
 {
-  const CdrStreamTryconstruct_t5 *a = va;
-  const CdrStreamTryconstruct_t5 *b = vb;
-  if (a->f1._length != b->f1._length)
-    return false;
-  if (a->f1._length > 0 && memcmp (a->f1._buffer, b->f1._buffer, a->f1._length) != 0)
-    return false;
-  if (a->f2._length != b->f2._length)
-    return false;
-  if (a->f2._length > 0 && memcmp (a->f2._buffer, b->f2._buffer, a->f2._length) != 0)
-    return false;
-  if (a->f3._length != b->f3._length)
-    return false;
-  for (size_t i = 0; i < a->f3._length; i++)
-    if (strcmp (a->f3._buffer[i], b->f3._buffer[i]) != 0)
-      return false;
-  if (a->f4._length != b->f4._length)
-    return false;
-  for (size_t i = 0; i < a->f4._length; i++)
-    if (strcmp (a->f4._buffer[i], b->f4._buffer[i]) != 0)
-      return false;
-  if (a->f5._length != b->f5._length)
-    return false;
-  for (size_t i = 0; i < a->f5._length; i++)
-    if (strcmp (a->f5._buffer[i], b->f5._buffer[i]) != 0)
-      return false;
-  if (strcmp (a->f6, b->f6) != 0)
-    return false;
-  return true;
+  return eq_CdrStreamTryconstruct_t456 (va, vb);
+}
+
+static bool eq_CdrStreamTryconstruct_t6 (const void *va, const void *vb)
+{
+  return eq_CdrStreamTryconstruct_t456 (va, vb);
 }
 
 #define D(n) (&CdrStreamTryconstruct_##n##_desc), eq_CdrStreamTryconstruct_##n
@@ -2752,7 +2736,7 @@ CU_Test (ddsc_cdrstream, tryconstruct)
     { D(t3), X_DISCARD, CDR(WSTR(L'a',L'b',L'c',L'd'), WSTR(L'e'), PAD2, WSTR(L'f'), PAD2, WSTR(L'3',L'b')) },
     { D(t3), X(t3, L"a",L"bcd",L"f",L"3c"), CDR(WSTR(L'a'), PAD2, WSTR(L'b',L'c',L'd',L'e'), WSTR(L'f'), PAD2, WSTR(L'3',L'c')) },
     { D(t3), X(t3, L"a",L"b",L"",L"3d"), CDR(WSTR(L'a'), PAD2, WSTR(L'b'), PAD2, WSTR (L'c',L'd',L'e',L'f'), WSTR(L'3',L'd')) },
-    // t4
+    // t4 (sequence try-construct = discard)
     { D(t4), X(t4, CSEQ0,CSEQ0,CSEQ0,CSEQ0,CSEQ0, "4a"), CDR(DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,0), STR('4','a')) },
     { D(t4), X(t4, CSEQ(ena2,E2a),CSEQ(ena2,E2a),CSEQ0,CSEQ0,CSEQ0, "4b"),
       CDR(DHDR(32,1, 32,(int)E2a), DHDR(32,1, 32,(int)E2a), DHDR(32,0), DHDR(32,0), DHDR(32,0), STR('4','b')) },
@@ -2776,10 +2760,10 @@ CU_Test (ddsc_cdrstream, tryconstruct)
       CDR(DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,1, STR('a')), PAD2, STR('4','k')) },
     { D(t4), X(t4, CSEQ0,CSEQ0,CSEQ0, CSEQ0, CSEQ(str3,""), "4l"), // f5 -> use_default
       CDR(DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,1, STR('a','b','c','d')), PAD3, STR('4','l')) },
-    // t5
+    // t5 (sequence try-construct = trim)
     { D(t5), X(t5, CSEQ(ena2, E2a,E1a,E2a), CSEQ0, CSEQ0, CSEQ0, CSEQ0, "5a"), // oversize seq f1
       CDR(DHDR(32,4, 32,1,32,0,32,1,32,0), DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,0), STR('5','a')) },
-    { D(t5), X_DISCARD, // out-of-range enum f1 beyond trim
+    { D(t5), X_DISCARD, // out-of-range enum f1 beyond bound
       CDR(DHDR(32,4, 32,1,32,0,32,1,32,4), DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,0), STR('5','b')) },
     { D(t5), X(t5, CSEQ0, CSEQ(ena2, E2a,E1a,E2a), CSEQ0, CSEQ0, CSEQ0, "5c"), // like 5b but f2 (use-default)
       CDR(DHDR(32,0), DHDR(32,4, 32,1,32,0,32,1,32,4), DHDR(32,0), DHDR(32,0), DHDR(32,0), STR('5','c')) },
@@ -2787,19 +2771,43 @@ CU_Test (ddsc_cdrstream, tryconstruct)
       CDR(DHDR(32,0), DHDR(32,0), DHDR(32,4, STR('a'),PAD2,STR('b'),PAD2,STR('c'),PAD2,STR('d')), PAD2, DHDR(32,0), DHDR(32,0), STR('5','d')) },
     { D(t5), X_DISCARD, // f3 w oversize str
       CDR(DHDR(32,0), DHDR(32,0), DHDR(32,1, STR('a','b','c','d')), PAD3, DHDR(32,0), DHDR(32,0), STR('5','e')) },
-    { D(t5), X_DISCARD, // f3 w oversize str beyond trim
+    { D(t5), X_DISCARD, // f3 w oversize str beyond bound
       CDR(DHDR(32,0), DHDR(32,0), DHDR(32,4, STR('a'),PAD2,STR('b'),PAD2,STR('c'),PAD2,STR('a','b','c','d')),
           PAD3, DHDR(32,0), DHDR(32,0), STR('5','f')) },
     { D(t5), X(t5, CSEQ0, CSEQ0, CSEQ0, CSEQ(str3, "abc"), CSEQ0, "5g"), // f4 w oversize str (use default)
       CDR(DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,1, STR('a','b','c','d')), PAD3, DHDR(32,0), STR('5','g')) },
-    { D(t5), X(t5, CSEQ0, CSEQ0, CSEQ0, CSEQ(str3, "a","b","c"), CSEQ0, "5h"), // f4 w oversize str beyond trim
+    { D(t5), X(t5, CSEQ0, CSEQ0, CSEQ0, CSEQ(str3, "a","b","c"), CSEQ0, "5h"), // f4 w oversize str beyond bound
       CDR(DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,4, STR('a'),PAD2,STR('b'),PAD2,STR('c'),PAD2,STR('a','b','c','d')),
           PAD3, DHDR(32,0), STR('5','h')) },
     { D(t5), X(t5, CSEQ0, CSEQ0, CSEQ0, CSEQ0, CSEQ(str3, ""), "5i"), // f5 w oversize str (use default)
       CDR(DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,1, STR('a','b','c','d')), PAD3, STR('5','i')) },
-    { D(t5), X(t5, CSEQ0, CSEQ0, CSEQ0, CSEQ0, CSEQ(str3, "a","b","c"), "5j"), // f5 w oversize str beyond trim
+    { D(t5), X(t5, CSEQ0, CSEQ0, CSEQ0, CSEQ0, CSEQ(str3, "a","b","c"), "5j"), // f5 w oversize str beyond bound
       CDR(DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,4, STR('a'),PAD2,STR('b'),PAD2,STR('c'),PAD2,STR('a','b','c','d')),
           PAD3, STR('5','j')) },
+    // t6 (sequence try-construct = use_default)
+    { D(t6), X(t6, CSEQ0, CSEQ0, CSEQ0, CSEQ0, CSEQ0, "6a"), // oversize seq f1
+      CDR(DHDR(32,4, 32,1,32,0,32,1,32,0), DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,0), STR('6','a')) },
+    { D(t6), X_DISCARD, // out-of-range enum f1 beyond bound
+      CDR(DHDR(32,4, 32,1,32,0,32,1,32,4), DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,0), STR('6','b')) },
+    { D(t6), X(t6, CSEQ0, CSEQ0, CSEQ0, CSEQ0, CSEQ0, "6c"), // like 5b but f2 (use-default)
+      CDR(DHDR(32,0), DHDR(32,4, 32,1,32,0,32,1,32,4), DHDR(32,0), DHDR(32,0), DHDR(32,0), STR('6','c')) },
+    { D(t6), X(t6, CSEQ0, CSEQ0, CSEQ0, CSEQ0, CSEQ0, "6d"), // oversize seq f3
+      CDR(DHDR(32,0), DHDR(32,0), DHDR(32,4, STR('a'),PAD2,STR('b'),PAD2,STR('c'),PAD2,STR('d')), PAD2, DHDR(32,0), DHDR(32,0), STR('6','d')) },
+    { D(t6), X_DISCARD, // f3 w oversize str
+      CDR(DHDR(32,0), DHDR(32,0), DHDR(32,1, STR('a','b','c','d')), PAD3, DHDR(32,0), DHDR(32,0), STR('6','e')) },
+    { D(t6), X_DISCARD, // f3 w oversize str beyond bound
+      CDR(DHDR(32,0), DHDR(32,0), DHDR(32,4, STR('a'),PAD2,STR('b'),PAD2,STR('c'),PAD2,STR('a','b','c','d')),
+          PAD3, DHDR(32,0), DHDR(32,0), STR('6','f')) },
+    { D(t6), X(t6, CSEQ0, CSEQ0, CSEQ0, CSEQ(str3, "abc"), CSEQ0, "6g"), // f4 w oversize str (use default)
+      CDR(DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,1, STR('a','b','c','d')), PAD3, DHDR(32,0), STR('6','g')) },
+    { D(t6), X(t6, CSEQ0, CSEQ0, CSEQ0, CSEQ0, CSEQ0, "6h"), // f4 w oversize str beyond bound
+      CDR(DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,4, STR('a'),PAD2,STR('b'),PAD2,STR('c'),PAD2,STR('a','b','c','d')),
+          PAD3, DHDR(32,0), STR('6','h')) },
+    { D(t6), X(t6, CSEQ0, CSEQ0, CSEQ0, CSEQ0, CSEQ(str3, ""), "6i"), // f5 w oversize str (use default)
+      CDR(DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,1, STR('a','b','c','d')), PAD3, STR('6','i')) },
+    { D(t6), X(t6, CSEQ0, CSEQ0, CSEQ0, CSEQ0, CSEQ0, "6j"), // f5 w oversize str beyond bound
+      CDR(DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,0), DHDR(32,4, STR('a'),PAD2,STR('b'),PAD2,STR('c'),PAD2,STR('a','b','c','d')),
+          PAD3, STR('6','j')) },
   };
 
   for (uint32_t i = 0; i < sizeof (tests) / sizeof (tests[0]); i++)

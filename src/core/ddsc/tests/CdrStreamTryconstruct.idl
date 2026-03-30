@@ -42,12 +42,21 @@ module CdrStreamTryconstruct {
     string f6;
   };
 
-  @final struct t5 {
+  @final struct t5 { // must be same as t4 apart from try-construct (test code uses same eq function)
     @try_construct(TRIM) sequence<ena2, 3> f1;
     @try_construct(TRIM) sequence<@try_construct(USE_DEFAULT) ena2, 3> f2;
     @try_construct(TRIM) sequence<string<3>, 3> f3;
     @try_construct(TRIM) sequence<@try_construct(TRIM) string<3>, 3> f4;
     @try_construct(TRIM) sequence<@try_construct(USE_DEFAULT) string<3>, 3> f5;
+    string f6;
+  };
+
+  @final struct t6 { // must be same as t4 apart from try-construct (test code uses same eq function)
+    @try_construct(USE_DEFAULT) sequence<ena2, 3> f1;
+    @try_construct(USE_DEFAULT) sequence<@try_construct(USE_DEFAULT) ena2, 3> f2;
+    @try_construct(USE_DEFAULT) sequence<string<3>, 3> f3;
+    @try_construct(USE_DEFAULT) sequence<@try_construct(TRIM) string<3>, 3> f4;
+    @try_construct(USE_DEFAULT) sequence<@try_construct(USE_DEFAULT) string<3>, 3> f5;
     string f6;
   };
 };

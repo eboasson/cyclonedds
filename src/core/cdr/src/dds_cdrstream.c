@@ -1352,17 +1352,30 @@ static bool key_optimized_allowed (uint32_t insn)
 #endif
 
 ddsrt_attribute_warn_unused_result
-static enum tryconstruct tryconstruct_mode (const uint32_t insn)
+static enum tryconstruct tryconstruct_mode (const uint32_t insn, const bool for_subtype)
 {
-  // UNI: applies to discriminant in subtype
-  // SEQ, BSEQ: applies to subtype for sequence elements
-  // BST, BWSTR, ENU, BMK: applies to type
-  switch (insn & (DDS_OP_FLAG_TC_DEF | DDS_OP_FLAG_TC_TRIM))
+  if (!for_subtype)
   {
-    case 0: return TC_DISCARD;
-    case DDS_OP_FLAG_TC_TRIM: return TC_TRIM;
-    case DDS_OP_FLAG_TC_DEF: return TC_USE_DEFAULT;
-      //case DDS_OP_FLAG_TC_DEF | DDS_OP_FLAG_TC_TRIM: fall-through
+    // UNI: applies to discriminant in subtype
+    // SEQ, BSEQ: applies to subtype for sequence elements
+    // BST, BWSTR, ENU, BMK: applies to type
+    switch (insn & (DDS_OP_FLAG_TYPE_TC_DEF | DDS_OP_FLAG_TYPE_TC_TRIM))
+    {
+      case 0: return TC_DISCARD;
+      case DDS_OP_FLAG_TYPE_TC_TRIM: return TC_TRIM;
+      case DDS_OP_FLAG_TYPE_TC_DEF: return TC_USE_DEFAULT;
+        //case DDS_OP_FLAG_TYPE_TC_DEF | DDS_OP_FLAG_TYPE_TC_TRIM: fall-through
+    }
+  }
+  else
+  {
+    switch (insn & (DDS_OP_FLAG_SUBTYPE_TC_DEF | DDS_OP_FLAG_SUBTYPE_TC_TRIM))
+    {
+      case 0: return TC_DISCARD;
+      case DDS_OP_FLAG_SUBTYPE_TC_TRIM: return TC_TRIM;
+      case DDS_OP_FLAG_SUBTYPE_TC_DEF: return TC_USE_DEFAULT;
+        //case DDS_OP_FLAG_SUBTYPE_TC_DEF | DDS_OP_FLAG_SUBTYPE_TC_TRIM: fall-through
+    }
   }
   return TC_REJECT;
 }
@@ -2701,9 +2714,19 @@ static void grow_sequence_buffer_initialize (dds_sequence_t *seq, const struct d
 ddsrt_nonnull_all
 static void adjust_sequence_buffer_initialize (dds_sequence_t *seq, const struct dds_cdrstream_allocator *allocator, uint32_t num, uint32_t elem_size, enum sample_data_state *sample_state)
 {
-  // If num == 0, dds_stream_read_seq short-circuits
-  assert (num > 0);
-  if (*sample_state != SAMPLE_DATA_INITIALIZED)
+  // If num == 0, dds_stream_read_seq short-circuits except for try-construct = use_default
+  if (num == 0)
+  {
+    // see initialize_and_skip_sequence
+    if (*sample_state == SAMPLE_DATA_UNINITIALIZED)
+    {
+      seq->_buffer = NULL;
+      seq->_maximum = 0;
+      seq->_release = true;
+    }
+    seq->_length = 0;
+  }
+  else if (*sample_state != SAMPLE_DATA_INITIALIZED)
   {
     const uint32_t size = num * elem_size;
     malloc_sequence_buffer (seq, allocator, num, elem_size);
@@ -2732,9 +2755,22 @@ static void adjust_sequence_buffer (dds_sequence_t *seq, const struct dds_cdrstr
   // memsetting when we know it won't matter, e.g. a sequence of ints
   // won't cause any trouble if the bits between _length and _maximum
   // remain garbage.
-  assert (num > 0);
-  if (*sample_state != SAMPLE_DATA_INITIALIZED)
+  // If num == 0, dds_stream_read_seq short-circuits except for try-construct = use_default
+  if (num == 0)
+  {
+    // see initialize_and_skip_sequence
+    if (*sample_state == SAMPLE_DATA_UNINITIALIZED)
+    {
+      seq->_buffer = NULL;
+      seq->_maximum = 0;
+      seq->_release = true;
+    }
+    seq->_length = 0;
+  }
+  else if (*sample_state != SAMPLE_DATA_INITIALIZED)
+  {
     malloc_sequence_buffer (seq, allocator, num, elem_size);
+  }
   else
   {
     if (seq->_length > seq->_maximum)
@@ -2811,10 +2847,14 @@ static const uint32_t *initialize_and_skip_sequence (dds_sequence_t *seq, uint32
 
 static uint32_t get_sequence_bound (uint32_t bound_with_trim)
 {
+#if 0
   if ((int32_t)bound_with_trim >= 0)
     return bound_with_trim;
   else
     return (uint32_t) (-(int32_t)bound_with_trim);
+#else
+  return bound_with_trim;
+#endif
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
@@ -2834,9 +2874,29 @@ static const uint32_t *dds_stream_read_seq (dds_istream_t *is, char * restrict a
   if (num_cdr == 0)
     return initialize_and_skip_sequence (seq, insn, ops, sample_state);
 
+#if 0
   // if oversize, try-construct for the sequence must be TRIM
   assert (num_cdr <= bound || (int32_t) ops[2] < 0);
   const uint32_t num = (num_cdr > bound) ? bound : num_cdr;
+#else
+  uint32_t num = num_cdr;
+  if (num_cdr > bound)
+  {
+    switch (tryconstruct_mode (insn, false))
+    {
+      case TC_REJECT:
+      case TC_DISCARD:
+        // if oversize, try-construct for the sequence must be TRIM/DEF
+        assert (0);
+      case TC_USE_DEFAULT:
+        num = 0;
+        break;
+      case TC_TRIM:
+        num = bound;
+        break;
+    }
+  }
+#endif
 
   switch (subtype)
   {
@@ -2940,7 +3000,7 @@ static const uint32_t *dds_stream_read_seq (dds_istream_t *is, char * restrict a
       adjust_sequence_buffer_initialize (seq, allocator, num, elem_size, &sample_state);
       seq->_length = (num <= seq->_maximum) ? num : seq->_maximum;
       char *ptr = (char *) seq->_buffer;
-      // FIXME: this if fugly
+      // FIXME: this if fugly; for delimited things we can simply skip the tail
       // read first N-1 elements like normal
       for (uint32_t i = 0; i < num - 1; i++)
         (void) dds_stream_read_impl (is, ptr + i * elem_size, allocator, jsr_ops, false, cdr_kind, sample_state);
@@ -3844,12 +3904,12 @@ static bool peek_and_normalize_uint32 (uint32_t * restrict val, char * restrict 
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
-static enum dds_stream_normalize_result read_normalize_enum_tryconstruct (uint32_t *val, uint32_t insn, uint32_t max, char * restrict post_data)
+static enum dds_stream_normalize_result read_normalize_enum_tryconstruct (uint32_t *val, uint32_t insn, uint32_t max, char * restrict post_data, const bool for_subtype)
 {
   if (*val <= max)
     return normalize_success ();
   // note: can't use normalize_from_tryconstruct becasue we're also reading the value
-  switch (tryconstruct_mode (insn))
+  switch (tryconstruct_mode (insn, for_subtype))
   {
     case TC_REJECT:
       break;
@@ -3867,7 +3927,7 @@ static enum dds_stream_normalize_result read_normalize_enum_tryconstruct (uint32
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
-static enum dds_stream_normalize_result read_normalize_enum (uint32_t * restrict val, char * restrict data, uint32_t * restrict off, uint32_t size, bool bswap, uint32_t insn, uint32_t max)
+static enum dds_stream_normalize_result read_normalize_enum (uint32_t * restrict val, char * restrict data, uint32_t * restrict off, uint32_t size, bool bswap, uint32_t insn, uint32_t max, const bool for_subtype)
 {
   switch (DDS_OP_TYPE_SZ (insn))
   {
@@ -3893,23 +3953,23 @@ static enum dds_stream_normalize_result read_normalize_enum (uint32_t * restrict
       assert (0);
       return normalize_error ();
   }
-  return read_normalize_enum_tryconstruct (val, insn, max, data + *off);
+  return read_normalize_enum_tryconstruct (val, insn, max, data + *off, for_subtype);
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
-static enum dds_stream_normalize_result normalize_enum (char * restrict data, uint32_t * restrict off, uint32_t size, bool bswap, uint32_t insn, uint32_t max)
+static enum dds_stream_normalize_result normalize_enum (char * restrict data, uint32_t * restrict off, uint32_t size, bool bswap, uint32_t insn, uint32_t max, const bool for_subtype)
 {
   uint32_t val;
-  return read_normalize_enum (&val, data, off, size, bswap, insn, max);
+  return read_normalize_enum (&val, data, off, size, bswap, insn, max, for_subtype);
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
-static enum dds_stream_normalize_result read_normalize_bitmask_tryconstruct (uint64_t *val, uint32_t insn, uint32_t bits_h, uint32_t bits_l, char * restrict post_data)
+static enum dds_stream_normalize_result read_normalize_bitmask_tryconstruct (uint64_t *val, uint32_t insn, uint32_t bits_h, uint32_t bits_l, char * restrict post_data, const bool for_subtype)
 {
   if (bitmask_value_valid ((uint32_t) (*val >> 32), (uint32_t) *val, bits_h, bits_l))
     return normalize_success ();
   // note: can't use normalize_from_tryconstruct becasue we're also reading the value
-  switch (tryconstruct_mode (insn))
+  switch (tryconstruct_mode (insn, for_subtype))
   {
     case TC_REJECT:
       break;
@@ -3926,7 +3986,7 @@ static enum dds_stream_normalize_result read_normalize_bitmask_tryconstruct (uin
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
-static enum dds_stream_normalize_result read_normalize_bitmask (uint64_t * restrict val, char * restrict data, uint32_t * restrict off, uint32_t size, bool bswap, uint32_t xcdr_version, uint32_t insn, uint32_t bits_h, uint32_t bits_l)
+static enum dds_stream_normalize_result read_normalize_bitmask (uint64_t * restrict val, char * restrict data, uint32_t * restrict off, uint32_t size, bool bswap, uint32_t xcdr_version, uint32_t insn, uint32_t bits_h, uint32_t bits_l, const bool for_subtype)
 {
   switch (DDS_OP_TYPE_SZ (insn))
   {
@@ -3959,14 +4019,14 @@ static enum dds_stream_normalize_result read_normalize_bitmask (uint64_t * restr
       assert (0);
       return normalize_error ();
   }
-  return read_normalize_bitmask_tryconstruct (val, insn, bits_h, bits_l, data + *off);
+  return read_normalize_bitmask_tryconstruct (val, insn, bits_h, bits_l, data + *off, for_subtype);
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
-static enum dds_stream_normalize_result normalize_bitmask (char * restrict data, uint32_t * restrict off, uint32_t size, bool bswap, uint32_t xcdr_version, uint32_t insn, uint32_t bits_h, uint32_t bits_l)
+static enum dds_stream_normalize_result normalize_bitmask (char * restrict data, uint32_t * restrict off, uint32_t size, bool bswap, uint32_t xcdr_version, uint32_t insn, uint32_t bits_h, uint32_t bits_l, const bool for_subtype)
 {
   uint64_t val;
-  return read_normalize_bitmask (&val, data, off, size, bswap, xcdr_version, insn, bits_h, bits_l);
+  return read_normalize_bitmask (&val, data, off, size, bswap, xcdr_version, insn, bits_h, bits_l, for_subtype);
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
@@ -4309,7 +4369,11 @@ static enum dds_stream_normalize_result normalize_seq (char * restrict data, uin
   enum dds_stream_normalize_result res;
   const enum dds_stream_typecode subtype = DDS_OP_SUBTYPE (insn);
   uint32_t bound_op = seq_is_bounded (DDS_OP_TYPE (insn)) ? 1 : 0;
+#if 0
   uint32_t bound = (bound_op && ((int32_t) (*ops)[2]) > 0) ? (*ops)[2] : UINT32_MAX;
+#else
+  uint32_t bound = bound_op ? (*ops)[2] : UINT32_MAX;
+#endif
   bool has_dheader;
   uint32_t size1;
   if (!read_and_normalize_collection_dheader (&has_dheader, &size1, data, off, size, bswap, subtype, xcdr_version))
@@ -4327,9 +4391,16 @@ static enum dds_stream_normalize_result normalize_seq (char * restrict data, uin
   }
   if (num > bound)
   {
-    // bound < UINT32_MAX only for bounded sequences with try-construct set to
-    // "discard"
-    return normalize_discard ();
+    switch (tryconstruct_mode (insn, false))
+    {
+      case TC_REJECT:
+        return normalize_error ();
+      case TC_DISCARD:
+        return normalize_discard ();
+      case TC_USE_DEFAULT:
+      case TC_TRIM:
+        break;
+    }
   }
   switch (subtype)
   {
@@ -4344,14 +4415,14 @@ static enum dds_stream_normalize_result normalize_seq (char * restrict data, uin
       *ops += 2 + bound_op;
       break;
     case DDS_SOP_VAL_ENU: {
-      const enum tryconstruct tc = tryconstruct_mode (insn);
+      const enum tryconstruct tc = tryconstruct_mode (insn, true);
       if ((res = normalize_enumarray (data, off, size1, bswap, DDS_OP_TYPE_SZ (insn), num, (*ops)[2 + bound_op], tc)) != DDS_STREAM_NORMALIZE_SUCCESS)
         return res;
       *ops += 3 + bound_op;
       break;
     }
     case DDS_SOP_VAL_BMK: {
-      const enum tryconstruct tc = tryconstruct_mode (insn);
+      const enum tryconstruct tc = tryconstruct_mode (insn, true);
       if ((res = normalize_bitmaskarray (data, off, size1, bswap, xcdr_version, DDS_OP_TYPE_SZ (insn), num, (*ops)[2 + bound_op], (*ops)[3 + bound_op], tc)) != DDS_STREAM_NORMALIZE_SUCCESS)
         return res;
       *ops += 4 + bound_op;
@@ -4359,7 +4430,7 @@ static enum dds_stream_normalize_result normalize_seq (char * restrict data, uin
     }
     case DDS_SOP_VAL_STR: case DDS_SOP_VAL_BST: {
       // Note: tc is meaningless for unbounded string
-      const enum tryconstruct tc = tryconstruct_mode (insn);
+      const enum tryconstruct tc = tryconstruct_mode (insn, true);
       const size_t maxsz = (subtype == DDS_OP_VAL_STR) ? SIZE_MAX : (*ops)[2 + bound_op];
       for (uint32_t i = 0; i < num; i++)
         if ((res = normalize_string (data, off, size1, bswap, maxsz, tc)) != DDS_STREAM_NORMALIZE_SUCCESS)
@@ -4369,7 +4440,7 @@ static enum dds_stream_normalize_result normalize_seq (char * restrict data, uin
     }
     case DDS_SOP_VAL_WSTR: case DDS_SOP_VAL_BWSTR: {
       // Note: tc is meaningless for unbounded string
-      const enum tryconstruct tc = tryconstruct_mode (insn);
+      const enum tryconstruct tc = tryconstruct_mode (insn, true);
       const size_t maxsz = (subtype == DDS_OP_VAL_WSTR) ? SIZE_MAX : (*ops)[2 + bound_op];
       for (uint32_t i = 0; i < num; i++)
         if ((res = normalize_wstring (data, off, size1, bswap, maxsz, tc)) != DDS_STREAM_NORMALIZE_SUCCESS)
@@ -4429,14 +4500,14 @@ static enum dds_stream_normalize_result normalize_arr (char * restrict data, uin
       *ops += 3;
       break;
     case DDS_SOP_VAL_ENU: {
-      const enum tryconstruct tc = tryconstruct_mode (insn);
+      const enum tryconstruct tc = tryconstruct_mode (insn, true);
       if ((res = normalize_enumarray (data, off, size1, bswap, DDS_OP_TYPE_SZ (insn), num, (*ops)[3], tc)) != DDS_STREAM_NORMALIZE_SUCCESS)
         return res;
       *ops += 4;
       break;
     }
     case DDS_SOP_VAL_BMK: {
-      const enum tryconstruct tc = tryconstruct_mode (insn);
+      const enum tryconstruct tc = tryconstruct_mode (insn, true);
       if ((res = normalize_bitmaskarray (data, off, size1, bswap, xcdr_version, DDS_OP_TYPE_SZ (insn), num, (*ops)[3], (*ops)[4], tc)) != DDS_STREAM_NORMALIZE_SUCCESS)
         return res;
       *ops += 5;
@@ -4444,7 +4515,7 @@ static enum dds_stream_normalize_result normalize_arr (char * restrict data, uin
     }
     case DDS_SOP_VAL_STR: case DDS_SOP_VAL_BST: {
       // Note: tc is meaningless for unbounded string
-      const enum tryconstruct tc = tryconstruct_mode (insn);
+      const enum tryconstruct tc = tryconstruct_mode (insn, true);
       const size_t maxsz = (subtype == DDS_OP_VAL_STR) ? SIZE_MAX : (*ops)[4];
       for (uint32_t i = 0; i < num; i++)
         if ((res = normalize_string (data, off, size1, bswap, maxsz, tc)) != DDS_STREAM_NORMALIZE_SUCCESS)
@@ -4454,7 +4525,7 @@ static enum dds_stream_normalize_result normalize_arr (char * restrict data, uin
     }
     case DDS_SOP_VAL_WSTR: case DDS_SOP_VAL_BWSTR: {
       // Note: tc is meaningless for unbounded string
-      const enum tryconstruct tc = tryconstruct_mode (insn);
+      const enum tryconstruct tc = tryconstruct_mode (insn, true);
       const size_t maxsz = (subtype == DDS_OP_VAL_WSTR) ? SIZE_MAX : (*ops)[4];
       for (uint32_t i = 0; i < num; i++)
         if ((res = normalize_wstring (data, off, size1, bswap, maxsz, tc)) != DDS_STREAM_NORMALIZE_SUCCESS)
@@ -4532,12 +4603,12 @@ static enum dds_stream_normalize_result read_normalize_uni_disc (uint32_t * rest
       return normalize_success ();
     }
     case DDS_SOP_VAL_ENU: {
-      return read_normalize_enum (val, data, off, size, bswap, insn, ops[4]);
+      return read_normalize_enum (val, data, off, size, bswap, insn, ops[4], true);
     }
     case DDS_SOP_VAL_BMK: {
       uint64_t val64;
       // FIXME: no space for upper 32-bits
-      if ((res = read_normalize_bitmask (&val64, data, off, size, bswap, xcdr_version, insn, 0, ops[4])) != DDS_STREAM_NORMALIZE_SUCCESS)
+      if ((res = read_normalize_bitmask (&val64, data, off, size, bswap, xcdr_version, insn, 0, ops[4], true)) != DDS_STREAM_NORMALIZE_SUCCESS)
         return res;
       if (val64 > UINT32_MAX) // can't (yet) handle 64-bit discriminant
         return normalize_error ();
@@ -4574,7 +4645,7 @@ static enum dds_stream_normalize_result normalize_uni (char * restrict data, uin
       case DDS_SOP_VAL_WCHAR: if (!normalize_wchar (data, off, size, bswap)) return normalize_error (); break;
       case DDS_SOP_VAL_STR: if ((res = normalize_string (data, off, size, bswap, SIZE_MAX, TC_REJECT)) != DDS_STREAM_NORMALIZE_SUCCESS) return res; break;
       case DDS_SOP_VAL_WSTR: if ((res = normalize_wstring (data, off, size, bswap, SIZE_MAX, TC_REJECT)) != DDS_STREAM_NORMALIZE_SUCCESS) return res; break;
-      case DDS_SOP_VAL_ENU: if ((res = normalize_enum (data, off, size, bswap, jeq_op[0], jeq_op[3])) != DDS_STREAM_NORMALIZE_SUCCESS) return res; break;
+      case DDS_SOP_VAL_ENU: if ((res = normalize_enum (data, off, size, bswap, jeq_op[0], jeq_op[3], false)) != DDS_STREAM_NORMALIZE_SUCCESS) return res; break;
       case DDS_SOP_VAL_BST: case DDS_SOP_VAL_BWSTR: case DDS_SOP_VAL_SEQ: case DDS_SOP_VAL_BSQ: case DDS_SOP_VAL_ARR: case DDS_SOP_VAL_UNI: case DDS_SOP_VAL_STU: case DDS_SOP_VAL_BMK: {
         uint32_t const * jsr_ops = jeq_op + DDS_OP_ADR_JSR (jeq_op[0]);
         if ((res = stream_normalize_data_impl (data, off, size, bswap, xcdr_version, mid_table, &jsr_ops, false, cdr_kind)) != DDS_STREAM_NORMALIZE_SUCCESS)
@@ -4738,14 +4809,14 @@ static enum dds_stream_normalize_result stream_normalize_adr_impl (uint32_t insn
     case DDS_SOP_VAL_16BY: if (!normalize_uint128 (data, off, size, bswap, xcdr_version)) return normalize_error (); *ops += 2; break;
     case DDS_SOP_VAL_STR: if ((res = normalize_string (data, off, size, bswap, SIZE_MAX, TC_REJECT)) != DDS_STREAM_NORMALIZE_SUCCESS) return res; *ops += 2; break;
     case DDS_SOP_VAL_WSTR: if ((res = normalize_wstring (data, off, size, bswap, SIZE_MAX, TC_REJECT)) != DDS_STREAM_NORMALIZE_SUCCESS) return res; *ops += 2; break;
-    case DDS_SOP_VAL_BST: if ((res = normalize_string (data, off, size, bswap, (*ops)[2], tryconstruct_mode (insn))) != DDS_STREAM_NORMALIZE_SUCCESS) return res; *ops += 3; break;
-    case DDS_SOP_VAL_BWSTR: if ((res = normalize_wstring (data, off, size, bswap, (*ops)[2], tryconstruct_mode (insn))) != DDS_STREAM_NORMALIZE_SUCCESS) return res; *ops += 3; break;
+    case DDS_SOP_VAL_BST: if ((res = normalize_string (data, off, size, bswap, (*ops)[2], tryconstruct_mode (insn, false))) != DDS_STREAM_NORMALIZE_SUCCESS) return res; *ops += 3; break;
+    case DDS_SOP_VAL_BWSTR: if ((res = normalize_wstring (data, off, size, bswap, (*ops)[2], tryconstruct_mode (insn, false))) != DDS_STREAM_NORMALIZE_SUCCESS) return res; *ops += 3; break;
     case DDS_SOP_VAL_WCHAR: if (!normalize_wchar (data, off, size, bswap)) return normalize_error (); *ops += 2; break;
     case DDS_SOP_VAL_SEQ: case DDS_SOP_VAL_BSQ: if ((res = normalize_seq (data, off, size, bswap, xcdr_version, mid_table, ops, insn, cdr_kind)) != DDS_STREAM_NORMALIZE_SUCCESS) return res; break;
     case DDS_SOP_VAL_ARR: if ((res = normalize_arr (data, off, size, bswap, xcdr_version, mid_table, ops, insn, cdr_kind)) != DDS_STREAM_NORMALIZE_SUCCESS) return res; break;
     case DDS_SOP_VAL_UNI: if ((res = normalize_uni (data, off, size, bswap, xcdr_version, mid_table, ops, insn, cdr_kind)) != DDS_STREAM_NORMALIZE_SUCCESS) return res; break;
-    case DDS_SOP_VAL_ENU: if ((res = normalize_enum (data, off, size, bswap, insn, (*ops)[2])) != DDS_STREAM_NORMALIZE_SUCCESS) return res; *ops += 3; break;
-    case DDS_SOP_VAL_BMK: if ((res = normalize_bitmask (data, off, size, bswap, xcdr_version, insn, (*ops)[2], (*ops)[3])) != DDS_STREAM_NORMALIZE_SUCCESS) return res; *ops += 4; break;
+    case DDS_SOP_VAL_ENU: if ((res = normalize_enum (data, off, size, bswap, insn, (*ops)[2], false)) != DDS_STREAM_NORMALIZE_SUCCESS) return res; *ops += 3; break;
+    case DDS_SOP_VAL_BMK: if ((res = normalize_bitmask (data, off, size, bswap, xcdr_version, insn, (*ops)[2], (*ops)[3], false)) != DDS_STREAM_NORMALIZE_SUCCESS) return res; *ops += 4; break;
     case DDS_SOP_VAL_EXT: {
       const uint32_t *jsr_ops = *ops + DDS_OP_ADR_JSR ((*ops)[2]);
       const uint32_t jmp = DDS_OP_ADR_JMP ((*ops)[2]);
@@ -5184,14 +5255,14 @@ static enum dds_stream_normalize_result stream_normalize_key_impl (void * restri
     case DDS_SOP_VAL_1BY: if (!normalize_uint8 (offs, size)) return normalize_error (); break;
     case DDS_SOP_VAL_2BY: if (!normalize_uint16 (data, offs, size, bswap)) return normalize_error (); break;
     case DDS_SOP_VAL_4BY: if (!normalize_uint32 (data, offs, size, bswap)) return normalize_error (); break;
-    case DDS_SOP_VAL_ENU: if (!normalize_enum (data, offs, size, bswap, insn, ops[2])) return normalize_error (); break;
-    case DDS_SOP_VAL_BMK: if (!normalize_bitmask (data, offs, size, bswap, xcdr_version, insn, ops[2], ops[3])) return normalize_error (); break;
+    case DDS_SOP_VAL_ENU: if (!normalize_enum (data, offs, size, bswap, insn, ops[2], false)) return normalize_error (); break;
+    case DDS_SOP_VAL_BMK: if (!normalize_bitmask (data, offs, size, bswap, xcdr_version, insn, ops[2], ops[3], false)) return normalize_error (); break;
     case DDS_SOP_VAL_8BY: if (!normalize_uint64 (data, offs, size, bswap, xcdr_version)) return normalize_error (); break;
     case DDS_SOP_VAL_16BY: if (!normalize_uint128 (data, offs, size, bswap, xcdr_version)) return normalize_error (); break;
     case DDS_SOP_VAL_STR: if ((res = normalize_string (data, offs, size, bswap, SIZE_MAX, TC_REJECT)) != DDS_STREAM_NORMALIZE_SUCCESS) return res; break;
     case DDS_SOP_VAL_WSTR: if ((res = normalize_wstring (data, offs, size, bswap, SIZE_MAX, TC_REJECT)) != DDS_STREAM_NORMALIZE_SUCCESS) return res; break;
-    case DDS_SOP_VAL_BST: if ((res = normalize_string (data, offs, size, bswap, ops[2], tryconstruct_mode (insn))) != DDS_STREAM_NORMALIZE_SUCCESS) return res; break;
-    case DDS_SOP_VAL_BWSTR: if ((res = normalize_wstring (data, offs, size, bswap, ops[2], tryconstruct_mode (insn))) != DDS_STREAM_NORMALIZE_SUCCESS) return res; break;
+    case DDS_SOP_VAL_BST: if ((res = normalize_string (data, offs, size, bswap, ops[2], tryconstruct_mode (insn, false))) != DDS_STREAM_NORMALIZE_SUCCESS) return res; break;
+    case DDS_SOP_VAL_BWSTR: if ((res = normalize_wstring (data, offs, size, bswap, ops[2], tryconstruct_mode (insn, false))) != DDS_STREAM_NORMALIZE_SUCCESS) return res; break;
     case DDS_SOP_VAL_WCHAR: if (!normalize_wchar (data, offs, size, bswap)) return normalize_error (); break;
     case DDS_SOP_VAL_ARR: if ((res = normalize_arr (data, offs, size, bswap, xcdr_version, mid_table, &ops, insn, true)) != DDS_STREAM_NORMALIZE_SUCCESS) return res; break;
     case DDS_SOP_VAL_EXT: {
@@ -5610,7 +5681,7 @@ static void dds_stream_extract_key_from_key_prim_op (dds_istream_t *is, restrict
     case DDS_SOP_VAL_BST:  {
       const uint32_t maxsz = ops[2]; // maxsz and CDR both include '\0'
       const uint32_t srcsz = dds_is_get4 (is); // string length remains unpatched
-      const uint32_t dstsz = (srcsz <= maxsz) ? srcsz : (tryconstruct_mode (insn) == TC_TRIM) ? maxsz : 1;
+      const uint32_t dstsz = (srcsz <= maxsz) ? srcsz : (tryconstruct_mode (insn, false) == TC_TRIM) ? maxsz : 1;
       dds_os_put4 (os, allocator, dstsz);
       dds_os_put_bytes_base (&os->x, allocator, is->m_buffer + is->m_index, dstsz);
       is->m_index += srcsz;
@@ -5619,7 +5690,7 @@ static void dds_stream_extract_key_from_key_prim_op (dds_istream_t *is, restrict
     case DDS_SOP_VAL_BWSTR: {
       const uint32_t maxsz = 2 * (ops[2] - 1); // maxsz includes L'\0', CDR excludes it
       const uint32_t srcsz = dds_is_get4 (is); // string length remains unpatched
-      const uint32_t dstsz = (srcsz <= maxsz) ? srcsz : (tryconstruct_mode (insn) == TC_TRIM) ? maxsz : 0;
+      const uint32_t dstsz = (srcsz <= maxsz) ? srcsz : (tryconstruct_mode (insn, false) == TC_TRIM) ? maxsz : 0;
       dds_os_put4 (os, allocator, dstsz);
       dds_os_put_bytes_base (&os->x, allocator, is->m_buffer + is->m_index, dstsz);
       is->m_index += srcsz;
@@ -5741,7 +5812,7 @@ static void dds_stream_extract_keyBE_from_key_prim_op (dds_istream_t *is, restri
     case DDS_SOP_VAL_BST:  {
       const uint32_t maxsz = ops[2]; // maxsz and CDR both include '\0'
       const uint32_t srcsz = dds_is_get4 (is); // string length remains unpatched
-      const uint32_t dstsz = (srcsz <= maxsz) ? srcsz : (tryconstruct_mode (insn) == TC_TRIM) ? maxsz : 1;
+      const uint32_t dstsz = (srcsz <= maxsz) ? srcsz : (tryconstruct_mode (insn, false) == TC_TRIM) ? maxsz : 1;
       dds_os_put4BE (os, allocator, dstsz);
       dds_os_put_bytes_base (&os->x, allocator, is->m_buffer + is->m_index, dstsz);
       is->m_index += srcsz;
@@ -5750,7 +5821,7 @@ static void dds_stream_extract_keyBE_from_key_prim_op (dds_istream_t *is, restri
     case DDS_SOP_VAL_BWSTR: {
       const uint32_t maxsz = 2 * (ops[2] - 1); // maxsz includes L'\0', CDR excludes it
       const uint32_t srcsz = dds_is_get4 (is); // string length remains unpatched
-      const uint32_t dstsz = (srcsz <= maxsz) ? srcsz : (tryconstruct_mode (insn) == TC_TRIM) ? maxsz : 0;
+      const uint32_t dstsz = (srcsz <= maxsz) ? srcsz : (tryconstruct_mode (insn, false) == TC_TRIM) ? maxsz : 0;
       dds_os_put4BE (os, allocator, dstsz);
       dds_os_put_bytes_base (&os->x, allocator, is->m_buffer + is->m_index, dstsz);
       is->m_index += srcsz;

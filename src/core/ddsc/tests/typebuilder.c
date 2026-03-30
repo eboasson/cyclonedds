@@ -152,7 +152,7 @@ CU_Theory((const dds_topic_descriptor_t *desc), ddsc_typebuilder, topic_desc, .i
   struct ddsi_type *type;
   dds_topic_descriptor_t *generated_desc;
 
-  tprintf ("Testing %s\n", desc->m_typename);
+  tprintf ("Testing %s [TYPEBUILDER (IDLC)]\n", desc->m_typename);
 
   create_unique_topic_name ("ddsc_typebuilder", topic_name, sizeof (topic_name));
   topic = dds_create_topic (g_participant, desc, topic_name, NULL, NULL);

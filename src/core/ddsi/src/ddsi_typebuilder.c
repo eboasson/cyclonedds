@@ -341,16 +341,19 @@ static uint32_t get_bitbound_flags (uint32_t bit_bound)
   return flags;
 }
 
-static uint32_t get_tryconstruct_flags (enum typebuilder_try_construct tc)
+static uint32_t get_tryconstruct_flags (enum typebuilder_try_construct tc, bool for_subtype)
 {
+  DDSRT_STATIC_ASSERT (DDS_OP_FLAG_TYPE_TC_DEF == (DDS_OP_FLAG_SUBTYPE_TC_DEF << 8));
+  DDSRT_STATIC_ASSERT (DDS_OP_FLAG_TYPE_TC_TRIM == (DDS_OP_FLAG_SUBTYPE_TC_TRIM << 8));
+  const uint32_t shift = (for_subtype ? 8 : 0);
   switch (tc)
   {
     case TYPEBUILDER_TC_DISCARD: return 0;
-    case TYPEBUILDER_TC_USE_DEFAULT: return DDS_OP_FLAG_TC_DEF;
-    case TYPEBUILDER_TC_TRIM: return DDS_OP_FLAG_TC_TRIM;
+    case TYPEBUILDER_TC_USE_DEFAULT: return DDS_OP_FLAG_TYPE_TC_DEF >> shift;
+    case TYPEBUILDER_TC_TRIM: return DDS_OP_FLAG_TYPE_TC_TRIM >> shift;
     case TYPEBUILDER_TC_REJECT: break;
   }
-  return DDS_OP_FLAG_TC_DEF | DDS_OP_FLAG_TC_TRIM;
+  return (DDS_OP_FLAG_TYPE_TC_DEF | DDS_OP_FLAG_TYPE_TC_TRIM) >> shift;
 }
 
 static void align_to (uint32_t *offs, uint32_t align)
@@ -907,7 +910,7 @@ static void or_op (struct typebuilder_ops *ops, uint32_t index, uint32_t value)
   ops->ops[index] |= value;
 }
 
-static uint32_t get_type_flags (const struct typebuilder_type *tb_type)
+static uint32_t get_type_flags (const struct typebuilder_type *tb_type, bool for_subtype)
 {
   uint32_t flags = 0;
   switch (tb_type->type_code)
@@ -922,15 +925,18 @@ static uint32_t get_type_flags (const struct typebuilder_type *tb_type)
       break;
     case DDS_OP_VAL_ENU:
       flags |= get_bitbound_flags (tb_type->args.enum_args.bit_bound);
-      flags |= get_tryconstruct_flags (tb_type->args.enum_args.tc);
+      flags |= get_tryconstruct_flags (tb_type->args.enum_args.tc, for_subtype);
       break;
     case DDS_OP_VAL_BMK:
       flags |= get_bitbound_flags (tb_type->args.bitmask_args.bit_bound);
-      flags |= get_tryconstruct_flags (tb_type->args.bitmask_args.tc);
+      flags |= get_tryconstruct_flags (tb_type->args.bitmask_args.tc, for_subtype);
       break;
     case DDS_OP_VAL_BST:
     case DDS_OP_VAL_BWSTR:
-      flags |= get_tryconstruct_flags (tb_type->args.string_args.tc);
+      flags |= get_tryconstruct_flags (tb_type->args.string_args.tc, for_subtype);
+      break;
+    case DDS_OP_VAL_BSQ:
+      flags |= get_tryconstruct_flags (tb_type->args.collection_args.tc, for_subtype);
       break;
     default:
       break;
@@ -947,7 +953,7 @@ static dds_return_t get_ops_type (struct typebuilder_type *tb_type, uint32_t fla
     case DDS_OP_VAL_2BY:
     case DDS_OP_VAL_4BY:
     case DDS_OP_VAL_8BY:
-      flags |= get_type_flags (tb_type);
+      flags |= get_type_flags (tb_type, false);
       PUSH_OP ((uint32_t) DDS_OP_ADR | (uint32_t) ((DDS_OP_VAL_1BY + (tb_type->type_code - DDS_OP_VAL_1BY)) << 16) | flags);
       PUSH_ARG (member_offset);
       break;
@@ -956,13 +962,13 @@ static dds_return_t get_ops_type (struct typebuilder_type *tb_type, uint32_t fla
       PUSH_ARG (member_offset);
       break;
     case DDS_OP_VAL_ENU:
-      flags |= get_type_flags (tb_type);
+      flags |= get_type_flags (tb_type, false);
       PUSH_OP ((uint32_t) DDS_OP_ADR | (uint32_t) DDS_OP_TYPE_ENU | flags);
       PUSH_ARG (member_offset);
       PUSH_ARG (tb_type->args.enum_args.max);
       break;
     case DDS_OP_VAL_BMK:
-      flags |= get_type_flags (tb_type);
+      flags |= get_type_flags (tb_type, false);
       PUSH_OP ((uint32_t) DDS_OP_ADR | (uint32_t) DDS_OP_TYPE_BMK | flags);
       PUSH_ARG (member_offset);
       PUSH_ARG (tb_type->args.bitmask_args.bits_h);
@@ -979,24 +985,24 @@ static dds_return_t get_ops_type (struct typebuilder_type *tb_type, uint32_t fla
       PUSH_ARG (member_offset);
       break;
     case DDS_OP_VAL_BST:
-      flags |= get_type_flags (tb_type);
+      flags |= get_type_flags (tb_type, false);
       PUSH_OP ((uint32_t) DDS_OP_ADR | (uint32_t) DDS_OP_TYPE_BST | flags);
       PUSH_ARG (member_offset);
       PUSH_ARG (tb_type->args.string_args.max_size);
       break;
     case DDS_OP_VAL_BWSTR:
-      flags |= get_type_flags (tb_type);
+      flags |= get_type_flags (tb_type, false);
       PUSH_OP ((uint32_t) DDS_OP_ADR | (uint32_t) DDS_OP_TYPE_BWSTR | flags);
       PUSH_ARG (member_offset);
       PUSH_ARG (tb_type->args.string_args.max_size);
       break;
     case DDS_OP_VAL_WCHAR:
-      flags |= get_type_flags (tb_type);
+      flags |= get_type_flags (tb_type, false);
       PUSH_OP ((uint32_t) DDS_OP_ADR | (uint32_t) DDS_OP_TYPE_WCHAR | flags);
       PUSH_ARG (member_offset);
       break;
     case DDS_OP_VAL_16BY:
-      flags |= get_type_flags (tb_type);
+      flags |= get_type_flags (tb_type, false);
       PUSH_OP ((uint32_t) DDS_OP_ADR | (uint32_t) DDS_OP_TYPE_16BY | flags);
       PUSH_ARG (member_offset);
       break;
@@ -1005,12 +1011,14 @@ static dds_return_t get_ops_type (struct typebuilder_type *tb_type, uint32_t fla
       bool bounded = tb_type->type_code == DDS_OP_VAL_BSQ;
       struct typebuilder_type *element_type = tb_type->args.collection_args.element_type.type;
       assert (element_type);
-      flags |= get_type_flags (element_type);
+      flags |= get_type_flags (tb_type, false);
+      flags |= get_type_flags (element_type, true);
       uint32_t adr_index = ops->index;
       PUSH_OP ((uint32_t) DDS_OP_ADR | (uint32_t) (bounded ? DDS_OP_TYPE_BSQ : DDS_OP_TYPE_SEQ) | (element_type->type_code << 8u) | flags);
       PUSH_ARG (member_offset);
       if (bounded)
       {
+#if 0
         if (tb_type->args.collection_args.bound > INT32_MAX)
         {
           ret = DDS_RETCODE_UNSUPPORTED;
@@ -1020,6 +1028,9 @@ static dds_return_t get_ops_type (struct typebuilder_type *tb_type, uint32_t fla
         if (tb_type->args.collection_args.tc == TYPEBUILDER_TC_TRIM)
           bound = -bound;
         PUSH_ARG ((uint32_t) bound);
+#else
+        PUSH_ARG (tb_type->args.collection_args.bound);
+#endif
       }
       switch (element_type->type_code)
       {
@@ -1074,7 +1085,7 @@ static dds_return_t get_ops_type (struct typebuilder_type *tb_type, uint32_t fla
     case DDS_OP_VAL_ARR: {
       struct typebuilder_type *element_type = tb_type->args.collection_args.element_type.type;
       assert (element_type);
-      flags |= get_type_flags (element_type);
+      flags |= get_type_flags (element_type, true);
       uint32_t adr_index = ops->index;
       PUSH_OP ((uint32_t) DDS_OP_ADR | (uint32_t) DDS_OP_TYPE_ARR | (element_type->type_code << 8u) | flags);
       PUSH_ARG (member_offset);
@@ -1207,7 +1218,7 @@ static dds_return_t get_ops_union_case (struct typebuilder_type *tb_type, uint32
       PUSH_ARG (0);
       break;
     case DDS_OP_VAL_ENU:
-      flags |= get_type_flags (tb_type);
+      flags |= get_type_flags (tb_type, false);
       PUSH_OP ((uint32_t) DDS_OP_JEQ4 | (uint32_t) DDS_OP_TYPE_ENU | flags);
       PUSH_ARG (disc_value);
       PUSH_ARG (offset);
@@ -1236,7 +1247,7 @@ static dds_return_t get_ops_union_case (struct typebuilder_type *tb_type, uint32
       break;
     case DDS_OP_VAL_UNI:
     case DDS_OP_VAL_STU: {
-      flags |= get_type_flags (tb_type);
+      flags |= get_type_flags (tb_type, false);
       tb_type->args.external_type_args.external_type.ref_base = ops->index;
       tb_type->args.external_type_args.external_type.ref_insn = ops->index;
       PUSH_OP ((uint32_t) DDS_OP_JEQ4 | ((uint32_t) tb_type->type_code << 16u) | flags);
@@ -1305,11 +1316,11 @@ static dds_return_t get_ops_union (const struct typebuilder_union *tb_union, uin
       break;
     case DDS_OP_VAL_ENU:
       flags |= get_bitbound_flags (tb_union->disc_type.args.enum_args.bit_bound);
-      flags |= get_tryconstruct_flags (tb_union->disc_type.args.enum_args.tc);
+      flags |= get_tryconstruct_flags (tb_union->disc_type.args.enum_args.tc, true);
       break;
     case DDS_OP_VAL_BMK:
       flags |= get_bitbound_flags (tb_union->disc_type.args.bitmask_args.bit_bound);
-      flags |= get_tryconstruct_flags (tb_union->disc_type.args.bitmask_args.tc);
+      flags |= get_tryconstruct_flags (tb_union->disc_type.args.bitmask_args.tc, true);
       break;
     default:
       break;

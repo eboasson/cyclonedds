@@ -41,21 +41,21 @@ extern "C" {
  * @ingroup serialization
  * @brief Mask for the OP type flags
  */
-#define DDS_OP_TYPE_FLAGS_MASK    0x00800000
+#define DDS_OP_TYPE_FLAGS_MASK    0x00e00000
 
 /**
  * @anchor DDS_OP_TYPE_MASK
  * @ingroup serialization
  * @brief Mask for the OP type
  */
-#define DDS_OP_TYPE_MASK          0x007f0000
+#define DDS_OP_TYPE_MASK          0x001f0000
 
 /**
  * @anchor DDS_OP_SUBTYPE_MASK
  * @ingroup serialization
  * @brief Mask for the OP subtype
  */
-#define DDS_OP_SUBTYPE_MASK       0x0000ff00
+#define DDS_OP_SUBTYPE_MASK       0x00001f00
 
 /**
  * @anchor DDS_OP_JMP_MASK
@@ -76,14 +76,14 @@ extern "C" {
  * @ingroup serialization
  * @brief Mask for the JEQ type flags
  */
-#define DDS_JEQ_TYPE_FLAGS_MASK   0x00800000
+#define DDS_JEQ_TYPE_FLAGS_MASK   0x00e00000
 
 /**
  * @anchor DDS_JEQ_TYPE_MASK
  * @ingroup serialization
  * @brief Mask for the JEQ type
  */
-#define DDS_JEQ_TYPE_MASK         0x007f0000
+#define DDS_JEQ_TYPE_MASK         0x001f0000
 
 /**
  * @anchor DDS_PLM_FLAGS_MASK
@@ -497,6 +497,9 @@ enum dds_stream_typecode_primary {
   DDS_SOP_TYPE_16BY  = DDS_OP_TYPE_16BY   /**< uint128/int128/float128 */
 };
 
+#define DDS_OP_FLAG_TYPE_TC_DEF (1u << 21)
+#define DDS_OP_FLAG_TYPE_TC_TRIM (1u << 22)
+
 /**
  * @anchor DDS_OP_FLAG_EXT
  * @ingroup serialization
@@ -556,6 +559,9 @@ enum dds_stream_typecode_subtype {
   DDS_SOP_SUBTYPE_16BY  = DDS_OP_SUBTYPE_16BY   /**< uint128/int128/float128 */
 };
 
+#define DDS_OP_FLAG_SUBTYPE_TC_DEF (1u << 13)
+#define DDS_OP_FLAG_SUBTYPE_TC_TRIM (1u << 14)
+
 /**
  * @anchor DDS_OP_FLAG_KEY
  * @ingroup serialization
@@ -580,6 +586,7 @@ enum dds_stream_typecode_subtype {
  */
 #define DDS_OP_FLAG_DEF  (1u << 1)
 
+#if 0
 /**
  * @anchor DDS_OP_FLAG_TC_DEF
  * @ingroup serialization
@@ -605,6 +612,7 @@ enum dds_stream_typecode_subtype {
  * Overlaps DDS_OP_FLAG_SGN, which is only used for nBY en arrays/sequences of them
  */
 #define DDS_OP_FLAG_TC_TRIM  (1u << 2)
+#endif
 
 /**
  * @anchor DDS_OP_FLAG_FP
