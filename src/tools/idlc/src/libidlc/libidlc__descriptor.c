@@ -494,14 +494,6 @@ stash_single(
 }
 
 static idl_retcode_t
-stash_single_signed(
-  const idl_pstate_t *pstate, struct instructions *instructions, uint32_t index, int32_t single)
-{
-  struct instruction inst = { SINGLE_SIGNED, { .single_signed = single } };
-  return stash_instruction(pstate, instructions, index, &inst);
-}
-
-static idl_retcode_t
 stash_bitmask_bits(
   const idl_pstate_t *pstate, struct instructions *instructions, uint32_t index, const idl_bitmask_t * bitmask)
 {
@@ -655,14 +647,6 @@ static idl_retcode_t add_typecode(const idl_pstate_t *pstate, const idl_type_spe
         *add_to |= 2 << DDS_OP_FLAG_SZ_SHIFT;
       else if (bit_bound > 8)
         *add_to |= 1 << DDS_OP_FLAG_SZ_SHIFT;
-#if 0
-      if (idl_is_extensible(type_spec, IDL_FINAL))
-      {
-        DDSRT_STATIC_ASSERT (DDS_OP_FLAG_TYPE_TC_DEF == (DDS_OP_FLAG_SUBTYPE_TC_DEF << 8));
-        DDSRT_STATIC_ASSERT (DDS_OP_FLAG_TYPE_TC_TRIM == (DDS_OP_FLAG_SUBTYPE_TC_TRIM << 8));
-        *add_to |= (DDS_OP_FLAG_SUBTYPE_TC_DEF | DDS_OP_FLAG_SUBTYPE_TC_TRIM) << (shift - 8);
-      }
-#endif
       break;
     }
     case IDL_UNION:
@@ -681,14 +665,6 @@ static idl_retcode_t add_typecode(const idl_pstate_t *pstate, const idl_type_spe
         *add_to |= 2 << DDS_OP_FLAG_SZ_SHIFT;
       else if (bit_bound > 8)
         *add_to |= 1 << DDS_OP_FLAG_SZ_SHIFT;
-#if 0
-      if (idl_is_extensible(type_spec, IDL_FINAL))
-      {
-        DDSRT_STATIC_ASSERT (DDS_OP_FLAG_TYPE_TC_DEF == (DDS_OP_FLAG_SUBTYPE_TC_DEF << 8));
-        DDSRT_STATIC_ASSERT (DDS_OP_FLAG_TYPE_TC_TRIM == (DDS_OP_FLAG_SUBTYPE_TC_TRIM << 8));
-        *add_to |= (DDS_OP_FLAG_SUBTYPE_TC_DEF | DDS_OP_FLAG_SUBTYPE_TC_TRIM) << (shift - 8);
-      }
-#endif
       break;
     }
     default:
@@ -1379,22 +1355,8 @@ emit_sequence(
     if ((ret = stash_offset(pstate, &ctype->instructions, nop, field)))
       return ret;
     if (idl_is_bounded(node)) {
-#if 0
-      /* generate seq bound field */
-      if (idl_bound(node) > INT32_MAX)
-      {
-        ret = IDL_RETCODE_UNSUPPORTED;
-        return ret;
-      }
-      int32_t bound = (int32_t) idl_bound(node);
-      if (tc == IDL_TRIM)
-        bound = -bound;
-      if ((ret = stash_single_signed(pstate, &ctype->instructions, nop, bound)))
-        return ret;
-#else
       if ((ret = stash_single(pstate, &ctype->instructions, nop, idl_bound(node))))
         return ret;
-#endif
     }
     if (idl_is_enum(type_spec)) {
       if ((ret = stash_single(pstate, &ctype->instructions, nop, idl_enum_max_value(type_spec))))
@@ -1848,8 +1810,7 @@ static int print_opcode(FILE *fp, const struct instruction *inst)
   }
 
   if (opcode == DDS_OP_ADR) {
-    /* FLAG_BASE to indicate EXT 'parent' field (or flag TC_DEF to set try-construct
-       on enum/bitmask/string) */
+    /* FLAG_BASE to indicate EXT 'parent' field */
     if (inst->data.opcode.code & DDS_OP_FLAG_BASE)
       vec[len++] = " | DDS_OP_FLAG_BASE";
     if (inst->data.opcode.code & DDS_OP_FLAG_KEY)
@@ -2008,12 +1969,6 @@ static int print_single(FILE *fp, const struct instruction *inst)
   return idl_fprintf(fp, "%"PRIu32"u", inst->data.single);
 }
 
-static int print_single_signed(FILE *fp, const struct instruction *inst)
-{
-  assert(inst->type == SINGLE_SIGNED);
-  return idl_fprintf(fp, "(uint32_t)%"PRId32, inst->data.single_signed);
-}
-
 static int print_opcodes(FILE *fp, const struct descriptor *descriptor, uint32_t *kof_offs)
 {
   const struct instruction *inst;
@@ -2112,10 +2067,6 @@ static int print_opcodes(FILE *fp, const struct descriptor *descriptor, uint32_t
           break;
         case SINGLE:
           if (fputs(sep, fp) < 0 || print_single(fp, inst) < 0)
-            return -1;
-          break;
-        case SINGLE_SIGNED:
-          if (fputs(sep, fp) < 0 || print_single_signed(fp, inst) < 0)
             return -1;
           break;
         case ELEM_OFFSET:

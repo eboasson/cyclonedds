@@ -234,22 +234,22 @@ enum dds_stream_opcode {
      [ADR, nBY,   0, f | ar] [offset]
      [ADR, BLN,   0, f] [offset]
      [ADR, WCHAR,   0, f] [offset]
-     [ADR, ENU,   0, f | tc] [offset] [max]
-     [ADR, BMK,   0, f | tc] [offset] [bits-high] [bits-low]
+     [ADR, ENU,   0, f] [offset] [max]
+     [ADR, BMK,   0, f] [offset] [bits-high] [bits-low]
      [ADR, STR,   0, f] [offset]
      [ADR, WSTR,   0, f] [offset]
-     [ADR, BST,   0, f | tc] [offset] [max-size]
-     [ADR, BWSTR,   0, f | tc] [offset] [max-size]
+     [ADR, BST,   0, f] [offset] [max-size]
+     [ADR, BWSTR,   0, f] [offset] [max-size]
 
      [ADR, SEQ, nBY, f | ar] [offset]
      [ADR, SEQ, BLN, f] [offset]
      [ADR, SEQ, WCHAR, f] [offset]
-     [ADR, SEQ, ENU, f | tc] [offset] [max]
-     [ADR, SEQ, BMK, f | tc] [offset] [bits-high] [bits-low]
+     [ADR, SEQ, ENU, f] [offset] [max]
+     [ADR, SEQ, BMK, f] [offset] [bits-high] [bits-low]
      [ADR, SEQ, STR, f] [offset]
      [ADR, SEQ, WSTR, f] [offset]
-     [ADR, SEQ, BST, f | tc] [offset] [max-size]
-     [ADR, SEQ, BWSTR, f | tc] [offset] [max-size]
+     [ADR, SEQ, BST, f] [offset] [max-size]
+     [ADR, SEQ, BWSTR, f] [offset] [max-size]
      [ADR, SEQ,   s, f] [offset] [elem-size] [next-insn, elem-insn]
        where s = {SEQ,ARR,UNI,STU,BSQ}
      [ADR, SEQ, EXT, f] *** not supported
@@ -257,12 +257,12 @@ enum dds_stream_opcode {
      [ADR, BSQ, nBY, f | ar] [offset] [sbound]
      [ADR, BSQ, BLN, f] [offset] [sbound]
      [ADR, BSQ, WCHAR, f] [offset] [sbound]
-     [ADR, BSQ, ENU, f | tc] [offset] [sbound] [max]
-     [ADR, BSQ, BMK, f | tc] [offset] [sbound] [bits-high] [bits-low]
+     [ADR, BSQ, ENU, f] [offset] [sbound] [max]
+     [ADR, BSQ, BMK, f] [offset] [sbound] [bits-high] [bits-low]
      [ADR, BSQ, STR, f] [offset] [sbound]
      [ADR, BSQ, WSTR, f] [offset] [sbound]
-     [ADR, BSQ, BST, f | tc] [offset] [sbound] [max-size]
-     [ADR, BSQ, BWSTR, f | tc] [offset] [sbound] [max-size]
+     [ADR, BSQ, BST, f] [offset] [sbound] [max-size]
+     [ADR, BSQ, BWSTR, f] [offset] [sbound] [max-size]
      [ADR, BSQ,   s, f] [offset] [sbound] [elem-size] [next-insn, elem-insn]
        where s = {SEQ,ARR,UNI,STU,BSQ}
      [ADR, BSQ, EXT, f] *** not supported
@@ -270,19 +270,19 @@ enum dds_stream_opcode {
      [ADR, ARR, nBY, f | ar] [offset] [alen]
      [ADR, ARR, BLN, f] [offset] [alen]
      [ADR, ARR, WCHAR, f] [offset] [alen]
-     [ADR, ARR, ENU, f | tc] [offset] [alen] [max]
-     [ADR, ARR, BMK, f | tc] [offset] [alen] [bits-high] [bits-low]
+     [ADR, ARR, ENU, f] [offset] [alen] [max]
+     [ADR, ARR, BMK, f] [offset] [alen] [bits-high] [bits-low]
      [ADR, ARR, STR, f] [offset] [alen]
      [ADR, ARR, WSTR, f] [offset] [alen]
-     [ADR, ARR, BST, f | tc] [offset] [alen] [0] [max-size]
-     [ADR, ARR, BWSTR, f | tc] [offset] [alen] [0] [max-size]
+     [ADR, ARR, BST, f] [offset] [alen] [0] [max-size]
+     [ADR, ARR, BWSTR, f] [offset] [alen] [0] [max-size]
      [ADR, ARR,   s, f] [offset] [alen] [next-insn, elem-insn] [elem-size]
          where s = {SEQ,ARR,UNI,STU,BSQ}
      [ADR, ARR, EXT, f] *** not supported
 
      [ADR, UNI,   d, z | ar] [offset] [alen] [next-insn, cases]
-     [ADR, UNI, ENU, z | tc] [offset] [alen] [next-insn, cases] [max]
-     [ADR, UNI, BMK, z | tc] [offset] [alen] [next-insn, cases] [bits-low]
+     [ADR, UNI, ENU, z] [offset] [alen] [next-insn, cases] [max]
+     [ADR, UNI, BMK, z] [offset] [alen] [next-insn, cases] [bits-low]
      [ADR, UNI, EXT, f] *** not supported
        where
          d = discriminant type of {1BY,2BY,4BY,8BY,BLN}, 8BY must have top
@@ -302,13 +302,6 @@ enum dds_stream_opcode {
    DDS_OP_FLAG_SZ_SHIFT) ar           = "arithmetic" flags:
                     - floating-point instead of integer (DDS_OP_FLAG_FP)
                     - signed integer instead of unsigned (DDS_OP_FLAG_SGN)
-     tc           = "try-construct" flags (for bounded sequences: element
-   try-construct, see also "sbound")
-                    - flags are DDS_OP_FLAG_TC_DEF, DDS_OP_FLAG_TC_TRIM
-                    - (0,0): discard
-                    - (1,0): use_default
-                    - (0,1): trim
-                    - (1,1): reserved
      [offset]     = field offset from start of element in memory
      [elem-size]  = element size in memory (elem-size is only included in case
    'external' flag is set) [max-size]   = string bound + 1 [max]        = max
@@ -497,7 +490,20 @@ enum dds_stream_typecode_primary {
   DDS_SOP_TYPE_16BY  = DDS_OP_TYPE_16BY   /**< uint128/int128/float128 */
 };
 
+/**
+ * @anchor DDS_OP_FLAG_TYPE_TC_DEF
+ * @ingroup serializeation
+ * @brief this flag indicates that the type has \@try_construct(USE_DEFAULT) in effect
+ * (combining TC_DEF and TC_TRIM means an out-of-range input is considered erroneous)
+ */
 #define DDS_OP_FLAG_TYPE_TC_DEF (1u << 21)
+
+/**
+ * @anchor DDS_OP_FLAG_TYPE_TC_TRIM
+ * @ingroup serializeation
+ * @brief this flag indicates that the type has \@try_construct(TRIM) in effect
+ * (combining TC_DEF and TC_TRIM means an out-of-range input is considered erroneous)
+ */
 #define DDS_OP_FLAG_TYPE_TC_TRIM (1u << 22)
 
 /**
@@ -559,7 +565,20 @@ enum dds_stream_typecode_subtype {
   DDS_SOP_SUBTYPE_16BY  = DDS_OP_SUBTYPE_16BY   /**< uint128/int128/float128 */
 };
 
+/**
+ * @anchor DDS_OP_FLAG_SUBTYPE_TC_DEF
+ * @ingroup serializeation
+ * @brief this flag indicates that the subtype has \@try_construct(USE_DEFAULT) in effect
+ * (combining TC_DEF and TC_TRIM means an out-of-range input is considered erroneous)
+ */
 #define DDS_OP_FLAG_SUBTYPE_TC_DEF (1u << 13)
+
+/**
+ * @anchor DDS_OP_FLAG_SUBTYPE_TC_TRIM
+ * @ingroup serializeation
+ * @brief this flag indicates that the subtype has \@try_construct(USE_DEFAULT) in effect
+ * (combining TC_DEF and TC_TRIM means an out-of-range input is considered erroneous)
+ */
 #define DDS_OP_FLAG_SUBTYPE_TC_TRIM (1u << 14)
 
 /**
@@ -585,34 +604,6 @@ enum dds_stream_typecode_subtype {
  * union has a default case (for DDS_OP_ADR | DDS_OP_TYPE_UNI)
  */
 #define DDS_OP_FLAG_DEF  (1u << 1)
-
-#if 0
-/**
- * @anchor DDS_OP_FLAG_TC_DEF
- * @ingroup serialization
- * @brief Try-construct fail-action DEFAULT. Applicable to:
- * - struct and union members
- * - union discriminator
- * - sequence and array element type
- * But only relevant when the type is one of:
- * - enum
- * - bounded string
- * - bounded sequence
- * Overlaps DDS_OP_FLAG_BASE, which is only used i.c.w. DDS_OP_PLM and with
- * DDS_OP_ADR + DDS_OP_TYPE_EXT
- */
-#define DDS_OP_FLAG_TC_DEF   (1u << 4)
-
-/**
- * @anchor DDS_OP_FLAG_TC_TRIM
- * @ingroup serialization
- * @brief Try-construct fail-action TRIM. For applicability,
- * see @ref DDS_OP_FLAG_TC_DEF
- *
- * Overlaps DDS_OP_FLAG_SGN, which is only used for nBY en arrays/sequences of them
- */
-#define DDS_OP_FLAG_TC_TRIM  (1u << 2)
-#endif
 
 /**
  * @anchor DDS_OP_FLAG_FP

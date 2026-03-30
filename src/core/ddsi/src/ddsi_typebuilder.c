@@ -1017,21 +1017,7 @@ static dds_return_t get_ops_type (struct typebuilder_type *tb_type, uint32_t fla
       PUSH_OP ((uint32_t) DDS_OP_ADR | (uint32_t) (bounded ? DDS_OP_TYPE_BSQ : DDS_OP_TYPE_SEQ) | (element_type->type_code << 8u) | flags);
       PUSH_ARG (member_offset);
       if (bounded)
-      {
-#if 0
-        if (tb_type->args.collection_args.bound > INT32_MAX)
-        {
-          ret = DDS_RETCODE_UNSUPPORTED;
-          goto err;
-        }
-        int32_t bound = (int32_t) tb_type->args.collection_args.bound;
-        if (tb_type->args.collection_args.tc == TYPEBUILDER_TC_TRIM)
-          bound = -bound;
-        PUSH_ARG ((uint32_t) bound);
-#else
         PUSH_ARG (tb_type->args.collection_args.bound);
-#endif
-      }
       switch (element_type->type_code)
       {
         case DDS_OP_VAL_1BY: case DDS_OP_VAL_2BY: case DDS_OP_VAL_4BY: case DDS_OP_VAL_8BY:

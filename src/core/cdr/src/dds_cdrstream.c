@@ -1356,15 +1356,12 @@ static enum tryconstruct tryconstruct_mode (const uint32_t insn, const bool for_
 {
   if (!for_subtype)
   {
-    // UNI: applies to discriminant in subtype
-    // SEQ, BSEQ: applies to subtype for sequence elements
-    // BST, BWSTR, ENU, BMK: applies to type
     switch (insn & (DDS_OP_FLAG_TYPE_TC_DEF | DDS_OP_FLAG_TYPE_TC_TRIM))
     {
       case 0: return TC_DISCARD;
       case DDS_OP_FLAG_TYPE_TC_TRIM: return TC_TRIM;
       case DDS_OP_FLAG_TYPE_TC_DEF: return TC_USE_DEFAULT;
-        //case DDS_OP_FLAG_TYPE_TC_DEF | DDS_OP_FLAG_TYPE_TC_TRIM: fall-through
+      //case DDS_OP_FLAG_TYPE_TC_DEF | DDS_OP_FLAG_TYPE_TC_TRIM: fall-through
     }
   }
   else
@@ -1374,7 +1371,7 @@ static enum tryconstruct tryconstruct_mode (const uint32_t insn, const bool for_
       case 0: return TC_DISCARD;
       case DDS_OP_FLAG_SUBTYPE_TC_TRIM: return TC_TRIM;
       case DDS_OP_FLAG_SUBTYPE_TC_DEF: return TC_USE_DEFAULT;
-        //case DDS_OP_FLAG_SUBTYPE_TC_DEF | DDS_OP_FLAG_SUBTYPE_TC_TRIM: fall-through
+      //case DDS_OP_FLAG_SUBTYPE_TC_DEF | DDS_OP_FLAG_SUBTYPE_TC_TRIM: fall-through
     }
   }
   return TC_REJECT;
@@ -2845,25 +2842,13 @@ static const uint32_t *initialize_and_skip_sequence (dds_sequence_t *seq, uint32
   return skip_sequence_insns (insn, ops);
 }
 
-static uint32_t get_sequence_bound (uint32_t bound_with_trim)
-{
-#if 0
-  if ((int32_t)bound_with_trim >= 0)
-    return bound_with_trim;
-  else
-    return (uint32_t) (-(int32_t)bound_with_trim);
-#else
-  return bound_with_trim;
-#endif
-}
-
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
 static const uint32_t *dds_stream_read_seq (dds_istream_t *is, char * restrict addr, const struct dds_cdrstream_allocator *allocator, const uint32_t *ops, uint32_t insn, enum cdr_data_kind cdr_kind, enum sample_data_state sample_state)
 {
   dds_sequence_t * const seq = (dds_sequence_t *) addr;
   const enum dds_stream_typecode subtype = DDS_OP_SUBTYPE (insn);
   const uint32_t bound_op = seq_is_bounded (DDS_OP_TYPE (insn)) ? 1 : 0;
-  const uint32_t bound = bound_op ? get_sequence_bound (ops[2]) : UINT32_MAX;
+  const uint32_t bound = bound_op ? ops[2] : UINT32_MAX;
   if (is_dheader_needed (subtype, is->m_xcdr_version))
   {
     /* skip DHEADER */
@@ -2874,11 +2859,6 @@ static const uint32_t *dds_stream_read_seq (dds_istream_t *is, char * restrict a
   if (num_cdr == 0)
     return initialize_and_skip_sequence (seq, insn, ops, sample_state);
 
-#if 0
-  // if oversize, try-construct for the sequence must be TRIM
-  assert (num_cdr <= bound || (int32_t) ops[2] < 0);
-  const uint32_t num = (num_cdr > bound) ? bound : num_cdr;
-#else
   uint32_t num = num_cdr;
   if (num_cdr > bound)
   {
@@ -2896,7 +2876,6 @@ static const uint32_t *dds_stream_read_seq (dds_istream_t *is, char * restrict a
         break;
     }
   }
-#endif
 
   switch (subtype)
   {
@@ -4369,11 +4348,7 @@ static enum dds_stream_normalize_result normalize_seq (char * restrict data, uin
   enum dds_stream_normalize_result res;
   const enum dds_stream_typecode subtype = DDS_OP_SUBTYPE (insn);
   uint32_t bound_op = seq_is_bounded (DDS_OP_TYPE (insn)) ? 1 : 0;
-#if 0
-  uint32_t bound = (bound_op && ((int32_t) (*ops)[2]) > 0) ? (*ops)[2] : UINT32_MAX;
-#else
   uint32_t bound = bound_op ? (*ops)[2] : UINT32_MAX;
-#endif
   bool has_dheader;
   uint32_t size1;
   if (!read_and_normalize_collection_dheader (&has_dheader, &size1, data, off, size, bswap, subtype, xcdr_version))
