@@ -406,11 +406,11 @@ err_type:
   return IDL_RETCODE_NO_MEMORY;
 }
 
-/* used to stash case labels. no need to take into account strings etc */
 static idl_retcode_t
-stash_constant(
+stash_case_label32(
   const idl_pstate_t *pstate, struct instructions *instructions, uint32_t index, const idl_const_expr_t *const_expr)
 {
+  // discrimiant value and case labels are always read as unsigned integer by the deserializer
   int cnt = 0;
   struct instruction inst = { CONSTANT, { .constant = { NULL } } };
   char **strp = &inst.data.constant.value;
@@ -421,6 +421,25 @@ stash_constant(
     const idl_literal_t *literal = const_expr;
 
     switch (idl_type(const_expr)) {
+      case IDL_BITMASK:
+        if (idl_is_bit_value(const_expr)) {
+          const idl_bit_value_t *bv = (idl_bit_value_t*)const_expr;
+          if (bv->position.value < 32)
+            cnt = idl_asprintf(strp, "%" PRIu64, (uint64_t)1 << bv->position.value);
+          else {
+            idl_error (pstate, const_expr, "64-bit union case labels are not yet supported in this backend");
+            return IDL_RETCODE_OUT_OF_RANGE;
+          }
+        } else {
+          assert (idl_is_literal(const_expr));
+          if (literal->value.uint64 <= UINT32_MAX)
+            cnt = idl_asprintf(strp, "%" PRIu64, literal->value.uint64);
+          else {
+            idl_error (pstate, const_expr, "64-bit union case labels are not yet supported in this backend");
+            return IDL_RETCODE_OUT_OF_RANGE;
+          }
+        }
+        break;
       case IDL_CHAR:
         if (isprint ((unsigned char) literal->value.chr))
           cnt = idl_asprintf(strp, "'%c'", literal->value.chr);
@@ -431,7 +450,7 @@ stash_constant(
         cnt = idl_asprintf(strp, "%s", literal->value.bln ? "true" : "false");
         break;
       case IDL_INT8:
-        cnt = idl_asprintf(strp, "%" PRId8, literal->value.int8);
+        cnt = idl_asprintf(strp, "%" PRIu8, (uint8_t) literal->value.int8);
         break;
       case IDL_OCTET:
       case IDL_UINT8:
@@ -439,7 +458,7 @@ stash_constant(
         break;
       case IDL_SHORT:
       case IDL_INT16:
-        cnt = idl_asprintf(strp, "%" PRId16, literal->value.int16);
+        cnt = idl_asprintf(strp, "%" PRIu16, (uint16_t) literal->value.int16);
         break;
       case IDL_USHORT:
       case IDL_UINT16:
@@ -447,19 +466,31 @@ stash_constant(
         break;
       case IDL_LONG:
       case IDL_INT32:
-        cnt = idl_asprintf(strp, "%" PRId32, literal->value.int32);
+        cnt = idl_asprintf(strp, "%" PRIu32, (uint32_t) literal->value.int32);
         break;
       case IDL_ULONG:
       case IDL_UINT32:
         cnt = idl_asprintf(strp, "%" PRIu32, literal->value.uint32);
         break;
       case IDL_LLONG:
-      case IDL_INT64:
-        cnt = idl_asprintf(strp, "%" PRId64, literal->value.int64);
+      case IDL_INT64: {
+        uint64_t u64 = (uint64_t) literal->value.int64;
+        if (u64 <= UINT32_MAX)
+          cnt = idl_asprintf(strp, "%" PRIu64, u64);
+        else {
+          idl_error (pstate, const_expr, "64-bit union case labels are not yet supported in this backend");
+          return IDL_RETCODE_OUT_OF_RANGE;
+        }
         break;
+      }
       case IDL_ULLONG:
       case IDL_UINT64:
-        cnt = idl_asprintf(strp, "%" PRIu64, literal->value.uint64);
+        if (literal->value.uint64 <= UINT32_MAX)
+          cnt = idl_asprintf(strp, "%" PRIu64, literal->value.uint64);
+        else {
+          idl_error (pstate, const_expr, "64-bit union case labels are not yet supported in this backend");
+          return IDL_RETCODE_OUT_OF_RANGE;
+        }
         break;
       default:
         break;
@@ -890,14 +921,18 @@ emit_case(
 
     const idl_union_t *union_spec = idl_parent(node);
     assert(idl_is_union(union_spec));
-    bool union_discr_enum = idl_is_enum(idl_type_spec(union_spec->switch_type_spec));
+    uint32_t union_discr_extra = 0;
+    if (idl_is_enum(idl_type_spec(union_spec->switch_type_spec)))
+      union_discr_extra = 1;
+    else if (idl_is_bitmask(idl_type_spec(union_spec->switch_type_spec)))
+      union_discr_extra = 2;
 
     /* Note: this function currently only outputs JEQ4 ops and does not use JEQ where
        that would be possible (in case it is not type ENU, or an @external member). This
        could be optimized to save some instructions in the descriptor. */
     cnt = ctype->instructions.count + (stype->labels - stype->label) * 4;
     for (label = _case->labels; label; label = idl_next(label)) {
-      off = stype->offset + 2 + (union_discr_enum ? 1 : 0) + (stype->label * 4);
+      off = stype->offset + 2 + union_discr_extra + (stype->label * 4);
 
       bool has_size = false;
       if (case_type == INLINE || case_type == IN_UNION) {
@@ -922,7 +957,7 @@ emit_case(
         off++;
       }
       /* generate union case discriminator, use 0 for default case */
-      if ((ret = stash_constant(pstate, &ctype->instructions, off++, idl_is_default_case_label(label) || idl_is_implicit_default_case_label(label) ? 0 : label->const_expr)))
+      if ((ret = stash_case_label32(pstate, &ctype->instructions, off++, idl_is_default_case_label(label) || idl_is_implicit_default_case_label(label) ? 0 : label->const_expr)))
         return ret;
       /* generate union case member (address) offset; use offset 0 for empty types,
          as these members are not generated and no offset can be calculated */
@@ -1005,6 +1040,9 @@ emit_switch_type_spec(
   if (idl_is_enum(type_spec)) {
     if ((ret = stash_single(pstate, &ctype->instructions, nop, idl_enum_max_value(type_spec))))
       return ret;
+  } else if (idl_is_bitmask(type_spec)) {
+    if ((ret = stash_bitmask_bits(pstate, &ctype->instructions, nop, (const idl_bitmask_t *)(type_spec))))
+      return ret;
   }
   pop_field(descriptor);
   return IDL_RETCODE_OK;
@@ -1032,8 +1070,12 @@ emit_union(
     cnt = (ctype->instructions.count - stype->offset) + 2;
     if ((ret = stash_single(pstate, &ctype->instructions, stype->offset + 2, stype->label)))  // not stype->labels, as labels with empty declarator type will be left out
       return ret;
-    bool union_discr_enum = idl_is_enum(idl_type_spec(union_spec->switch_type_spec));
-    if ((ret = stash_couple(pstate, &ctype->instructions, stype->offset + 3, (uint16_t)cnt, 4u + (union_discr_enum ? 1 : 0))))
+    uint32_t enum_bitmask_extra = 0;
+    if (idl_is_enum(idl_type_spec(union_spec->switch_type_spec)))
+      enum_bitmask_extra = 1;
+    else if (idl_is_bitmask(idl_type_spec(union_spec->switch_type_spec)))
+      enum_bitmask_extra = 2;
+    if ((ret = stash_couple(pstate, &ctype->instructions, stype->offset + 3, (uint16_t)cnt, (uint16_t)(4u + enum_bitmask_extra))))
       return ret;
     if ((ret = stash_opcode(pstate, &ctype->instructions, nop, DDS_OP_RTS, 0u)))
       return ret;
