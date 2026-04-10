@@ -616,9 +616,9 @@ static inline bool is_primitive_type (enum dds_stream_typecode type)
   return type <= DDS_SOP_VAL_8BY || type == DDS_SOP_VAL_BLN || type == DDS_SOP_VAL_WCHAR || type == DDS_SOP_VAL_16BY;
 }
 
-static inline bool is_primitive_or_enum_type (enum dds_stream_typecode type)
+static inline bool is_primitive_or_enum_or_bitmask_type (enum dds_stream_typecode type)
 {
-  return is_primitive_type (type) || type == DDS_SOP_VAL_ENU;
+  return is_primitive_type (type) || type == DDS_SOP_VAL_ENU || type == DDS_SOP_VAL_BMK;
 }
 
 static inline bool is_dheader_needed (enum dds_stream_typecode type, uint32_t xcdrv)
@@ -1349,7 +1349,7 @@ static bool key_optimized_allowed (uint32_t insn)
 {
   return (DDS_OP (insn) == DDS_OP_ADR && (insn & DDS_OP_FLAG_KEY) &&
   (!type_has_subtype_or_members (DDS_OP_TYPE (insn)) // don't allow seq, uni, arr (unless exception below), struct (unless exception below)
-    || (DDS_OP_TYPE (insn) == DDS_SOP_VAL_ARR && (is_primitive_or_enum_type (DDS_OP_SUBTYPE (insn)) || DDS_OP_SUBTYPE (insn) == DDS_SOP_VAL_BMK)) // allow prim-array, enum-array and bitmask-array as key
+    || (DDS_OP_TYPE (insn) == DDS_SOP_VAL_ARR && (is_primitive_or_enum_or_bitmask_type (DDS_OP_SUBTYPE (insn)))) // allow prim-array, enum-array and bitmask-array as key
     || DDS_OP_TYPE (insn) == DDS_SOP_VAL_EXT // allow fields in nested structs as key
   ));
 }
@@ -1399,15 +1399,23 @@ ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
 static uint32_t read_union_discriminant (dds_istream_t *is, uint32_t insn)
 {
   enum dds_stream_typecode type = DDS_OP_SUBTYPE (insn);
-  assert (is_primitive_or_enum_type (type));
+  assert (is_primitive_or_enum_or_bitmask_type (type));
   switch (type)
   {
-    case DDS_SOP_VAL_BLN: case DDS_SOP_VAL_1BY: return dds_is_get1 (is);
-    case DDS_SOP_VAL_2BY: return dds_is_get2 (is);
-    case DDS_SOP_VAL_4BY: return dds_is_get4 (is);
-    case DDS_SOP_VAL_8BY: return (uint32_t) dds_is_get8 (is); // FIXME: should fully support 64-bit discrimant
-    case DDS_SOP_VAL_ENU: return read_varsized_as_uint32 (is, insn); // FIXME: 64-bit bitmask
-    default: return 0;
+    case DDS_SOP_VAL_BLN:
+    case DDS_SOP_VAL_1BY:
+      return dds_is_get1 (is);
+    case DDS_SOP_VAL_2BY:
+      return dds_is_get2 (is);
+    case DDS_SOP_VAL_4BY:
+      return dds_is_get4 (is);
+    case DDS_SOP_VAL_8BY:
+      return (uint32_t) dds_is_get8 (is); // FIXME: should fully support 64-bit discrimant
+    case DDS_SOP_VAL_ENU:
+    case DDS_SOP_VAL_BMK:
+      return read_varsized_as_uint32 (is, insn); // FIXME: should fully support 64-bit discrimant
+    default:
+      return 0;
   }
   abort ();
   return 0;
@@ -1570,10 +1578,31 @@ static inline uint32_t const * stream_union_switch_case (uint32_t insn, uint32_t
 
   switch (DDS_OP_SUBTYPE (insn))
   {
-    case DDS_SOP_VAL_BLN: case DDS_SOP_VAL_1BY: *((uint8_t *) discaddr) = (uint8_t) disc; break;
-    case DDS_SOP_VAL_2BY: *((uint16_t *) discaddr) = (uint16_t) disc; break;
-    case DDS_SOP_VAL_4BY: case DDS_SOP_VAL_ENU: *((uint32_t *) discaddr) = disc; break;
-    default: break;
+    case DDS_SOP_VAL_BLN:
+    case DDS_SOP_VAL_1BY:
+      *((uint8_t *) discaddr) = (uint8_t) disc;
+      break;
+    case DDS_SOP_VAL_2BY:
+      *((uint16_t *) discaddr) = (uint16_t) disc;
+      break;
+    case DDS_SOP_VAL_4BY:
+    case DDS_SOP_VAL_ENU:
+      *((uint32_t *) discaddr) = disc;
+      break;
+    case DDS_SOP_VAL_8BY:
+      *((uint64_t *) discaddr) = disc;
+      break;
+    case DDS_SOP_VAL_BMK:
+      switch (DDS_OP_TYPE_SZ (insn))
+      {
+        case 1: *((uint8_t *) discaddr) = (uint8_t) disc; break;
+        case 2: *((uint16_t *) discaddr) = (uint16_t) disc; break;
+        case 4: *((uint32_t *) discaddr) = disc; break;
+        default: /* case 8: */ *((uint64_t *) discaddr) = disc; break;
+      }
+      break;
+    default:
+      break;
   }
 
   return find_union_case (ops, disc);
@@ -2194,7 +2223,7 @@ static bool dds_stream_getsize_union_discriminant (struct getsize_state *st, uin
 {
   assert (disc);
   enum dds_stream_typecode type = DDS_OP_SUBTYPE (insn);
-  assert (type == DDS_SOP_VAL_BLN || type == DDS_SOP_VAL_1BY || type == DDS_SOP_VAL_2BY || type == DDS_SOP_VAL_4BY || type == DDS_SOP_VAL_ENU);
+  assert (is_primitive_or_enum_or_bitmask_type (type));
   switch (type)
   {
     case DDS_SOP_VAL_BLN:
@@ -2213,8 +2242,22 @@ static bool dds_stream_getsize_union_discriminant (struct getsize_state *st, uin
       *disc = *((const uint32_t *) addr);
       getsize_reserve (st, 4);
       break;
+    case DDS_SOP_VAL_8BY:
+      *disc = *((const uint64_t *) addr);
+      getsize_reserve (st, 8);
+      break;
     case DDS_SOP_VAL_ENU:
       *disc = *((const uint32_t *) addr);
+      getsize_reserve (st, DDS_OP_TYPE_SZ (insn));
+      break;
+    case DDS_SOP_VAL_BMK:
+      switch (DDS_OP_TYPE_SZ (insn))
+      {
+        case 1: *disc = *((const uint8_t *) addr); break;
+        case 2: *disc = *((const uint16_t *) addr); break;
+        case 4: *disc = *((const uint32_t *) addr); break;
+        default: /* case 8: */ *disc = *((const uint64_t *) addr); break;
+      }
       getsize_reserve (st, DDS_OP_TYPE_SZ (insn));
       break;
     default:
@@ -3328,8 +3371,7 @@ static const uint32_t *dds_stream_skip_adr_insns_default (uint32_t insn, char * 
         case 1: *(uint8_t *) addr = 0; break;
         case 2: *(uint16_t *) addr = 0; break;
         case 4: *(uint32_t *) addr = 0; break;
-        case 8: *(uint64_t *) addr = 0; break;
-        default: assert (0);
+        default: /* case 8: */ *(uint64_t *) addr = 0; break;
       }
       return ops + 4;
     }
@@ -5438,9 +5480,25 @@ static const uint32_t *dds_stream_free_sample_uni (char * restrict discaddr, cha
   uint32_t disc = 0;
   switch (DDS_OP_SUBTYPE (insn))
   {
-    case DDS_SOP_VAL_BLN: case DDS_SOP_VAL_1BY: disc = *((uint8_t *) discaddr); break;
-    case DDS_SOP_VAL_2BY: disc = *((uint16_t *) discaddr); break;
-    case DDS_SOP_VAL_4BY: case DDS_SOP_VAL_ENU: disc = *((uint32_t *) discaddr); break;
+    case DDS_SOP_VAL_BLN: case DDS_SOP_VAL_1BY:
+      disc = *((uint8_t *) discaddr);
+      break;
+    case DDS_SOP_VAL_2BY:
+      disc = *((uint16_t *) discaddr);
+      break;
+    case DDS_SOP_VAL_4BY:
+    case DDS_SOP_VAL_ENU:
+      disc = *((uint32_t *) discaddr);
+      break;
+    case DDS_SOP_VAL_BMK:
+      switch (DDS_OP_TYPE_SZ (insn))
+      {
+        case 1u: disc = *((uint8_t *) discaddr); break;
+        case 2u: disc = *((uint16_t *) discaddr); break;
+        case 4u: disc = *((uint32_t *) discaddr); break;
+        default: /* case 8u: */ disc = (uint32_t) *((uint64_t *) discaddr); break; // FIXME: 64-bit bitmask
+      }
+      break;
     default: abort(); break;
   }
   uint32_t const * const jeq_op = find_union_case (ops, disc);
@@ -7161,7 +7219,7 @@ static const uint32_t *dds_stream_key_size_adr (const uint32_t *ops, uint32_t in
       break;
     case DDS_SOP_VAL_ARR: {
       const enum dds_stream_typecode subtype = DDS_OP_SUBTYPE (insn);
-      if (!(is_primitive_or_enum_type (subtype) || subtype == DDS_SOP_VAL_BMK))
+      if (!(is_primitive_or_enum_or_bitmask_type (subtype)))
         k->is_array_nonprim = true;
       ops = dds_stream_key_size_arr_bseq (ops, insn, k);
       break;

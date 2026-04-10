@@ -485,7 +485,7 @@ static bool dds_stream_write_union_discriminantBO (RESTRICT_OSTREAM_T *os, const
 {
   assert (disc);
   enum dds_stream_typecode type = DDS_OP_SUBTYPE (insn);
-  assert (type == DDS_SOP_VAL_BLN || type == DDS_SOP_VAL_1BY || type == DDS_SOP_VAL_2BY || type == DDS_SOP_VAL_4BY || type == DDS_SOP_VAL_ENU);
+  assert (is_primitive_or_enum_or_bitmask_type (type));
   switch (type)
   {
     case DDS_SOP_VAL_BLN:
@@ -505,9 +505,24 @@ static bool dds_stream_write_union_discriminantBO (RESTRICT_OSTREAM_T *os, const
       *disc = *((const uint32_t *) addr);
       dds_os_put4BO (os, allocator, *disc);
       break;
+    case DDS_SOP_VAL_8BY:
+      *disc = *((const uint64_t *) addr);
+      dds_os_put8BO (os, allocator, *disc);
+      break;
     case DDS_SOP_VAL_ENU:
       *disc = *((const uint32_t *) addr);
       if (!dds_stream_write_enum_valueBO (os, allocator, insn, *disc, ops[4]))
+        return false;
+      break;
+    case DDS_SOP_VAL_BMK:
+      switch (DDS_OP_TYPE_SZ (insn))
+      {
+        case 1: *disc = *((const uint8_t *) addr); break;
+        case 2: *disc = *((const uint16_t *) addr); break;
+        case 4: *disc = *((const uint32_t *) addr); break;
+        default: /* case 8: */ *disc = *((const uint64_t *) addr); break;
+      }
+      if (!dds_stream_write_bitmask_valueBO (os, allocator, insn, disc, 0, ops[4]))
         return false;
       break;
     default:
