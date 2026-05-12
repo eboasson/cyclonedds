@@ -646,6 +646,12 @@ static int xt_member_id_cmp (const void *va, const void *vb)
   return (*m1 == *m2) ? 0 : (*m1 < *m2) ? -1 : 1;
 }
 
+static int xt_union_label_cmp (const void *va, const void *vb)
+{
+  const int32_t *l1 = va, *l2 = vb;
+  return (*l1 == *l2) ? 0 : (*l1 < *l2) ? -1 : 1;
+}
+
 static dds_return_t xt_valid_struct_member_ids (struct ddsi_domaingv *gv, const struct xt_type *t)
 {
   assert (ddsi_xt_is_resolved (t) && t->_d == DDS_XTypes_TK_STRUCTURE);
@@ -729,6 +735,50 @@ static dds_return_t xt_valid_union_member_ids (struct ddsi_domaingv *gv, const s
 failed_duplicate:
   ddsrt_free (ids);
 failed:
+  return ret;
+}
+
+static dds_return_t xt_valid_union_case_labels (struct ddsi_domaingv *gv, const struct xt_type *t)
+{
+  assert (ddsi_xt_is_resolved (t) && t->_d == DDS_XTypes_TK_UNION);
+  dds_return_t ret = DDS_RETCODE_OK;
+
+  uint32_t cnt = 0;
+  for (uint32_t n = 0; n < t->_u.union_type.members.length; n++)
+    cnt += t->_u.union_type.members.seq[n].label_seq._length;
+  if (cnt == 0)
+    goto empty;
+
+  int32_t *labels = ddsrt_malloc (cnt * sizeof (*labels));
+  if (labels == NULL)
+  {
+    GVTRACE ("out-of-memory while checking union case labels\n");
+    ret = DDS_RETCODE_OUT_OF_RESOURCES;
+    goto failed;
+  }
+
+  uint32_t cnt1 = 0;
+  for (uint32_t n = 0; n < t->_u.union_type.members.length; n++)
+  {
+    const DDS_XTypes_UnionCaseLabelSeq *labels1 = &t->_u.union_type.members.seq[n].label_seq;
+    for (uint32_t m = 0; m < labels1->_length; m++)
+      labels[cnt1++] = labels1->_buffer[m];
+  }
+  qsort (labels, cnt, sizeof (*labels), xt_union_label_cmp);
+  for (uint32_t n = 1; n < cnt; n++)
+  {
+    if (labels[n] == labels[n - 1])
+    {
+      GVTRACE ("duplicate union case label %"PRId32"\n", labels[n]);
+      ret = DDS_RETCODE_BAD_PARAMETER;
+      goto failed_duplicate;
+    }
+  }
+
+failed_duplicate:
+  ddsrt_free (labels);
+failed:
+empty:
   return ret;
 }
 
@@ -1083,6 +1133,7 @@ static dds_return_t xt_validate_impl (struct ddsi_domaingv *gv, const struct xt_
     case DDS_XTypes_TK_UNION: {
       if (((ret = xt_valid_union_disc_type (gv, t)))
           || (ret = xt_valid_union_member_ids (gv, t))
+          || (ret = xt_valid_union_case_labels (gv, t))
           || (ret = xt_valid_type_flags (gv, t->_u.union_type.flags, t->_d))
           || (ret = xt_valid_member_flags (gv, t->_u.union_type.disc_flags, MEMBER_FLAG_UNION_DISC, in_key)))
         return ret;

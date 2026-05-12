@@ -479,6 +479,14 @@ CU_Test (ddsc_typewrap, invalid_union_typeobject, .init = typewrap_init, .fini =
   check_union_typeobject ("DuplicateRunUnionMember", duplicate_run,
       sizeof (duplicate_run) / sizeof (duplicate_run[0]), DDS_RETCODE_BAD_PARAMETER);
 
+  const struct union_member overlapping_labels[] = {
+    { "overlapping_label_a", 1, 1 },
+    { "overlapping_label_b", 2, 1 },
+    { "overlapping_label_c", 3, 3 }
+  };
+  check_union_typeobject ("OverlappingUnionLabels", overlapping_labels,
+      sizeof (overlapping_labels) / sizeof (overlapping_labels[0]), DDS_RETCODE_BAD_PARAMETER);
+
   const struct union_member valid_member_ids[] = {
     { "valid_first", 1, 1 },
     { "valid_middle", 12, 2 },
