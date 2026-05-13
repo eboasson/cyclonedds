@@ -19,6 +19,7 @@ Examples
    helloworld/readme
    roundtrip/readme
    throughput/readme
+   ddsbridge/readme
 
 Configuration
 *************

@@ -43,6 +43,14 @@ install(
   DESTINATION "${CMAKE_INSTALL_EXAMPLESDIR}/throughput"
   COMPONENT dev)
 
+install(
+  FILES
+    ddsbridge/ddsbridge.c
+    ddsbridge/CMakeLists.txt
+    ddsbridge/readme.rst
+  DESTINATION "${CMAKE_INSTALL_EXAMPLESDIR}/ddsbridge"
+  COMPONENT dev)
+
 if (ENABLE_TYPELIB)
   install(
     FILES
@@ -89,6 +97,7 @@ endif ()
 add_subdirectory(helloworld)
 add_subdirectory(roundtrip)
 add_subdirectory(throughput)
+add_subdirectory(ddsbridge)
 if (ENABLE_TOPIC_DISCOVERY)
   add_subdirectory(listtopics)
   add_subdirectory(dynsub)
