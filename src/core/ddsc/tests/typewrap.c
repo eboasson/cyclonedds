@@ -192,6 +192,7 @@ static void check_struct_typeobject (
 
 static void check_union_typeobject (
     const char *name,
+    uint8_t discriminator_type,
     const struct union_member *members,
     uint32_t n_members,
     dds_return_t expected_ret)
@@ -221,7 +222,7 @@ static void check_union_typeobject (
         .discriminator = {
           .common = {
             .member_flags = DDS_XTypes_TRY_CONSTRUCT1,
-            .type_id = { ._d = DDS_XTypes_TK_INT32 }
+            .type_id = { ._d = discriminator_type }
           }
         },
         .member_seq = {
@@ -457,7 +458,7 @@ CU_Test (ddsc_typewrap, invalid_union_typeobject, .init = typewrap_init, .fini =
     { "duplicate_adjacent_b", 1, 2 },
     { "duplicate_adjacent_c", 2, 3 }
   };
-  check_union_typeobject ("DuplicateAdjacentUnionMember", duplicate_adjacent,
+  check_union_typeobject ("DuplicateAdjacentUnionMember", DDS_XTypes_TK_INT32, duplicate_adjacent,
       sizeof (duplicate_adjacent) / sizeof (duplicate_adjacent[0]), DDS_RETCODE_BAD_PARAMETER);
 
   const struct union_member duplicate_unsorted[] = {
@@ -466,7 +467,7 @@ CU_Test (ddsc_typewrap, invalid_union_typeobject, .init = typewrap_init, .fini =
     { "duplicate_unsorted_c", 5, 3 },
     { "duplicate_unsorted_d", 2, 4 }
   };
-  check_union_typeobject ("DuplicateUnsortedUnionMember", duplicate_unsorted,
+  check_union_typeobject ("DuplicateUnsortedUnionMember", DDS_XTypes_TK_INT32, duplicate_unsorted,
       sizeof (duplicate_unsorted) / sizeof (duplicate_unsorted[0]), DDS_RETCODE_BAD_PARAMETER);
 
   const struct union_member duplicate_run[] = {
@@ -476,7 +477,7 @@ CU_Test (ddsc_typewrap, invalid_union_typeobject, .init = typewrap_init, .fini =
     { "duplicate_run_d", 5, 4 },
     { "duplicate_run_e", 2, 5 }
   };
-  check_union_typeobject ("DuplicateRunUnionMember", duplicate_run,
+  check_union_typeobject ("DuplicateRunUnionMember", DDS_XTypes_TK_INT32, duplicate_run,
       sizeof (duplicate_run) / sizeof (duplicate_run[0]), DDS_RETCODE_BAD_PARAMETER);
 
   const struct union_member overlapping_labels[] = {
@@ -484,14 +485,22 @@ CU_Test (ddsc_typewrap, invalid_union_typeobject, .init = typewrap_init, .fini =
     { "overlapping_label_b", 2, 1 },
     { "overlapping_label_c", 3, 3 }
   };
-  check_union_typeobject ("OverlappingUnionLabels", overlapping_labels,
+  check_union_typeobject ("OverlappingUnionLabels", DDS_XTypes_TK_INT32, overlapping_labels,
       sizeof (overlapping_labels) / sizeof (overlapping_labels[0]), DDS_RETCODE_BAD_PARAMETER);
+
+  const struct union_member label_outside_discriminator_range[] = {
+    { "label_range_a", 1, INT8_MIN },
+    { "label_range_b", 2, INT8_MAX },
+    { "label_range_c", 3, (int32_t) INT8_MAX + 1 }
+  };
+  check_union_typeobject ("LabelOutsideDiscriminatorRange", DDS_XTypes_TK_INT8, label_outside_discriminator_range,
+      sizeof (label_outside_discriminator_range) / sizeof (label_outside_discriminator_range[0]), DDS_RETCODE_BAD_PARAMETER);
 
   const struct union_member valid_member_ids[] = {
     { "valid_first", 1, 1 },
     { "valid_middle", 12, 2 },
     { "valid_last", 27, 3 }
   };
-  check_union_typeobject ("ValidUnionMemberIds", valid_member_ids,
+  check_union_typeobject ("ValidUnionMemberIds", DDS_XTypes_TK_INT32, valid_member_ids,
       sizeof (valid_member_ids) / sizeof (valid_member_ids[0]), DDS_RETCODE_OK);
 }
