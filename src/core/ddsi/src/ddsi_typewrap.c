@@ -660,7 +660,11 @@ struct xt_union_label_range {
 static dds_return_t xt_union_label_range (const struct xt_type *disc_type, struct xt_union_label_range *range)
 {
   if (ddsi_xt_is_unresolved (disc_type))
+  {
+    range->min = INT64_MIN;
+    range->max = UINT64_MAX;
     return DDS_RETCODE_OK;
+  }
 
   const struct xt_type *dt = ddsi_xt_unalias (disc_type);
   switch (dt->_d)
@@ -696,13 +700,14 @@ static dds_return_t xt_union_label_range (const struct xt_type *disc_type, struc
       range->min = 0; range->max = UINT64_MAX;
       break;
     case DDS_XTypes_TK_ENUM: {
+      // Enum values are signed 32-bit integers in type objects, so the maximum value is INT32_MAX
       const DDS_XTypes_BitBound bit_bound = dt->_u.enum_type.bit_bound;
-      range->min = 0; range->max = (bit_bound >= 32) ? UINT32_MAX : ((UINT32_C (1) << bit_bound) - 1);
+      range->min = 0; range->max = (bit_bound >= 31) ? INT32_MAX : ((1u << bit_bound) - 1);
       break;
     }
     case DDS_XTypes_TK_BITMASK: {
       const DDS_XTypes_BitBound bit_bound = dt->_u.bitmask.bit_bound;
-      range->min = 0; range->max = (bit_bound >= 64) ? UINT64_MAX : ((UINT64_C (1) << bit_bound) - 1);
+      range->min = INT64_MIN; range->max = (bit_bound >= 64) ? UINT64_MAX : (((uint64_t)1 << bit_bound) - 1);
       break;
     }
     default:
@@ -715,11 +720,18 @@ static bool xt_union_label_in_enum (const struct xt_type *disc_type, int32_t lab
 {
   assert (ddsi_xt_is_resolved (disc_type) && disc_type->_d == DDS_XTypes_TK_ENUM);
   for (uint32_t n = 0; n < disc_type->_u.enum_type.literals.length; n++)
-  {
     if (label == disc_type->_u.enum_type.literals.seq[n].value)
       return true;
-  }
   return false;
+}
+
+static uint64_t xt_union_label_bitmask_allowed_mask (const struct xt_type *disc_type)
+{
+  assert (ddsi_xt_is_resolved (disc_type) && disc_type->_d == DDS_XTypes_TK_BITMASK);
+  uint64_t mask = 0;
+  for (uint32_t n = 0; n < disc_type->_u.bitmask.bitflags.length; n++)
+    mask |= (uint64_t)1 << disc_type->_u.bitmask.bitflags.seq[n].position;
+  return mask;
 }
 
 static dds_return_t xt_valid_struct_member_ids (struct ddsi_domaingv *gv, const struct xt_type *t)
@@ -829,9 +841,12 @@ static dds_return_t xt_valid_union_case_labels (struct ddsi_domaingv *gv, const 
 
   const struct xt_type *disc_type = &t->_u.union_type.disc_type->xt;
   const struct xt_type *disc_type_resolved = ddsi_xt_is_unresolved (disc_type) ? NULL : ddsi_xt_unalias (disc_type);
-  struct xt_union_label_range range = { .min = INT32_MIN, .max = INT32_MAX };
+  struct xt_union_label_range range = { 0, 0 };
   if ((ret = xt_union_label_range (disc_type, &range)) != DDS_RETCODE_OK)
     goto failed_labels;
+  uint64_t bitmask_allowed_mask = 0;
+  if (disc_type_resolved && disc_type_resolved->_d == DDS_XTypes_TK_BITMASK)
+    bitmask_allowed_mask = xt_union_label_bitmask_allowed_mask (disc_type_resolved);
 
   uint32_t cnt1 = 0;
   for (uint32_t n = 0; n < t->_u.union_type.members.length; n++)
@@ -849,6 +864,12 @@ static dds_return_t xt_valid_union_case_labels (struct ddsi_domaingv *gv, const 
       if (disc_type_resolved && disc_type_resolved->_d == DDS_XTypes_TK_ENUM && !xt_union_label_in_enum (disc_type_resolved, label))
       {
         GVTRACE ("union case label %"PRId32" not present in enum discriminator\n", label);
+        ret = DDS_RETCODE_BAD_PARAMETER;
+        goto failed_labels;
+      }
+      if (disc_type_resolved && disc_type_resolved->_d == DDS_XTypes_TK_BITMASK && (((uint64_t) (uint32_t) label) & ~bitmask_allowed_mask) != 0)
+      {
+        GVTRACE ("union case label %"PRId32" sets bits not present in bitmask discriminator\n", label);
         ret = DDS_RETCODE_BAD_PARAMETER;
         goto failed_labels;
       }
