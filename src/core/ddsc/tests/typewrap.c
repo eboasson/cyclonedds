@@ -240,6 +240,56 @@ static void check_union_typeobject (
   check_typeobject (&typeobj, expected_ret);
 }
 
+static void check_union_discriminator_typeobject (
+    const char *name,
+    const struct DDS_XTypes_TypeIdentifier *discriminator_type,
+    const struct union_member *members,
+    uint32_t n_members,
+    dds_return_t expected_ret)
+{
+  int32_t label_buf[5] = {0};
+  struct DDS_XTypes_CompleteUnionMember member_buf[5] = {0};
+  CU_ASSERT_LEQ_FATAL (n_members, sizeof (member_buf) / sizeof (member_buf[0]));
+  for (uint32_t n = 0; n < n_members; n++)
+  {
+    label_buf[n] = members[n].label;
+    member_buf[n].common.member_id = members[n].id;
+    member_buf[n].common.member_flags = DDS_XTypes_TRY_CONSTRUCT1;
+    member_buf[n].common.type_id._d = DDS_XTypes_TK_INT32;
+    member_buf[n].common.label_seq._maximum = 1;
+    member_buf[n].common.label_seq._length = 1;
+    member_buf[n].common.label_seq._buffer = &label_buf[n];
+    member_buf[n].common.label_seq._release = false;
+    ddsrt_strlcpy (member_buf[n].detail.name, members[n].name, sizeof (member_buf[n].detail.name));
+  }
+
+  struct DDS_XTypes_TypeObject typeobj = {
+    ._d = DDS_XTypes_EK_COMPLETE,
+    ._u.complete = {
+      ._d = DDS_XTypes_TK_UNION,
+      ._u.union_type = {
+        .union_flags = DDS_XTypes_IS_FINAL,
+        .discriminator = {
+          .common = {
+            .member_flags = DDS_XTypes_TRY_CONSTRUCT1,
+            .type_id = *discriminator_type
+          }
+        },
+        .member_seq = {
+          ._maximum = n_members,
+          ._length = n_members,
+          ._buffer = member_buf,
+          ._release = false
+        }
+      }
+    }
+  };
+  ddsrt_strlcpy (typeobj._u.complete._u.union_type.header.detail.type_name, name,
+      sizeof (typeobj._u.complete._u.union_type.header.detail.type_name));
+
+  check_typeobject (&typeobj, expected_ret);
+}
+
 static void check_union_enum_typeobject (
     const char *name,
     const char *enum_name,
@@ -769,6 +819,30 @@ CU_Test (ddsc_typewrap, invalid_union_typeobject, .init = typewrap_init, .fini =
   check_union_bitmask_typeobject ("HighBitmaskDiscriminatorLabels", "HighBitmaskDiscriminator", 32, high_bitmask,
       sizeof (high_bitmask) / sizeof (high_bitmask[0]), high_bitmask_labels,
       sizeof (high_bitmask_labels) / sizeof (high_bitmask_labels[0]), DDS_RETCODE_OK);
+
+  const struct DDS_XTypes_TypeIdentifier unresolved_enum_discriminator = {
+    ._d = DDS_XTypes_EK_COMPLETE,
+    ._u.equivalence_hash = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }
+  };
+  const struct union_member unresolved_enum_labels[] = {
+    { "unresolved_enum_a", 1, 1 },
+    { "unresolved_enum_b", 2, 2 },
+    { "unresolved_enum_c", 3, 7 }
+  };
+  check_union_discriminator_typeobject ("UnresolvedEnumDiscriminatorLabels", &unresolved_enum_discriminator,
+      unresolved_enum_labels, sizeof (unresolved_enum_labels) / sizeof (unresolved_enum_labels[0]), DDS_RETCODE_OK);
+
+  const struct DDS_XTypes_TypeIdentifier unresolved_bitmask_discriminator = {
+    ._d = DDS_XTypes_EK_COMPLETE,
+    ._u.equivalence_hash = { 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 }
+  };
+  const struct union_member unresolved_bitmask_labels[] = {
+    { "unresolved_bitmask_a", 1, 1 },
+    { "unresolved_bitmask_b", 2, 2 },
+    { "unresolved_bitmask_c", 3, INT32_MIN }
+  };
+  check_union_discriminator_typeobject ("UnresolvedBitmaskDiscriminatorLabels", &unresolved_bitmask_discriminator,
+      unresolved_bitmask_labels, sizeof (unresolved_bitmask_labels) / sizeof (unresolved_bitmask_labels[0]), DDS_RETCODE_OK);
 
   const struct union_member valid_member_ids[] = {
     { "valid_first", 1, 1 },
