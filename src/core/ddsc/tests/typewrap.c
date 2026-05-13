@@ -240,6 +240,114 @@ static void check_union_typeobject (
   check_typeobject (&typeobj, expected_ret);
 }
 
+static void check_union_enum_typeobject (
+    const char *name,
+    const char *enum_name,
+    uint16_t bit_bound,
+    const struct enum_literal *literals,
+    uint32_t n_literals,
+    const struct union_member *members,
+    uint32_t n_members,
+    dds_return_t expected_ret)
+{
+  struct DDS_XTypes_CompleteEnumeratedLiteral literal_buf[5] = {0};
+  CU_ASSERT_LEQ_FATAL (n_literals, sizeof (literal_buf) / sizeof (literal_buf[0]));
+  for (uint32_t n = 0; n < n_literals; n++)
+  {
+    literal_buf[n].common.value = literals[n].value;
+    ddsrt_strlcpy (literal_buf[n].detail.name, literals[n].name, sizeof (literal_buf[n].detail.name));
+  }
+
+  struct DDS_XTypes_TypeObject enum_typeobj = {
+    ._d = DDS_XTypes_EK_COMPLETE,
+    ._u.complete = {
+      ._d = DDS_XTypes_TK_ENUM,
+      ._u.enumerated_type = {
+        .enum_flags = DDS_XTypes_IS_FINAL,
+        .header = { .common = { .bit_bound = bit_bound } },
+        .literal_seq = {
+          ._maximum = n_literals,
+          ._length = n_literals,
+          ._buffer = literal_buf,
+          ._release = false
+        }
+      }
+    }
+  };
+  ddsrt_strlcpy (enum_typeobj._u.complete._u.enumerated_type.header.detail.type_name, enum_name,
+      sizeof (enum_typeobj._u.complete._u.enumerated_type.header.detail.type_name));
+
+  ddsi_typeid_t enum_typeid;
+  dds_return_t ret = ddsi_typeobj_get_hash_id (&enum_typeobj, &enum_typeid);
+  CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
+
+  int32_t label_buf[5] = {0};
+  struct DDS_XTypes_CompleteUnionMember member_buf[5] = {0};
+  CU_ASSERT_LEQ_FATAL (n_members, sizeof (member_buf) / sizeof (member_buf[0]));
+  for (uint32_t n = 0; n < n_members; n++)
+  {
+    label_buf[n] = members[n].label;
+    member_buf[n].common.member_id = members[n].id;
+    member_buf[n].common.member_flags = DDS_XTypes_TRY_CONSTRUCT1;
+    member_buf[n].common.type_id._d = DDS_XTypes_TK_INT32;
+    member_buf[n].common.label_seq._maximum = 1;
+    member_buf[n].common.label_seq._length = 1;
+    member_buf[n].common.label_seq._buffer = &label_buf[n];
+    member_buf[n].common.label_seq._release = false;
+    ddsrt_strlcpy (member_buf[n].detail.name, members[n].name, sizeof (member_buf[n].detail.name));
+  }
+
+  struct DDS_XTypes_TypeObject typeobj = {
+    ._d = DDS_XTypes_EK_COMPLETE,
+    ._u.complete = {
+      ._d = DDS_XTypes_TK_UNION,
+      ._u.union_type = {
+        .union_flags = DDS_XTypes_IS_FINAL,
+        .discriminator = {
+          .common = {
+            .member_flags = DDS_XTypes_TRY_CONSTRUCT1,
+            .type_id = enum_typeid.x
+          }
+        },
+        .member_seq = {
+          ._maximum = n_members,
+          ._length = n_members,
+          ._buffer = member_buf,
+          ._release = false
+        }
+      }
+    }
+  };
+  ddsrt_strlcpy (typeobj._u.complete._u.union_type.header.detail.type_name, name,
+      sizeof (typeobj._u.complete._u.union_type.header.detail.type_name));
+
+  ddsi_typeid_t typeid;
+  ret = ddsi_typeobj_get_hash_id (&typeobj, &typeid);
+  CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
+
+  struct ddsi_domaingv *gv = get_domaingv (participant);
+  struct ddsi_type *enum_type = NULL, *type = NULL;
+  ddsrt_mutex_lock (&gv->typelib_lock);
+  ret = ddsi_type_ref_id_locked (gv, &enum_type, &enum_typeid);
+  CU_ASSERT_EQ (ret, DDS_RETCODE_OK);
+  if (ret == DDS_RETCODE_OK)
+  {
+    ret = ddsi_type_add_typeobj (gv, enum_type, &enum_typeobj);
+    CU_ASSERT_EQ (ret, DDS_RETCODE_OK);
+  }
+
+  ret = ddsi_type_ref_id_locked (gv, &type, &typeid);
+  CU_ASSERT_EQ (ret, DDS_RETCODE_OK);
+  if (ret == DDS_RETCODE_OK)
+  {
+    ret = ddsi_type_add_typeobj (gv, type, &typeobj);
+    CU_ASSERT_EQ (ret, expected_ret);
+  }
+  ddsi_type_unref_locked (gv, type);
+  ddsi_type_unref_locked (gv, enum_type);
+  ddsrt_mutex_unlock (&gv->typelib_lock);
+}
+
 CU_Test (ddsc_typewrap, invalid_enum_typeobject, .init = typewrap_init, .fini = typewrap_fini)
 {
   const struct enum_literal duplicate_adjacent[] = {
@@ -495,6 +603,29 @@ CU_Test (ddsc_typewrap, invalid_union_typeobject, .init = typewrap_init, .fini =
   };
   check_union_typeobject ("LabelOutsideDiscriminatorRange", DDS_XTypes_TK_INT8, label_outside_discriminator_range,
       sizeof (label_outside_discriminator_range) / sizeof (label_outside_discriminator_range[0]), DDS_RETCODE_BAD_PARAMETER);
+
+  const struct enum_literal sparse_enum[] = {
+    { "sparse_a", 1 },
+    { "sparse_b", 3 },
+    { "sparse_c", 7 }
+  };
+  const struct union_member valid_enum_labels[] = {
+    { "valid_enum_a", 1, 1 },
+    { "valid_enum_b", 2, 3 },
+    { "valid_enum_c", 3, 7 }
+  };
+  check_union_enum_typeobject ("ValidEnumDiscriminatorLabels", "ValidEnumDiscriminator", 4, sparse_enum,
+      sizeof (sparse_enum) / sizeof (sparse_enum[0]), valid_enum_labels,
+      sizeof (valid_enum_labels) / sizeof (valid_enum_labels[0]), DDS_RETCODE_OK);
+
+  const struct union_member undefined_enum_label[] = {
+    { "undefined_enum_a", 1, 1 },
+    { "undefined_enum_b", 2, 2 },
+    { "undefined_enum_c", 3, 7 }
+  };
+  check_union_enum_typeobject ("UndefinedEnumDiscriminatorLabel", "UndefinedEnumDiscriminator", 4, sparse_enum,
+      sizeof (sparse_enum) / sizeof (sparse_enum[0]), undefined_enum_label,
+      sizeof (undefined_enum_label) / sizeof (undefined_enum_label[0]), DDS_RETCODE_BAD_PARAMETER);
 
   const struct union_member valid_member_ids[] = {
     { "valid_first", 1, 1 },
