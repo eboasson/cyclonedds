@@ -72,12 +72,16 @@ struct mirrored_writer {
   dds_entity_t data_reader;
   dds_entity_t data_writer;
   dds_entity_t data_readcond;
+  dds_domainid_t data_reader_domain_id;
+  dds_domainid_t data_writer_domain_id;
   dds_entity_t writer;
   char *topic_name;
   struct waitset_callback data_callback;
 };
 
 static struct ddsrt_hh *g_mirrored_writers;
+
+static const char g_bridge_userdata[] = "cyclonedds-ddsbridge";
 
 static const char *endpoint_kind_name (enum builtin_endpoint_kind kind);
 
@@ -157,6 +161,46 @@ static bool is_builtin_topic_name (const char *topic_name)
   return strncmp (topic_name, "DCPS", 4) == 0;
 }
 
+static bool endpoint_is_from_bridge (const dds_builtintopic_endpoint_t *ep)
+{
+  void *userdata = NULL;
+  size_t userdata_size = 0;
+
+  if (!dds_qget_userdata (ep->qos, &userdata, &userdata_size))
+    return false;
+
+  const bool is_bridge = userdata_size == sizeof (g_bridge_userdata) - 1 &&
+    memcmp (userdata, g_bridge_userdata, sizeof (g_bridge_userdata) - 1) == 0;
+  dds_free (userdata);
+  return is_bridge;
+}
+
+static dds_qos_t *create_bridge_endpoint_qos (const dds_qos_t *src)
+{
+  dds_qos_t *qos = dds_create_qos ();
+  if (qos == NULL)
+  {
+    fprintf (stderr, "dds_create_qos: out of memory\n");
+    return NULL;
+  }
+  if (dds_copy_qos (qos, src) < 0)
+  {
+    fprintf (stderr, "dds_copy_qos: failed\n");
+    dds_delete_qos (qos);
+    return NULL;
+  }
+  dds_qset_userdata (qos, g_bridge_userdata, sizeof (g_bridge_userdata) - 1);
+  return qos;
+}
+
+static dds_qos_t *create_bridge_writer_qos (const dds_qos_t *src)
+{
+  dds_qos_t *qos = create_bridge_endpoint_qos (src);
+  if (qos != NULL)
+    dds_qset_ignorelocal (qos, DDS_IGNORELOCAL_PARTICIPANT);
+  return qos;
+}
+
 static dds_entity_t create_destination_topic (const struct bridge_domain *source_domain, const struct bridge_domain *destination_domain, dds_builtintopic_endpoint_t *ep, dds_entity_t source_topic)
 {
   dds_qos_t *qos = dds_create_qos ();
@@ -209,6 +253,26 @@ static void delete_mirrored_endpoint (dds_instance_handle_t publication_handle)
     (void) ddsrt_hh_remove (g_mirrored_writers, entry);
     mirrored_writer_free (entry, NULL);
   }
+}
+
+static bool mirrored_route_exists (struct callback_ctx *ctx, const dds_builtintopic_endpoint_t *ep)
+{
+  const struct bridge_domain *reader_domain = (ctx->endpoint_kind == BUILTIN_ENDPOINT_PUBLICATION) ? ctx->source : ctx->destination;
+  const struct bridge_domain *writer_domain = (ctx->endpoint_kind == BUILTIN_ENDPOINT_PUBLICATION) ? ctx->destination : ctx->source;
+  struct ddsrt_hh_iter iter;
+
+  for (struct mirrored_writer *entry = ddsrt_hh_iter_first (g_mirrored_writers, &iter);
+       entry != NULL;
+       entry = ddsrt_hh_iter_next (&iter))
+  {
+    if (entry->data_reader_domain_id == reader_domain->domain_id &&
+        entry->data_writer_domain_id == writer_domain->domain_id &&
+        entry->topic_name != NULL &&
+        strcmp (entry->topic_name, ep->topic_name) == 0)
+      return true;
+  }
+
+  return false;
 }
 
 static void republish_data_sample (struct mirrored_writer *entry, void *sample, const dds_sample_info_t *info);
@@ -343,6 +407,8 @@ static void create_mirrored_endpoint (struct callback_ctx *ctx, dds_builtintopic
     return;
   if (ep->participant_instance_handle == ctx->source->participant_instance_handle)
     return;
+  if (ctx->endpoint_kind == BUILTIN_ENDPOINT_SUBSCRIPTION && endpoint_is_from_bridge (ep))
+    return;
 
   struct mirrored_writer *entry = mirrored_writer_find (publication_handle);
   if (entry != NULL)
@@ -351,6 +417,8 @@ static void create_mirrored_endpoint (struct callback_ctx *ctx, dds_builtintopic
             endpoint_kind_name (ctx->endpoint_kind), ep->topic_name, ctx->source->name);
     return;
   }
+  if (mirrored_route_exists (ctx, ep))
+    return;
 
   dds_entity_t source_topic = find_topic_for_endpoint (ctx->source, ep);
   if (source_topic <= 0)
@@ -364,44 +432,67 @@ static void create_mirrored_endpoint (struct callback_ctx *ctx, dds_builtintopic
 
   entry = ddsrt_calloc (1, sizeof (*entry));
   entry->publication_handle = publication_handle;
+  dds_qos_t *endpoint_qos = create_bridge_endpoint_qos (ep->qos);
+  if (endpoint_qos == NULL)
+  {
+    (void) dds_delete (source_topic);
+    (void) dds_delete (destination_topic);
+    mirrored_writer_free (entry, NULL);
+    return;
+  }
 
   if (ctx->endpoint_kind == BUILTIN_ENDPOINT_PUBLICATION)
   {
-    entry->source_endpoint = dds_create_reader (ctx->source->participant, source_topic, ep->qos, NULL);
+    entry->source_endpoint = dds_create_reader (ctx->source->participant, source_topic, endpoint_qos, NULL);
     if (entry->source_endpoint < 0)
       fprintf (stderr, "dds_create_reader(%s in domain %s): %s\n", ep->topic_name, ctx->source->name, dds_strretcode (entry->source_endpoint));
     else
     {
-      entry->destination_endpoint = dds_create_writer (ctx->destination->participant, destination_topic, ep->qos, NULL);
+      dds_qos_t *writer_qos = create_bridge_writer_qos (ep->qos);
+      if (writer_qos == NULL)
+        entry->destination_endpoint = DDS_RETCODE_OUT_OF_RESOURCES;
+      else
+        entry->destination_endpoint = dds_create_writer (ctx->destination->participant, destination_topic, writer_qos, NULL);
+      dds_delete_qos (writer_qos);
       if (entry->destination_endpoint < 0)
         fprintf (stderr, "dds_create_writer(%s in domain %s): %s\n", ep->topic_name, ctx->destination->name, dds_strretcode (entry->destination_endpoint));
       else
       {
         entry->data_reader = entry->source_endpoint;
         entry->data_writer = entry->destination_endpoint;
+        entry->data_reader_domain_id = ctx->source->domain_id;
+        entry->data_writer_domain_id = ctx->destination->domain_id;
         entry->writer = entry->destination_endpoint;
       }
     }
   }
   else
   {
-    entry->source_endpoint = dds_create_writer (ctx->source->participant, source_topic, ep->qos, NULL);
+    dds_qos_t *writer_qos = create_bridge_writer_qos (ep->qos);
+    if (writer_qos == NULL)
+      entry->source_endpoint = DDS_RETCODE_OUT_OF_RESOURCES;
+    else
+      entry->source_endpoint = dds_create_writer (ctx->source->participant, source_topic, writer_qos, NULL);
+    dds_delete_qos (writer_qos);
     if (entry->source_endpoint < 0)
       fprintf (stderr, "dds_create_writer(%s in domain %s): %s\n", ep->topic_name, ctx->source->name, dds_strretcode (entry->source_endpoint));
     else
     {
-      entry->destination_endpoint = dds_create_reader (ctx->destination->participant, destination_topic, ep->qos, NULL);
+      entry->destination_endpoint = dds_create_reader (ctx->destination->participant, destination_topic, endpoint_qos, NULL);
       if (entry->destination_endpoint < 0)
         fprintf (stderr, "dds_create_reader(%s in domain %s): %s\n", ep->topic_name, ctx->destination->name, dds_strretcode (entry->destination_endpoint));
       else
       {
         entry->data_reader = entry->destination_endpoint;
         entry->data_writer = entry->source_endpoint;
+        entry->data_reader_domain_id = ctx->destination->domain_id;
+        entry->data_writer_domain_id = ctx->source->domain_id;
         entry->writer = entry->source_endpoint;
       }
     }
   }
 
+  dds_delete_qos (endpoint_qos);
   (void) dds_delete (source_topic);
   (void) dds_delete (destination_topic);
 
