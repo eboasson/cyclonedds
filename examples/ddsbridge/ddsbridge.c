@@ -33,6 +33,7 @@ struct bridge_domain {
   const char *name;
   dds_domainid_t domain_id;
   dds_entity_t participant;
+  dds_instance_handle_t participant_instance_handle;
   dds_entity_t publication_reader;
   dds_entity_t publication_readcond;
   dds_entity_t subscription_reader;
@@ -151,7 +152,12 @@ static dds_entity_t find_topic_for_endpoint (const struct bridge_domain *domain,
   return topic;
 }
 
-static dds_entity_t create_destination_topic (const struct bridge_domain *domain, dds_builtintopic_endpoint_t *ep, dds_entity_t source_topic)
+static bool is_builtin_topic_name (const char *topic_name)
+{
+  return strncmp (topic_name, "DCPS", 4) == 0;
+}
+
+static dds_entity_t create_destination_topic (const struct bridge_domain *source_domain, const struct bridge_domain *destination_domain, dds_builtintopic_endpoint_t *ep, dds_entity_t source_topic)
 {
   dds_qos_t *qos = dds_create_qos ();
   if (qos == NULL)
@@ -178,20 +184,20 @@ static dds_entity_t create_destination_topic (const struct bridge_domain *domain
   }
 
   dds_topic_descriptor_t *descriptor = NULL;
-  ret = dds_create_topic_descriptor (DDS_FIND_SCOPE_GLOBAL, domain->participant, type_info, DDS_SECS (2), &descriptor);
+  ret = dds_create_topic_descriptor (DDS_FIND_SCOPE_GLOBAL, source_domain->participant, type_info, DDS_SECS (2), &descriptor);
   dds_free_typeinfo (type_info);
   if (ret < 0)
   {
-    fprintf (stderr, "dds_create_topic_descriptor(%s in domain %s): %s\n", ep->topic_name, domain->name, dds_strretcode (ret));
+    fprintf (stderr, "dds_create_topic_descriptor(%s in domain %s): %s\n", ep->topic_name, source_domain->name, dds_strretcode (ret));
     dds_delete_qos (qos);
     return ret;
   }
 
-  const dds_entity_t topic = dds_create_topic (domain->participant, descriptor, ep->topic_name, qos, NULL);
+  const dds_entity_t topic = dds_create_topic (destination_domain->participant, descriptor, ep->topic_name, qos, NULL);
   dds_delete_topic_descriptor (descriptor);
   dds_delete_qos (qos);
   if (topic < 0)
-    fprintf (stderr, "dds_create_topic(%s in domain %s): %s\n", ep->topic_name, domain->name, dds_strretcode (topic));
+    fprintf (stderr, "dds_create_topic(%s in domain %s): %s\n", ep->topic_name, destination_domain->name, dds_strretcode (topic));
   return topic;
 }
 
@@ -333,6 +339,11 @@ static int attach_data_reader (struct callback_ctx *ctx, struct mirrored_writer 
 
 static void create_mirrored_endpoint (struct callback_ctx *ctx, dds_builtintopic_endpoint_t *ep, dds_instance_handle_t publication_handle)
 {
+  if (is_builtin_topic_name (ep->topic_name))
+    return;
+  if (ep->participant_instance_handle == ctx->source->participant_instance_handle)
+    return;
+
   struct mirrored_writer *entry = mirrored_writer_find (publication_handle);
   if (entry != NULL)
   {
@@ -344,7 +355,7 @@ static void create_mirrored_endpoint (struct callback_ctx *ctx, dds_builtintopic
   dds_entity_t source_topic = find_topic_for_endpoint (ctx->source, ep);
   if (source_topic <= 0)
     return;
-  dds_entity_t destination_topic = create_destination_topic (ctx->destination, ep, source_topic);
+  dds_entity_t destination_topic = create_destination_topic (ctx->source, ctx->destination, ep, source_topic);
   if (destination_topic <= 0)
   {
     (void) dds_delete (source_topic);
@@ -527,6 +538,12 @@ static int create_domain_entities (struct bridge_domain *domain)
   if (domain->participant < 0)
   {
     fprintf (stderr, "dds_create_participant(%s %" PRIu32 "): %s\n", domain->name, domain->domain_id, dds_strretcode (domain->participant));
+    return -1;
+  }
+  const dds_return_t ret = dds_get_instance_handle (domain->participant, &domain->participant_instance_handle);
+  if (ret < 0)
+  {
+    fprintf (stderr, "dds_get_instance_handle(%s): %s\n", domain->name, dds_strretcode (ret));
     return -1;
   }
 
