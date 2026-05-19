@@ -280,11 +280,13 @@ int main (int argc, char **argv)
       size_t align, size;
       if (wrtype)
       {
+        printf ("WRITER: %s\n", wrtype->name);
         build_typecache_to (dtl->typecache, &wrtype->typeobj->_u.complete, &align, &size);
         ppc_print_to (dtl->typecache, &dtl->ppc, &wrtype->typeobj->_u.complete);
       }
       if (rdtype)
       {
+        printf ("READER: %s\n", rdtype->name);
         build_typecache_to (dtl->typecache, &rdtype->typeobj->_u.complete, &align, &size);
         ppc_print_to (dtl->typecache, &dtl->ppc, &rdtype->typeobj->_u.complete);
       }
