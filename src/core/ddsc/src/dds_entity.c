@@ -274,7 +274,13 @@ dds_entity_t dds_entity_init (dds_entity *e, dds_entity *parent, dds_entity_kind
 
   /* Special case: the on_data_on_readers event doesn't exist on DataReaders. */
   if (kind == DDS_KIND_READER)
+  {
     e->m_listener.on_data_on_readers = NULL;
+    e->m_listener.on_data_on_readers_arg = NULL;
+    e->m_listener.reset_on_invoke &= ~DDS_DATA_ON_READERS_STATUS;
+    e->m_listener.inherited &= ~DDS_DATA_ON_READERS_STATUS;
+    e->m_listener.explicitly_set &= ~DDS_DATA_ON_READERS_STATUS;
+  }
 
   if (parent)
   {
@@ -1063,7 +1069,13 @@ dds_return_t dds_set_listener (dds_entity_t entity, const dds_listener_t *listen
 
   /* Special case: the on_data_on_readers event doesn't exist on DataReaders. */
   if (dds_entity_kind (e) == DDS_KIND_READER)
+  {
     e->m_listener.on_data_on_readers = NULL;
+    e->m_listener.on_data_on_readers_arg = NULL;
+    e->m_listener.reset_on_invoke &= ~DDS_DATA_ON_READERS_STATUS;
+    e->m_listener.inherited &= ~DDS_DATA_ON_READERS_STATUS;
+    e->m_listener.explicitly_set &= ~DDS_DATA_ON_READERS_STATUS;
+  }
 
   x = e;
   while (dds_entity_kind (x) != DDS_KIND_CYCLONEDDS)

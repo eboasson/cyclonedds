@@ -43,6 +43,7 @@ void dds_reset_listener (dds_listener_t *listener)
   {
     dds_listener_t * const l = listener;
     l->inherited = 0;
+    l->explicitly_set = 0;
     l->reset_on_invoke = 0;
     l->on_data_available = NULL;
     l->on_data_on_readers = NULL;
@@ -66,15 +67,24 @@ void dds_copy_listener (dds_listener_t *dst, const dds_listener_t *src)
     *dst = *src;
 }
 
-static bool dds_combine_listener_merge (uint32_t inherited, void (*dst)(void), void (*src)(void))
+static bool dds_combine_listener_merge (uint32_t explicitly_set, void (*dst)(void), uint32_t src_explicitly_set, void (*src)(void))
 {
-  (void)inherited;
-  return dst == NULL && src != NULL;
+  (void) dst;
+  return !explicitly_set && (src_explicitly_set || src != NULL);
 }
 
-static bool dds_combine_listener_override_inherited (uint32_t inherited, void (*dst)(void), void (*src)(void))
+static bool dds_combine_listener_inherit (uint32_t explicitly_set, void (*dst)(void), uint32_t src_explicitly_set, void (*src)(void))
+{
+  (void) dst;
+  (void) src_explicitly_set;
+  (void) src;
+  return !explicitly_set;
+}
+
+static bool dds_combine_listener_override_inherited (uint32_t inherited, void (*dst)(void), uint32_t src_explicitly_set, void (*src)(void))
 {
   (void)dst;
+  (void)src_explicitly_set;
   (void)src;
   return inherited;
 }
@@ -89,11 +99,23 @@ static uint32_t combine_reset_on_invoke (const dds_listener_t *dst, const dds_li
   return copy_bits (dst->reset_on_invoke, src->reset_on_invoke, status);
 }
 
-static void dds_combine_listener (bool (*op) (uint32_t inherited, void (*dst)(void), void (*src)(void)), dds_listener_t *dst, const dds_listener_t *src)
+static void dds_combine_listener (
+    bool (*op) (uint32_t mask, void (*dst)(void), uint32_t src_mask, void (*src)(void)),
+    dds_listener_t *dst,
+    const dds_listener_t *src,
+    uint32_t dst_mask,
+    uint32_t src_mask,
+    bool result_inherited)
 {
 #define C(NAME_, name_) do { \
-    if (op (dst->inherited & DDS_##NAME_##_STATUS, (void (*)(void)) dst->on_##name_, (void (*)(void)) src->on_##name_)){ \
-      dst->inherited |= DDS_##NAME_##_STATUS; \
+    if (op (dst_mask & DDS_##NAME_##_STATUS, (void (*)(void)) dst->on_##name_, src_mask & DDS_##NAME_##_STATUS, (void (*)(void)) src->on_##name_)){ \
+      if (result_inherited) { \
+        dst->inherited |= DDS_##NAME_##_STATUS; \
+        dst->explicitly_set &= ~DDS_##NAME_##_STATUS; \
+      } else { \
+        dst->inherited &= ~DDS_##NAME_##_STATUS; \
+        dst->explicitly_set |= DDS_##NAME_##_STATUS; \
+      } \
       dst->reset_on_invoke = combine_reset_on_invoke (dst, src, DDS_##NAME_##_STATUS); \
       dst->on_##name_ = src->on_##name_; \
       dst->on_##name_##_arg = src->on_##name_##_arg; \
@@ -118,23 +140,19 @@ static void dds_combine_listener (bool (*op) (uint32_t inherited, void (*dst)(vo
 void dds_override_inherited_listener (dds_listener_t *dst, const dds_listener_t *src)
 {
   if (dst && src)
-    dds_combine_listener (dds_combine_listener_override_inherited, dst, src);
+    dds_combine_listener (dds_combine_listener_override_inherited, dst, src, dst->inherited, src->explicitly_set, true);
 }
 
 void dds_inherit_listener (dds_listener_t *dst, const dds_listener_t *src)
 {
   if (dst && src)
-    dds_combine_listener (dds_combine_listener_merge, dst, src);
+    dds_combine_listener (dds_combine_listener_inherit, dst, src, dst->explicitly_set, src->explicitly_set, true);
 }
 
 void dds_merge_listener (dds_listener_t *dst, const dds_listener_t *src)
 {
   if (dst && src)
-  {
-    uint32_t inherited = dst->inherited;
-    dds_combine_listener (dds_combine_listener_merge, dst, src);
-    dst->inherited = inherited;
-  }
+    dds_combine_listener (dds_combine_listener_merge, dst, src, dst->explicitly_set, src->explicitly_set, false);
 }
 
 #define DDS_SET_LISTENER_ARG(NAME_, name_) \
@@ -142,6 +160,8 @@ void dds_merge_listener (dds_listener_t *dst, const dds_listener_t *src)
   { \
     if (listener == NULL) \
       return DDS_RETCODE_BAD_PARAMETER; \
+    listener->inherited &= ~DDS_##NAME_##_STATUS; \
+    listener->explicitly_set |= DDS_##NAME_##_STATUS; \
     listener->reset_on_invoke = copy_bits (listener->reset_on_invoke, reset_on_invoke ? ~(uint32_t)0 : 0, DDS_##NAME_##_STATUS); \
     listener->on_##name_ = callback; \
     listener->on_##name_##_arg = arg; \

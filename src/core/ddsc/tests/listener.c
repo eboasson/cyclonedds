@@ -276,6 +276,7 @@ CU_Test (ddsc_listener, propagation)
   dotest ("da dor lc sm P ; r ; wr w 0 ; ?!da ; ?dor R ?sm r ?lc r");
   // setting listeners after entity creation should work, too
   dotest ("P W R ; dor P pm W sm R ; r w ; ?sm r ?pm w ; wr w 0 ; ?dor R ; ?!da");
+  dotest ("P W R ; r w ; da P ; wr w 0 ; ?da r ?!dor");
 }
 
 CU_Test (ddsc_listener, matched)
