@@ -7218,7 +7218,9 @@ bool dds_stream_extensibility (const uint32_t *ops, enum dds_cdr_type_extensibil
         break;
     }
   }
-  return false;
+  /* A final empty aggregate has no ADR/DLC/PLC instruction before RTS. */
+  *ext = DDS_CDR_TYPE_EXT_FINAL;
+  return true;
 }
 
 uint32_t dds_stream_type_nesting_depth (const uint32_t *ops)
