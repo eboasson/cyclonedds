@@ -240,6 +240,9 @@ static dds_return_t dynamic_type_finalize_locked (struct ddsi_type **type, struc
   if (ddsi_type_visit_seen (visited, *type))
     return ret;
 
+  if (!gv->config.allow_recursive_types && (ret = ddsi_xt_validate (gv, *type)) != DDS_RETCODE_OK)
+    return ret;
+
   struct DDS_XTypes_TypeIdentifier ti;
   ddsi_xt_get_typeid_impl (&(*type)->xt, &ti, (*type)->xt.kind);
 
