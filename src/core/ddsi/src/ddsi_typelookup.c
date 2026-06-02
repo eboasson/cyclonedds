@@ -127,6 +127,69 @@ static int32_t tl_typeid_request_count (const ddsi_typeid_t *type_id)
   return type_id->x._u.sc_component_id.scc_length > 0 ? type_id->x._u.sc_component_id.scc_length : INT32_MAX;
 }
 
+struct tl_scc_import_cache_entry {
+  struct DDS_XTypes_StronglyConnectedComponentId scc_id;
+  dds_return_t ret;
+  bool complete;
+};
+
+static bool tl_scc_import_cache_equal (const void *ventry_a, const void *ventry_b)
+{
+  const struct tl_scc_import_cache_entry *a = ventry_a;
+  const struct tl_scc_import_cache_entry *b = ventry_b;
+  return ddsi_type_scc_id_same_component_impl (&a->scc_id, &b->scc_id);
+}
+
+static uint32_t tl_scc_import_cache_hash (const void *ventry)
+{
+  const struct tl_scc_import_cache_entry *entry = ventry;
+  return ddsi_type_scc_id_component_hash_impl (&entry->scc_id);
+}
+
+static void tl_scc_import_cache_free_entry (void *ventry, void *arg)
+{
+  (void) arg;
+  ddsrt_free (ventry);
+}
+
+static struct tl_scc_import_cache_entry *tl_scc_import_cache_lookup (
+    struct ddsrt_hh *cache,
+    const struct DDS_XTypes_StronglyConnectedComponentId *scc_id)
+{
+  if (cache == NULL)
+    return NULL;
+  const struct tl_scc_import_cache_entry templ = {
+    .scc_id = *scc_id
+  };
+  return ddsrt_hh_lookup (cache, &templ);
+}
+
+static void tl_scc_import_cache_store (
+    struct ddsrt_hh *cache,
+    const struct DDS_XTypes_StronglyConnectedComponentId *scc_id,
+    dds_return_t ret,
+    bool complete)
+{
+  struct tl_scc_import_cache_entry *entry = ddsrt_malloc_s (sizeof (*entry));
+  if (entry == NULL)
+    return;
+  *entry = (struct tl_scc_import_cache_entry) {
+    .scc_id = *scc_id,
+    .ret = ret,
+    .complete = complete
+  };
+  ddsrt_hh_add_absent (cache, entry);
+}
+
+static void tl_scc_import_cache_free (struct ddsrt_hh *cache)
+{
+  if (cache != NULL)
+  {
+    ddsrt_hh_enum (cache, tl_scc_import_cache_free_entry, NULL);
+    ddsrt_hh_free (cache);
+  }
+}
+
 static void tl_typeid_copy_request_ids (struct DDS_XTypes_TypeIdentifier *dst, uint32_t *index, const ddsi_typeid_t *type_id)
 {
   if (type_id->x._d == DDS_XTypes_TI_STRONGLY_CONNECTED_COMPONENT)
@@ -431,6 +494,7 @@ void ddsi_tl_handle_request (struct ddsi_domaingv *gv, struct ddsi_serdata *d)
 void ddsi_tl_add_types (struct ddsi_domaingv *gv, const DDS_Builtin_TypeLookup_Reply *reply, struct ddsi_generic_proxy_endpoint ***gpe_match_upd, uint32_t *n_match_upd)
 {
   bool resolved = false;
+  struct ddsrt_hh *scc_import_cache = NULL;
   ddsrt_mutex_lock (&gv->typelib_lock);
   /* No need to correlate the sample identity of the incoming reply with the request
      that was sent, because the reply itself contains the type-id to type object mapping
@@ -457,10 +521,35 @@ void ddsi_tl_add_types (struct ddsi_domaingv *gv, const DDS_Builtin_TypeLookup_R
 
     if (r.type_identifier._d == DDS_XTypes_TI_STRONGLY_CONNECTED_COMPONENT)
     {
-      bool complete = false;
+      dds_return_t ret;
+      bool complete;
+      struct tl_scc_import_cache_entry *cache_entry =
+        tl_scc_import_cache_lookup (scc_import_cache, &r.type_identifier._u.sc_component_id);
       const dds_sequence_DDS_XTypes_TypeIdentifierTypeObjectPair *pairs =
         (const dds_sequence_DDS_XTypes_TypeIdentifierTypeObjectPair *) &reply->return_data._u.getType._u.result.types;
-      if (ddsi_type_add_scc_typeobjs_locked (gv, pairs, &r.type_identifier, false, &complete) == DDS_RETCODE_OK && complete)
+      if (cache_entry != NULL)
+      {
+        ret = cache_entry->ret;
+        complete = cache_entry->complete;
+        GVTRACE (" cached SCC import ret=%d complete=%d", ret, complete);
+      }
+      else
+      {
+        complete = false;
+        ret = ddsi_type_add_scc_typeobjs_locked (gv, pairs, &r.type_identifier, false, &complete);
+        /* This cache is only an optimization for one immutable reply while
+           typelib_lock is held.  If allocating the table or entry fails, there
+           is simply no cached result and a later slot falls back to retrying
+           the import exactly as it did before this cache existed.  If a later
+           allocation succeeds, the result it stores is still valid for the same
+           reply/component pair; allocation failure never changes the reply or
+           the component identity. */
+        if (scc_import_cache == NULL)
+          scc_import_cache = ddsrt_hh_new (1, tl_scc_import_cache_hash, tl_scc_import_cache_equal);
+        if (scc_import_cache != NULL)
+          tl_scc_import_cache_store (scc_import_cache, &r.type_identifier._u.sc_component_id, ret, complete);
+      }
+      if (ret == DDS_RETCODE_OK && complete)
       {
         GVTRACE (" resolved SCC type %s\n", ddsi_make_typeid_str_impl (&str, &r.type_identifier));
         ddsi_type_get_gpe_matches (gv, type, gpe_match_upd, n_match_upd);
@@ -494,6 +583,7 @@ void ddsi_tl_add_types (struct ddsi_domaingv *gv, const DDS_Builtin_TypeLookup_R
   if (resolved)
     ddsrt_cond_etime_broadcast (&gv->typelib_resolved_cond);
   ddsrt_mutex_unlock (&gv->typelib_lock);
+  tl_scc_import_cache_free (scc_import_cache);
 }
 
 void ddsi_tl_handle_reply (struct ddsi_domaingv *gv, struct ddsi_serdata *d)
