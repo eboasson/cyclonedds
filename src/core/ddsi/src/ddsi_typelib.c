@@ -1397,6 +1397,7 @@ static void set_type_invalid_impl (struct ddsi_domaingv *gv, struct ddsi_type *t
     if (dep_src_type != NULL)
       set_type_invalid_impl (gv, dep_src_type, visited);
   }
+  ddsi_typeid_fini (&tmpl.dep_type_id);
 }
 
 static void set_type_invalid (struct ddsi_domaingv *gv, struct ddsi_type *type)
