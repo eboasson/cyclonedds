@@ -239,6 +239,12 @@ static const uint32_t *dds_stream_read_impl (dds_istream_t *is, char * restrict 
 static uint32_t dds_stream_enum_default_value (const struct dds_cdrstream_desc_mid_table *mid_table, const uint32_t *op, uint32_t max)
   ddsrt_attribute_warn_unused_result ddsrt_nonnull_all;
 
+static bool dds_stream_enum_value_set (const struct dds_cdrstream_desc_mid_table *mid_table, const uint32_t *op, uint32_t max, const struct dds_cdrstream_desc_enum_value_set **set)
+  ddsrt_attribute_warn_unused_result ddsrt_nonnull_all;
+
+static bool dds_stream_enum_value_valid (const struct dds_cdrstream_desc_enum_value_set *set, uint32_t max, uint32_t val)
+  ddsrt_attribute_warn_unused_result;
+
 static enum tryconstruct tryconstruct_mode (uint32_t insn, bool for_subtype)
   ddsrt_attribute_warn_unused_result;
 
@@ -966,6 +972,8 @@ static uint32_t dds_stream_check_optimize1 (const struct dds_cdrstream_desc *des
 ddsrt_nonnull_all
 size_t dds_stream_check_optimize (const struct dds_cdrstream_desc *desc, enum dds_cdr_enc_version xcdr_version)
 {
+  if (desc->member_ids.enum_value_sets != NULL)
+    return 0;
   size_t opt_size = dds_stream_check_optimize1 (desc, xcdr_version, desc->ops.ops, 0, 0);
   // off < desc can occur if desc->size includes "trailing" padding
   assert (opt_size <= desc->size);
@@ -4105,7 +4113,7 @@ static uint32_t dds_stream_enum_default_value (const struct dds_cdrstream_desc_m
   return set ? set->default_value : 0;
 }
 
-static bool normalize_enum_value_valid (const struct dds_cdrstream_desc_enum_value_set *set, const uint32_t max, const uint32_t val)
+static bool dds_stream_enum_value_valid (const struct dds_cdrstream_desc_enum_value_set *set, const uint32_t max, const uint32_t val)
 {
   if (set == NULL)
     return val <= max;
@@ -4139,7 +4147,7 @@ static enum union_discriminator_construct_result union_discriminator_construct_r
       const uint32_t max = ops[4];
       if (disc > UINT32_MAX || !dds_stream_enum_value_set (mid_table, ops, max, &set))
         return UDISC_CONSTRUCT_ERROR;
-      return normalize_enum_value_valid (set, max, (uint32_t) disc) ? UDISC_CONSTRUCT_OK : union_discriminator_construct_from_tryconstruct (*ops);
+      return dds_stream_enum_value_valid (set, max, (uint32_t) disc) ? UDISC_CONSTRUCT_OK : union_discriminator_construct_from_tryconstruct (*ops);
     }
     case DDS_SOP_VAL_BMK: {
       const uint64_t bits = bitmask_bits_hl (ops[4], ops[5]);
@@ -4178,7 +4186,7 @@ static enum dds_stream_normalize_result read_normalize_enum_tryconstruct (struct
   enum dds_stream_normalize_result res;
   if ((res = normalize_enum_value_set (st, op, max, &set)) != DDS_STREAM_NORMALIZE_SUCCESS)
     return res;
-  if (normalize_enum_value_valid (set, max, *val))
+  if (dds_stream_enum_value_valid (set, max, *val))
     return normalize_success ();
   // note: can't use normalize_from_tryconstruct becasue we're also reading the value
   switch (tryconstruct_mode (insn, for_subtype))
@@ -4490,7 +4498,7 @@ static enum dds_stream_normalize_result normalize_enumarray (struct normalize_st
         return normalize_error ();
       uint8_t * const xs = (uint8_t *) (st->data + *off);
       for (uint32_t i = 0; i < num; i++) {
-        if (!normalize_enum_value_valid (set, max, xs[i])) {
+        if (!dds_stream_enum_value_valid (set, max, xs[i])) {
           if (tc == TC_REJECT || tc == TC_DISCARD)
             return normalize_from_tryconstruct (tc);
           else
@@ -4506,7 +4514,7 @@ static enum dds_stream_normalize_result normalize_enumarray (struct normalize_st
       dds_stream_maybe_swap16 (st, off, num);
       uint16_t * const xs = (uint16_t *) (st->data + *off);
       for (uint32_t i = 0; i < num; i++) {
-        if (!normalize_enum_value_valid (set, max, xs[i])) {
+        if (!dds_stream_enum_value_valid (set, max, xs[i])) {
           if (tc == TC_REJECT || tc == TC_DISCARD)
             return normalize_from_tryconstruct (tc);
           else
@@ -4522,7 +4530,7 @@ static enum dds_stream_normalize_result normalize_enumarray (struct normalize_st
       dds_stream_maybe_swap32 (st, off, num);
       uint32_t * const xs = (uint32_t *) (st->data + *off);
       for (uint32_t i = 0; i < num; i++) {
-        if (!normalize_enum_value_valid (set, max, xs[i])) {
+        if (!dds_stream_enum_value_valid (set, max, xs[i])) {
           if (tc == TC_REJECT || tc == TC_DISCARD)
             return normalize_from_tryconstruct (tc);
           else
