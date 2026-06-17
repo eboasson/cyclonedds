@@ -1795,10 +1795,11 @@ typedef struct CdrStreamEnumMeta {
   uint32_t e;
 } CdrStreamEnumMeta;
 
-#define CDRSTREAM_ENUM_META_INSN (DDS_OP_ADR | DDS_OP_TYPE_ENU | DDS_OP_FLAG_TYPE_TC_DEF | (2u << DDS_OP_FLAG_SZ_SHIFT))
+#define CDRSTREAM_ENUM_META_INSN32 (DDS_OP_ADR | DDS_OP_TYPE_ENU | DDS_OP_FLAG_TYPE_TC_DEF | (2u << DDS_OP_FLAG_SZ_SHIFT))
+#define CDRSTREAM_ENUM_META_INSN8 (DDS_OP_ADR | DDS_OP_TYPE_ENU | DDS_OP_FLAG_TYPE_TC_DEF | (0u << DDS_OP_FLAG_SZ_SHIFT))
 
 static const uint32_t CdrStreamEnumMeta_ops[] = {
-  CDRSTREAM_ENUM_META_INSN, offsetof (CdrStreamEnumMeta, e), UINT32_MAX,
+  CDRSTREAM_ENUM_META_INSN32, offsetof (CdrStreamEnumMeta, e), UINT32_MAX,
   DDS_OP_RTS,
   DDS_OP_EVS | 0u, 3u, 3u, 1u, 3u, UINT32_MAX,
   DDS_OP_RTS,
@@ -1807,7 +1808,7 @@ static const uint32_t CdrStreamEnumMeta_ops[] = {
 };
 
 static const uint32_t CdrStreamEnumMetaKey_ops[] = {
-  CDRSTREAM_ENUM_META_INSN | DDS_OP_FLAG_KEY, offsetof (CdrStreamEnumMeta, e), UINT32_MAX,
+  CDRSTREAM_ENUM_META_INSN32 | DDS_OP_FLAG_KEY, offsetof (CdrStreamEnumMeta, e), UINT32_MAX,
   DDS_OP_RTS,
   DDS_OP_EVS | 0u, 3u, 3u, 1u, 3u, UINT32_MAX,
   DDS_OP_RTS,
@@ -1829,7 +1830,25 @@ static const uint32_t CdrStreamEnumMetaReject_ops[] = {
 };
 
 static const uint32_t CdrStreamEnumMetaOld_ops[] = {
-  CDRSTREAM_ENUM_META_INSN, offsetof (CdrStreamEnumMeta, e), UINT32_MAX,
+  CDRSTREAM_ENUM_META_INSN32, offsetof (CdrStreamEnumMeta, e), UINT32_MAX,
+  DDS_OP_RTS
+};
+
+static const uint32_t CdrStreamEnumMeta8_ops[] = {
+  CDRSTREAM_ENUM_META_INSN8, offsetof (CdrStreamEnumMeta, e), UINT32_MAX,
+  DDS_OP_RTS,
+  DDS_OP_EVS | 0u, UINT32_MAX, 1u, 0xffu,
+  DDS_OP_RTS,
+  DDS_OP_EVM | 0u, 0u,
+  DDS_OP_RTS
+};
+
+static const uint32_t CdrStreamEnumMeta8Key_ops[] = {
+  CDRSTREAM_ENUM_META_INSN8 | DDS_OP_FLAG_KEY, offsetof (CdrStreamEnumMeta, e), UINT32_MAX,
+  DDS_OP_RTS,
+  DDS_OP_EVS | 0u, UINT32_MAX, 1u, 0xffu,
+  DDS_OP_RTS,
+  DDS_OP_EVM | 0u, 0u,
   DDS_OP_RTS
 };
 
@@ -1861,7 +1880,7 @@ typedef struct CdrStreamEnumUnionDefaultMeta {
 static const uint32_t CdrStreamEnumAppendableDefaultMeta_ops[] = {
   DDS_OP_DLC,
   DDS_OP_ADR | DDS_OP_TYPE_4BY, offsetof (CdrStreamEnumAppendableDefaultMeta, a),
-  CDRSTREAM_ENUM_META_INSN, offsetof (CdrStreamEnumAppendableDefaultMeta, e), UINT32_MAX,
+  CDRSTREAM_ENUM_META_INSN32, offsetof (CdrStreamEnumAppendableDefaultMeta, e), UINT32_MAX,
   DDS_OP_RTS,
   DDS_OP_EVS | 0u, 3u, 3u, 1u, 3u, UINT32_MAX,
   DDS_OP_RTS,
@@ -1871,7 +1890,7 @@ static const uint32_t CdrStreamEnumAppendableDefaultMeta_ops[] = {
 
 static const uint32_t CdrStreamEnumAppendableDefaultMetaKey_ops[] = {
   DDS_OP_DLC,
-  CDRSTREAM_ENUM_META_INSN | DDS_OP_FLAG_KEY, offsetof (CdrStreamEnumMeta, e), UINT32_MAX,
+  CDRSTREAM_ENUM_META_INSN32 | DDS_OP_FLAG_KEY, offsetof (CdrStreamEnumMeta, e), UINT32_MAX,
   DDS_OP_RTS,
   DDS_OP_KOF | 1u, 1u,
   DDS_OP_EVS | 0u, 3u, 3u, 1u, 3u, UINT32_MAX,
@@ -1898,7 +1917,7 @@ static const uint32_t CdrStreamEnumMutableDefaultMeta_ops[] = {
   DDS_OP_PLC,
   DDS_OP_PLM | 3u, 7u,
   DDS_OP_RTS,
-  CDRSTREAM_ENUM_META_INSN, offsetof (CdrStreamEnumMeta, e), UINT32_MAX,
+  CDRSTREAM_ENUM_META_INSN32, offsetof (CdrStreamEnumMeta, e), UINT32_MAX,
   DDS_OP_RTS,
   DDS_OP_EVS | 0u, 3u, 3u, 1u, 3u, UINT32_MAX,
   DDS_OP_RTS,
@@ -1910,7 +1929,7 @@ static const uint32_t CdrStreamEnumMutableDefaultMetaKey_ops[] = {
   DDS_OP_PLC,
   DDS_OP_PLM | 3u, 7u,
   DDS_OP_RTS,
-  CDRSTREAM_ENUM_META_INSN | DDS_OP_FLAG_KEY, offsetof (CdrStreamEnumMeta, e), UINT32_MAX,
+  CDRSTREAM_ENUM_META_INSN32 | DDS_OP_FLAG_KEY, offsetof (CdrStreamEnumMeta, e), UINT32_MAX,
   DDS_OP_RTS,
   DDS_OP_KOF | 1u, 4u,
   DDS_OP_EVS | 0u, 3u, 3u, 1u, 3u, UINT32_MAX,
@@ -2156,6 +2175,90 @@ CU_Test (ddsc_cdrstream, write_enum_value_metadata)
   CU_ASSERT_FATAL (!ret);
 
   dds_ostreamBE_fini (&osbe, &dds_cdrstream_default_allocator);
+  dds_cdrstream_desc_fini (&desc, &dds_cdrstream_default_allocator);
+}
+
+CU_Test (ddsc_cdrstream, write_enum_value_metadata_8bit_signed)
+{
+  struct dds_cdrstream_desc desc;
+  dds_cdrstream_desc_init_with_nops (&desc, &dds_cdrstream_default_allocator, sizeof (CdrStreamEnumMeta), dds_alignof (CdrStreamEnumMeta), 0, CdrStreamEnumMeta8_ops, sizeof (CdrStreamEnumMeta8_ops) / sizeof (CdrStreamEnumMeta8_ops[0]), NULL, 0);
+
+  dds_ostream_t os;
+  dds_ostream_init (&os, &dds_cdrstream_default_allocator, 0, DDSI_RTPS_CDR_ENC_VERSION_2);
+
+  CdrStreamEnumMeta sample = { .e = UINT32_MAX };
+  bool ret = dds_stream_write_sample (&os, &dds_cdrstream_default_allocator, &sample, &desc);
+  const uint8_t expected[] = { 0xffu };
+  CU_ASSERT_FATAL (ret);
+  CU_ASSERT_MEMEQ_FATAL (os.m_buffer, os.m_index, expected, sizeof (expected));
+
+  os.m_index = 0;
+  sample.e = 0xffu;
+  ret = dds_stream_write_sample (&os, &dds_cdrstream_default_allocator, &sample, &desc);
+  CU_ASSERT_FATAL (!ret);
+
+  dds_ostream_fini (&os, &dds_cdrstream_default_allocator);
+
+  dds_ostreamBE_t osbe;
+  dds_ostreamBE_init (&osbe, &dds_cdrstream_default_allocator, 0, DDSI_RTPS_CDR_ENC_VERSION_2);
+
+  sample.e = UINT32_MAX;
+  ret = dds_stream_write_sampleBE (&osbe, &dds_cdrstream_default_allocator, &sample, &desc);
+  CU_ASSERT_FATAL (ret);
+  CU_ASSERT_MEMEQ_FATAL (osbe.x.m_buffer, osbe.x.m_index, expected, sizeof (expected));
+
+  osbe.x.m_index = 0;
+  sample.e = 0xffu;
+  ret = dds_stream_write_sampleBE (&osbe, &dds_cdrstream_default_allocator, &sample, &desc);
+  CU_ASSERT_FATAL (!ret);
+
+  dds_ostreamBE_fini (&osbe, &dds_cdrstream_default_allocator);
+  dds_cdrstream_desc_fini (&desc, &dds_cdrstream_default_allocator);
+}
+
+CU_Test (ddsc_cdrstream, read_enum_value_metadata_8bit_signed)
+{
+  struct dds_cdrstream_desc desc;
+  dds_cdrstream_desc_init_with_nops (&desc, &dds_cdrstream_default_allocator, sizeof (CdrStreamEnumMeta), dds_alignof (CdrStreamEnumMeta), 0, CdrStreamEnumMeta8_ops, sizeof (CdrStreamEnumMeta8_ops) / sizeof (CdrStreamEnumMeta8_ops[0]), NULL, 0);
+
+  uint8_t cdr[] = { 0xffu };
+  CdrStreamEnumMeta sample = { .e = 0u };
+  dds_istream_t is;
+  dds_istream_init (&is, sizeof (cdr), cdr, DDSI_RTPS_CDR_ENC_VERSION_2);
+  dds_stream_read_sample (&is, &sample, &dds_cdrstream_default_allocator, &desc);
+
+  CU_ASSERT_EQ_FATAL (is.m_index, sizeof (cdr));
+  CU_ASSERT_EQ_FATAL (sample.e, UINT32_MAX);
+
+  dds_cdrstream_desc_fini (&desc, &dds_cdrstream_default_allocator);
+}
+
+CU_Test (ddsc_cdrstream, extract_enum_key_metadata_8bit_signed)
+{
+  struct dds_cdrstream_desc desc;
+  dds_cdrstream_desc_init_with_nops (&desc, &dds_cdrstream_default_allocator, sizeof (CdrStreamEnumMeta), dds_alignof (CdrStreamEnumMeta), 0, CdrStreamEnumMeta8Key_ops, sizeof (CdrStreamEnumMeta8Key_ops) / sizeof (CdrStreamEnumMeta8Key_ops[0]), CdrStreamEnumMeta_keys, 1);
+
+  uint8_t cdr[] = { 0xffu };
+  const uint8_t expected[] = { 0xffu };
+  dds_istream_t is;
+  dds_ostream_t os;
+  dds_istream_init (&is, sizeof (cdr), cdr, DDSI_RTPS_CDR_ENC_VERSION_2);
+  dds_ostream_init (&os, &dds_cdrstream_default_allocator, 0, DDSI_RTPS_CDR_ENC_VERSION_2);
+  bool ret = dds_stream_extract_key_from_data (&is, &os, &dds_cdrstream_default_allocator, &desc);
+  CU_ASSERT_FATAL (ret);
+  CU_ASSERT_EQ_FATAL (is.m_index, sizeof (cdr));
+  CU_ASSERT_MEMEQ_FATAL (os.m_buffer, os.m_index, expected, sizeof (expected));
+  dds_ostream_fini (&os, &dds_cdrstream_default_allocator);
+
+  dds_ostreamBE_t osbe;
+  dds_istream_init (&is, sizeof (cdr), cdr, DDSI_RTPS_CDR_ENC_VERSION_2);
+  dds_ostreamBE_init (&osbe, &dds_cdrstream_default_allocator, 0, DDSI_RTPS_CDR_ENC_VERSION_2);
+  ret = dds_stream_extract_keyBE_from_data (&is, &osbe, &dds_cdrstream_default_allocator, &desc);
+  CU_ASSERT_FATAL (ret);
+  CU_ASSERT_EQ_FATAL (is.m_index, sizeof (cdr));
+  CU_ASSERT_MEMEQ_FATAL (osbe.x.m_buffer, osbe.x.m_index, expected, sizeof (expected));
+  dds_ostreamBE_fini (&osbe, &dds_cdrstream_default_allocator);
+
   dds_cdrstream_desc_fini (&desc, &dds_cdrstream_default_allocator);
 }
 
