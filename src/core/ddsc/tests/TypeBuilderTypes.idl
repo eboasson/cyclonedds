@@ -689,4 +689,32 @@ module TypeBuilderTypes {
     @id(1) @must_understand sequence<sequence<long> > f1;
     @id(2) @must_understand sequence<long> f2[2];
   };
+
+  @bit_bound(16)
+  enum en59 {
+    EN59_0,
+    @value(65000) EN59_65000,
+    EN59_65001
+  };
+
+  @mutable
+  struct t59 {
+    @id(1) long before;
+    @id(2) en59 scalar;
+    @id(3) long between;
+    @id(4) en59 arr[2];
+    @id(5) sequence<en59, 2> seq;
+    @id(6) long after;
+  };
+
+  @nested @mutable
+  struct t60_base {
+    @id(1) long base_member;
+  };
+
+  @mutable
+  struct t60 : t60_base {
+    @id(2) en59 scalar;
+    @id(3) long after;
+  };
 };
