@@ -717,4 +717,114 @@ module TypeBuilderTypes {
     @id(2) en59 scalar;
     @id(3) long after;
   };
+
+  @final
+  union t61 switch (@key long) {
+    case 1: long u1;
+    case 2: short u2;
+  };
+
+  @nested @final
+  union t62_u switch (long) {
+    case 1: long u1;
+    case 2: short u2;
+  };
+
+  @final
+  struct t62 {
+    @key t62_u u;
+  };
+
+  @nested @final
+  union t63_u switch (long) {
+    case 1: octet u1;
+  };
+
+  @nested @final
+  struct t63_s {
+    t63_u s1;
+  };
+
+  @final
+  struct t63 {
+    @key t63_s t1;
+  };
+
+  @nested @final
+  union t64_u switch (long) {
+    case 1: octet u1;
+  };
+
+  @nested @final
+  struct t64_s {
+    @key t64_u s1;
+  };
+
+  @final
+  struct t64 {
+    t64_s t1;
+  };
+
+  @nested @final
+  union t65_u switch (@key long) {
+    case 1: octet u1;
+  };
+
+  @nested @final
+  struct t65_s {
+    @key t65_u s1;
+    octet s2;
+  };
+
+  @final
+  struct t65 {
+    @key t65_s t1;
+  };
+
+  @nested @final
+  union t66_u switch (@key long) {
+    case 1: octet u1;
+  };
+
+  @nested @final
+  struct t66_s {
+    t66_u s1;
+    octet s2;
+  };
+
+  @final
+  struct t66 {
+    @key t66_s t1;
+  };
+
+  @nested @final
+  union t67_u switch (@key long) {
+    case 1: octet u1;
+  };
+
+  @nested @final
+  struct t67_s {
+    t67_u s1;
+    @key octet s2;
+  };
+
+  @final
+  struct t67 {
+    @key t67_s t1;
+  };
+
+  @nested @final
+  union t68_u switch (@key long) {
+    case 1: octet u1;
+  };
+
+  @nested @final
+  struct t68_s {
+    @key t68_u s1;
+  };
+
+  @final
+  struct t68 {
+    t68_s t1;
+  };
 };
