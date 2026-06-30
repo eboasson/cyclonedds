@@ -44,7 +44,7 @@ The default value is: ``any``
 //CycloneDDS/Domain/Compatibility
 =================================
 
-Children: :ref:`AllowInvalidExtensibility<//CycloneDDS/Domain/Compatibility/AllowInvalidExtensibility>`, :ref:`AllowInvalidTryConstruct<//CycloneDDS/Domain/Compatibility/AllowInvalidTryConstruct>`, :ref:`AllowRecursiveTypes<//CycloneDDS/Domain/Compatibility/AllowRecursiveTypes>`, :ref:`AssumeRtiHasPmdEndpoints<//CycloneDDS/Domain/Compatibility/AssumeRtiHasPmdEndpoints>`, :ref:`ExplicitlyPublishQosSetToDefault<//CycloneDDS/Domain/Compatibility/ExplicitlyPublishQosSetToDefault>`, :ref:`IgnoreTypeInformation<//CycloneDDS/Domain/Compatibility/IgnoreTypeInformation>`, :ref:`ManySocketsMode<//CycloneDDS/Domain/Compatibility/ManySocketsMode>`, :ref:`ProtocolVersion<//CycloneDDS/Domain/Compatibility/ProtocolVersion>`, :ref:`StandardsConformance<//CycloneDDS/Domain/Compatibility/StandardsConformance>`
+Children: :ref:`AllowInvalidExtensibility<//CycloneDDS/Domain/Compatibility/AllowInvalidExtensibility>`, :ref:`AllowInvalidTryConstruct<//CycloneDDS/Domain/Compatibility/AllowInvalidTryConstruct>`, :ref:`AllowMismatchingTypeId<//CycloneDDS/Domain/Compatibility/AllowMismatchingTypeId>`, :ref:`AllowRecursiveTypes<//CycloneDDS/Domain/Compatibility/AllowRecursiveTypes>`, :ref:`AssumeRtiHasPmdEndpoints<//CycloneDDS/Domain/Compatibility/AssumeRtiHasPmdEndpoints>`, :ref:`ExplicitlyPublishQosSetToDefault<//CycloneDDS/Domain/Compatibility/ExplicitlyPublishQosSetToDefault>`, :ref:`IgnoreTypeInformation<//CycloneDDS/Domain/Compatibility/IgnoreTypeInformation>`, :ref:`ManySocketsMode<//CycloneDDS/Domain/Compatibility/ManySocketsMode>`, :ref:`ProtocolVersion<//CycloneDDS/Domain/Compatibility/ProtocolVersion>`, :ref:`StandardsConformance<//CycloneDDS/Domain/Compatibility/StandardsConformance>`
 
 The Compatibility element allows you to specify various settings related to compatibility with standards and with other DDSI implementations.
 
@@ -69,6 +69,18 @@ The default value is: ``false``
 Boolean
 
 Setting option makes the TypeObject validation code accept types with the two "try construct" bits both set to 0, which is explicitly noted as an invalid setting in the spec.
+
+The default value is: ``false``
+
+
+.. _`//CycloneDDS/Domain/Compatibility/AllowMismatchingTypeId`:
+
+//CycloneDDS/Domain/Compatibility/AllowMismatchingTypeId
+--------------------------------------------------------
+
+Boolean
+
+Setting option makes the type library accept a type id -> type objects entry even when the id doesn't match the object.
 
 The default value is: ``false``
 
@@ -2985,9 +2997,9 @@ The categorisation of tracing output is incomplete and hence most of the verbosi
 The default value is: ``none``
 
 ..
-   generated from ddsi_config.h[2260a425bc4b8baca77049f230861bd66bfdf9e9]
+   generated from ddsi_config.h[641ee468037269f2388b53345a61fabcd4daec94]
    generated from ddsi_config.c[2bfa6f856d7398a905922d140943b27328d265f1]
-   generated from ddsi__cfgelems.h[f6c490e6e5b1a6687d18ade008eda61e74967591]
+   generated from ddsi__cfgelems.h[6e17813737d7ca032fe34548a57611189dd82f78]
    generated from cfgunits.h[05f093223fce107d24dd157ebaafa351dc9df752]
    generated from _confgen.h[bb9a0fc6ef1f7f7c46790ee00132e340e5fff36d]
    generated from _confgen.c[0d833a6f2c98902f1249e63aed03a6164f0791d6]
