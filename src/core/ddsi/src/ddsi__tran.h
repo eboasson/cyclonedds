@@ -90,7 +90,7 @@ DDSRT_STATIC_ASSERT (offsetof (ddsi_tran_write_msgfrags_t, tran_reserved) + DDSI
 enum ddsi_tran_qos_purpose {
   DDSI_TRAN_QOS_XMIT_UC, ///< will send unicast only
   DDSI_TRAN_QOS_XMIT_MC, ///< may send unicast or multicast
-  DDSI_TRAN_QOS_RECV_UC, ///< will be used for receiving unicast
+  DDSI_TRAN_QOS_RECVXMIT_UC, ///< will receive unicast and may be used for transmitting
   DDSI_TRAN_QOS_RECV_MC  ///< will be used for receiving multicast
 };
 
@@ -370,7 +370,10 @@ inline dds_return_t ddsi_factory_create_conn (struct ddsi_tran_conn **conn, stru
   *conn = NULL;
   if ((qos->m_purpose == DDSI_TRAN_QOS_XMIT_UC || qos->m_purpose == DDSI_TRAN_QOS_XMIT_MC) && qos->m_interface == NULL)
     return DDS_RETCODE_BAD_PARAMETER;
-  if (qos->m_interface != NULL && qos->m_purpose != DDSI_TRAN_QOS_XMIT_UC && qos->m_purpose != DDSI_TRAN_QOS_XMIT_MC && qos->m_purpose != DDSI_TRAN_QOS_RECV_UC)
+  if (qos->m_interface != NULL &&
+      qos->m_purpose != DDSI_TRAN_QOS_XMIT_UC &&
+      qos->m_purpose != DDSI_TRAN_QOS_XMIT_MC &&
+      qos->m_purpose != DDSI_TRAN_QOS_RECVXMIT_UC)
     return DDS_RETCODE_BAD_PARAMETER;
   if (port != DDSI_TRAN_RANDOM_PORT_NUMBER && !ddsi_is_valid_port (factory, port))
     return DDS_RETCODE_BAD_PARAMETER;
