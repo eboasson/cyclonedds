@@ -124,7 +124,7 @@ static enum make_uc_sockets_ret make_uc_sockets (struct ddsi_domaingv *gv, uint3
       continue;
 
     const struct ddsi_tran_qos qos = {
-      .m_purpose = DDSI_TRAN_QOS_RECV_UC,
+      .m_purpose = DDSI_TRAN_QOS_RECVXMIT_UC,
       .m_diffserv = 0,
       .m_interface = per_interface_uc ? &gv->interfaces[i] : NULL
     };

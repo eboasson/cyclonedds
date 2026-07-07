@@ -635,7 +635,7 @@ static dds_return_t ddsi_udp_create_conn (struct ddsi_tran_conn **conn_out, stru
       set_mc_xmit_options = true;
       purpose_str = "transmit(uc/mc)";
       break;
-    case DDSI_TRAN_QOS_RECV_UC:
+    case DDSI_TRAN_QOS_RECVXMIT_UC:
       reuse_addr = false;
       bind_to_any = (qos->m_interface == NULL);
       set_mc_xmit_options = (intf->allow_multicast != 0);
