@@ -19,6 +19,7 @@
 #include <CUnit/Basic.h>
 #include <CUnit/Automated.h>
 #include "CUnit/Test.h"
+#include "dds/ddsrt/regex.h"
 
 static struct {
     bool print_help;
@@ -28,46 +29,12 @@ static struct {
 } opts = {
     false,
     CUEA_FAIL,
-    "*",
-    "*"
+    ".*",
+    ".*"
 };
 
-static int patmatch(const char *pat, const char *str)
-{
-    while (*pat) {
-        if (*pat == '?') {
-            /* any character will do */
-            if (*str++ == 0) {
-                return 0;
-            }
-            pat++;
-        } else if (*pat == '*') {
-            /* collapse a sequence of wildcards, requiring as many
-               characters in str as there are ?s in the sequence */
-            while (*pat == '*' || *pat == '?') {
-                if (*pat == '?' && *str++ == 0) {
-                    return 0;
-                }
-                pat++;
-            }
-            /* try matching on all positions where str matches pat */
-            while (*str) {
-                if (*str == *pat && patmatch(pat+1, str+1)) {
-                    return 1;
-                }
-                str++;
-            }
-            return *pat == 0;
-        } else {
-            /* only an exact match */
-            if (*str++ != *pat++) {
-                return 0;
-            }
-        }
-    }
-
-    return *str == 0;
-}
+static ddsrt_regex_t suite_regex = DDSRT_REGEX_INITIALIZER;
+static ddsrt_regex_t test_regex = DDSRT_REGEX_INITIALIZER;
 
 static void usage(const char *name)
 {
@@ -82,8 +49,8 @@ static void help(const char *name)
     printf("Possible options:\n");
     printf("  -f           fail fast: abort on failed fatal assert\n");
     printf("  -h           display this help and exit\n");
-    printf("  -s PATTERN   run only tests in suites matching pattern\n");
-    printf("  -t PATTERN   run only test matching pattern\n");
+    printf("  -s REGEX     run only tests in suites matching regular expression\n");
+    printf("  -t REGEX     run only tests matching regular expression\n");
     printf("\n");
     printf("Exit codes:\n");
     printf("  %-2d  Successful termination\n", EXIT_SUCCESS);
@@ -125,6 +92,34 @@ static int parse_options(int argc, char *argv[])
     return err;
 }
 
+static int compile_filter(ddsrt_regex_t *regex, const char *name, const char *pattern)
+{
+    dds_return_t rc = ddsrt_regex_compile(regex, pattern);
+    if (rc != DDS_RETCODE_OK) {
+        fprintf(stderr, "Invalid %s regular expression: %s\n", name, pattern);
+        return 1;
+    }
+    return 0;
+}
+
+static int compile_filters(void)
+{
+    if (compile_filter(&suite_regex, "suite", opts.suite) != 0) {
+        return 1;
+    }
+    if (compile_filter(&test_regex, "test", opts.test) != 0) {
+        ddsrt_regex_fini(&suite_regex);
+        return 1;
+    }
+    return 0;
+}
+
+static void fini_filters(void)
+{
+    ddsrt_regex_fini(&test_regex);
+    ddsrt_regex_fini(&suite_regex);
+}
+
 static void
 add_suite(
     const char *suite,
@@ -136,7 +131,7 @@ add_suite(
     pSuite = CU_get_suite(suite);
     if (pSuite == NULL) {
         pSuite = CU_add_suite(suite, pInitFunc, pCleanFunc);
-        CU_set_suite_active(pSuite, patmatch(opts.suite, suite));
+        CU_set_suite_active(pSuite, ddsrt_regex_match(&suite_regex, suite));
     }
 }
 
@@ -155,7 +150,7 @@ add_test(
 
     pSuite = CU_get_suite(suite);
     pTest = CU_add_test(pSuite, test, pTestFunc);
-    CU_set_test_active(pTest, enable && patmatch(opts.test, test));
+    CU_set_test_active(pTest, enable && ddsrt_regex_match(&test_regex, test));
 }
 
 #define ADD_TEST(suite, test, enable) \
@@ -174,8 +169,11 @@ int main(int argc, char *argv[])
     } else if (opts.print_help) {
         help(argv[0]);
         return ret;
+    } else if (compile_filters() != 0) {
+        return EX_USAGE;
     } else if (CU_initialize_registry() != CUE_SUCCESS) {
         fprintf(stderr, "CU_initialize_registry: %s\n", CU_get_error_msg());
+        fini_filters();
         return EX_SOFTWARE;
     }
 
@@ -192,7 +190,7 @@ int main(int argc, char *argv[])
     }
 
     CU_cleanup_registry();
+    fini_filters();
 
     return ret;
 }
-
