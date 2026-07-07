@@ -221,7 +221,7 @@ static dds_return_t add_peer_address_ports_interface (struct spdp_admin *adm, co
     // multicast: use all metatraffic transmit connections
     for (int i = 0; i < gv->n_interfaces && rc == DDS_RETCODE_OK; i++)
     {
-      if (gv->xmit_conns_meta[i] && ddsi_factory_supports (gv->xmit_conns_meta[i]->m_factory, loc->kind))
+      if (ddsi_factory_supports (gv->xmit_conns_meta[i]->m_factory, loc->kind))
         rc = add_peer_address_xlocator (adm, &(const ddsi_xlocator_t) {
           .conn = gv->xmit_conns_meta[i],
           .c = *loc }, prune_delay);
@@ -234,7 +234,7 @@ static dds_return_t add_peer_address_ports_interface (struct spdp_admin *adm, co
     int interf_idx = -1, fallback_interf_idx = -1;
     for (int i = 0; i < gv->n_interfaces && interf_idx < 0; i++)
     {
-      if (gv->xmit_conns_meta[i] == NULL || !ddsi_factory_supports (gv->xmit_conns_meta[i]->m_factory, loc->kind))
+      if (!ddsi_factory_supports (gv->xmit_conns_meta[i]->m_factory, loc->kind))
         continue;
       switch (ddsi_is_nearby_address (gv, loc, (size_t) gv->n_interfaces, gv->interfaces, NULL))
       {
@@ -381,7 +381,6 @@ static dds_return_t populate_initial_addresses (struct spdp_admin *adm, bool add
   for (int i = 0; rc == DDS_RETCODE_OK && i < gv->n_interfaces; i++)
   {
     if ((gv->interfaces[i].allow_multicast & DDSI_AMC_SPDP) &&
-        gv->xmit_conns_meta[i] &&
         ddsi_factory_supports (gv->xmit_conns_meta[i]->m_factory, gv->loc_spdp_mc.kind))
     {
       const ddsi_xlocator_t xloc = { .conn = gv->xmit_conns_meta[i], .c = gv->loc_spdp_mc };

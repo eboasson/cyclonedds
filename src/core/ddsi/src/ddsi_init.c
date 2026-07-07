@@ -1627,6 +1627,7 @@ int ddsi_init (struct ddsi_domaingv *gv, struct ddsi_psmx_instance_locators *psm
     };
     // FIXME: looking up the factory here is a hack to support PSMX in addition to (e.g.) UDP
     struct ddsi_tran_factory * fact = ddsi_factory_find_supported_kind (gv, gv->interfaces[i].loc.kind);
+    assert (fact != NULL);
     struct ddsi_tran_conn *xmit_conn;
     rc = ddsi_factory_create_conn (&xmit_conn, fact, 0, &qos);
     if (rc != DDS_RETCODE_OK)
@@ -1636,6 +1637,8 @@ int ddsi_init (struct ddsi_domaingv *gv, struct ddsi_psmx_instance_locators *psm
   }
   for (int i = 0; i < gv->n_interfaces; i++)
   {
+    assert (gv->xmit_conns_meta[i] != NULL);
+    assert (gv->xmit_conns_data[i] != NULL);
     GVLOG (DDS_LC_CONFIG, "interface %s: transmit ports meta %d data %d\n", gv->interfaces[i].name, (int) ddsi_conn_port (gv->xmit_conns_meta[i]), (int) ddsi_conn_port (gv->xmit_conns_data[i]));
     gv->intf_xlocators[i].conn = gv->xmit_conns_meta[i];
     gv->intf_xlocators[i].c = gv->interfaces[i].loc;

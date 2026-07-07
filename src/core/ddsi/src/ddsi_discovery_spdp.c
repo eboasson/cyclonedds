@@ -106,7 +106,7 @@ void ddsi_get_participant_builtin_topic_data (const struct ddsi_participant *pp,
     struct locators_builder meta_uni = locators_builder_init (&dst->metatraffic_unicast_locators, locs->meta_uni, MAX_XMIT_CONNS);
     for (int i = 0; i < gv->n_interfaces; i++)
     {
-      if (gv->xmit_conns_meta[i] == NULL || !gv->xmit_conns_meta[i]->m_factory->m_enable_spdp)
+      if (!gv->xmit_conns_meta[i]->m_factory->m_enable_spdp)
         continue;
 
 #ifndef NDEBUG
