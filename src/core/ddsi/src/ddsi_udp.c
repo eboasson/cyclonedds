@@ -639,7 +639,7 @@ static dds_return_t ddsi_udp_create_conn (struct ddsi_tran_conn **conn_out, stru
       reuse_addr = false;
       bind_to_any = (qos->m_interface == NULL);
       set_mc_xmit_options = (intf->allow_multicast != 0);
-      purpose_str = bind_to_any ? "unicast" : "unicast(interface)";
+      purpose_str = "unicast";
       break;
     case DDSI_TRAN_QOS_RECV_MC:
       reuse_addr = true;
