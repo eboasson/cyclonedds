@@ -220,7 +220,7 @@ static int sedp_write_endpoint_impl
           // FIXME: same as what SPDP uses, should be refactored, now more than ever
           for (int i = 0; i < epcommon->pp->e.gv->n_interfaces; i++)
           {
-            if (epcommon->pp->e.gv->xmit_conns_data[i] == NULL || !epcommon->pp->e.gv->xmit_conns_data[i]->m_factory->m_enable_spdp)
+            if (!epcommon->pp->e.gv->xmit_conns_data[i]->m_factory->m_enable_spdp)
             {
               // skip any interfaces where the address kind doesn't match the selected transport
               // as a reasonablish way of not advertising PSMX locators here

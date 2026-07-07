@@ -63,14 +63,12 @@ static void addrset_from_locatorlists_add_one (struct ddsi_domaingv const * cons
       // directly connected interface: those will then all be possibilities
       // for transmitting multicasts (assuming capable, allowed, &c.)
       assert (interf_idx < MAX_XMIT_CONNS);
-      if (xmit_conns[interf_idx])
-      {
-        ddsi_add_xlocator_to_addrset (gv, as, &(const ddsi_xlocator_t) {
-          .conn = xmit_conns[interf_idx],
-          .c = *loc });
-        intfs->xs[interf_idx] = true;
-        *direct = true;
-      }
+      assert (xmit_conns[interf_idx] != NULL);
+      ddsi_add_xlocator_to_addrset (gv, as, &(const ddsi_xlocator_t) {
+        .conn = xmit_conns[interf_idx],
+        .c = *loc });
+      intfs->xs[interf_idx] = true;
+      *direct = true;
       break;
     case DNAR_DISTANT:
       // If DONT_ROUTE is set and there is no matching interface, then presumably
@@ -90,8 +88,7 @@ static void addrset_from_locatorlists_add_one (struct ddsi_domaingv const * cons
           for (i = 0; i < gv->n_interfaces; i++)
           {
             if (gv->interfaces[i].if_index == pktinfo->if_index &&
-                gv->interfaces[i].loc.kind == loc->kind &&
-                xmit_conns[i] != NULL)
+                gv->interfaces[i].loc.kind == loc->kind)
               break;
           }
         }
@@ -102,13 +99,13 @@ static void addrset_from_locatorlists_add_one (struct ddsi_domaingv const * cons
           for (i = 0; i < gv->n_interfaces; i++)
           {
             if (!gv->interfaces[i].link_local && !gv->interfaces[i].loopback &&
-                gv->interfaces[i].loc.kind == loc->kind &&
-                xmit_conns[i] != NULL)
+                gv->interfaces[i].loc.kind == loc->kind)
               break;
           }
         }
         if (i < gv->n_interfaces)
         {
+          assert (xmit_conns[i] != NULL);
           ddsi_add_xlocator_to_addrset (gv, routed_as ? routed_as : as, &(const ddsi_xlocator_t) {
             .conn = xmit_conns[i],
             .c = *loc });
@@ -260,7 +257,7 @@ static void ddsi_addrset_from_locatorlist_handle_mc (const struct ddsi_domaingv 
     {
       if (intfs->xs[i] && // interface must be enabled for this peer
           (gv->interfaces[i].allow_multicast & mask) && // and must allow multicast
-          xmit_conns[i] && ddsi_factory_supports (xmit_conns[i]->m_factory, l->loc.kind))
+          ddsi_factory_supports (xmit_conns[i]->m_factory, l->loc.kind))
       {
         const ddsi_xlocator_t loc = {
           .conn = xmit_conns[i],

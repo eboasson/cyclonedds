@@ -222,7 +222,8 @@ void ddsi_add_locator_to_addrset (const struct ddsi_domaingv *gv, struct ddsi_ad
     // multicast: use all transmit connections
     for (int i = 0; i < gv->n_interfaces; i++)
     {
-      if (xmit_conns[i] && ddsi_factory_supports (xmit_conns[i]->m_factory, loc->kind))
+      assert (xmit_conns[i] != NULL);
+      if (ddsi_factory_supports (xmit_conns[i]->m_factory, loc->kind))
         add_xlocator_to_addrset_impl (gv, as, &(const ddsi_xlocator_t) {
           .conn = xmit_conns[i],
           .c = *loc });
@@ -235,7 +236,8 @@ void ddsi_add_locator_to_addrset (const struct ddsi_domaingv *gv, struct ddsi_ad
     int interf_idx = -1, fallback_interf_idx = -1;
     for (int i = 0; i < gv->n_interfaces && interf_idx < 0; i++)
     {
-      if (xmit_conns[i] == NULL || !ddsi_factory_supports (xmit_conns[i]->m_factory, loc->kind))
+      assert (xmit_conns[i] != NULL);
+      if (!ddsi_factory_supports (xmit_conns[i]->m_factory, loc->kind))
         continue;
       switch (ddsi_is_nearby_address (gv, loc, (size_t) gv->n_interfaces, gv->interfaces, NULL))
       {
