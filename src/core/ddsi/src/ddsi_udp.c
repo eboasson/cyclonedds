@@ -769,8 +769,8 @@ static dds_return_t ddsi_udp_create_conn (struct ddsi_tran_conn **conn_out, stru
   conn->m_base.m_locator_fn = ddsi_udp_conn_locator;
 
   char bindaddr[DDSI_LOCSTRLEN];
-  GVTRACE ("ddsi_udp_create_conn %s socket %"PRIdSOCK" bound to %s\n",
-           purpose_str, conn->m_sockext.sock,
+  GVTRACE ("ddsi_udp_create_conn %s conn %p socket %"PRIdSOCK" bound to %s\n",
+           purpose_str, (void *) conn, conn->m_sockext.sock,
            udp_bind_address_to_string (bindaddr, sizeof (bindaddr), bind_to_any, intf,
                                        conn->m_base.m_base.m_port));
 
