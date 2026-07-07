@@ -304,7 +304,7 @@ struct ddsi_tran_qos
 {
   enum ddsi_tran_qos_purpose m_purpose;
   int m_diffserv;
-  struct ddsi_network_interface *m_interface; // only for purpose = XMIT
+  struct ddsi_network_interface *m_interface; // required for XMIT, optional for RECV_UC
 };
 
 /** @component transport */
@@ -368,7 +368,9 @@ inline uint32_t ddsi_receive_buffer_size (const struct ddsi_tran_factory *factor
 /** @component transport */
 inline dds_return_t ddsi_factory_create_conn (struct ddsi_tran_conn **conn, struct ddsi_tran_factory * factory, uint32_t port, const struct ddsi_tran_qos *qos) {
   *conn = NULL;
-  if ((qos->m_interface != NULL) != (qos->m_purpose == DDSI_TRAN_QOS_XMIT_UC || qos->m_purpose == DDSI_TRAN_QOS_XMIT_MC))
+  if ((qos->m_purpose == DDSI_TRAN_QOS_XMIT_UC || qos->m_purpose == DDSI_TRAN_QOS_XMIT_MC) && qos->m_interface == NULL)
+    return DDS_RETCODE_BAD_PARAMETER;
+  if (qos->m_interface != NULL && qos->m_purpose != DDSI_TRAN_QOS_XMIT_UC && qos->m_purpose != DDSI_TRAN_QOS_XMIT_MC && qos->m_purpose != DDSI_TRAN_QOS_RECV_UC)
     return DDS_RETCODE_BAD_PARAMETER;
   if (port != DDSI_TRAN_RANDOM_PORT_NUMBER && !ddsi_is_valid_port (factory, port))
     return DDS_RETCODE_BAD_PARAMETER;
