@@ -126,7 +126,8 @@ static enum make_uc_sockets_ret make_uc_sockets (struct ddsi_domaingv *gv, uint3
     const struct ddsi_tran_qos qos = {
       .m_purpose = DDSI_TRAN_QOS_RECVXMIT_UC,
       .m_diffserv = 0,
-      .m_interface = per_interface_uc ? &gv->interfaces[i] : NULL
+      .m_interface = &gv->interfaces[i],
+      .m_bind_to_any = !per_interface_uc
     };
     rc = ddsi_factory_create_conn (&gv->disc_conn_uc[i], gv->m_factory, *pdisc, &qos);
     if (rc != DDS_RETCODE_OK)
@@ -674,7 +675,12 @@ static int joinleave_spdp_defmcip (struct ddsi_domaingv *gv, int dojoin)
 
 static int create_multicast_sockets (struct ddsi_domaingv *gv)
 {
-  const struct ddsi_tran_qos qos = { .m_purpose = DDSI_TRAN_QOS_RECV_MC, .m_diffserv = 0, .m_interface = NULL };
+  const struct ddsi_tran_qos qos = {
+    .m_purpose = DDSI_TRAN_QOS_RECV_MC,
+    .m_diffserv = 0,
+    .m_interface = NULL,
+    .m_bind_to_any = true
+  };
   struct ddsi_tran_conn * disc, * data;
   uint32_t port;
 
@@ -1624,7 +1630,8 @@ int ddsi_init (struct ddsi_domaingv *gv, struct ddsi_psmx_instance_locators *psm
     const struct ddsi_tran_qos qos = {
       .m_purpose = (gv->interfaces[i].allow_multicast ? DDSI_TRAN_QOS_XMIT_MC : DDSI_TRAN_QOS_XMIT_UC),
       .m_diffserv = 0,
-      .m_interface = &gv->interfaces[i]
+      .m_interface = &gv->interfaces[i],
+      .m_bind_to_any = false
     };
     // FIXME: looking up the factory here is a hack to support PSMX in addition to (e.g.) UDP
     struct ddsi_tran_factory * fact = ddsi_factory_find_supported_kind (gv, gv->interfaces[i].loc.kind);
