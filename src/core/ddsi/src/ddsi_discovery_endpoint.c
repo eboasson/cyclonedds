@@ -293,8 +293,12 @@ int ddsi_sedp_write_reader (struct ddsi_reader *rd)
   {
     // FIXME: do this without first creating a temporary addrset
     as = ddsi_new_addrset ();
-    // use a placeholder connection to avoid exploding the multicast addreses to multiple
+    // use a placeholder connection to avoid exploding the multicast addresses to multiple
     // interfaces
+    //
+    // These locators describe where the remote peer should send user data for
+    // this endpoint.  Use the data transmit connection array for the address
+    // set identity even though the SEDP announcement itself is metatraffic.
     for (const struct ddsi_networkpartition_address *a = rd->uc_as; a != NULL; a = a->next)
       ddsi_add_xlocator_to_addrset(rd->e.gv, as, &(const ddsi_xlocator_t) {
         .c = a->loc,
@@ -393,7 +397,10 @@ struct ddsi_addrset *ddsi_get_endpoint_addrset (const struct ddsi_domaingv *gv, 
   if (force_srcloc)
     uc = &emptyset;
 
-  // any interface that works for the participant is presumed ok
+  // Any interface that works for the participant is presumed ok for the
+  // endpoint.  The caller chooses which transmit connection array to use:
+  // endpoint addrsets are used for data delivery, so SEDP endpoint processing
+  // normally passes xmit_conns_data even though SEDP itself is metatraffic.
   ddsi_interface_set_t intfs;
   ddsi_interface_set_init (&intfs);
   ddsi_addrset_forall (proxypp_as_default, addrset_from_locatorlists_collect_interfaces, &(struct ddsi_addrset_from_locatorlists_collect_interfaces_arg){
@@ -493,6 +500,10 @@ void ddsi_handle_sedp_alive_endpoint (const struct ddsi_receiver_state *rst, dds
   // in favour of inheriting addresses from participant
   const bool allow_srcloc = gv->config.tcp_use_peeraddr_for_unicast && !ddsi_is_unspec_locator (&rst->pktinfo.src);
   const bool force_srcloc = allow_srcloc;
+  // Endpoint addrsets are attached to proxy readers/writers and are used when
+  // sending user data to those endpoints.  Therefore use data transmit
+  // connections here; the fact that we learned the locators from SEDP does not
+  // make the resulting endpoint addrset metatraffic.
   as = ddsi_get_endpoint_addrset (gv, gv->xmit_conns_data, datap, proxypp->as_default, &rst->pktinfo, allow_srcloc, force_srcloc);
   if (ddsi_addrset_empty (as) || !ddsi_addrset_contains_non_psmx_uc (as))
   {
