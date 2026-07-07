@@ -649,9 +649,11 @@ static int joinleave_spdp_defmcip (struct ddsi_domaingv *gv, int dojoin)
   /* Addrset provides an easy way to filter out duplicates */
   struct ddsi_addrset *as = ddsi_new_addrset ();
   if (include_spdp)
-    ddsi_add_locator_to_addrset (gv, as, &gv->loc_spdp_mc, gv->xmit_conns_meta);
+    ddsi_add_xlocator_to_addrset (gv, as, &(const ddsi_xlocator_t) {
+      .conn = gv->disc_conn_mc, .c = gv->loc_spdp_mc });
   if (include_default)
-    ddsi_add_locator_to_addrset (gv, as, &gv->loc_default_mc, gv->xmit_conns_meta);
+    ddsi_add_xlocator_to_addrset (gv, as, &(const ddsi_xlocator_t) {
+      .conn = gv->disc_conn_mc, .c = gv->loc_default_mc });
   ddsi_addrset_forall (as, joinleave_spdp_defmcip_helper, &arg);
   ddsi_unref_addrset (as);
   if (arg.errcount)
