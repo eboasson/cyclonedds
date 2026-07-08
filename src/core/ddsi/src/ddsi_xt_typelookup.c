@@ -45,6 +45,7 @@ static const uint32_t DDS_Builtin_TypeLookup_Request_ops [] =
   DDS_OP_RTS,
 
   /* TypeLookup_Call */
+  DDS_OP_DLC,
   DDS_OP_ADR | DDS_OP_FLAG_MU | DDS_OP_TYPE_UNI | DDS_OP_SUBTYPE_4BY | DDS_OP_FLAG_SGN, offsetof (DDS_Builtin_TypeLookup_Call, _d), 2u, (12u << 16u) + 4u,
   DDS_OP_JEQ4 | DDS_OP_TYPE_STU | 9 /* TypeLookup_getTypes_In */, 25318099, offsetof (DDS_Builtin_TypeLookup_Call, _u.getTypes), 0u,
   DDS_OP_JEQ4 | DDS_OP_TYPE_STU | 190 /* TypeLookup_getTypeDependencies_In */, 95091505, offsetof (DDS_Builtin_TypeLookup_Call, _u.getTypeDependencies), 0u,
@@ -225,12 +226,14 @@ static const uint32_t DDS_Builtin_TypeLookup_Reply_ops [] =
   DDS_OP_RTS,
 
   /* TypeLookup_Return */
+  DDS_OP_DLC,
   DDS_OP_ADR | DDS_OP_FLAG_MU | DDS_OP_TYPE_UNI | DDS_OP_SUBTYPE_4BY | DDS_OP_FLAG_SGN, offsetof (DDS_Builtin_TypeLookup_Return, _d), 2u, (12u << 16u) + 4u,
   DDS_OP_JEQ4 | DDS_OP_TYPE_UNI | 9 /* TypeLookup_getTypes_Result */, 25318099, offsetof (DDS_Builtin_TypeLookup_Return, _u.getType), 0u,
-  DDS_OP_JEQ4 | DDS_OP_TYPE_UNI | 1071 /* TypeLookup_getTypeDependencies_Result */, 95091505, offsetof (DDS_Builtin_TypeLookup_Return, _u.getTypeDependencies), 0u,
+  DDS_OP_JEQ4 | DDS_OP_TYPE_UNI | 1072 /* TypeLookup_getTypeDependencies_Result */, 95091505, offsetof (DDS_Builtin_TypeLookup_Return, _u.getTypeDependencies), 0u,
   DDS_OP_RTS,
 
   /* TypeLookup_getTypes_Result */
+  DDS_OP_DLC,
   DDS_OP_ADR | DDS_OP_FLAG_MU | DDS_OP_TYPE_UNI | DDS_OP_SUBTYPE_4BY | DDS_OP_FLAG_SGN, offsetof (DDS_Builtin_TypeLookup_getTypes_Result, _d), 1u, (8u << 16u) + 4u,
   DDS_OP_JEQ4 | DDS_OP_TYPE_STU | 5 /* TypeLookup_getTypes_Out */, 0, offsetof (DDS_Builtin_TypeLookup_getTypes_Result, _u.result), 0u,
   DDS_OP_RTS,
@@ -852,6 +855,7 @@ static const uint32_t DDS_Builtin_TypeLookup_Reply_ops [] =
   DDS_OP_RTS,
 
   /* TypeLookup_getTypeDependencies_Result */
+  DDS_OP_DLC,
   DDS_OP_ADR | DDS_OP_FLAG_MU | DDS_OP_TYPE_UNI | DDS_OP_SUBTYPE_4BY | DDS_OP_FLAG_SGN, offsetof (DDS_Builtin_TypeLookup_getTypeDependencies_Result, _d), 1u, (8u << 16u) + 4u,
   DDS_OP_JEQ4 | DDS_OP_TYPE_STU | 5 /* TypeLookup_getTypeDependencies_Out */, 0, offsetof (DDS_Builtin_TypeLookup_getTypeDependencies_Result, _u.result), 0u,
   DDS_OP_RTS,
@@ -868,28 +872,28 @@ static const uint32_t DDS_Builtin_TypeLookup_Reply_ops [] =
 
   /* TypeIdentifierWithSize */
   DDS_OP_DLC,
-  DDS_OP_ADR | DDS_OP_TYPE_EXT, offsetof (DDS_XTypes_TypeIdentifierWithSize, type_id), (3u << 16u) + 64477u /* TypeIdentifier */,
+  DDS_OP_ADR | DDS_OP_TYPE_EXT, offsetof (DDS_XTypes_TypeIdentifierWithSize, type_id), (3u << 16u) + 64476u /* TypeIdentifier */,
   DDS_OP_ADR | DDS_OP_TYPE_4BY, offsetof (DDS_XTypes_TypeIdentifierWithSize, typeobject_serialized_size),
   DDS_OP_RTS,
 
   /* member ID list */
-  DDS_OP_MID | 339 /* DDS_XTypes_CompleteTypeDetail.ann_builtin */, 0u,
-  DDS_OP_MID | 352 /* DDS_XTypes_AppliedBuiltinTypeAnnotations.verbatim */, 0u,
-  DDS_OP_MID | 343 /* DDS_XTypes_CompleteTypeDetail.ann_custom */, 1u,
-  DDS_OP_MID | 370 /* DDS_XTypes_AppliedAnnotation.param_seq */, 1u,
-  DDS_OP_MID | 462 /* DDS_XTypes_CompleteAliasBody.ann_builtin */, 1u,
-  DDS_OP_MID | 480 /* DDS_XTypes_AppliedBuiltinMemberAnnotations.unit */, 0u,
-  DDS_OP_MID | 482 /* DDS_XTypes_AppliedBuiltinMemberAnnotations.min */, 1u,
-  DDS_OP_MID | 486 /* DDS_XTypes_AppliedBuiltinMemberAnnotations.max */, 2u,
-  DDS_OP_MID | 490 /* DDS_XTypes_AppliedBuiltinMemberAnnotations.hash_id */, 3u,
-  DDS_OP_MID | 466 /* DDS_XTypes_CompleteAliasBody.ann_custom */, 2u,
-  DDS_OP_MID | 570 /* DDS_XTypes_CompleteMemberDetail.ann_builtin */, 1u,
-  DDS_OP_MID | 574 /* DDS_XTypes_CompleteMemberDetail.ann_custom */, 2u,
-  DDS_OP_MID | 603 /* DDS_XTypes_CompleteDiscriminatorMember.ann_builtin */, 1u,
-  DDS_OP_MID | 607 /* DDS_XTypes_CompleteDiscriminatorMember.ann_custom */, 2u,
-  DDS_OP_MID | 692 /* DDS_XTypes_CompleteCollectionHeader.detail */, 1u,
-  DDS_OP_MID | 716 /* DDS_XTypes_CompleteElementDetail.ann_builtin */, 0u,
-  DDS_OP_MID | 720 /* DDS_XTypes_CompleteElementDetail.ann_custom */, 1u,
+  DDS_OP_MID | 341 /* DDS_XTypes_CompleteTypeDetail.ann_builtin */, 0u,
+  DDS_OP_MID | 354 /* DDS_XTypes_AppliedBuiltinTypeAnnotations.verbatim */, 0u,
+  DDS_OP_MID | 345 /* DDS_XTypes_CompleteTypeDetail.ann_custom */, 1u,
+  DDS_OP_MID | 372 /* DDS_XTypes_AppliedAnnotation.param_seq */, 1u,
+  DDS_OP_MID | 464 /* DDS_XTypes_CompleteAliasBody.ann_builtin */, 1u,
+  DDS_OP_MID | 482 /* DDS_XTypes_AppliedBuiltinMemberAnnotations.unit */, 0u,
+  DDS_OP_MID | 484 /* DDS_XTypes_AppliedBuiltinMemberAnnotations.min */, 1u,
+  DDS_OP_MID | 488 /* DDS_XTypes_AppliedBuiltinMemberAnnotations.max */, 2u,
+  DDS_OP_MID | 492 /* DDS_XTypes_AppliedBuiltinMemberAnnotations.hash_id */, 3u,
+  DDS_OP_MID | 468 /* DDS_XTypes_CompleteAliasBody.ann_custom */, 2u,
+  DDS_OP_MID | 572 /* DDS_XTypes_CompleteMemberDetail.ann_builtin */, 1u,
+  DDS_OP_MID | 576 /* DDS_XTypes_CompleteMemberDetail.ann_custom */, 2u,
+  DDS_OP_MID | 605 /* DDS_XTypes_CompleteDiscriminatorMember.ann_builtin */, 1u,
+  DDS_OP_MID | 609 /* DDS_XTypes_CompleteDiscriminatorMember.ann_custom */, 2u,
+  DDS_OP_MID | 694 /* DDS_XTypes_CompleteCollectionHeader.detail */, 1u,
+  DDS_OP_MID | 718 /* DDS_XTypes_CompleteElementDetail.ann_builtin */, 0u,
+  DDS_OP_MID | 722 /* DDS_XTypes_CompleteElementDetail.ann_custom */, 1u,
   DDS_OP_RTS
 };
 
