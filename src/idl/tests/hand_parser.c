@@ -13,12 +13,12 @@
 #include "CUnit/Test.h"
 
 static idl_pstate_t *
-parse_string(const char *str)
+parse_string_flags(uint32_t flags, const char *str)
 {
   idl_pstate_t *pstate = NULL;
   idl_retcode_t ret;
 
-  ret = idl_create_pstate(0u, NULL, &pstate);
+  ret = idl_create_pstate(flags, NULL, &pstate);
   CU_ASSERT_EQ_FATAL(ret, IDL_RETCODE_OK);
   CU_ASSERT_NEQ_FATAL(pstate, NULL);
 
@@ -26,6 +26,12 @@ parse_string(const char *str)
   CU_ASSERT_EQ_FATAL(ret, IDL_RETCODE_OK);
   CU_ASSERT_EQ(pstate->scope, pstate->global_scope);
   return pstate;
+}
+
+static idl_pstate_t *
+parse_string(const char *str)
+{
+  return parse_string_flags(0u, str);
 }
 
 CU_Test(idl_hand_parser, module_with_empty_struct)
@@ -107,6 +113,86 @@ CU_Test(idl_hand_parser, strips_identifier_escape)
   CU_ASSERT_NEQ_FATAL(strct, NULL);
   CU_ASSERT_FATAL(idl_is_struct(strct));
   CU_ASSERT_STREQ(idl_identifier(strct), "struct");
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, struct_with_primitive_member)
+{
+  idl_pstate_t *pstate;
+  idl_struct_t *strct;
+  idl_member_t *member;
+  idl_declarator_t *declarator;
+
+  pstate = parse_string("struct Sample { long value; };");
+  strct = (idl_struct_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(strct, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(strct));
+  CU_ASSERT_STREQ(idl_identifier(strct), "Sample");
+
+  member = strct->members;
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_FATAL(idl_is_member(member));
+  CU_ASSERT_EQ(idl_parent(member), strct);
+  CU_ASSERT_EQ(idl_next(member), NULL);
+  CU_ASSERT_EQ(idl_mask(member->type_spec), IDL_LONG);
+  CU_ASSERT_EQ(idl_parent(member->type_spec), member);
+
+  declarator = member->declarators;
+  CU_ASSERT_NEQ_FATAL(declarator, NULL);
+  CU_ASSERT_FATAL(idl_is_declarator(declarator));
+  CU_ASSERT_EQ(idl_parent(declarator), member);
+  CU_ASSERT_EQ(idl_next(declarator), NULL);
+  CU_ASSERT_STREQ(idl_identifier(declarator), "value");
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, struct_with_primitive_member_list)
+{
+  idl_pstate_t *pstate;
+  idl_struct_t *strct;
+  idl_member_t *member;
+  idl_declarator_t *declarator;
+  const char str[] =
+    "struct Numbers {"
+    "  unsigned long a, b;"
+    "  long long c;"
+    "  long double d;"
+    "  uint32 e;"
+    "};";
+
+  pstate = parse_string_flags(IDL_FLAG_EXTENDED_DATA_TYPES, str);
+  strct = (idl_struct_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(strct, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(strct));
+
+  member = strct->members;
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_EQ(idl_mask(member->type_spec), IDL_ULONG);
+  declarator = member->declarators;
+  CU_ASSERT_NEQ_FATAL(declarator, NULL);
+  CU_ASSERT_STREQ(idl_identifier(declarator), "a");
+  declarator = idl_next(declarator);
+  CU_ASSERT_NEQ_FATAL(declarator, NULL);
+  CU_ASSERT_STREQ(idl_identifier(declarator), "b");
+  CU_ASSERT_EQ(idl_next(declarator), NULL);
+
+  member = idl_next(member);
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_EQ(idl_mask(member->type_spec), IDL_LLONG);
+  CU_ASSERT_STREQ(idl_identifier(member->declarators), "c");
+
+  member = idl_next(member);
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_EQ(idl_mask(member->type_spec), IDL_LDOUBLE);
+  CU_ASSERT_STREQ(idl_identifier(member->declarators), "d");
+
+  member = idl_next(member);
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_EQ(idl_mask(member->type_spec), IDL_UINT32);
+  CU_ASSERT_STREQ(idl_identifier(member->declarators), "e");
+  CU_ASSERT_EQ(idl_next(member), NULL);
 
   idl_delete_pstate(pstate);
 }

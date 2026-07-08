@@ -203,7 +203,10 @@ Error handling:
 
 ### Phase 3: Type declarations
 
-- [ ] Parse primitive type specs.
+- [x] Parse primitive type specs. Done 2026-07-08 for base type specs,
+  including extended integer tokens when `IDL_FLAG_EXTENDED_DATA_TYPES` makes
+  the scanner classify them as keywords. This does not include scoped names or
+  template type specs.
 - [ ] Parse scoped names as type refs.
 - [ ] Parse typedefs with simple declarators.
 - [ ] Parse fixed arrays and multi-dimensional arrays.
@@ -211,6 +214,10 @@ Error handling:
 - [ ] Parse structs with members.
   - 2026-07-08 note: only empty struct definitions are parsed so modules can
     have a Bison-valid leaf definition. Full member parsing remains pending.
+  - 2026-07-08 progress: member lists now support primitive type specs and
+    comma-separated simple declarators. Keep this item open until members also
+    support scoped-name type refs, template type specs, array declarators,
+    annotations, and other Bison grammar forms.
 - [ ] Parse struct inheritance.
 - [ ] Parse struct forward declarations.
 - [ ] Parse unions, switch specs, cases, defaults, and labels.
@@ -311,6 +318,10 @@ unless a test already depends on it.
   the Bison grammar's requirement that modules contain at least one definition.
 - 2026-07-08: Added `ENABLE_IDL_HAND_PARSER`-only CUnit cases for module
   parsing, nested module parsing, comments/newlines, and escaped identifiers.
+- 2026-07-08: Added primitive base type parsing and struct member parsing for
+  comma-separated simple declarators. Extended fixed-width integer type names
+  follow the existing scanner flag behavior and are tested with
+  `IDL_FLAG_EXTENDED_DATA_TYPES`.
 
 ## Differences from Bison parser
 
@@ -325,6 +336,11 @@ unless a test already depends on it.
   `syntax error` for most other grammar constructs. Empty modules are rejected
   intentionally, because they are not accepted by the Bison grammar and they
   violate existing post-parse validation assumptions.
+- 2026-07-08: Superseding note: in an `ENABLE_IDL_HAND_PARSER=ON` development
+  build, the hand parser also accepts structs with members whose type spec is a
+  primitive base type and whose declarators are simple identifiers. Members
+  using scoped-name type refs, template types, arrays, annotations, or other
+  pending grammar forms still report `syntax error`.
 
 ## Local verification log
 
@@ -344,5 +360,11 @@ unless a test already depends on it.
 - 2026-07-08: Reconfigured `build-hand-parser` with `-DBUILD_TESTING=ON`,
   rebuilt `cunit_idl`, and ran
   `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 3/3 passed.
+- 2026-07-08: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-08: After adding primitive member parsing, rebuilt hand-parser
+  `cunit_idl` with `cmake --build build-hand-parser --target cunit_idl --parallel`
+  and ran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 5/5 passed.
 - 2026-07-08: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
