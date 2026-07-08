@@ -175,6 +175,87 @@ parse_identifier(idl_parser_stream_t *stream, idl_name_t **namep)
 
 static idl_retcode_t parse_definition(idl_parser_stream_t *stream, void **nodep);
 
+static idl_retcode_t
+parse_scoped_name(
+  idl_parser_stream_t *stream,
+  idl_scoped_name_t **scoped_namep)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_position_t first = stream->token.location.first;
+  idl_location_t location;
+  idl_scoped_name_t *scoped_name = NULL;
+  idl_name_t *name = NULL;
+  bool absolute = false;
+  idl_retcode_t ret;
+
+  if (stream->token.code == IDL_TOKEN_SCOPE) {
+    absolute = true;
+    if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+      return ret;
+  }
+
+  if ((ret = parse_identifier(stream, &name)) != IDL_RETCODE_OK)
+    return ret;
+  location = location_span(first, name->symbol.location.last);
+  ret = idl_create_scoped_name(
+    pstate, &location, name, absolute, &scoped_name);
+  if (ret != IDL_RETCODE_OK) {
+    idl_delete_name(name);
+    return ret;
+  }
+  name = NULL;
+
+  while (stream->token.code == IDL_TOKEN_SCOPE) {
+    if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+      goto err;
+    if ((ret = parse_identifier(stream, &name)) != IDL_RETCODE_OK)
+      goto err;
+    ret = idl_push_scoped_name(pstate, scoped_name, name);
+    if (ret != IDL_RETCODE_OK) {
+      idl_delete_name(name);
+      goto err;
+    }
+    name = NULL;
+  }
+
+  *scoped_namep = scoped_name;
+  return IDL_RETCODE_OK;
+err:
+  idl_delete_name(name);
+  idl_delete_scoped_name(scoped_name);
+  return ret;
+}
+
+static idl_retcode_t
+parse_scoped_type_spec(
+  idl_parser_stream_t *stream,
+  idl_type_spec_t **type_specp)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_scoped_name_t *scoped_name = NULL;
+  const idl_declaration_t *declaration = NULL;
+  static const char fmt[] = "Scoped name '%s' does not resolve to a type";
+  idl_retcode_t ret;
+
+  if ((ret = parse_scoped_name(stream, &scoped_name)) != IDL_RETCODE_OK)
+    return ret;
+  ret = idl_resolve(pstate, 0u, scoped_name, &declaration);
+  if (ret != IDL_RETCODE_OK)
+    goto err;
+  if (!declaration || !idl_is_type_spec(declaration->node)) {
+    idl_error(pstate, idl_location(scoped_name), fmt, scoped_name->identifier);
+    ret = IDL_RETCODE_SEMANTIC_ERROR;
+    goto err;
+  }
+
+  *type_specp = idl_reference_node((idl_node_t *) declaration->node);
+  idl_delete_scoped_name(scoped_name);
+  return IDL_RETCODE_OK;
+err:
+  idl_delete_scoped_name(scoped_name);
+  return ret;
+}
+
 static bool
 token_starts_base_type(int32_t code)
 {
@@ -327,6 +408,9 @@ parse_type_spec(idl_parser_stream_t *stream, idl_type_spec_t **type_specp)
 {
   if (token_starts_base_type(stream->token.code))
     return parse_base_type_spec(stream, type_specp);
+  if (stream->token.code == IDL_TOKEN_IDENTIFIER ||
+      stream->token.code == IDL_TOKEN_SCOPE)
+    return parse_scoped_type_spec(stream, type_specp);
   return syntax_error(stream);
 }
 

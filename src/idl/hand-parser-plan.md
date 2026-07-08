@@ -207,7 +207,8 @@ Error handling:
   including extended integer tokens when `IDL_FLAG_EXTENDED_DATA_TYPES` makes
   the scanner classify them as keywords. This does not include scoped names or
   template type specs.
-- [ ] Parse scoped names as type refs.
+- [x] Parse scoped names as type refs. Done 2026-07-08 for relative,
+  qualified, and absolute scoped names that resolve to existing type specs.
 - [ ] Parse typedefs with simple declarators.
 - [ ] Parse fixed arrays and multi-dimensional arrays.
 - [ ] Parse string, wstring, and sequence template types.
@@ -218,6 +219,10 @@ Error handling:
     comma-separated simple declarators. Keep this item open until members also
     support scoped-name type refs, template type specs, array declarators,
     annotations, and other Bison grammar forms.
+  - 2026-07-08 progress: member type specs now also support scoped-name type
+    refs, including same-module, cross-module, and absolute references. Keep
+    this item open for template type specs, array declarators, annotations,
+    and the other pending Bison grammar forms.
 - [ ] Parse struct inheritance.
 - [ ] Parse struct forward declarations.
 - [ ] Parse unions, switch specs, cases, defaults, and labels.
@@ -322,6 +327,9 @@ unless a test already depends on it.
   comma-separated simple declarators. Extended fixed-width integer type names
   follow the existing scanner flag behavior and are tested with
   `IDL_FLAG_EXTENDED_DATA_TYPES`.
+- 2026-07-08: Added scoped-name type references for struct members, using
+  `idl_resolve` and requiring the resolved declaration to be an existing type
+  spec, matching the Bison semantic action.
 
 ## Differences from Bison parser
 
@@ -341,6 +349,10 @@ unless a test already depends on it.
   primitive base type and whose declarators are simple identifiers. Members
   using scoped-name type refs, template types, arrays, annotations, or other
   pending grammar forms still report `syntax error`.
+- 2026-07-08: Superseding note: in an `ENABLE_IDL_HAND_PARSER=ON` development
+  build, the hand parser also accepts scoped-name type refs in member type
+  specs. Template types, arrays, annotations, and other pending grammar forms
+  still report `syntax error`.
 
 ## Local verification log
 
@@ -360,6 +372,16 @@ unless a test already depends on it.
 - 2026-07-08: Reconfigured `build-hand-parser` with `-DBUILD_TESTING=ON`,
   rebuilt `cunit_idl`, and ran
   `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 3/3 passed.
+- 2026-07-08: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-08 note: the primitive-member and scoped-name verification entries
+  immediately below are not in commit order because repeated command text made
+  the append context ambiguous. The primitive-member checkpoint was verified
+  and committed first; scoped-name type refs were verified afterward.
+- 2026-07-08: After adding scoped-name type refs, rebuilt hand-parser
+  `cunit_idl` with `cmake --build build-hand-parser --target cunit_idl --parallel`
+  and ran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 7/7 passed.
 - 2026-07-08: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-08: After adding primitive member parsing, rebuilt hand-parser

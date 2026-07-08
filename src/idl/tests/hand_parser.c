@@ -196,3 +196,74 @@ CU_Test(idl_hand_parser, struct_with_primitive_member_list)
 
   idl_delete_pstate(pstate);
 }
+
+CU_Test(idl_hand_parser, struct_with_local_type_ref)
+{
+  idl_pstate_t *pstate;
+  idl_module_t *module;
+  idl_struct_t *s1;
+  idl_struct_t *s2;
+  idl_member_t *member;
+  const char str[] =
+    "module m { struct s1 { char c; }; struct s2 { s1 s; }; };";
+
+  pstate = parse_string(str);
+  module = (idl_module_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(module, NULL);
+  CU_ASSERT_FATAL(idl_is_module(module));
+
+  s1 = (idl_struct_t *) module->definitions;
+  CU_ASSERT_NEQ_FATAL(s1, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(s1));
+  s2 = idl_next(s1);
+  CU_ASSERT_NEQ_FATAL(s2, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(s2));
+
+  member = s2->members;
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_EQ(member->type_spec, s1);
+  CU_ASSERT_STREQ(idl_identifier(member->declarators), "s");
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, struct_with_cross_module_type_ref)
+{
+  idl_pstate_t *pstate;
+  idl_module_t *m1;
+  idl_module_t *m2;
+  idl_struct_t *s1;
+  idl_struct_t *s2;
+  idl_member_t *member;
+  const char str[] =
+    "module m1 { struct s1 { char c; }; };"
+    "module m2 { struct s2 { m1::s1 r; ::m1::s1 a; }; };";
+
+  pstate = parse_string(str);
+  m1 = (idl_module_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(m1, NULL);
+  CU_ASSERT_FATAL(idl_is_module(m1));
+  s1 = (idl_struct_t *) m1->definitions;
+  CU_ASSERT_NEQ_FATAL(s1, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(s1));
+
+  m2 = idl_next(m1);
+  CU_ASSERT_NEQ_FATAL(m2, NULL);
+  CU_ASSERT_FATAL(idl_is_module(m2));
+  s2 = (idl_struct_t *) m2->definitions;
+  CU_ASSERT_NEQ_FATAL(s2, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(s2));
+
+  member = s2->members;
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_EQ(member->type_spec, s1);
+  CU_ASSERT_STREQ(idl_identifier(member->declarators), "r");
+
+  member = idl_next(member);
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_EQ(member->type_spec, s1);
+  CU_ASSERT_STREQ(idl_identifier(member->declarators), "a");
+  CU_ASSERT_EQ(idl_next(member), NULL);
+
+  idl_delete_pstate(pstate);
+}
