@@ -8,6 +8,14 @@
 //
 // SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 
+// ddsi_udp.c needs these before any socket-related system header is included.
+#ifndef __APPLE_USE_RFC_3542
+#define __APPLE_USE_RFC_3542
+#endif
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include "ddsi__fakeudp.h"
 #include "ddsi__fakenet.h"
 

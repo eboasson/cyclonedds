@@ -134,7 +134,7 @@ static void fakenet_lock_init (void)
   ddsrt_once (&fakenet_once, fakenet_init_once);
 }
 
-static socklen_t sockaddr_size (const struct sockaddr *addr)
+static socklen_t fakenet_sockaddr_size (const struct sockaddr *addr)
 {
   return ddsrt_sockaddr_get_size (addr);
 }
@@ -836,11 +836,11 @@ static int append_real_interface (struct fake_host *host, const ddsrt_ifaddrs_t 
   intf.index = ifa->index ? ifa->index : fallback_index;
   intf.flags = ifa->flags;
   intf.type = ifa->type;
-  memcpy (&intf.addr, ifa->addr, sockaddr_size (ifa->addr));
+  memcpy (&intf.addr, ifa->addr, fakenet_sockaddr_size (ifa->addr));
   intf.has_addr = true;
   if (ifa->netmask && ifa->netmask->sa_family == AF_INET)
   {
-    memcpy (&intf.netmask, ifa->netmask, sockaddr_size (ifa->netmask));
+    memcpy (&intf.netmask, ifa->netmask, fakenet_sockaddr_size (ifa->netmask));
     intf.has_netmask = true;
   }
 
@@ -962,9 +962,9 @@ int ddsi_fakenet_enumerate_interfaces (struct ddsi_tran_factory *fact, enum ddsi
     ifa->index = src->index;
     ifa->flags = src->flags;
     ifa->type = src->type;
-    ifa->addr = ddsrt_memdup (&src->addr, sockaddr_size ((const struct sockaddr *) &src->addr));
+    ifa->addr = ddsrt_memdup (&src->addr, fakenet_sockaddr_size ((const struct sockaddr *) &src->addr));
     if (src->has_netmask)
-      ifa->netmask = ddsrt_memdup (&src->netmask, sockaddr_size ((const struct sockaddr *) &src->netmask));
+      ifa->netmask = ddsrt_memdup (&src->netmask, fakenet_sockaddr_size ((const struct sockaddr *) &src->netmask));
     if (ifa->name == NULL || ifa->addr == NULL || (src->has_netmask && ifa->netmask == NULL))
     {
       ddsrt_freeifaddrs (ifa);
@@ -1066,7 +1066,7 @@ dds_return_t ddsi_fakenet_bind (ddsrt_socket_t sock, const struct sockaddr *addr
   }
   struct sockaddr_storage bindaddr;
   memset (&bindaddr, 0, sizeof (bindaddr));
-  memcpy (&bindaddr, addr, sockaddr_size (addr));
+  memcpy (&bindaddr, addr, fakenet_sockaddr_size (addr));
   uint16_t port = sockaddr_port ((const struct sockaddr *) &bindaddr);
   if (port == 0)
   {
@@ -1108,7 +1108,7 @@ dds_return_t ddsi_fakenet_getsockname (ddsrt_socket_t sock, struct sockaddr *add
     ddsrt_mutex_unlock (&fakenet_lock);
     return DDS_RETCODE_BAD_PARAMETER;
   }
-  const socklen_t sz = s->bound ? sockaddr_size ((const struct sockaddr *) &s->addr) : (socklen_t) sizeof (struct sockaddr_in);
+  const socklen_t sz = s->bound ? fakenet_sockaddr_size ((const struct sockaddr *) &s->addr) : (socklen_t) sizeof (struct sockaddr_in);
   if (*addrlen >= sz)
     memcpy (addr, s->bound ? (const void *) &s->addr : &(struct sockaddr_in){ .sin_family = AF_INET }, sz);
   *addrlen = sz;
@@ -1261,7 +1261,7 @@ dds_return_t ddsi_fakenet_sendmsg (ddsrt_socket_t sock, const ddsrt_msghdr_t *ms
   struct sockaddr_storage src;
   struct sockaddr_storage dststore;
   memset (&dststore, 0, sizeof (dststore));
-  memcpy (&dststore, dst, sockaddr_size (dst));
+  memcpy (&dststore, dst, fakenet_sockaddr_size (dst));
   select_source_address (s, dst, &src);
   const struct fake_interface *send_intf = sockaddr_is_multicast (dst) ? socket_multicast_interface (s) : NULL;
 
@@ -1314,10 +1314,10 @@ dds_return_t ddsi_fakenet_recvmsg (const ddsrt_socket_ext_t *sockext, ddsrt_msgh
   if (s->queue_head == NULL)
     s->queue_tail = NULL;
 
-  if (msg->msg_name && msg->msg_namelen >= sockaddr_size ((const struct sockaddr *) &p->src))
-    memcpy (msg->msg_name, &p->src, sockaddr_size ((const struct sockaddr *) &p->src));
+  if (msg->msg_name && msg->msg_namelen >= fakenet_sockaddr_size ((const struct sockaddr *) &p->src))
+    memcpy (msg->msg_name, &p->src, fakenet_sockaddr_size ((const struct sockaddr *) &p->src));
   if (msg->msg_name)
-    msg->msg_namelen = sockaddr_size ((const struct sockaddr *) &p->src);
+    msg->msg_namelen = fakenet_sockaddr_size ((const struct sockaddr *) &p->src);
   copy_packet_to_iov (p, msg, rcvd);
   set_recvmsg_control (s, p, msg);
 #if DDSRT_MSGHDR_FLAGS
