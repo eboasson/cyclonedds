@@ -209,7 +209,9 @@ Error handling:
   template type specs.
 - [x] Parse scoped names as type refs. Done 2026-07-08 for relative,
   qualified, and absolute scoped names that resolve to existing type specs.
-- [ ] Parse typedefs with simple declarators.
+- [x] Parse typedefs with simple declarators. Done 2026-07-08 for typedefs
+  whose type spec is already supported by the hand parser and whose
+  declarators are simple identifiers.
 - [ ] Parse fixed arrays and multi-dimensional arrays.
 - [ ] Parse string, wstring, and sequence template types.
 - [ ] Parse structs with members.
@@ -330,6 +332,8 @@ unless a test already depends on it.
 - 2026-07-08: Added scoped-name type references for struct members, using
   `idl_resolve` and requiring the resolved declaration to be an existing type
   spec, matching the Bison semantic action.
+- 2026-07-08: Added simple typedef declarations using existing type-spec and
+  declarator parsing, including aliases that are later used as member types.
 
 ## Differences from Bison parser
 
@@ -353,6 +357,10 @@ unless a test already depends on it.
   build, the hand parser also accepts scoped-name type refs in member type
   specs. Template types, arrays, annotations, and other pending grammar forms
   still report `syntax error`.
+- 2026-07-08: Superseding note: in an `ENABLE_IDL_HAND_PARSER=ON` development
+  build, the hand parser also accepts typedef declarations with simple
+  declarators when the typedef type spec is already supported. Typedefs with
+  inline constructed types or array declarators are still pending.
 
 ## Local verification log
 
@@ -388,5 +396,15 @@ unless a test already depends on it.
   `cunit_idl` with `cmake --build build-hand-parser --target cunit_idl --parallel`
   and ran
   `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 5/5 passed.
+- 2026-07-08: After adding simple typedef declarations, rebuilt hand-parser
+  `cunit_idl` with `cmake --build build-hand-parser --target cunit_idl --parallel`
+  and ran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 9/9 passed.
 - 2026-07-08: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-08: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-08 canonical checkpoint order: primitive member parsing was verified
+  first with hand-parser tests at 5/5, scoped-name type refs second at 7/7,
+  and simple typedef declarations third at 9/9. The default Bison-path
+  `^idl_` slice remained 126/126 after each checkpoint.

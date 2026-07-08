@@ -267,3 +267,64 @@ CU_Test(idl_hand_parser, struct_with_cross_module_type_ref)
 
   idl_delete_pstate(pstate);
 }
+
+CU_Test(idl_hand_parser, typedef_with_simple_declarators)
+{
+  idl_pstate_t *pstate;
+  idl_typedef_t *t;
+  idl_declarator_t *d;
+
+  pstate = parse_string("typedef char foo, bar, baz;");
+  t = (idl_typedef_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(t, NULL);
+  CU_ASSERT_FATAL(idl_is_typedef(t));
+  CU_ASSERT_EQ(idl_next(t), NULL);
+  CU_ASSERT_EQ(idl_parent(t), NULL);
+  CU_ASSERT_EQ(idl_type(t->type_spec), IDL_CHAR);
+
+  d = t->declarators;
+  CU_ASSERT_NEQ_FATAL(d, NULL);
+  CU_ASSERT_FATAL(idl_is_declarator(d));
+  CU_ASSERT_EQ(idl_parent(d), t);
+  CU_ASSERT_STREQ(idl_identifier(d), "foo");
+
+  d = idl_next(d);
+  CU_ASSERT_NEQ_FATAL(d, NULL);
+  CU_ASSERT_FATAL(idl_is_declarator(d));
+  CU_ASSERT_EQ(idl_parent(d), t);
+  CU_ASSERT_STREQ(idl_identifier(d), "bar");
+
+  d = idl_next(d);
+  CU_ASSERT_NEQ_FATAL(d, NULL);
+  CU_ASSERT_FATAL(idl_is_declarator(d));
+  CU_ASSERT_EQ(idl_parent(d), t);
+  CU_ASSERT_STREQ(idl_identifier(d), "baz");
+  CU_ASSERT_EQ(idl_next(d), NULL);
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, typedef_used_as_member_type)
+{
+  idl_pstate_t *pstate;
+  idl_typedef_t *t;
+  idl_struct_t *strct;
+  idl_member_t *member;
+  const char str[] = "typedef long my_long; struct Sample { my_long value; };";
+
+  pstate = parse_string(str);
+  t = (idl_typedef_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(t, NULL);
+  CU_ASSERT_FATAL(idl_is_typedef(t));
+  CU_ASSERT_EQ(idl_type(t->type_spec), IDL_LONG);
+
+  strct = idl_next(t);
+  CU_ASSERT_NEQ_FATAL(strct, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(strct));
+  member = strct->members;
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_EQ(member->type_spec, t->declarators);
+  CU_ASSERT_STREQ(idl_identifier(member->declarators), "value");
+
+  idl_delete_pstate(pstate);
+}

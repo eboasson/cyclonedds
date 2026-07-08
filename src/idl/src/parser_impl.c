@@ -466,6 +466,50 @@ err:
   return ret;
 }
 
+static idl_position_t
+declarators_last_position(idl_declarator_t *declarators)
+{
+  idl_declarator_t *declarator = declarators;
+
+  assert(declarator);
+  while (idl_next(declarator))
+    declarator = idl_next(declarator);
+  return idl_location(declarator)->last;
+}
+
+static idl_retcode_t
+parse_typedef(idl_parser_stream_t *stream, void **nodep)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_position_t first = stream->token.location.first;
+  idl_location_t location;
+  idl_type_spec_t *type_spec = NULL;
+  idl_declarator_t *declarators = NULL;
+  idl_typedef_t *node = NULL;
+  idl_retcode_t ret;
+
+  assert(stream->token.code == IDL_TOKEN_TYPEDEF);
+  if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+    return ret;
+  if ((ret = parse_type_spec(stream, &type_spec)) != IDL_RETCODE_OK)
+    return ret;
+  if ((ret = parse_declarators(stream, &declarators)) != IDL_RETCODE_OK)
+    goto err;
+
+  location = location_span(first, declarators_last_position(declarators));
+  ret = idl_create_typedef(
+    pstate, &location, type_spec, declarators, &node);
+  if (ret != IDL_RETCODE_OK)
+    goto err;
+
+  *nodep = node;
+  return IDL_RETCODE_OK;
+err:
+  idl_delete_node(declarators);
+  idl_delete_node(type_spec);
+  return ret;
+}
+
 static idl_retcode_t
 parse_member(idl_parser_stream_t *stream, idl_member_t **memberp)
 {
@@ -679,6 +723,9 @@ parse_definition(idl_parser_stream_t *stream, void **nodep)
       break;
     case IDL_TOKEN_STRUCT:
       ret = parse_struct(stream, &node);
+      break;
+    case IDL_TOKEN_TYPEDEF:
+      ret = parse_typedef(stream, &node);
       break;
     default:
       return syntax_error(stream);
