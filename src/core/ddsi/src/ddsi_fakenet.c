@@ -217,10 +217,8 @@ static int make_wake_pair (ddsrt_socket_t handles[2])
   return 0;
 
 fail:
-  if (fds[0] >= 0)
-    (void) close (fds[0]);
-  if (fds[1] >= 0)
-    (void) close (fds[1]);
+  (void) close (fds[0]);
+  (void) close (fds[1]);
   return -1;
 }
 
