@@ -131,6 +131,7 @@ static enum make_uc_sockets_ret make_uc_sockets (struct ddsi_domaingv *gv, uint3
   if (*pdata != DDSI_TRAN_RANDOM_PORT_NUMBER && !ddsi_is_valid_port (gv->m_factory, *pdata))
     return MUSRET_INVALID_PORTS;
 
+  const bool random_disc_port = (*pdisc == DDSI_TRAN_RANDOM_PORT_NUMBER);
   for (int i = 0; i < n_uc_conns; i++)
   {
     if (per_interface_uc && !ddsi_factory_supports (gv->m_factory, gv->interfaces[i].loc.kind))
@@ -145,10 +146,14 @@ static enum make_uc_sockets_ret make_uc_sockets (struct ddsi_domaingv *gv, uint3
     rc = ddsi_factory_create_conn (&gv->disc_conn_uc[i], gv->m_factory, *pdisc, &qos);
     if (rc != DDS_RETCODE_OK)
       goto fail;
+    if (random_disc_port && *pdisc == DDSI_TRAN_RANDOM_PORT_NUMBER)
+      *pdisc = ddsi_conn_port (gv->disc_conn_uc[i]);
 
     if (*pdata == 0 || *pdata == *pdisc)
     {
       gv->data_conn_uc[i] = gv->disc_conn_uc[i];
+      if (*pdata == DDSI_TRAN_RANDOM_PORT_NUMBER)
+        *pdata = *pdisc;
     }
     else
     {
