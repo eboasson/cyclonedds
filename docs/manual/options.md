@@ -727,9 +727,9 @@ The default value is: `false`
 
 
 #### //CycloneDDS/Domain/General/Transport
-One of: default, udp, udp6, tcp, tcp6, raweth
+Text
 
-This element allows selecting the transport to be used (udp, udp6, tcp, tcp6, raweth)
+This element allows selecting the transport to be used (udp, udp6, tcp, tcp6, raweth, fakeudp). The fakeudp transport is available only when built with ENABLE\_FAKEUDP and uses a built-in deterministic fake network by default. It may also be written as fakeudp:file to load the fake network topology from an XML file, or as fakeudp:real to import the real interface list into the fake network.
 
 The default value is: `default`
 
@@ -2095,9 +2095,9 @@ While none prevents any message from being written to a DDSI2 log file.
 The categorisation of tracing output is incomplete and hence most of the verbosity levels and categories are not of much use in the current release. This is an ongoing process and here we describe the target situation rather than the current situation. Currently, the most useful verbosity levels are config, fine and finest.
 
 The default value is: `none`
-<!--- generated from ddsi_config.h[641ee468037269f2388b53345a61fabcd4daec94] -->
-<!--- generated from ddsi_config.c[17b0fc55f05d6251ed55af04de76fe89ef262983] -->
-<!--- generated from ddsi__cfgelems.h[6e17813737d7ca032fe34548a57611189dd82f78] -->
+<!--- generated from ddsi_config.h[296c449e5f567df1dad1ac3d0db7c8f079ee9cc3] -->
+<!--- generated from ddsi_config.c[b23203a56857771ae4ffbec02d560cda247a4bf4] -->
+<!--- generated from ddsi__cfgelems.h[0224b00c31124b7d7148a6cb4bf179561fbba4e7] -->
 <!--- generated from cfgunits.h[05f093223fce107d24dd157ebaafa351dc9df752] -->
 <!--- generated from _confgen.h[bb9a0fc6ef1f7f7c46790ee00132e340e5fff36d] -->
 <!--- generated from _confgen.c[0d833a6f2c98902f1249e63aed03a6164f0791d6] -->
