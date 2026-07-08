@@ -668,7 +668,7 @@ CU_Theory ((const char *pistr, const char *msmstr), ddsc_nwpart, full_stack_init
   // use a high value for "max auto participant index" to avoid spurious
   // failures caused by running several tests in parallel (using a unique
   // domain id would help, too, but where to find a unique id?)
-  dds_entity_t eh = dds_create_domain (0, NULL);
+  dds_entity_t eh = test_create_domain_from_env (0, NULL);
   CU_ASSERT_GT_FATAL (eh, 0);
   const struct ddsi_domaingv *gv = get_domaingv (eh);
   CU_ASSERT_NEQ_FATAL (gv, NULL);
@@ -699,8 +699,10 @@ CU_Theory ((const char *pistr, const char *msmstr), ddsc_nwpart, full_stack_init
   rc = dds_delete (eh);
   CU_ASSERT_EQ_FATAL (rc, 0);
   // start up a new domain with this new configuration
-  eh = dds_create_domain (0, config);
+  char *expanded = test_config_from_env (config, 0);
   ddsrt_free (config);
+  eh = dds_create_domain (0, expanded);
+  ddsrt_free (expanded);
   CU_ASSERT_GT_FATAL (eh, 0);
   gv = get_domaingv (eh);
   CU_ASSERT_NEQ_FATAL (gv, NULL);

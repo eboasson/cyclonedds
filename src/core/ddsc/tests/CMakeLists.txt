@@ -220,15 +220,19 @@ endif()
 
 # Setup environment for config-tests
 get_test_property(ddsc_config_simple_udp ENVIRONMENT ddsc_config_simple_udp_env)
-set(ddsc_config_simple_udp_file "${CMAKE_CURRENT_LIST_DIR}/config_simple_udp.xml")
+if(ENABLE_FAKEUDP)
+  set(ddsc_config_simple_udp_file "${CMAKE_CURRENT_LIST_DIR}/config_simple_fakeudp.xml")
+else()
+  set(ddsc_config_simple_udp_file "${CMAKE_CURRENT_LIST_DIR}/config_simple_udp.xml")
+endif()
 set(ddsc_config_simple_udp_uri "file://${ddsc_config_simple_udp_file}")
 set(ddsc_config_simple_udp_max_participants "0")
 set(ddsc_config_simple_udp_env "CYCLONEDDS_URI=${ddsc_config_simple_udp_uri};MAX_PARTICIPANTS=${ddsc_config_simple_udp_max_participants};${ddsc_config_simple_udp_env}")
 set_tests_properties(
-	ddsc_config_simple_udp
-	PROPERTIES
-		REQUIRED_FILES ${ddsc_config_simple_udp_file}
-		ENVIRONMENT "${ddsc_config_simple_udp_env}")
+  ddsc_config_simple_udp
+  PROPERTIES
+    REQUIRED_FILES ${ddsc_config_simple_udp_file}
+    ENVIRONMENT "${ddsc_config_simple_udp_env}")
 
 # Setup environment for sysdef-test
 get_test_property(ddsc_qos_provider_read_sysdef ENVIRONMENT ddsc_qos_provider_read_sysdef_env)

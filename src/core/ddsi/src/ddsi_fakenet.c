@@ -46,8 +46,9 @@
 static const char fakenet_default_topology[] =
   "<FakeNetwork>"
   "  <Host name=\"host0\">"
-  "    <Interface name=\"fake0\" index=\"1\" address=\"192.0.2.1\" netmask=\"255.255.255.0\" flags=\"up,multicast\" type=\"wired\"/>"
-  "    <Interface name=\"fake1\" index=\"2\" address=\"198.51.100.1\" netmask=\"255.255.255.0\" flags=\"up,multicast\" type=\"wired\"/>"
+  "    <Interface name=\"lo\" index=\"1\" address=\"127.0.0.1\" netmask=\"255.0.0.0\" flags=\"up,loopback,multicast\" type=\"unknown\"/>"
+  "    <Interface name=\"fake0\" index=\"2\" address=\"192.0.2.1\" netmask=\"255.255.255.0\" flags=\"up,multicast\" type=\"wired\"/>"
+  "    <Interface name=\"fake1\" index=\"3\" address=\"198.51.100.1\" netmask=\"255.255.255.0\" flags=\"up,multicast\" type=\"wired\"/>"
   "  </Host>"
   "</FakeNetwork>";
 
