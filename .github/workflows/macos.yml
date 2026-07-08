@@ -117,8 +117,6 @@ jobs:
         name: build
       - run: cmake --build ./build --config ${{ matrix.config.build_type || 'Release' }} --target check_generated_sources
         name: check_generated_sources
-        env:
-          LSAN_OPTIONS: detect_leaks=1
       - run: sudo cmake --install ./build --config ${{ matrix.config.build_type || 'Release' }}
         name: install
       - run: |
