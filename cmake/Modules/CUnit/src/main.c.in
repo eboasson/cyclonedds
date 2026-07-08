@@ -10,6 +10,8 @@
  * SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
  */
 #include <stdio.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -26,15 +28,18 @@ static struct {
     CU_ErrorAction error_action;
     const char *suite;
     const char *test;
+    const char *regex;
 } opts = {
     false,
     CUEA_FAIL,
-    ".*",
-    ".*"
+    "*",
+    "*",
+    NULL
 };
 
 static ddsrt_regex_t suite_regex = DDSRT_REGEX_INITIALIZER;
 static ddsrt_regex_t test_regex = DDSRT_REGEX_INITIALIZER;
+static ddsrt_regex_t name_regex = DDSRT_REGEX_INITIALIZER;
 
 static void usage(const char *name)
 {
@@ -49,8 +54,9 @@ static void help(const char *name)
     printf("Possible options:\n");
     printf("  -f           fail fast: abort on failed fatal assert\n");
     printf("  -h           display this help and exit\n");
-    printf("  -s REGEX     run only tests in suites matching regular expression\n");
-    printf("  -t REGEX     run only tests matching regular expression\n");
+    printf("  -s PATTERN   run only tests in suites matching wildcard pattern\n");
+    printf("  -t PATTERN   run only tests matching wildcard pattern\n");
+    printf("  -r REGEX     run only tests with suite_test name matching unanchored regular expression\n");
     printf("\n");
     printf("Exit codes:\n");
     printf("  %-2d  Successful termination\n", EXIT_SUCCESS);
@@ -71,18 +77,27 @@ static int parse_options(int argc, char *argv[])
             case 'f':
                 opts.error_action = CUEA_ABORT;
                 break;
+            case 'r':
+                if ((i+1) < argc) {
+                    opts.regex = argv[++i];
+                    break;
+                }
+                err = 1;
+                break;
             case 's':
                 if ((i+1) < argc) {
                     opts.suite = argv[++i];
                     break;
                 }
-                /* FALLS THROUGH */
+                err = 1;
+                break;
             case 't':
                 if ((i+1) < argc) {
                     opts.test = argv[++i];
                     break;
                 }
-                /* FALLS THROUGH */
+                err = 1;
+                break;
             default:
                 err = 1;
                 break;
@@ -90,6 +105,72 @@ static int parse_options(int argc, char *argv[])
     }
 
     return err;
+}
+
+static bool is_regex_metachar(char ch)
+{
+    switch (ch) {
+        case '.':
+        case '^':
+        case '$':
+        case '[':
+        case ']':
+        case '(':
+        case ')':
+        case '|':
+        case '*':
+        case '+':
+        case '?':
+        case '\\':
+            return true;
+        default:
+            return false;
+    }
+}
+
+static char *wildcard_to_regex(const char *pattern)
+{
+    size_t len = 3;
+    char *regex;
+    char *p;
+
+    for (const char *s = pattern; *s != '\0'; s++) {
+        size_t add = 1;
+        if (*s == '*') {
+            add = 2;
+        } else if (*s != '?' && is_regex_metachar(*s)) {
+            add = 2;
+        }
+        if (len > SIZE_MAX - add) {
+            return NULL;
+        }
+        len += add;
+    }
+
+    regex = malloc(len);
+    if (regex == NULL) {
+        return NULL;
+    }
+
+    p = regex;
+    *p++ = '^';
+    for (const char *s = pattern; *s != '\0'; s++) {
+        if (*s == '*') {
+            *p++ = '.';
+            *p++ = '*';
+        } else if (*s == '?') {
+            *p++ = '.';
+        } else {
+            if (is_regex_metachar(*s)) {
+                *p++ = '\\';
+            }
+            *p++ = *s;
+        }
+    }
+    *p++ = '$';
+    *p = '\0';
+
+    return regex;
 }
 
 static int compile_filter(ddsrt_regex_t *regex, const char *name, const char *pattern)
@@ -102,12 +183,32 @@ static int compile_filter(ddsrt_regex_t *regex, const char *name, const char *pa
     return 0;
 }
 
-static int compile_filters(void)
+static int compile_wildcard_filter(ddsrt_regex_t *regex, const char *name, const char *pattern)
 {
-    if (compile_filter(&suite_regex, "suite", opts.suite) != 0) {
+    char *regex_pattern = wildcard_to_regex(pattern);
+    int ret;
+
+    if (regex_pattern == NULL) {
+        fprintf(stderr, "Out of memory compiling %s pattern: %s\n", name, pattern);
         return 1;
     }
-    if (compile_filter(&test_regex, "test", opts.test) != 0) {
+
+    ret = compile_filter(regex, name, regex_pattern);
+    free(regex_pattern);
+    return ret;
+}
+
+static int compile_filters(void)
+{
+    if (compile_wildcard_filter(&suite_regex, "suite", opts.suite) != 0) {
+        return 1;
+    }
+    if (compile_wildcard_filter(&test_regex, "test", opts.test) != 0) {
+        ddsrt_regex_fini(&suite_regex);
+        return 1;
+    }
+    if (opts.regex != NULL && compile_filter(&name_regex, "suite_test", opts.regex) != 0) {
+        ddsrt_regex_fini(&test_regex);
         ddsrt_regex_fini(&suite_regex);
         return 1;
     }
@@ -116,6 +217,7 @@ static int compile_filters(void)
 
 static void fini_filters(void)
 {
+    ddsrt_regex_fini(&name_regex);
     ddsrt_regex_fini(&test_regex);
     ddsrt_regex_fini(&suite_regex);
 }
@@ -142,6 +244,7 @@ static void
 add_test(
     const char *suite,
     const char *test,
+    const char *name,
     CU_TestFunc pTestFunc,
     bool enable)
 {
@@ -150,11 +253,14 @@ add_test(
 
     pSuite = CU_get_suite(suite);
     pTest = CU_add_test(pSuite, test, pTestFunc);
-    CU_set_test_active(pTest, enable && ddsrt_regex_match(&test_regex, test));
+    CU_set_test_active(pTest,
+        enable &&
+        ddsrt_regex_match(&test_regex, test) &&
+        (opts.regex == NULL || ddsrt_regex_search(&name_regex, name)));
 }
 
 #define ADD_TEST(suite, test, enable) \
-  add_test(#suite, #test, CU_TestProxyName(suite, test), enable)
+  add_test(#suite, #test, #suite "_" #test, CU_TestProxyName(suite, test), enable)
 
 /* CMake will expand the macro below to declare generated functions. */
 @decls@
