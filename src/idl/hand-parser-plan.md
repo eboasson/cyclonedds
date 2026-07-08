@@ -186,11 +186,20 @@ Error handling:
 
 ### Phase 2: Minimal grammar path
 
-- [ ] Parse an empty specification.
+- [ ] Parse an empty specification. Code support exists, but this remains open
+  until it has a verification path that does not trip `idl_parse_string`'s
+  existing non-null-root assertion.
 - [ ] Parse a single empty module.
-- [ ] Parse nested modules.
-- [ ] Preserve scope creation/finalization semantics for modules.
-- [ ] Add or identify tests for those cases.
+  - 2026-07-08 correction: keep this as historical context, but do not pursue
+    empty modules as a parity target because the Bison grammar rejects them.
+    Use modules containing empty structs for the Phase 2 smoke tests instead.
+- [x] Parse nested modules. Done 2026-07-08 for module definitions containing
+  empty structs.
+- [x] Preserve scope creation/finalization semantics for modules. Done
+  2026-07-08; hand-parser tests assert that parsing returns to global scope
+  and that nested definitions get the expected parent links.
+- [x] Add or identify tests for those cases. Done 2026-07-08 with
+  `idl_hand_parser_*` tests registered only for `ENABLE_IDL_HAND_PARSER`.
 
 ### Phase 3: Type declarations
 
@@ -200,6 +209,8 @@ Error handling:
 - [ ] Parse fixed arrays and multi-dimensional arrays.
 - [ ] Parse string, wstring, and sequence template types.
 - [ ] Parse structs with members.
+  - 2026-07-08 note: only empty struct definitions are parsed so modules can
+    have a Bison-valid leaf definition. Full member parsing remains pending.
 - [ ] Parse struct inheritance.
 - [ ] Parse struct forward declarations.
 - [ ] Parse unions, switch specs, cases, defaults, and labels.
@@ -293,6 +304,13 @@ unless a test already depends on it.
 - 2026-07-08: First default build exposed a missing generated-token include in
   `parser_impl.c`; fixed by including `parser.h` while the scanner still uses
   Bison token definitions.
+- 2026-07-08: Added the first real recursive-descent grammar path: top-level
+  definitions, modules, nested modules, and empty structs as leaf definitions.
+  Empty modules were deliberately not accepted after testing showed that the
+  post-parse XCDR2 validation assumes module definitions are non-null, matching
+  the Bison grammar's requirement that modules contain at least one definition.
+- 2026-07-08: Added `ENABLE_IDL_HAND_PARSER`-only CUnit cases for module
+  parsing, nested module parsing, comments/newlines, and escaped identifiers.
 
 ## Differences from Bison parser
 
@@ -301,6 +319,12 @@ unless a test already depends on it.
   hand-written parser currently accepts only an empty specification and reports
   `syntax error` for other grammar tokens. This is intentional scaffolding, not
   a parity claim.
+- 2026-07-08: Superseding note for the previous scaffold limitation: in an
+  `ENABLE_IDL_HAND_PARSER=ON` development build, the hand parser now accepts
+  module definitions and empty struct definitions. It still reports
+  `syntax error` for most other grammar constructs. Empty modules are rejected
+  intentionally, because they are not accepted by the Bison grammar and they
+  violate existing post-parse validation assumptions.
 
 ## Local verification log
 
@@ -317,3 +341,8 @@ unless a test already depends on it.
   `cmake -S . -B build-hand-parser -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=/opt/homebrew/opt/llvm/bin/clang -DCMAKE_CXX_COMPILER=/opt/homebrew/opt/llvm/bin/clang++ -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DSANITIZER=address,undefined -DBUILD_TESTING=OFF -DENABLE_IDL_HAND_PARSER=ON`.
 - 2026-07-08: Built hand-parser-selected `idl` target with
   `cmake --build build-hand-parser --target idl --parallel`; result: passed.
+- 2026-07-08: Reconfigured `build-hand-parser` with `-DBUILD_TESTING=ON`,
+  rebuilt `cunit_idl`, and ran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 3/3 passed.
+- 2026-07-08: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
