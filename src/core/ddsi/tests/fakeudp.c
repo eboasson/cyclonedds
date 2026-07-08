@@ -101,10 +101,12 @@ CU_Test (ddsi_fakeudp, enumerate_interfaces_from_builtin_default)
   ddsrt_ifaddrs_t *ifs = NULL;
   CU_ASSERT_EQ_FATAL (ddsi_enumerate_interfaces (gv.m_factory, gv.config.transport_selector, &ifs), 0);
   CU_ASSERT_FATAL (ifs != NULL);
-  CU_ASSERT_FATAL (strcmp (ifs->name, "fake0") == 0);
+  CU_ASSERT_FATAL (strcmp (ifs->name, "lo") == 0);
   CU_ASSERT_FATAL (ifs->next != NULL);
-  CU_ASSERT_FATAL (strcmp (ifs->next->name, "fake1") == 0);
-  CU_ASSERT_FATAL (ifs->next->next == NULL);
+  CU_ASSERT_FATAL (strcmp (ifs->next->name, "fake0") == 0);
+  CU_ASSERT_FATAL (ifs->next->next != NULL);
+  CU_ASSERT_FATAL (strcmp (ifs->next->next->name, "fake1") == 0);
+  CU_ASSERT_FATAL (ifs->next->next->next == NULL);
   ddsrt_freeifaddrs (ifs);
   fini_gv (&gv);
 
