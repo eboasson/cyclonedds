@@ -52,10 +52,11 @@ struct domain_case {
   uint32_t data_mc_port;
 };
 
-struct many_case {
+struct participant_case {
   const char *name;
   const struct domain_case *domain;
-  struct conn_expect participant;
+  bool expect_private_conns;
+  struct conn_expect participant[2];
 };
 
 static const char intf_fake0[] =
@@ -252,16 +253,42 @@ static const struct domain_case two_pi0_many_mc = {
   .data_mc_port = 7401
 };
 
-static const struct many_case many_cases[] = {
+static const struct participant_case participant_cases[] = {
+  {
+    .name = "one-pi0-single-mc",
+    .domain = &one_pi0_single_mc,
+    .expect_private_conns = false,
+    .participant = {
+      { "192.0.2.1", 7411, "0.0.0.0", 7411 },
+      { "192.0.2.1", 7411, "0.0.0.0", 7411 }
+    }
+  },
+  {
+    .name = "two-pi0-single-mc",
+    .domain = &two_pi0_single_mc,
+    .expect_private_conns = false,
+    .participant = {
+      { "192.0.2.1", 7411, "192.0.2.1", 7411 },
+      { "192.0.2.1", 7411, "192.0.2.1", 7411 }
+    }
+  },
   {
     .name = "one-pi0-many-mc",
     .domain = &one_pi0_many_mc,
-    .participant = { "192.0.2.1", 49152, "0.0.0.0", 49152 }
+    .expect_private_conns = true,
+    .participant = {
+      { "192.0.2.1", 49152, "0.0.0.0", 49152 },
+      { "192.0.2.1", 49153, "0.0.0.0", 49153 }
+    }
   },
   {
     .name = "two-pi0-many-mc",
     .domain = &two_pi0_many_mc,
-    .participant = { "192.0.2.1", 49152, "0.0.0.0", 49152 }
+    .expect_private_conns = true,
+    .participant = {
+      { "192.0.2.1", 49152, "0.0.0.0", 49152 },
+      { "192.0.2.1", 49153, "0.0.0.0", 49153 }
+    }
   }
 };
 
@@ -431,11 +458,15 @@ static struct ddsi_participant *get_ddsi_participant (dds_entity_t ppent, const 
   return pp;
 }
 
-CU_TheoryDataPoints(ddsc_fakeudp_ports, many_participant_ports) = {
-  CU_DataPoints(const struct many_case *, &many_cases[0], &many_cases[1])
+CU_TheoryDataPoints(ddsc_fakeudp_ports, participant_ports) = {
+  CU_DataPoints(const struct participant_case *,
+    &participant_cases[0],
+    &participant_cases[1],
+    &participant_cases[2],
+    &participant_cases[3])
 };
 
-CU_Theory((const struct many_case *tc), ddsc_fakeudp_ports, many_participant_ports)
+CU_Theory((const struct participant_case *tc), ddsc_fakeudp_ports, participant_ports)
 {
   ddsi_fakenet_clear ();
   dds_entity_t domain = create_domain (0, tc->domain, -1);
@@ -445,12 +476,41 @@ CU_Theory((const struct many_case *tc), ddsc_fakeudp_ports, many_participant_por
   CU_ASSERT_NEQ_FATAL (gv, NULL);
   assert_domain_ports (gv, tc->domain);
 
-  dds_entity_t ppent = dds_create_participant (0, NULL, NULL);
-  CU_ASSERT_GT_FATAL (ppent, 0);
-  struct ddsi_participant *pp = get_ddsi_participant (ppent, gv);
-  CU_ASSERT_NEQ_FATAL (pp->m_conn, NULL);
-  assert_locator (tc->name, &pp->m_locator, tc->participant.addr, tc->participant.port);
-  assert_conn (tc->name, pp->m_conn, &tc->participant);
+  struct ddsi_tran_conn *ppconn[2];
+  for (int i = 0; i < 2; i++)
+  {
+    dds_entity_t ppent = dds_create_participant (0, NULL, NULL);
+    CU_ASSERT_GT_FATAL (ppent, 0);
+    struct ddsi_participant *pp = get_ddsi_participant (ppent, gv);
+
+    char what[64];
+    (void) snprintf (what, sizeof (what), "%s participant[%d]", tc->name, i);
+    if (tc->expect_private_conns)
+    {
+      CU_ASSERT_NEQ_FATAL (pp->m_conn, NULL);
+      ppconn[i] = pp->m_conn;
+      assert_locator (what, &pp->m_locator, tc->participant[i].addr, tc->participant[i].port);
+    }
+    else
+    {
+      CU_ASSERT_EQ_FATAL (pp->m_conn, NULL);
+      ppconn[i] = gv->data_conn_uc[0];
+    }
+    assert_conn (what, ppconn[i], &tc->participant[i]);
+  }
+
+  if (tc->expect_private_conns)
+  {
+    CU_ASSERT_NEQ_FATAL (ppconn[0], gv->data_conn_uc[0]);
+    CU_ASSERT_NEQ_FATAL (ppconn[1], gv->data_conn_uc[0]);
+    CU_ASSERT_NEQ_FATAL (ppconn[0], ppconn[1]);
+  }
+  else
+  {
+    CU_ASSERT_EQ_FATAL (ppconn[0], gv->data_conn_uc[0]);
+    CU_ASSERT_EQ_FATAL (ppconn[1], gv->data_conn_uc[0]);
+    CU_ASSERT_EQ_FATAL (ppconn[0], ppconn[1]);
+  }
 
   CU_ASSERT_EQ_FATAL (dds_delete (domain), DDS_RETCODE_OK);
   ddsi_fakenet_clear ();
