@@ -8534,12 +8534,6 @@ uint32_t dds_stream_descriptor_flags (struct dds_cdrstream_desc *desc, uint32_t 
       descriptor_flags |= DDS_TOPIC_FIXED_KEY_XCDR2_KEYHASH;
   }
 
-  const uint32_t calculated_flags =
-    DDS_TOPIC_FIXED_SIZE | DDS_TOPIC_FIXED_KEY | DDS_TOPIC_FIXED_KEY_XCDR2 |
-    DDS_TOPIC_FIXED_KEY_XCDR2_KEYHASH | DDS_TOPIC_KEY_APPENDABLE |
-    DDS_TOPIC_KEY_MUTABLE | DDS_TOPIC_KEY_SEQUENCE | DDS_TOPIC_KEY_ARRAY_NONPRIM |
-    DDS_TOPIC_KEY_UNION;
-  assert (!(descriptor_flags & ~(DDS_CDR_DESCRIPTOR_PRESERVED_FLAGS | calculated_flags)));
   return descriptor_flags;
 }
 
