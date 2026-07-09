@@ -376,3 +376,57 @@ CU_Test(idl_hand_parser, repeated_struct_forward_declarations)
 
   idl_delete_pstate(pstate);
 }
+
+CU_Test(idl_hand_parser, struct_inheritance)
+{
+  idl_pstate_t *pstate;
+  idl_struct_t *base;
+  idl_struct_t *derived;
+  const char str[] =
+    "struct Base { long base_member; };"
+    "struct Derived : Base { long derived_member; };";
+
+  pstate = parse_string(str);
+  base = (idl_struct_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(base, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(base));
+  CU_ASSERT_STREQ(idl_identifier(base), "Base");
+
+  derived = idl_next(base);
+  CU_ASSERT_NEQ_FATAL(derived, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(derived));
+  CU_ASSERT_STREQ(idl_identifier(derived), "Derived");
+  CU_ASSERT_NEQ_FATAL(derived->inherit_spec, NULL);
+  CU_ASSERT_EQ(derived->inherit_spec->base, (idl_type_spec_t *) base);
+  CU_ASSERT_EQ(idl_parent(derived->inherit_spec), derived);
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, struct_inheritance_through_typedef)
+{
+  idl_pstate_t *pstate;
+  idl_struct_t *base;
+  idl_typedef_t *alias;
+  idl_struct_t *derived;
+  const char str[] =
+    "struct Base { long base_member; };"
+    "typedef Base BaseAlias;"
+    "struct Derived : BaseAlias { long derived_member; };";
+
+  pstate = parse_string(str);
+  base = (idl_struct_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(base, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(base));
+
+  alias = idl_next(base);
+  CU_ASSERT_NEQ_FATAL(alias, NULL);
+  CU_ASSERT_FATAL(idl_is_typedef(alias));
+  derived = idl_next(alias);
+  CU_ASSERT_NEQ_FATAL(derived, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(derived));
+  CU_ASSERT_NEQ_FATAL(derived->inherit_spec, NULL);
+  CU_ASSERT_EQ(derived->inherit_spec->base, (idl_type_spec_t *) base);
+
+  idl_delete_pstate(pstate);
+}

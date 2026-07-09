@@ -511,6 +511,48 @@ err:
 }
 
 static idl_retcode_t
+parse_struct_inherit_spec(
+  idl_parser_stream_t *stream,
+  idl_inherit_spec_t **inherit_specp)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_scoped_name_t *scoped_name = NULL;
+  const idl_declaration_t *declaration = NULL;
+  idl_node_t *node;
+  static const char fmt[] = "Scoped name '%s' does not resolve to a struct";
+  idl_retcode_t ret;
+
+  assert(stream->token.code == ':');
+  if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+    return ret;
+  if ((ret = parse_scoped_name(stream, &scoped_name)) != IDL_RETCODE_OK)
+    return ret;
+  ret = idl_resolve(pstate, 0u, scoped_name, &declaration);
+  if (ret != IDL_RETCODE_OK)
+    goto err;
+  if (!declaration) {
+    idl_error(pstate, idl_location(scoped_name), fmt, scoped_name->identifier);
+    ret = IDL_RETCODE_SEMANTIC_ERROR;
+    goto err;
+  }
+  node = idl_unalias(declaration->node);
+  if (!node || !idl_is_struct(node)) {
+    idl_error(pstate, idl_location(scoped_name), fmt, scoped_name->identifier);
+    ret = IDL_RETCODE_SEMANTIC_ERROR;
+    goto err;
+  }
+
+  node = idl_reference_node(node);
+  ret = idl_create_inherit_spec(
+    pstate, idl_location(scoped_name), node, inherit_specp);
+  if (ret != IDL_RETCODE_OK)
+    idl_unreference_node(node);
+err:
+  idl_delete_scoped_name(scoped_name);
+  return ret;
+}
+
+static idl_retcode_t
 parse_member(idl_parser_stream_t *stream, idl_member_t **memberp)
 {
   idl_pstate_t *pstate = stream->pstate;
@@ -615,6 +657,7 @@ parse_struct(idl_parser_stream_t *stream, void **nodep)
   idl_location_t location;
   idl_location_t rbrace_location;
   idl_struct_t *strct = NULL;
+  idl_inherit_spec_t *inherit_spec = NULL;
   idl_member_t *members = NULL;
   idl_name_t *name = NULL;
   bool entered_scope = false;
@@ -626,21 +669,33 @@ parse_struct(idl_parser_stream_t *stream, void **nodep)
   if ((ret = parse_identifier(stream, &name)) != IDL_RETCODE_OK)
     return ret;
 
-  if (stream->token.code != '{') {
-    if (stream->token.code != ';') {
-      ret = syntax_error(stream);
-      idl_delete_name(name);
-      return ret;
-    }
+  if (stream->token.code == ';') {
     ret = idl_create_forward(pstate, &keyword_location, name, IDL_STRUCT, nodep);
     if (ret != IDL_RETCODE_OK)
       idl_delete_name(name);
     return ret;
   }
 
-  location = location_span(first, name->symbol.location.last);
-  ret = idl_create_struct(pstate, &location, name, NULL, &strct);
+  if (stream->token.code == ':' &&
+      (ret = parse_struct_inherit_spec(
+        stream, &inherit_spec)) != IDL_RETCODE_OK) {
+    idl_delete_name(name);
+    return ret;
+  }
+
+  if (stream->token.code != '{') {
+    ret = syntax_error(stream);
+    idl_delete_node(inherit_spec);
+    idl_delete_name(name);
+    return ret;
+  }
+
+  location = location_span(
+    first, inherit_spec ?
+      idl_location(inherit_spec)->last : name->symbol.location.last);
+  ret = idl_create_struct(pstate, &location, name, inherit_spec, &strct);
   if (ret != IDL_RETCODE_OK) {
+    idl_delete_node(inherit_spec);
     idl_delete_name(name);
     return ret;
   }

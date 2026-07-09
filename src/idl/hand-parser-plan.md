@@ -225,7 +225,8 @@ Error handling:
     refs, including same-module, cross-module, and absolute references. Keep
     this item open for template type specs, array declarators, annotations,
     and the other pending Bison grammar forms.
-- [ ] Parse struct inheritance.
+- [x] Parse struct inheritance. Done 2026-07-09 for scoped-name bases,
+  including aliases that resolve to structs.
 - [x] Parse struct forward declarations. Done 2026-07-09 for `struct name;`,
   including repeated forwards linked to the eventual definition.
 - [ ] Parse unions, switch specs, cases, defaults, and labels.
@@ -338,6 +339,8 @@ unless a test already depends on it.
 - 2026-07-09: Added struct forward declarations for `struct name;`, reusing
   `idl_create_forward` so repeated forwards and later definitions are linked
   by the existing declaration machinery.
+- 2026-07-09: Added struct inheritance for scoped-name bases, using the same
+  resolve, unalias, and `idl_create_inherit_spec` flow as the Bison action.
 
 ## Differences from Bison parser
 
@@ -368,6 +371,10 @@ unless a test already depends on it.
 - 2026-07-09: Superseding note: in an `ENABLE_IDL_HAND_PARSER=ON` development
   build, the hand parser also accepts `struct name;` forward declarations.
   Union forward declarations are still pending until union parsing exists.
+- 2026-07-09: Superseding note: in an `ENABLE_IDL_HAND_PARSER=ON` development
+  build, the hand parser also accepts struct inheritance with scoped-name
+  bases. Multiple inheritance and non-struct bases remain rejected by existing
+  semantic checks.
 
 ## Local verification log
 
@@ -419,5 +426,19 @@ unless a test already depends on it.
   `cunit_idl` with `cmake --build build-hand-parser --target cunit_idl --parallel`
   and ran
   `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 11/11 passed.
+- 2026-07-09: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-09: Added a null-declaration guard to the struct inheritance helper,
+  rebuilt hand-parser `cunit_idl`, reran the same hand-parser sanitizer slice;
+  result: 13/13 passed. Rebuilt default `build-debug` `cunit_idl` and reran
+  the same default `^idl_` sanitizer slice; result: 126/126 passed.
+- 2026-07-09: While adding struct inheritance, the first hand-parser test run
+  failed because `parse_struct` treated any token other than `{` after the
+  name as either a forward declaration or syntax error, so it rejected `:`
+  before inheritance parsing could run. Fixed by checking `;`, then optional
+  `: scoped_name`, then `{`.
+- 2026-07-09: After fixing struct inheritance, rebuilt hand-parser `cunit_idl`
+  with `cmake --build build-hand-parser --target cunit_idl --parallel` and ran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 13/13 passed.
 - 2026-07-09: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
