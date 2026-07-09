@@ -1157,13 +1157,22 @@ static void set_recvmsg_control (const struct fake_socket *s, const struct fake_
     return;
   const size_t controllen = msg->msg_controllen;
   msg->msg_controllen = 0;
+#if defined (_WIN32) && !defined (CMSG_DATA) && defined (WSA_CMSG_DATA)
+#define CMSG_DATA WSA_CMSG_DATA
+#endif
 #if defined (IP_PKTINFO) && defined (CMSG_SPACE) && defined (CMSG_LEN) && defined (CMSG_FIRSTHDR) && defined (CMSG_DATA)
   if (!s->pktinfo_enabled || controllen < CMSG_SPACE (sizeof (struct in_pktinfo)) ||
       ((const struct sockaddr *) &p->dst)->sa_family != AF_INET)
     return;
   memset (msg->msg_control, 0, CMSG_SPACE (sizeof (struct in_pktinfo)));
   msg->msg_controllen = CMSG_SPACE (sizeof (struct in_pktinfo));
-  struct cmsghdr *cmsg = CMSG_FIRSTHDR (msg);
+#ifndef _WIN32
+  ddsrt_msghdr_t *cmsg_msg = msg;
+#else
+  WSAMSG cmsg_storage = { .Control = { .len = (ULONG) msg->msg_controllen, .buf = (CHAR *) msg->msg_control } };
+  WSAMSG *cmsg_msg = &cmsg_storage;
+#endif
+  struct cmsghdr *cmsg = CMSG_FIRSTHDR (cmsg_msg);
   if (cmsg == NULL)
   {
     msg->msg_controllen = 0;
