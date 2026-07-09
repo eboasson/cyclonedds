@@ -8,6 +8,7 @@
 //
 // SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -465,7 +466,7 @@ CU_Test(ddsc_config, multiple_domains, .init = ddsrt_init, .fini = ddsrt_fini)
       NULL
     }
   };
-  const char *exp_fakeudp[][4] = {
+  const char *exp_uripresent[][4] = {
     {
       "*config: Domain/Discovery/Tag/#text: W {*}*",
       "*config: Domain/Compatibility/StandardsConformance/#text: strict {*}*",
@@ -485,7 +486,12 @@ CU_Test(ddsc_config, multiple_domains, .init = ddsrt_init, .fini = ddsrt_fini)
       NULL
     }
   };
-  const char *(*exp)[4] = test_config_inherits_fakeudp () ? exp_fakeudp : exp_strict;
+  const char *uri = "";
+  if (ddsrt_getenv("CYCLONEDDS_URI", &uri) != DDS_RETCODE_OK)
+    uri = "";
+  while (*uri && isspace ((unsigned char) *uri))
+    uri++;
+  const char *(*exp)[4] = (uri && *uri) ? exp_uripresent : exp_strict;
   dds_entity_t doms[3];
 
   dds_set_log_mask (DDS_LC_FATAL|DDS_LC_ERROR|DDS_LC_WARNING|DDS_LC_CONFIG);
