@@ -310,19 +310,12 @@ static void logsink (void *varg, const dds_log_data_t *msg)
     arg->buf = ddsrt_realloc (arg->buf, arg->capacity * sizeof (*arg->buf));
   }
   arg->buf[arg->size] = ddsrt_strdup (msg->message);
-  if (strstr (arg->buf[arg->size], "Domain/Tracing/Category"))
+  if (strstr (arg->buf[arg->size], "Domain/Tracing/Category") ||
+      strstr (arg->buf[arg->size], "Domain/General/Transport"))
   {
     // we set this one for the XML config for the purpose of this test, so the
     // tiny difference in the source information needs to be ignored, which we
     // do by rewriting the source set to {}
-    char *p = strchr (arg->buf[arg->size], '{');
-    CU_ASSERT_NEQ_FATAL (p, NULL);
-    *p++ = '}';
-    *p++ = '\n';
-    *p++ = 0;
-  }
-  else if (test_config_inherits_fakeudp () && strstr (arg->buf[arg->size], "Domain/General/Transport"))
-  {
     char *p = strchr (arg->buf[arg->size], '{');
     CU_ASSERT_NEQ_FATAL (p, NULL);
     *p++ = '}';
@@ -351,9 +344,12 @@ CU_Test(ddsc_domain_create, raw_config)
   struct logsink_arg arg_raw = { .buf = NULL, .capacity = 0, .size = 0 };
 
   dds_set_trace_sink (logsink, &arg_xml);
-  char *xml_config = test_config_from_env ("<Tracing><Category>config</Category></Tracing>", 1);
+#if DDS_HAS_FAKEUDP
+  const char *xml_config = "<General><Transport>fakeudp</Transport></General><Tracing><Category>config</Category></Tracing>";
+#else
+  const char *xml_config = "<Tracing><Category>config</Category></Tracing>";
+#endif
   domain = dds_create_domain (1, xml_config);
-  ddsrt_free (xml_config);
   CU_ASSERT_GT_FATAL (domain, 0);
   dds_delete (domain);
 
@@ -364,11 +360,8 @@ CU_Test(ddsc_domain_create, raw_config)
   CU_ASSERT_EQ (config.tracemask, 0);
   config.tracemask = DDS_LC_CONFIG;
 #ifdef DDS_HAS_FAKEUDP
-  if (test_config_inherits_fakeudp ())
-  {
-    config.transport_selector = DDSI_TRANS_FAKEUDP;
-    config.fake_network_topology_kind = DDSI_FAKENET_TOPOLOGY_BUILTIN;
-  }
+  config.transport_selector = DDSI_TRANS_FAKEUDP;
+  config.fake_network_topology_kind = DDSI_FAKENET_TOPOLOGY_BUILTIN;
 #endif
   dds_set_trace_sink (logsink, &arg_raw);
   domain = dds_create_domain_with_rawconfig (1, &config);
