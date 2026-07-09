@@ -611,6 +611,7 @@ parse_struct(idl_parser_stream_t *stream, void **nodep)
 {
   idl_pstate_t *pstate = stream->pstate;
   idl_position_t first = stream->token.location.first;
+  idl_location_t keyword_location = stream->token.location;
   idl_location_t location;
   idl_location_t rbrace_location;
   idl_struct_t *strct = NULL;
@@ -624,6 +625,18 @@ parse_struct(idl_parser_stream_t *stream, void **nodep)
     return ret;
   if ((ret = parse_identifier(stream, &name)) != IDL_RETCODE_OK)
     return ret;
+
+  if (stream->token.code != '{') {
+    if (stream->token.code != ';') {
+      ret = syntax_error(stream);
+      idl_delete_name(name);
+      return ret;
+    }
+    ret = idl_create_forward(pstate, &keyword_location, name, IDL_STRUCT, nodep);
+    if (ret != IDL_RETCODE_OK)
+      idl_delete_name(name);
+    return ret;
+  }
 
   location = location_span(first, name->symbol.location.last);
   ret = idl_create_struct(pstate, &location, name, NULL, &strct);

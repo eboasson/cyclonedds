@@ -328,3 +328,51 @@ CU_Test(idl_hand_parser, typedef_used_as_member_type)
 
   idl_delete_pstate(pstate);
 }
+
+CU_Test(idl_hand_parser, struct_forward_declaration)
+{
+  idl_pstate_t *pstate;
+  idl_forward_t *forward;
+  idl_struct_t *strct;
+
+  pstate = parse_string("struct Node; struct Node { long value; };");
+  forward = (idl_forward_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(forward, NULL);
+  CU_ASSERT_FATAL(idl_is_forward(forward));
+  CU_ASSERT_STREQ(idl_identifier(forward), "Node");
+
+  strct = idl_next(forward);
+  CU_ASSERT_NEQ_FATAL(strct, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(strct));
+  CU_ASSERT_STREQ(idl_identifier(strct), "Node");
+  CU_ASSERT_EQ(forward->type_spec, (idl_type_spec_t *) strct);
+  CU_ASSERT_EQ(idl_next(strct), NULL);
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, repeated_struct_forward_declarations)
+{
+  idl_pstate_t *pstate;
+  idl_forward_t *first;
+  idl_forward_t *second;
+  idl_struct_t *strct;
+
+  pstate = parse_string(
+    "struct Node; struct Node; struct Node { long value; };");
+  first = (idl_forward_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(first, NULL);
+  CU_ASSERT_FATAL(idl_is_forward(first));
+  second = idl_next(first);
+  CU_ASSERT_NEQ_FATAL(second, NULL);
+  CU_ASSERT_FATAL(idl_is_forward(second));
+
+  strct = idl_next(second);
+  CU_ASSERT_NEQ_FATAL(strct, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(strct));
+  CU_ASSERT_EQ(first->type_spec, (idl_type_spec_t *) strct);
+  CU_ASSERT_EQ(second->type_spec, (idl_type_spec_t *) strct);
+  CU_ASSERT_EQ(idl_next(strct), NULL);
+
+  idl_delete_pstate(pstate);
+}

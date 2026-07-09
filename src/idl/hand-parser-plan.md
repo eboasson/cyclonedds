@@ -226,7 +226,8 @@ Error handling:
     this item open for template type specs, array declarators, annotations,
     and the other pending Bison grammar forms.
 - [ ] Parse struct inheritance.
-- [ ] Parse struct forward declarations.
+- [x] Parse struct forward declarations. Done 2026-07-09 for `struct name;`,
+  including repeated forwards linked to the eventual definition.
 - [ ] Parse unions, switch specs, cases, defaults, and labels.
 - [ ] Parse union forward declarations.
 - [ ] Parse enums and enumerators.
@@ -334,6 +335,9 @@ unless a test already depends on it.
   spec, matching the Bison semantic action.
 - 2026-07-08: Added simple typedef declarations using existing type-spec and
   declarator parsing, including aliases that are later used as member types.
+- 2026-07-09: Added struct forward declarations for `struct name;`, reusing
+  `idl_create_forward` so repeated forwards and later definitions are linked
+  by the existing declaration machinery.
 
 ## Differences from Bison parser
 
@@ -361,6 +365,9 @@ unless a test already depends on it.
   build, the hand parser also accepts typedef declarations with simple
   declarators when the typedef type spec is already supported. Typedefs with
   inline constructed types or array declarators are still pending.
+- 2026-07-09: Superseding note: in an `ENABLE_IDL_HAND_PARSER=ON` development
+  build, the hand parser also accepts `struct name;` forward declarations.
+  Union forward declarations are still pending until union parsing exists.
 
 ## Local verification log
 
@@ -408,3 +415,9 @@ unless a test already depends on it.
   first with hand-parser tests at 5/5, scoped-name type refs second at 7/7,
   and simple typedef declarations third at 9/9. The default Bison-path
   `^idl_` slice remained 126/126 after each checkpoint.
+- 2026-07-09: After adding struct forward declarations, rebuilt hand-parser
+  `cunit_idl` with `cmake --build build-hand-parser --target cunit_idl --parallel`
+  and ran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 11/11 passed.
+- 2026-07-09: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
