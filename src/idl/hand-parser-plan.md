@@ -315,7 +315,10 @@ Error handling:
 
 ### Phase 4: Constants and annotations
 
-- [ ] Parse all literal forms accepted by the current scanner.
+- [x] Parse all Bison-supported literal forms accepted by the current scanner.
+  Done 2026-07-10 for integer, floating-point, character, boolean, string,
+  and adjacent string literal concatenation. Wchar/wstring literals remain
+  intentionally unsupported, matching the existing Bison grammar note.
 - [ ] Parse constant expressions with Bison-equivalent precedence.
   - 2026-07-10 progress: the hand parser now has a reusable
     const-expression precedence parser for union labels covering primary
@@ -330,6 +333,10 @@ Error handling:
   - 2026-07-10 progress: const declarations now reuse the const-expression
     parser, and later expressions can resolve those constants by scoped name.
     Keep this item open for floating-point and string literal forms.
+  - 2026-07-10 progress: floating-point and string literals, including
+    adjacent string literal concatenation, now parse as primary expressions.
+    Keep this item open for any remaining parity checks outside the current
+    focused tests.
 - [ ] Parse const declarations.
   - 2026-07-10 progress: unannotated `const` declarations now parse for the
     currently supported const-expression forms. Tests cover integer
@@ -337,6 +344,10 @@ Error handling:
     template bounds, and union labels, plus char and boolean constants used
     as labels. Keep this item open for floating-point and string literal
     forms, enum constants, scoped const type parity, and annotations.
+  - 2026-07-10 progress: const declarations now also accept floating-point
+    and string literals, including evaluating a `double` constant as `float`
+    and concatenating adjacent string literals. Keep this item open for enum
+    constants, scoped const type parity, and annotations.
 - [ ] Parse annotation declarations.
 - [ ] Parse annotation applications without parameters.
 - [ ] Parse positional annotation application parameters.
@@ -613,6 +624,12 @@ unless a test already depends on it.
 - 2026-07-10: After adding unannotated const declarations for currently
   supported const-expression forms, rebuilt hand-parser `cunit_idl` and ran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 47/47 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding floating-point and string literal primary
+  expressions, including adjacent string literal concatenation, rebuilt
+  hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 48/48 passed.
 - 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-10: First fixed-array build failed because the new test used

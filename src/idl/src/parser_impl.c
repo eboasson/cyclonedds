@@ -9,6 +9,7 @@
 // SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 
 #include <assert.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -617,6 +618,96 @@ parse_char_literal_expr(
 }
 
 static idl_retcode_t
+parse_floating_literal_expr(
+  idl_parser_stream_t *stream,
+  idl_const_expr_t **const_exprp,
+  idl_location_t *locationp)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_literal_t value;
+  idl_literal_t *literal = NULL;
+  long double raw_value;
+  idl_type_t type;
+  idl_retcode_t ret;
+
+  assert(stream->token.code == IDL_TOKEN_FLOATING_PT_LITERAL);
+  memset(&value, 0, sizeof(value));
+  raw_value = stream->token.value.ldbl;
+  if (isnan((double) raw_value) || isinf((double) raw_value)) {
+    type = IDL_LDOUBLE;
+    value.value.ldbl = raw_value;
+  } else {
+    type = IDL_DOUBLE;
+    value.value.dbl = (double) raw_value;
+  }
+
+  ret = idl_create_literal(pstate, &stream->token.location, type, &literal);
+  if (ret != IDL_RETCODE_OK)
+    return ret;
+  literal->value = value.value;
+  *locationp = stream->token.location;
+
+  if ((ret = stream_advance(stream)) != IDL_RETCODE_OK) {
+    idl_unreference_node(literal);
+    return ret;
+  }
+
+  *const_exprp = (idl_const_expr_t *) literal;
+  return IDL_RETCODE_OK;
+}
+
+static idl_retcode_t
+parse_string_literal_expr(
+  idl_parser_stream_t *stream,
+  idl_const_expr_t **const_exprp,
+  idl_location_t *locationp)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_position_t first = stream->token.location.first;
+  idl_position_t last = stream->token.location.last;
+  idl_literal_t *literal = NULL;
+  char *value = NULL;
+  idl_retcode_t ret;
+
+  assert(stream->token.code == IDL_TOKEN_STRING_LITERAL);
+  do {
+    const char *part = stream->token.value.str;
+    size_t len = strlen(part);
+
+    if (value == NULL) {
+      if (!(value = idl_strdup(part)))
+        return IDL_RETCODE_NO_MEMORY;
+    } else {
+      size_t old_len = strlen(value);
+      char *joined = idl_realloc(value, old_len + len + 1);
+      if (!joined) {
+        ret = IDL_RETCODE_NO_MEMORY;
+        goto err;
+      }
+      value = joined;
+      memmove(value + old_len, part, len);
+      value[old_len + len] = '\0';
+    }
+
+    last = stream->token.location.last;
+    if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+      goto err;
+  } while (stream->token.code == IDL_TOKEN_STRING_LITERAL);
+
+  *locationp = location_span(first, last);
+  ret = idl_create_literal(pstate, locationp, IDL_STRING, &literal);
+  if (ret != IDL_RETCODE_OK)
+    goto err;
+  literal->value.str = value;
+
+  *const_exprp = (idl_const_expr_t *) literal;
+  return IDL_RETCODE_OK;
+err:
+  idl_free(value);
+  return ret;
+}
+
+static idl_retcode_t
 parse_boolean_literal_expr(
   idl_parser_stream_t *stream,
   idl_const_expr_t **const_exprp,
@@ -685,8 +776,12 @@ parse_primary_expr(
 {
   if (stream->token.code == IDL_TOKEN_INTEGER_LITERAL)
     return parse_integer_literal_expr(stream, const_exprp, locationp);
+  if (stream->token.code == IDL_TOKEN_FLOATING_PT_LITERAL)
+    return parse_floating_literal_expr(stream, const_exprp, locationp);
   if (stream->token.code == IDL_TOKEN_CHAR_LITERAL)
     return parse_char_literal_expr(stream, const_exprp, locationp);
+  if (stream->token.code == IDL_TOKEN_STRING_LITERAL)
+    return parse_string_literal_expr(stream, const_exprp, locationp);
   if (stream->token.code == IDL_TOKEN_TRUE ||
       stream->token.code == IDL_TOKEN_FALSE)
     return parse_boolean_literal_expr(stream, const_exprp, locationp);

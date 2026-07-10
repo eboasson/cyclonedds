@@ -1026,6 +1026,51 @@ CU_Test(idl_hand_parser, const_declaration_with_integer_expression)
   idl_delete_pstate(pstate);
 }
 
+CU_Test(idl_hand_parser, const_declaration_with_float_and_string_literals)
+{
+  idl_pstate_t *pstate;
+  idl_const_t *scale;
+  idl_const_t *ratio;
+  idl_const_t *label;
+  const idl_literal_t *literal;
+  const char str[] =
+    "const double SCALE = 1.25;"
+    "const float RATIO = SCALE;"
+    "const string LABEL = \"ab\" \"cd\";";
+
+  pstate = parse_string(str);
+  scale = (idl_const_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(scale, NULL);
+  CU_ASSERT_FATAL(idl_is_const(scale));
+  CU_ASSERT_STREQ(idl_identifier(scale), "SCALE");
+  CU_ASSERT_EQ(idl_type(scale->type_spec), IDL_DOUBLE);
+  CU_ASSERT_EQ(idl_type(scale->const_expr), IDL_DOUBLE);
+  literal = (const idl_literal_t *) scale->const_expr;
+  CU_ASSERT_EQ(literal->value.dbl, 1.25);
+
+  ratio = idl_next(scale);
+  CU_ASSERT_NEQ_FATAL(ratio, NULL);
+  CU_ASSERT_FATAL(idl_is_const(ratio));
+  CU_ASSERT_STREQ(idl_identifier(ratio), "RATIO");
+  CU_ASSERT_EQ(idl_type(ratio->type_spec), IDL_FLOAT);
+  CU_ASSERT_EQ(idl_type(ratio->const_expr), IDL_FLOAT);
+  literal = (const idl_literal_t *) ratio->const_expr;
+  CU_ASSERT_EQ(literal->value.flt, 1.25f);
+
+  label = idl_next(ratio);
+  CU_ASSERT_NEQ_FATAL(label, NULL);
+  CU_ASSERT_FATAL(idl_is_const(label));
+  CU_ASSERT_STREQ(idl_identifier(label), "LABEL");
+  CU_ASSERT_FATAL(idl_is_bounded_string(label->type_spec) ||
+                  idl_is_unbounded_string(label->type_spec));
+  CU_ASSERT_EQ(idl_type(label->const_expr), IDL_STRING);
+  literal = (const idl_literal_t *) label->const_expr;
+  CU_ASSERT_STREQ(literal->value.str, "abcd");
+  CU_ASSERT_EQ(idl_next(label), NULL);
+
+  idl_delete_pstate(pstate);
+}
+
 CU_Test(idl_hand_parser, const_declaration_used_in_bounds_and_labels)
 {
   idl_pstate_t *pstate;
