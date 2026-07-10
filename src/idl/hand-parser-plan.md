@@ -360,11 +360,24 @@ Error handling:
     constants keep referencing the selected enumerator; bitmask constants
     evaluate to bitmask literals and can be reused in later bitmask
     expressions and case labels. Keep this item open for annotations.
-- [ ] Parse annotation declarations.
+- [x] Parse annotation declarations. Done 2026-07-10 for annotation blocks
+  with empty bodies, annotation members with optional defaults, and supported
+  enum, bitmask, const, and typedef definitions inside the annotation body.
+  Annotation applications inside those nested definitions remain covered by the
+  broader application items below.
 - [ ] Parse annotation applications without parameters.
+  - 2026-07-10 progress: no-parameter annotation applications now parse before
+    top-level definitions and struct members, including builtin callbacks such
+    as `@key` and custom empty annotations. Keep this item open for switch
+    headers, union branches, enumerators, bit values, sequence element
+    annotations, and annotation applications inside annotation-body definitions.
 - [ ] Parse positional annotation application parameters.
 - [ ] Parse keyword annotation application parameters.
 - [ ] Preserve builtin annotation parsing and callback assignment.
+  - 2026-07-10 progress: hand-parser builds now explicitly finish the generated
+    parser's builtin-annotation bootstrap before parsing user IDL, so builtin
+    annotation nodes are not left owned by an unfinished Bison stack. Focused
+    tests cover no-parameter `@key` callback assignment on a struct member.
 
 ### Phase 5: Compatibility and negative tests
 
@@ -536,6 +549,11 @@ unless a test already depends on it.
   build, the hand parser also accepts unannotated bitmask definitions and
   bitmask type references. Bit value annotations and `@bit_bound` remain
   pending with the broader annotation parser work.
+- 2026-07-10: Superseding note: in an `ENABLE_IDL_HAND_PARSER=ON` development
+  build, the hand parser also accepts annotation declarations and no-parameter
+  annotation applications before top-level definitions and struct members.
+  Annotation application parameters and the remaining annotation attachment
+  positions still report `syntax error`.
 
 ## Local verification log
 
@@ -676,6 +694,18 @@ unless a test already depends on it.
 - 2026-07-10: After adding scoped const-type, enum const, and bitmask const
   parity, rebuilt hand-parser `cunit_idl` and ran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 52/52 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding annotation declarations and initial no-parameter
+  annotation applications, the first hand-parser test run failed in two useful
+  ways: `idl_is_bitmask` still rejected annotation-body bitmask parents even
+  though enums already allowed annotation parents, and builtin annotation
+  applications exposed that the hand-parser path left the generated parser's
+  builtin-annotation bootstrap stack unfinished. Fixed by allowing annotation
+  parents for bitmasks and typedefs, and by pushing an EOF token through the
+  generated parser before starting user-IDL parsing in hand-parser builds.
+- 2026-07-10: After those fixes, rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 54/54 passed.
 - 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-09: Added a null-declaration guard to the struct inheritance helper,

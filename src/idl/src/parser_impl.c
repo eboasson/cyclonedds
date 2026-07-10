@@ -18,6 +18,7 @@
 #include "idl/processor.h"
 #include "idl/string.h"
 
+#include "annotation.h"
 #include "directive.h"
 #include "expression.h"
 #include "parser_impl.h"
@@ -163,7 +164,10 @@ expect_template_rangle(
 }
 
 static idl_retcode_t
-parse_identifier(idl_parser_stream_t *stream, idl_name_t **namep)
+parse_identifier_ex(
+  idl_parser_stream_t *stream,
+  bool is_annotation,
+  idl_name_t **namep)
 {
   idl_pstate_t *pstate = stream->pstate;
   idl_name_t *name = NULL;
@@ -177,8 +181,8 @@ parse_identifier(idl_parser_stream_t *stream, idl_name_t **namep)
 
   identifier = stream->token.value.str;
   nocase = (pstate->config.flags & IDL_FLAG_CASE_SENSITIVE) == 0;
-  offset = (identifier[0] == '_');
-  if (!offset && idl_iskeyword(pstate, identifier, nocase)) {
+  offset = is_annotation ? 0u : (identifier[0] == '_');
+  if (!is_annotation && !offset && idl_iskeyword(pstate, identifier, nocase)) {
     idl_error(pstate, &stream->token.location,
       "Identifier '%s' collides with a keyword", identifier);
     return IDL_RETCODE_SEMANTIC_ERROR;
@@ -187,7 +191,7 @@ parse_identifier(idl_parser_stream_t *stream, idl_name_t **namep)
   if (!(identifier = idl_strdup(stream->token.value.str + offset)))
     return IDL_RETCODE_NO_MEMORY;
   ret = idl_create_name(
-    pstate, &stream->token.location, identifier, false, &name);
+    pstate, &stream->token.location, identifier, is_annotation, &name);
   if (ret != IDL_RETCODE_OK) {
     idl_free(identifier);
     return ret;
@@ -202,6 +206,12 @@ parse_identifier(idl_parser_stream_t *stream, idl_name_t **namep)
   return IDL_RETCODE_OK;
 }
 
+static idl_retcode_t
+parse_identifier(idl_parser_stream_t *stream, idl_name_t **namep)
+{
+  return parse_identifier_ex(stream, false, namep);
+}
+
 static idl_retcode_t parse_definition(idl_parser_stream_t *stream, void **nodep);
 static idl_retcode_t parse_type_spec(
   idl_parser_stream_t *stream,
@@ -213,6 +223,9 @@ static idl_retcode_t parse_const_expr(
   idl_parser_stream_t *stream,
   idl_const_expr_t **const_exprp,
   idl_location_t *locationp);
+static idl_retcode_t parse_annotation_applications(
+  idl_parser_stream_t *stream,
+  idl_annotation_appl_t **annotationsp);
 
 static idl_retcode_t
 parse_scoped_name(
@@ -1167,6 +1180,31 @@ parse_const_type(
 }
 
 static idl_retcode_t
+parse_simple_declarator(
+  idl_parser_stream_t *stream,
+  idl_declarator_t **declaratorp)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_declarator_t *declarator = NULL;
+  idl_name_t *name = NULL;
+  idl_location_t location;
+  idl_retcode_t ret;
+
+  if ((ret = parse_identifier(stream, &name)) != IDL_RETCODE_OK)
+    return ret;
+
+  location = name->symbol.location;
+  ret = idl_create_declarator(pstate, &location, name, NULL, &declarator);
+  if (ret != IDL_RETCODE_OK) {
+    idl_delete_name(name);
+    return ret;
+  }
+
+  *declaratorp = declarator;
+  return IDL_RETCODE_OK;
+}
+
+static idl_retcode_t
 parse_fixed_array_sizes(
   idl_parser_stream_t *stream,
   idl_const_expr_t **sizesp,
@@ -1351,16 +1389,23 @@ static idl_retcode_t
 parse_member(idl_parser_stream_t *stream, idl_member_t **memberp)
 {
   idl_pstate_t *pstate = stream->pstate;
-  idl_position_t first = stream->token.location.first;
+  idl_position_t first;
   idl_location_t semicolon_location;
   idl_location_t location;
+  idl_annotation_appl_t *annotations = NULL;
   idl_type_spec_t *type_spec = NULL;
   idl_declarator_t *declarators = NULL;
   idl_member_t *member = NULL;
   idl_retcode_t ret;
 
-  if ((ret = parse_type_spec(stream, &type_spec)) != IDL_RETCODE_OK)
+  if ((ret = parse_annotation_applications(stream, &annotations)) !=
+      IDL_RETCODE_OK)
     return ret;
+  first = annotations ?
+    idl_location(annotations)->first : stream->token.location.first;
+
+  if ((ret = parse_type_spec(stream, &type_spec)) != IDL_RETCODE_OK)
+    goto err;
   if ((ret = parse_declarators(stream, &declarators)) != IDL_RETCODE_OK)
     goto err;
   if ((ret = expect(stream, ';', &semicolon_location)) != IDL_RETCODE_OK)
@@ -1371,10 +1416,19 @@ parse_member(idl_parser_stream_t *stream, idl_member_t **memberp)
     pstate, &location, type_spec, declarators, &member);
   if (ret != IDL_RETCODE_OK)
     goto err;
+  type_spec = NULL;
+  declarators = NULL;
+
+  if (annotations &&
+      (ret = idl_annotate(pstate, member, annotations)) != IDL_RETCODE_OK)
+    goto err;
+  annotations = NULL;
 
   *memberp = member;
   return IDL_RETCODE_OK;
 err:
+  idl_delete_node(member);
+  idl_delete_node(annotations);
   idl_delete_node(declarators);
   idl_delete_node(type_spec);
   return ret;
@@ -2019,6 +2073,367 @@ err:
 }
 
 static idl_retcode_t
+parse_any_const_type(
+  idl_parser_stream_t *stream,
+  idl_type_spec_t **type_specp)
+{
+  idl_location_t location = stream->token.location;
+  idl_retcode_t ret;
+
+  assert(stream->token.code == IDL_TOKEN_ANY);
+  if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+    return ret;
+  return idl_create_base_type(stream->pstate, &location, IDL_ANY, type_specp);
+}
+
+static idl_retcode_t
+parse_annotation_member_type(
+  idl_parser_stream_t *stream,
+  idl_type_spec_t **type_specp)
+{
+  if (stream->token.code == IDL_TOKEN_ANY)
+    return parse_any_const_type(stream, type_specp);
+  return parse_const_type(stream, type_specp);
+}
+
+static idl_retcode_t
+parse_annotation_member(
+  idl_parser_stream_t *stream,
+  idl_annotation_member_t **memberp)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_position_t first = stream->token.location.first;
+  idl_position_t last;
+  idl_location_t location;
+  idl_location_t expr_location;
+  idl_type_spec_t *type_spec = NULL;
+  idl_declarator_t *declarator = NULL;
+  idl_const_expr_t *default_value = NULL;
+  idl_annotation_member_t *member = NULL;
+  idl_retcode_t ret;
+
+  if ((ret = parse_annotation_member_type(stream, &type_spec)) !=
+      IDL_RETCODE_OK)
+    return ret;
+  if ((ret = parse_simple_declarator(stream, &declarator)) != IDL_RETCODE_OK)
+    goto err;
+
+  last = idl_location(declarator)->last;
+  if (stream->token.code == IDL_TOKEN_DEFAULT) {
+    if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+      goto err;
+    if ((ret = parse_const_expr(
+          stream, &default_value, &expr_location)) != IDL_RETCODE_OK)
+      goto err;
+    last = expr_location.last;
+  }
+
+  location = location_span(first, last);
+  ret = idl_create_annotation_member(
+    pstate, &location, type_spec, declarator, default_value, &member);
+  if (ret != IDL_RETCODE_OK)
+    goto err;
+
+  *memberp = member;
+  return IDL_RETCODE_OK;
+err:
+  idl_unreference_node(default_value);
+  idl_delete_node(declarator);
+  idl_delete_node(type_spec);
+  return ret;
+}
+
+static idl_retcode_t
+parse_annotation_body(
+  idl_parser_stream_t *stream,
+  idl_definition_t **definitionsp)
+{
+  idl_definition_t *definitions = NULL;
+  idl_retcode_t ret;
+
+  while (stream->token.code != '}') {
+    void *definition = NULL;
+
+    if (stream->token.code == '\0') {
+      ret = syntax_error(stream);
+      goto err;
+    }
+
+    switch (stream->token.code) {
+      case IDL_TOKEN_ENUM:
+        ret = parse_enum(stream, &definition);
+        break;
+      case IDL_TOKEN_BITMASK:
+        ret = parse_bitmask(stream, &definition);
+        break;
+      case IDL_TOKEN_CONST:
+        ret = parse_const_declaration(stream, &definition);
+        break;
+      case IDL_TOKEN_TYPEDEF:
+        ret = parse_typedef(stream, &definition);
+        break;
+      default:
+      {
+        idl_annotation_member_t *member = NULL;
+        ret = parse_annotation_member(stream, &member);
+        definition = member;
+        break;
+      }
+    }
+    if (ret != IDL_RETCODE_OK)
+      goto err;
+    if ((ret = expect(stream, ';', NULL)) != IDL_RETCODE_OK) {
+      idl_delete_node(definition);
+      goto err;
+    }
+    definitions = idl_push_node(definitions, definition);
+  }
+
+  *definitionsp = definitions;
+  return IDL_RETCODE_OK;
+err:
+  idl_delete_node(definitions);
+  return ret;
+}
+
+static idl_retcode_t
+parse_annotation_declaration_after_at(
+  idl_parser_stream_t *stream,
+  const idl_location_t *at_location,
+  void **nodep)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_location_t annotation_location;
+  idl_location_t location;
+  idl_location_t rbrace_location;
+  idl_annotation_t *annotation = NULL;
+  idl_definition_t *definitions = NULL;
+  idl_name_t *name = NULL;
+  bool entered_scope = false;
+  bool discard;
+  idl_retcode_t ret;
+
+  assert(stream->token.code == IDL_TOKEN_ANNOTATION);
+  pstate->annotations = true;
+  pstate->parser.state = IDL_PARSE_ANNOTATION;
+  annotation_location = stream->token.location;
+  if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+    goto err;
+  if ((ret = parse_identifier_ex(stream, true, &name)) != IDL_RETCODE_OK)
+    goto err;
+
+  location = location_span(
+    at_location->first, annotation_location.last);
+  ret = idl_create_annotation(pstate, &location, name, &annotation);
+  if (ret != IDL_RETCODE_OK)
+    goto err;
+  name = NULL;
+  entered_scope = true;
+
+  if ((ret = expect(stream, '{', NULL)) != IDL_RETCODE_OK)
+    goto err;
+  if ((ret = parse_annotation_body(stream, &definitions)) != IDL_RETCODE_OK)
+    goto err;
+  if ((ret = expect(stream, '}', &rbrace_location)) != IDL_RETCODE_OK)
+    goto err;
+
+  discard = pstate->parser.state == IDL_PARSE_EXISTING_ANNOTATION_BODY;
+  location = location_span(at_location->first, rbrace_location.last);
+  entered_scope = false;
+  ret = idl_finalize_annotation(pstate, &location, annotation, definitions);
+  if (ret != IDL_RETCODE_OK)
+    goto err;
+  definitions = NULL;
+
+  *nodep = discard ? NULL : annotation;
+  return IDL_RETCODE_OK;
+err:
+  if (entered_scope)
+    idl_exit_scope(pstate);
+  pstate->parser.state = IDL_PARSE;
+  idl_delete_node(definitions);
+  idl_delete_node(annotation);
+  idl_delete_name(name);
+  return ret;
+}
+
+static bool
+is_builtin_location(const idl_location_t *location)
+{
+  return location->first.file &&
+         location->first.file->name &&
+         strcmp(location->first.file->name, "<builtin>") == 0;
+}
+
+static idl_retcode_t
+parse_annotation_appl_name(
+  idl_parser_stream_t *stream,
+  idl_scoped_name_t **scoped_namep)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_position_t first = stream->token.location.first;
+  idl_location_t location;
+  idl_scoped_name_t *scoped_name = NULL;
+  idl_name_t *name = NULL;
+  bool absolute = false;
+  idl_retcode_t ret;
+
+  if (stream->token.code == IDL_TOKEN_SCOPE_NO_SPACE) {
+    absolute = true;
+    if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+      return ret;
+  }
+
+  if ((ret = parse_identifier_ex(stream, true, &name)) != IDL_RETCODE_OK)
+    return ret;
+  location = location_span(first, name->symbol.location.last);
+  ret = idl_create_scoped_name(
+    pstate, &location, name, absolute, &scoped_name);
+  if (ret != IDL_RETCODE_OK) {
+    idl_delete_name(name);
+    return ret;
+  }
+  name = NULL;
+
+  while (stream->token.code == IDL_TOKEN_SCOPE_NO_SPACE) {
+    if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+      goto err;
+    if ((ret = parse_identifier_ex(stream, true, &name)) != IDL_RETCODE_OK)
+      goto err;
+    ret = idl_push_scoped_name(pstate, scoped_name, name);
+    if (ret != IDL_RETCODE_OK) {
+      idl_delete_name(name);
+      goto err;
+    }
+    name = NULL;
+  }
+
+  *scoped_namep = scoped_name;
+  return IDL_RETCODE_OK;
+err:
+  idl_delete_name(name);
+  idl_delete_scoped_name(scoped_name);
+  return ret;
+}
+
+static idl_retcode_t
+parse_annotation_application_after_at(
+  idl_parser_stream_t *stream,
+  const idl_location_t *at_location,
+  idl_annotation_appl_t **annotationp)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_scoped_name_t *scoped_name = NULL;
+  idl_annotation_appl_t *annotation_appl = NULL;
+  const idl_declaration_t *declaration;
+  idl_location_t location;
+  idl_retcode_t ret;
+
+  pstate->parser.state = IDL_PARSE_ANNOTATION_APPL;
+  if ((ret = parse_annotation_appl_name(stream, &scoped_name)) !=
+      IDL_RETCODE_OK)
+    goto err;
+
+  location = location_span(
+    at_location->first, idl_location(scoped_name)->last);
+  declaration = idl_find_scoped_name(
+    pstate, NULL, scoped_name, IDL_FIND_ANNOTATION);
+  pstate->annotations = true;
+  if (declaration) {
+    const idl_annotation_t *annotation =
+      idl_reference_node((idl_node_t *) declaration->node);
+    ret = idl_create_annotation_appl(
+      pstate, &location, annotation, &annotation_appl);
+    if (ret != IDL_RETCODE_OK) {
+      idl_unreference_node((void *) annotation);
+      goto err;
+    }
+    pstate->parser.state = IDL_PARSE_ANNOTATION_APPL_PARAMS;
+    pstate->annotation_scope = declaration->scope;
+  } else {
+    pstate->parser.state = IDL_PARSE_UNKNOWN_ANNOTATION_APPL_PARAMS;
+    if (!is_builtin_location(at_location) &&
+        !is_builtin_location(idl_location(scoped_name))) {
+      idl_warning(pstate, IDL_WARN_UNSUPPORTED_ANNOTATIONS, &location,
+        "Unrecognized annotation: @%s", scoped_name->identifier);
+    }
+  }
+
+  if (stream->token.code == '(') {
+    ret = syntax_error(stream);
+    goto err;
+  }
+
+  if (annotation_appl &&
+      (ret = idl_finalize_annotation_appl(
+        pstate, &location, annotation_appl, NULL)) != IDL_RETCODE_OK)
+    goto err;
+
+  pstate->parser.state = IDL_PARSE;
+  pstate->annotation_scope = NULL;
+  idl_delete_scoped_name(scoped_name);
+  *annotationp = annotation_appl;
+  return IDL_RETCODE_OK;
+err:
+  pstate->parser.state = IDL_PARSE;
+  pstate->annotation_scope = NULL;
+  idl_delete_node(annotation_appl);
+  idl_delete_scoped_name(scoped_name);
+  return ret;
+}
+
+static idl_retcode_t
+parse_annotation_applications_after_at(
+  idl_parser_stream_t *stream,
+  const idl_location_t *at_location,
+  idl_annotation_appl_t **annotationsp)
+{
+  idl_annotation_appl_t *annotations = NULL;
+  idl_location_t current_at = *at_location;
+  idl_retcode_t ret;
+
+  for (;;) {
+    idl_annotation_appl_t *annotation = NULL;
+
+    if ((ret = parse_annotation_application_after_at(
+          stream, &current_at, &annotation)) != IDL_RETCODE_OK)
+      goto err;
+    annotations = idl_push_node(annotations, annotation);
+
+    if (stream->token.code != IDL_TOKEN_ANNOTATION_SYMBOL)
+      break;
+    current_at = stream->token.location;
+    if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+      goto err;
+  }
+
+  *annotationsp = annotations;
+  return IDL_RETCODE_OK;
+err:
+  idl_delete_node(annotations);
+  return ret;
+}
+
+static idl_retcode_t
+parse_annotation_applications(
+  idl_parser_stream_t *stream,
+  idl_annotation_appl_t **annotationsp)
+{
+  idl_location_t at_location;
+  idl_retcode_t ret;
+
+  *annotationsp = NULL;
+  if (stream->token.code != IDL_TOKEN_ANNOTATION_SYMBOL)
+    return IDL_RETCODE_OK;
+
+  at_location = stream->token.location;
+  if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+    return ret;
+  return parse_annotation_applications_after_at(
+    stream, &at_location, annotationsp);
+}
+
+static idl_retcode_t
 parse_module(idl_parser_stream_t *stream, void **nodep)
 {
   idl_pstate_t *pstate = stream->pstate;
@@ -2072,37 +2487,64 @@ err:
 }
 
 static idl_retcode_t
-parse_definition(idl_parser_stream_t *stream, void **nodep)
+parse_unannotated_definition(idl_parser_stream_t *stream, void **nodep)
 {
-  void *node = NULL;
-  idl_retcode_t ret;
-
   switch (stream->token.code) {
     case IDL_TOKEN_MODULE:
-      ret = parse_module(stream, &node);
-      break;
+      return parse_module(stream, nodep);
     case IDL_TOKEN_STRUCT:
-      ret = parse_struct(stream, &node);
-      break;
+      return parse_struct(stream, nodep);
     case IDL_TOKEN_UNION:
-      ret = parse_union(stream, &node);
-      break;
+      return parse_union(stream, nodep);
     case IDL_TOKEN_TYPEDEF:
-      ret = parse_typedef(stream, &node);
-      break;
+      return parse_typedef(stream, nodep);
     case IDL_TOKEN_ENUM:
-      ret = parse_enum(stream, &node);
-      break;
+      return parse_enum(stream, nodep);
     case IDL_TOKEN_BITMASK:
-      ret = parse_bitmask(stream, &node);
-      break;
+      return parse_bitmask(stream, nodep);
     case IDL_TOKEN_CONST:
-      ret = parse_const_declaration(stream, &node);
-      break;
+      return parse_const_declaration(stream, nodep);
     default:
       return syntax_error(stream);
   }
+}
 
+static idl_retcode_t
+parse_definition(idl_parser_stream_t *stream, void **nodep)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_annotation_appl_t *annotations = NULL;
+  void *node = NULL;
+  idl_retcode_t ret;
+
+  if (stream->token.code == IDL_TOKEN_ANNOTATION_SYMBOL) {
+    idl_location_t at_location = stream->token.location;
+
+    if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+      return ret;
+    if (stream->token.code == IDL_TOKEN_ANNOTATION) {
+      ret = parse_annotation_declaration_after_at(
+        stream, &at_location, &node);
+      if (ret != IDL_RETCODE_OK)
+        return ret;
+      goto expect_semicolon;
+    }
+
+    if ((ret = parse_annotation_applications_after_at(
+          stream, &at_location, &annotations)) != IDL_RETCODE_OK)
+      return ret;
+  }
+
+  ret = parse_unannotated_definition(stream, &node);
+  if (ret != IDL_RETCODE_OK)
+    goto err;
+
+  if (annotations &&
+      (ret = idl_annotate(pstate, node, annotations)) != IDL_RETCODE_OK)
+    goto err;
+  annotations = NULL;
+
+expect_semicolon:
   if (ret != IDL_RETCODE_OK)
     return ret;
   if ((ret = expect(stream, ';', NULL)) != IDL_RETCODE_OK) {
@@ -2112,6 +2554,10 @@ parse_definition(idl_parser_stream_t *stream, void **nodep)
 
   *nodep = node;
   return IDL_RETCODE_OK;
+err:
+  idl_delete_node(annotations);
+  idl_delete_node(node);
+  return ret;
 }
 
 static idl_retcode_t
