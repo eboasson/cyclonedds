@@ -927,6 +927,95 @@ err:
 }
 
 static idl_retcode_t
+parse_enumerator(
+  idl_parser_stream_t *stream,
+  idl_enumerator_t **enumeratorp)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_enumerator_t *enumerator = NULL;
+  idl_name_t *name = NULL;
+  idl_location_t location;
+  idl_retcode_t ret;
+
+  if ((ret = parse_identifier(stream, &name)) != IDL_RETCODE_OK)
+    return ret;
+  location = name->symbol.location;
+  ret = idl_create_enumerator(pstate, &location, name, &enumerator);
+  if (ret != IDL_RETCODE_OK) {
+    idl_delete_name(name);
+    return ret;
+  }
+
+  *enumeratorp = enumerator;
+  return IDL_RETCODE_OK;
+}
+
+static idl_retcode_t
+parse_enumerators(
+  idl_parser_stream_t *stream,
+  idl_enumerator_t **enumeratorsp)
+{
+  idl_enumerator_t *enumerators = NULL;
+  idl_retcode_t ret;
+
+  if ((ret = parse_enumerator(stream, &enumerators)) != IDL_RETCODE_OK)
+    return ret;
+
+  while (stream->token.code == ',') {
+    idl_enumerator_t *enumerator = NULL;
+
+    if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+      goto err;
+    if ((ret = parse_enumerator(stream, &enumerator)) != IDL_RETCODE_OK)
+      goto err;
+    enumerators = idl_push_node(enumerators, enumerator);
+  }
+
+  *enumeratorsp = enumerators;
+  return IDL_RETCODE_OK;
+err:
+  idl_delete_node(enumerators);
+  return ret;
+}
+
+static idl_retcode_t
+parse_enum(idl_parser_stream_t *stream, void **nodep)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_position_t first = stream->token.location.first;
+  idl_location_t rbrace_location;
+  idl_location_t location;
+  idl_enum_t *enum_node = NULL;
+  idl_enumerator_t *enumerators = NULL;
+  idl_name_t *name = NULL;
+  idl_retcode_t ret;
+
+  assert(stream->token.code == IDL_TOKEN_ENUM);
+  if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+    return ret;
+  if ((ret = parse_identifier(stream, &name)) != IDL_RETCODE_OK)
+    return ret;
+  if ((ret = expect(stream, '{', NULL)) != IDL_RETCODE_OK)
+    goto err;
+  if ((ret = parse_enumerators(stream, &enumerators)) != IDL_RETCODE_OK)
+    goto err;
+  if ((ret = expect(stream, '}', &rbrace_location)) != IDL_RETCODE_OK)
+    goto err;
+
+  location = location_span(first, rbrace_location.last);
+  ret = idl_create_enum(pstate, &location, name, enumerators, &enum_node);
+  if (ret != IDL_RETCODE_OK)
+    goto err;
+
+  *nodep = enum_node;
+  return IDL_RETCODE_OK;
+err:
+  idl_delete_node(enumerators);
+  idl_delete_name(name);
+  return ret;
+}
+
+static idl_retcode_t
 parse_module(idl_parser_stream_t *stream, void **nodep)
 {
   idl_pstate_t *pstate = stream->pstate;
@@ -994,6 +1083,9 @@ parse_definition(idl_parser_stream_t *stream, void **nodep)
       break;
     case IDL_TOKEN_TYPEDEF:
       ret = parse_typedef(stream, &node);
+      break;
+    case IDL_TOKEN_ENUM:
+      ret = parse_enum(stream, &node);
       break;
     default:
       return syntax_error(stream);

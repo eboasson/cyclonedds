@@ -692,3 +692,70 @@ CU_Test(idl_hand_parser, string_type_rejects_uint32_max_bound)
     "struct Sample { string<4294967295> value; };",
     IDL_RETCODE_UNSUPPORTED);
 }
+
+CU_Test(idl_hand_parser, enum_with_enumerators)
+{
+  idl_pstate_t *pstate;
+  idl_enum_t *enum_node;
+  idl_enumerator_t *enumerator;
+  idl_struct_t *strct;
+  idl_member_t *member;
+  const char str[] =
+    "enum Color { RED, GREEN, BLUE };"
+    "struct Pixel { Color color; };";
+
+  pstate = parse_string(str);
+  enum_node = (idl_enum_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(enum_node, NULL);
+  CU_ASSERT_FATAL(idl_is_enum(enum_node));
+  CU_ASSERT_STREQ(idl_identifier(enum_node), "Color");
+  CU_ASSERT_EQ(idl_parent(enum_node), NULL);
+
+  enumerator = enum_node->enumerators;
+  CU_ASSERT_NEQ_FATAL(enumerator, NULL);
+  CU_ASSERT_FATAL(idl_is_enumerator(enumerator));
+  CU_ASSERT_STREQ(idl_identifier(enumerator), "RED");
+  CU_ASSERT_EQ(enumerator->value.value, 0);
+  CU_ASSERT_EQ(idl_parent(enumerator), enum_node);
+  CU_ASSERT_EQ(enum_node->default_enumerator, enumerator);
+
+  enumerator = idl_next(enumerator);
+  CU_ASSERT_NEQ_FATAL(enumerator, NULL);
+  CU_ASSERT_FATAL(idl_is_enumerator(enumerator));
+  CU_ASSERT_STREQ(idl_identifier(enumerator), "GREEN");
+  CU_ASSERT_EQ(enumerator->value.value, 1);
+  CU_ASSERT_EQ(idl_parent(enumerator), enum_node);
+
+  enumerator = idl_next(enumerator);
+  CU_ASSERT_NEQ_FATAL(enumerator, NULL);
+  CU_ASSERT_FATAL(idl_is_enumerator(enumerator));
+  CU_ASSERT_STREQ(idl_identifier(enumerator), "BLUE");
+  CU_ASSERT_EQ(enumerator->value.value, 2);
+  CU_ASSERT_EQ(idl_parent(enumerator), enum_node);
+  CU_ASSERT_EQ(idl_next(enumerator), NULL);
+
+  strct = idl_next(enum_node);
+  CU_ASSERT_NEQ_FATAL(strct, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(strct));
+  member = strct->members;
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_EQ(member->type_spec, enum_node);
+  CU_ASSERT_STREQ(idl_identifier(member->declarators), "color");
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, enum_rejects_empty_body)
+{
+  expect_parse_ret("enum Empty { };", IDL_RETCODE_SYNTAX_ERROR);
+}
+
+CU_Test(idl_hand_parser, enum_rejects_duplicate_enumerators)
+{
+  expect_parse_ret("enum Color { RED, RED };", IDL_RETCODE_SEMANTIC_ERROR);
+}
+
+CU_Test(idl_hand_parser, enum_rejects_enumerator_matching_enum)
+{
+  expect_parse_ret("enum Color { Color };", IDL_RETCODE_SEMANTIC_ERROR);
+}
