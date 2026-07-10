@@ -222,6 +222,11 @@ Error handling:
     declarators in one declaration. Keep this item open until bounds accept
     the full `positive_int_const` grammar, including named constants and
     expressions.
+  - 2026-07-10 progress: fixed-array bounds now parse and evaluate reusable
+    `const_expr` input as `IDL_ULONG`, so arithmetic, bitwise, shift, unary,
+    and parenthesized expressions work in array dimensions. Keep this item
+    open for named constants once const declarations are parsed and for
+    broader Bison-parity coverage.
 - [ ] Parse string, wstring, and sequence template types.
   - 2026-07-10 progress: member and typedef type specs now support
     `string`, `wstring`, `sequence<T>`, and literal-bounded forms such as
@@ -229,6 +234,11 @@ Error handling:
     when tokenized without a `>>` token ambiguity. Keep this item open until
     template bounds accept full `positive_int_const`, sequence element
     annotations are parsed, and nested closing-angle handling is audited.
+  - 2026-07-10 progress: string, wstring, and sequence bounds now reuse the
+    same evaluated `positive_int_const` helper as arrays. Tests cover
+    expression bounds for bounded strings, bounded wstrings, bounded
+    sequences, and nested sequence bounds. Keep this item open for sequence
+    element annotations and nested closing-angle handling.
 - [ ] Parse structs with members.
   - 2026-07-08 note: only empty struct definitions are parsed so modules can
     have a Bison-valid leaf definition. Full member parsing remains pending.
@@ -308,6 +318,10 @@ Error handling:
     binary integer operators. Keep this item open until it is reused for
     array/template bounds and const declarations, and until remaining literal
     forms are handled.
+  - 2026-07-10 progress: the reusable const-expression parser is now used for
+    fixed-array and string/wstring/sequence template bounds via an evaluated
+    `positive_int_const` helper. Keep this item open for const declarations
+    and remaining literal forms.
 - [ ] Parse const declarations.
 - [ ] Parse annotation declarations.
 - [ ] Parse annotation applications without parameters.
@@ -575,6 +589,11 @@ unless a test already depends on it.
 - 2026-07-10: After adding binary-precedence union case-label expressions,
   rebuilt hand-parser `cunit_idl` and ran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 42/42 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After reusing evaluated `positive_int_const` expressions for
+  fixed-array and template bounds, rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 44/44 passed.
 - 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-10: First fixed-array build failed because the new test used

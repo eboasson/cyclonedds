@@ -852,6 +852,51 @@ CU_Test(idl_hand_parser, typedef_with_array_declarators)
   idl_delete_pstate(pstate);
 }
 
+CU_Test(idl_hand_parser, array_declarator_with_expression_bounds)
+{
+  idl_pstate_t *pstate;
+  idl_struct_t *strct;
+  idl_member_t *member;
+  idl_declarator_t *declarator;
+  const idl_literal_t *bound;
+  const char str[] =
+    "struct Sample {"
+    "  long matrix[1 + 1][1 << 2];"
+    "  char bytes[(7 & 3) + 1];"
+    "};";
+
+  pstate = parse_string(str);
+  strct = (idl_struct_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(strct, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(strct));
+
+  member = strct->members;
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  declarator = member->declarators;
+  CU_ASSERT_NEQ_FATAL(declarator, NULL);
+  CU_ASSERT_FATAL(idl_is_array(declarator));
+  bound = declarator->const_expr;
+  CU_ASSERT_NEQ_FATAL(bound, NULL);
+  CU_ASSERT_EQ(bound->value.uint32, 2u);
+  bound = idl_next(bound);
+  CU_ASSERT_NEQ_FATAL(bound, NULL);
+  CU_ASSERT_EQ(bound->value.uint32, 4u);
+  CU_ASSERT_EQ(idl_next(bound), NULL);
+
+  member = idl_next(member);
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  declarator = member->declarators;
+  CU_ASSERT_NEQ_FATAL(declarator, NULL);
+  CU_ASSERT_FATAL(idl_is_array(declarator));
+  bound = declarator->const_expr;
+  CU_ASSERT_NEQ_FATAL(bound, NULL);
+  CU_ASSERT_EQ(bound->value.uint32, 4u);
+  CU_ASSERT_EQ(idl_next(bound), NULL);
+  CU_ASSERT_EQ(idl_next(member), NULL);
+
+  idl_delete_pstate(pstate);
+}
+
 CU_Test(idl_hand_parser, array_declarator_rejects_zero_bound)
 {
   expect_parse_ret(
@@ -906,6 +951,54 @@ CU_Test(idl_hand_parser, struct_with_string_and_wstring_members)
   CU_ASSERT_FATAL(idl_is_bounded_wstring(member->type_spec));
   CU_ASSERT_EQ(idl_bound(member->type_spec), 7u);
   CU_ASSERT_STREQ(idl_identifier(member->declarators), "wide_label");
+  CU_ASSERT_EQ(idl_next(member), NULL);
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, struct_with_expression_template_bounds)
+{
+  idl_pstate_t *pstate;
+  idl_struct_t *strct;
+  idl_member_t *member;
+  idl_sequence_t *sequence;
+  const char str[] =
+    "struct Text {"
+    "  string<2 * 6> label;"
+    "  wstring<(3 + 4)> wide_label;"
+    "  sequence<char, 1 + 3> bytes;"
+    "  sequence<sequence<long, 1 + 1>, (1 << 1) + 1> nested;"
+    "};";
+
+  pstate = parse_string(str);
+  strct = (idl_struct_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(strct, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(strct));
+
+  member = strct->members;
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_FATAL(idl_is_bounded_string(member->type_spec));
+  CU_ASSERT_EQ(idl_bound(member->type_spec), 12u);
+
+  member = idl_next(member);
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_FATAL(idl_is_bounded_wstring(member->type_spec));
+  CU_ASSERT_EQ(idl_bound(member->type_spec), 7u);
+
+  member = idl_next(member);
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_FATAL(idl_is_sequence(member->type_spec));
+  sequence = (idl_sequence_t *) member->type_spec;
+  CU_ASSERT_EQ(idl_bound(sequence), 4u);
+
+  member = idl_next(member);
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_FATAL(idl_is_sequence(member->type_spec));
+  sequence = (idl_sequence_t *) member->type_spec;
+  CU_ASSERT_EQ(idl_bound(sequence), 3u);
+  CU_ASSERT_FATAL(idl_is_sequence(sequence->type_spec));
+  sequence = (idl_sequence_t *) sequence->type_spec;
+  CU_ASSERT_EQ(idl_bound(sequence), 2u);
   CU_ASSERT_EQ(idl_next(member), NULL);
 
   idl_delete_pstate(pstate);

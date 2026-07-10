@@ -179,7 +179,7 @@ static idl_retcode_t parse_definition(idl_parser_stream_t *stream, void **nodep)
 static idl_retcode_t parse_type_spec(
   idl_parser_stream_t *stream,
   idl_type_spec_t **type_specp);
-static idl_retcode_t parse_positive_int_literal(
+static idl_retcode_t parse_positive_int_const(
   idl_parser_stream_t *stream,
   idl_literal_t **literalp);
 static idl_retcode_t parse_const_expr(
@@ -450,7 +450,7 @@ parse_string_type(
 
     if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
       return ret;
-    if ((ret = parse_positive_int_literal(stream, &bound)) != IDL_RETCODE_OK)
+    if ((ret = parse_positive_int_const(stream, &bound)) != IDL_RETCODE_OK)
       return ret;
     if ((ret = expect(stream, '>', &rangle_location)) != IDL_RETCODE_OK)
       goto err;
@@ -496,7 +496,7 @@ parse_sequence_type(
   if (stream->token.code == ',') {
     if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
       goto err;
-    if ((ret = parse_positive_int_literal(stream, &bound)) != IDL_RETCODE_OK)
+    if ((ret = parse_positive_int_const(stream, &bound)) != IDL_RETCODE_OK)
       goto err;
   }
 
@@ -541,39 +541,6 @@ parse_type_spec(idl_parser_stream_t *stream, idl_type_spec_t **type_specp)
       stream->token.code == IDL_TOKEN_SCOPE)
     return parse_scoped_type_spec(stream, type_specp);
   return syntax_error(stream);
-}
-
-static idl_retcode_t
-parse_positive_int_literal(
-  idl_parser_stream_t *stream,
-  idl_literal_t **literalp)
-{
-  idl_pstate_t *pstate = stream->pstate;
-  idl_literal_t *literal = NULL;
-  unsigned long long value;
-  idl_retcode_t ret;
-
-  if (stream->token.code != IDL_TOKEN_INTEGER_LITERAL)
-    return syntax_error(stream);
-
-  value = stream->token.value.ullng;
-  if (value > (unsigned long long) UINT32_MAX) {
-    idl_error(pstate, &stream->token.location, "Integer expression overflows");
-    return IDL_RETCODE_OUT_OF_RANGE;
-  }
-
-  ret = idl_create_literal(pstate, &stream->token.location, IDL_ULONG, &literal);
-  if (ret != IDL_RETCODE_OK)
-    return ret;
-  literal->value.uint32 = (uint32_t) value;
-
-  if ((ret = stream_advance(stream)) != IDL_RETCODE_OK) {
-    idl_delete_node(literal);
-    return ret;
-  }
-
-  *literalp = literal;
-  return IDL_RETCODE_OK;
 }
 
 static idl_retcode_t
@@ -999,6 +966,25 @@ parse_const_expr(
 }
 
 static idl_retcode_t
+parse_positive_int_const(
+  idl_parser_stream_t *stream,
+  idl_literal_t **literalp)
+{
+  idl_const_expr_t *const_expr = NULL;
+  idl_location_t location;
+  idl_retcode_t ret;
+
+  if ((ret = parse_const_expr(stream, &const_expr, &location)) !=
+      IDL_RETCODE_OK)
+    return ret;
+
+  ret = idl_evaluate(stream->pstate, const_expr, IDL_ULONG, literalp);
+  if (ret != IDL_RETCODE_OK)
+    idl_unreference_node(const_expr);
+  return ret;
+}
+
+static idl_retcode_t
 parse_fixed_array_sizes(
   idl_parser_stream_t *stream,
   idl_const_expr_t **sizesp,
@@ -1014,7 +1000,7 @@ parse_fixed_array_sizes(
 
     if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
       goto err;
-    if ((ret = parse_positive_int_literal(stream, &size)) != IDL_RETCODE_OK)
+    if ((ret = parse_positive_int_const(stream, &size)) != IDL_RETCODE_OK)
       goto err;
     if ((ret = expect(stream, ']', &rbracket_location)) != IDL_RETCODE_OK) {
       idl_delete_node(size);
