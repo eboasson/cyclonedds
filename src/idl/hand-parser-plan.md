@@ -365,12 +365,17 @@ Error handling:
   enum, bitmask, const, and typedef definitions inside the annotation body.
   Annotation applications inside those nested definitions remain covered by the
   broader application items below.
-- [ ] Parse annotation applications without parameters.
+- [x] Parse annotation applications without parameters.
   - 2026-07-10 progress: no-parameter annotation applications now parse before
     top-level definitions and struct members, including builtin callbacks such
     as `@key` and custom empty annotations. Keep this item open for switch
     headers, union branches, enumerators, bit values, sequence element
     annotations, and annotation applications inside annotation-body definitions.
+  - 2026-07-10 completion: no-parameter annotation applications now also parse
+    on sequence element types, union switch type specs, union branch
+    definitions, enum values, and bitmask values. Focused tests cover those
+    positions directly and also cover nested enum, bitmask, and typedef
+    definitions inside an annotation body.
 - [ ] Parse positional annotation application parameters.
 - [ ] Parse keyword annotation application parameters.
 - [ ] Preserve builtin annotation parsing and callback assignment.
@@ -706,6 +711,16 @@ unless a test already depends on it.
   generated parser before starting user-IDL parsing in hand-parser builds.
 - 2026-07-10: After those fixes, rebuilt hand-parser `cunit_idl` and ran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 54/54 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After extending no-parameter annotation applications to the
+  remaining generated-grammar attachment points, the first hand-parser test
+  run found that the debug invariant for annotation application parents had
+  not kept up with the grammar. Fixed the invariant to include consts,
+  typedefs, forward declarations, cases, sequences, enum values, and bit
+  values.
+- 2026-07-10: Rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 56/56 passed.
 - 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-09: Added a null-declaration guard to the struct inheritance helper,

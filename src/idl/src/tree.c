@@ -3821,10 +3821,15 @@ bool idl_is_annotation_appl(const void *ptr)
 {
 #if !defined(NDEBUG)
   static const idl_mask_t mask = IDL_MODULE |
+                                 IDL_CONST | IDL_TYPEDEF |
                                  IDL_ENUM |
+                                 IDL_ENUMERATOR |
                                  IDL_STRUCT | IDL_MEMBER |
+                                 IDL_FORWARD |
                                  IDL_UNION | IDL_SWITCH_TYPE_SPEC |
-                                 IDL_BITMASK;
+                                 IDL_CASE |
+                                 IDL_SEQUENCE |
+                                 IDL_BITMASK | IDL_BIT_VALUE;
 #endif
   const idl_annotation_appl_t *node = ptr;
 
