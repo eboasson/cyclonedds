@@ -797,13 +797,205 @@ parse_unary_expr(
   return IDL_RETCODE_OK;
 }
 
+typedef bool (*binary_operator_fn)(int32_t code, idl_mask_t *operator);
+typedef idl_retcode_t (*parse_expr_fn)(
+  idl_parser_stream_t *stream,
+  idl_const_expr_t **const_exprp,
+  idl_location_t *locationp);
+
+static idl_retcode_t
+parse_binary_expr(
+  idl_parser_stream_t *stream,
+  parse_expr_fn parse_operand,
+  binary_operator_fn parse_operator,
+  idl_const_expr_t **const_exprp,
+  idl_location_t *locationp)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_const_expr_t *lhs = NULL;
+  idl_location_t lhs_location;
+  idl_retcode_t ret;
+
+  if ((ret = parse_operand(stream, &lhs, &lhs_location)) != IDL_RETCODE_OK)
+    return ret;
+
+  for (;;) {
+    idl_location_t operator_location;
+    idl_location_t rhs_location;
+    idl_const_expr_t *rhs = NULL;
+    idl_const_expr_t *expr = NULL;
+    idl_mask_t operator;
+
+    if (!parse_operator(stream->token.code, &operator))
+      break;
+
+    operator_location = stream->token.location;
+    if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+      goto err;
+    if ((ret = parse_operand(stream, &rhs, &rhs_location)) != IDL_RETCODE_OK)
+      goto err;
+    ret = idl_create_binary_expr(
+      pstate, &operator_location, operator, lhs, rhs, &expr);
+    if (ret != IDL_RETCODE_OK) {
+      idl_unreference_node(rhs);
+      goto err;
+    }
+    lhs = expr;
+    lhs_location = location_span(lhs_location.first, rhs_location.last);
+  }
+
+  *const_exprp = lhs;
+  *locationp = lhs_location;
+  return IDL_RETCODE_OK;
+err:
+  idl_unreference_node(lhs);
+  return ret;
+}
+
+static bool
+parse_multiplicative_operator(int32_t code, idl_mask_t *operator)
+{
+  switch (code) {
+    case '*':
+      *operator = IDL_MULTIPLY;
+      return true;
+    case '/':
+      *operator = IDL_DIVIDE;
+      return true;
+    case '%':
+      *operator = IDL_MODULO;
+      return true;
+    default:
+      return false;
+  }
+}
+
+static idl_retcode_t
+parse_multiplicative_expr(
+  idl_parser_stream_t *stream,
+  idl_const_expr_t **const_exprp,
+  idl_location_t *locationp)
+{
+  return parse_binary_expr(
+    stream, parse_unary_expr, parse_multiplicative_operator,
+    const_exprp, locationp);
+}
+
+static bool
+parse_additive_operator(int32_t code, idl_mask_t *operator)
+{
+  switch (code) {
+    case '+':
+      *operator = IDL_ADD;
+      return true;
+    case '-':
+      *operator = IDL_SUBTRACT;
+      return true;
+    default:
+      return false;
+  }
+}
+
+static idl_retcode_t
+parse_additive_expr(
+  idl_parser_stream_t *stream,
+  idl_const_expr_t **const_exprp,
+  idl_location_t *locationp)
+{
+  return parse_binary_expr(
+    stream, parse_multiplicative_expr, parse_additive_operator,
+    const_exprp, locationp);
+}
+
+static bool
+parse_shift_operator(int32_t code, idl_mask_t *operator)
+{
+  switch (code) {
+    case IDL_TOKEN_LSHIFT:
+      *operator = IDL_LSHIFT;
+      return true;
+    case IDL_TOKEN_RSHIFT:
+      *operator = IDL_RSHIFT;
+      return true;
+    default:
+      return false;
+  }
+}
+
+static idl_retcode_t
+parse_shift_expr(
+  idl_parser_stream_t *stream,
+  idl_const_expr_t **const_exprp,
+  idl_location_t *locationp)
+{
+  return parse_binary_expr(
+    stream, parse_additive_expr, parse_shift_operator, const_exprp, locationp);
+}
+
+static bool
+parse_and_operator(int32_t code, idl_mask_t *operator)
+{
+  if (code != '&')
+    return false;
+  *operator = IDL_AND;
+  return true;
+}
+
+static idl_retcode_t
+parse_and_expr(
+  idl_parser_stream_t *stream,
+  idl_const_expr_t **const_exprp,
+  idl_location_t *locationp)
+{
+  return parse_binary_expr(
+    stream, parse_shift_expr, parse_and_operator, const_exprp, locationp);
+}
+
+static bool
+parse_xor_operator(int32_t code, idl_mask_t *operator)
+{
+  if (code != '^')
+    return false;
+  *operator = IDL_XOR;
+  return true;
+}
+
+static idl_retcode_t
+parse_xor_expr(
+  idl_parser_stream_t *stream,
+  idl_const_expr_t **const_exprp,
+  idl_location_t *locationp)
+{
+  return parse_binary_expr(
+    stream, parse_and_expr, parse_xor_operator, const_exprp, locationp);
+}
+
+static bool
+parse_or_operator(int32_t code, idl_mask_t *operator)
+{
+  if (code != '|')
+    return false;
+  *operator = IDL_OR;
+  return true;
+}
+
+static idl_retcode_t
+parse_or_expr(
+  idl_parser_stream_t *stream,
+  idl_const_expr_t **const_exprp,
+  idl_location_t *locationp)
+{
+  return parse_binary_expr(
+    stream, parse_xor_expr, parse_or_operator, const_exprp, locationp);
+}
+
 static idl_retcode_t
 parse_const_expr(
   idl_parser_stream_t *stream,
   idl_const_expr_t **const_exprp,
   idl_location_t *locationp)
 {
-  return parse_unary_expr(stream, const_exprp, locationp);
+  return parse_or_expr(stream, const_exprp, locationp);
 }
 
 static idl_retcode_t

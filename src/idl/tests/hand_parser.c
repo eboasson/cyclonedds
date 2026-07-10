@@ -580,6 +580,47 @@ CU_Test(idl_hand_parser, union_with_parenthesized_unary_case_labels)
   idl_delete_pstate(pstate);
 }
 
+CU_Test(idl_hand_parser, union_with_binary_precedence_case_labels)
+{
+  idl_pstate_t *pstate;
+  idl_union_t *union_node;
+  idl_case_t *case_node;
+
+  pstate = parse_string(
+    "union Choice switch(long) {"
+    "  case 1 + 2 * 3: char seven;"
+    "  case (1 + 2) * 4: char twelve;"
+    "  case 1 << 4 | 3: char nineteen;"
+    "  case 7 & 3 ^ 1: char two;"
+    "};");
+  union_node = (idl_union_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(union_node, NULL);
+  CU_ASSERT_FATAL(idl_is_union(union_node));
+
+  case_node = union_node->cases;
+  CU_ASSERT_NEQ_FATAL(case_node, NULL);
+  CU_ASSERT_EQ(idl_case_label_intvalue(case_node->labels), 7);
+  CU_ASSERT_STREQ(idl_identifier(case_node->declarator), "seven");
+
+  case_node = idl_next(case_node);
+  CU_ASSERT_NEQ_FATAL(case_node, NULL);
+  CU_ASSERT_EQ(idl_case_label_intvalue(case_node->labels), 12);
+  CU_ASSERT_STREQ(idl_identifier(case_node->declarator), "twelve");
+
+  case_node = idl_next(case_node);
+  CU_ASSERT_NEQ_FATAL(case_node, NULL);
+  CU_ASSERT_EQ(idl_case_label_intvalue(case_node->labels), 19);
+  CU_ASSERT_STREQ(idl_identifier(case_node->declarator), "nineteen");
+
+  case_node = idl_next(case_node);
+  CU_ASSERT_NEQ_FATAL(case_node, NULL);
+  CU_ASSERT_EQ(idl_case_label_intvalue(case_node->labels), 2);
+  CU_ASSERT_STREQ(idl_identifier(case_node->declarator), "two");
+  CU_ASSERT_EQ(idl_next(case_node), NULL);
+
+  idl_delete_pstate(pstate);
+}
+
 CU_Test(idl_hand_parser, union_with_enum_case_label)
 {
   idl_pstate_t *pstate;

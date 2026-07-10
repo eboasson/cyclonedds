@@ -273,6 +273,11 @@ Error handling:
     expressions and unary `+`, `-`, and `~` expressions. Tests cover evaluated
     signed and bitwise-not labels. Keep this item open for binary operators
     and the remaining expression grammar.
+  - 2026-07-10 progress: union `case` labels now use the Bison precedence
+    ladder for binary `|`, `^`, `&`, `<<`, `>>`, `+`, `-`, `*`, `/`, and
+    `%` expressions. Tests cover precedence and parenthesized overrides. Keep
+    this item open for using the const-expression parser in bounds and const
+    declarations, floating/string literal syntax checks, and annotations.
 - [x] Parse union forward declarations. Done 2026-07-10 for `union name;`,
   repeated forwards, and forwards linked to a later simple union definition.
   - 2026-07-10 progress: the hand parser now recognizes `union name;` and
@@ -297,6 +302,12 @@ Error handling:
 
 - [ ] Parse all literal forms accepted by the current scanner.
 - [ ] Parse constant expressions with Bison-equivalent precedence.
+  - 2026-07-10 progress: the hand parser now has a reusable
+    const-expression precedence parser for union labels covering primary
+    integer/character/boolean/scoped names, parentheses, unary operators, and
+    binary integer operators. Keep this item open until it is reused for
+    array/template bounds and const declarations, and until remaining literal
+    forms are handled.
 - [ ] Parse const declarations.
 - [ ] Parse annotation declarations.
 - [ ] Parse annotation applications without parameters.
@@ -559,6 +570,11 @@ unless a test already depends on it.
 - 2026-07-10: After adding parenthesized and unary union case-label
   expressions, rebuilt hand-parser `cunit_idl` and ran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 41/41 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding binary-precedence union case-label expressions,
+  rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 42/42 passed.
 - 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-10: First fixed-array build failed because the new test used
