@@ -1016,6 +1016,95 @@ err:
 }
 
 static idl_retcode_t
+parse_bit_value(
+  idl_parser_stream_t *stream,
+  idl_bit_value_t **bit_valuep)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_bit_value_t *bit_value = NULL;
+  idl_name_t *name = NULL;
+  idl_location_t location;
+  idl_retcode_t ret;
+
+  if ((ret = parse_identifier(stream, &name)) != IDL_RETCODE_OK)
+    return ret;
+  location = name->symbol.location;
+  ret = idl_create_bit_value(pstate, &location, name, &bit_value);
+  if (ret != IDL_RETCODE_OK) {
+    idl_delete_name(name);
+    return ret;
+  }
+
+  *bit_valuep = bit_value;
+  return IDL_RETCODE_OK;
+}
+
+static idl_retcode_t
+parse_bit_values(
+  idl_parser_stream_t *stream,
+  idl_bit_value_t **bit_valuesp)
+{
+  idl_bit_value_t *bit_values = NULL;
+  idl_retcode_t ret;
+
+  if ((ret = parse_bit_value(stream, &bit_values)) != IDL_RETCODE_OK)
+    return ret;
+
+  while (stream->token.code == ',') {
+    idl_bit_value_t *bit_value = NULL;
+
+    if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+      goto err;
+    if ((ret = parse_bit_value(stream, &bit_value)) != IDL_RETCODE_OK)
+      goto err;
+    bit_values = idl_push_node(bit_values, bit_value);
+  }
+
+  *bit_valuesp = bit_values;
+  return IDL_RETCODE_OK;
+err:
+  idl_delete_node(bit_values);
+  return ret;
+}
+
+static idl_retcode_t
+parse_bitmask(idl_parser_stream_t *stream, void **nodep)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_position_t first = stream->token.location.first;
+  idl_location_t rbrace_location;
+  idl_location_t location;
+  idl_bitmask_t *bitmask = NULL;
+  idl_bit_value_t *bit_values = NULL;
+  idl_name_t *name = NULL;
+  idl_retcode_t ret;
+
+  assert(stream->token.code == IDL_TOKEN_BITMASK);
+  if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+    return ret;
+  if ((ret = parse_identifier(stream, &name)) != IDL_RETCODE_OK)
+    return ret;
+  if ((ret = expect(stream, '{', NULL)) != IDL_RETCODE_OK)
+    goto err;
+  if ((ret = parse_bit_values(stream, &bit_values)) != IDL_RETCODE_OK)
+    goto err;
+  if ((ret = expect(stream, '}', &rbrace_location)) != IDL_RETCODE_OK)
+    goto err;
+
+  location = location_span(first, rbrace_location.last);
+  ret = idl_create_bitmask(pstate, &location, name, bit_values, &bitmask);
+  if (ret != IDL_RETCODE_OK)
+    goto err;
+
+  *nodep = bitmask;
+  return IDL_RETCODE_OK;
+err:
+  idl_delete_node(bit_values);
+  idl_delete_name(name);
+  return ret;
+}
+
+static idl_retcode_t
 parse_module(idl_parser_stream_t *stream, void **nodep)
 {
   idl_pstate_t *pstate = stream->pstate;
@@ -1086,6 +1175,9 @@ parse_definition(idl_parser_stream_t *stream, void **nodep)
       break;
     case IDL_TOKEN_ENUM:
       ret = parse_enum(stream, &node);
+      break;
+    case IDL_TOKEN_BITMASK:
+      ret = parse_bitmask(stream, &node);
       break;
     default:
       return syntax_error(stream);

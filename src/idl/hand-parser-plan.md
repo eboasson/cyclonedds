@@ -256,6 +256,11 @@ Error handling:
     duplicate enumerator rejection, and enum/enumerator name clashes. Keep
     this item open until enumerator annotations are supported.
 - [ ] Parse bitmasks and bit values.
+  - 2026-07-10 progress: unannotated bitmask definitions now parse with
+    non-empty comma-separated bit value lists. Tests cover implicit bit
+    positions, default bit bound, use as member type, empty bitmask rejection,
+    duplicate bit value rejection, and bitmask/bit-value name clashes. Keep
+    this item open until bit value annotations and `@bit_bound` are supported.
 
 ### Phase 4: Constants and annotations
 
@@ -382,6 +387,10 @@ unless a test already depends on it.
   while reading the enumerator list and `idl_create_enum` at the closing
   brace so value/default assignment and name-collision checks stay in the
   existing tree helpers.
+- 2026-07-10: Added unannotated bitmask parsing, mirroring the enum parsing
+  shape with `idl_create_bit_value` while reading the list and
+  `idl_create_bitmask` at the closing brace so implicit positions and name
+  collision checks stay in the existing tree helpers.
 
 ## Differences from Bison parser
 
@@ -430,6 +439,10 @@ unless a test already depends on it.
   build, the hand parser also accepts unannotated enum definitions and enum
   type references. Enumerator annotations remain pending with the broader
   annotation parser work.
+- 2026-07-10: Superseding note: in an `ENABLE_IDL_HAND_PARSER=ON` development
+  build, the hand parser also accepts unannotated bitmask definitions and
+  bitmask type references. Bit value annotations and `@bit_bound` remain
+  pending with the broader annotation parser work.
 
 ## Local verification log
 
@@ -490,6 +503,11 @@ unless a test already depends on it.
 - 2026-07-10: After adding literal-bound array declarators and the oversized
   bound negative test, ran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 17/17 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding unannotated bitmask parsing, rebuilt hand-parser
+  `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 29/29 passed.
 - 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-10: After adding unannotated enum parsing, rebuilt hand-parser

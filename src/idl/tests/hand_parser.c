@@ -759,3 +759,71 @@ CU_Test(idl_hand_parser, enum_rejects_enumerator_matching_enum)
 {
   expect_parse_ret("enum Color { Color };", IDL_RETCODE_SEMANTIC_ERROR);
 }
+
+CU_Test(idl_hand_parser, bitmask_with_bit_values)
+{
+  idl_pstate_t *pstate;
+  idl_bitmask_t *bitmask;
+  idl_bit_value_t *bit_value;
+  idl_struct_t *strct;
+  idl_member_t *member;
+  const char str[] =
+    "bitmask Permissions { READ, WRITE, EXECUTE };"
+    "struct Access { Permissions permissions; };";
+
+  pstate = parse_string(str);
+  bitmask = (idl_bitmask_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(bitmask, NULL);
+  CU_ASSERT_FATAL(idl_is_bitmask(bitmask));
+  CU_ASSERT_STREQ(idl_identifier(bitmask), "Permissions");
+  CU_ASSERT_EQ(bitmask->bit_bound.value, 32u);
+
+  bit_value = bitmask->bit_values;
+  CU_ASSERT_NEQ_FATAL(bit_value, NULL);
+  CU_ASSERT_FATAL(idl_is_bit_value(bit_value));
+  CU_ASSERT_STREQ(idl_identifier(bit_value), "READ");
+  CU_ASSERT_EQ(bit_value->position.value, 0u);
+  CU_ASSERT_EQ(idl_parent(bit_value), bitmask);
+
+  bit_value = idl_next(bit_value);
+  CU_ASSERT_NEQ_FATAL(bit_value, NULL);
+  CU_ASSERT_FATAL(idl_is_bit_value(bit_value));
+  CU_ASSERT_STREQ(idl_identifier(bit_value), "WRITE");
+  CU_ASSERT_EQ(bit_value->position.value, 1u);
+  CU_ASSERT_EQ(idl_parent(bit_value), bitmask);
+
+  bit_value = idl_next(bit_value);
+  CU_ASSERT_NEQ_FATAL(bit_value, NULL);
+  CU_ASSERT_FATAL(idl_is_bit_value(bit_value));
+  CU_ASSERT_STREQ(idl_identifier(bit_value), "EXECUTE");
+  CU_ASSERT_EQ(bit_value->position.value, 2u);
+  CU_ASSERT_EQ(idl_parent(bit_value), bitmask);
+  CU_ASSERT_EQ(idl_next(bit_value), NULL);
+
+  strct = idl_next(bitmask);
+  CU_ASSERT_NEQ_FATAL(strct, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(strct));
+  member = strct->members;
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_EQ(member->type_spec, bitmask);
+  CU_ASSERT_STREQ(idl_identifier(member->declarators), "permissions");
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, bitmask_rejects_empty_body)
+{
+  expect_parse_ret("bitmask Empty { };", IDL_RETCODE_SYNTAX_ERROR);
+}
+
+CU_Test(idl_hand_parser, bitmask_rejects_duplicate_bit_values)
+{
+  expect_parse_ret(
+    "bitmask Permissions { READ, READ };", IDL_RETCODE_SEMANTIC_ERROR);
+}
+
+CU_Test(idl_hand_parser, bitmask_rejects_bit_value_matching_bitmask)
+{
+  expect_parse_ret(
+    "bitmask Permissions { Permissions };", IDL_RETCODE_SEMANTIC_ERROR);
+}
