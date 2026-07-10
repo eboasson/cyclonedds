@@ -137,6 +137,32 @@ expect(idl_parser_stream_t *stream, int32_t code, idl_location_t *location)
 }
 
 static idl_retcode_t
+expect_template_rangle(
+  idl_parser_stream_t *stream,
+  idl_location_t *location)
+{
+  idl_location_t first;
+  idl_location_t second;
+
+  if (stream->token.code == '>')
+    return expect(stream, '>', location);
+  if (stream->token.code != IDL_TOKEN_RSHIFT)
+    return syntax_error(stream);
+
+  first = stream->token.location;
+  second = stream->token.location;
+  first.last = first.first;
+  first.last.column++;
+  second.first = first.last;
+
+  if (location)
+    *location = first;
+  stream->token.code = '>';
+  stream->token.location = second;
+  return IDL_RETCODE_OK;
+}
+
+static idl_retcode_t
 parse_identifier(idl_parser_stream_t *stream, idl_name_t **namep)
 {
   idl_pstate_t *pstate = stream->pstate;
@@ -453,7 +479,8 @@ parse_string_type(
       return ret;
     if ((ret = parse_positive_int_const(stream, &bound)) != IDL_RETCODE_OK)
       return ret;
-    if ((ret = expect(stream, '>', &rangle_location)) != IDL_RETCODE_OK)
+    if ((ret = expect_template_rangle(stream, &rangle_location)) !=
+        IDL_RETCODE_OK)
       goto err;
     last = rangle_location.last;
   }
@@ -501,7 +528,8 @@ parse_sequence_type(
       goto err;
   }
 
-  if ((ret = expect(stream, '>', &rangle_location)) != IDL_RETCODE_OK)
+  if ((ret = expect_template_rangle(stream, &rangle_location)) !=
+      IDL_RETCODE_OK)
     goto err;
 
   location = location_span(first, rangle_location.last);

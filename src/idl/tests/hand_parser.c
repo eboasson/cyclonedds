@@ -1237,6 +1237,49 @@ CU_Test(idl_hand_parser, struct_with_sequence_members)
   idl_delete_pstate(pstate);
 }
 
+CU_Test(idl_hand_parser, struct_with_adjacent_nested_sequence_closers)
+{
+  idl_pstate_t *pstate;
+  idl_struct_t *strct;
+  idl_member_t *member;
+  idl_sequence_t *sequence;
+  const char str[] =
+    "struct Samples {"
+    "  sequence<sequence<long>> values;"
+    "  sequence<sequence<sequence<char>>> deeply_nested;"
+    "};";
+
+  pstate = parse_string(str);
+  strct = (idl_struct_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(strct, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(strct));
+
+  member = strct->members;
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_FATAL(idl_is_sequence(member->type_spec));
+  sequence = (idl_sequence_t *) member->type_spec;
+  CU_ASSERT_EQ(idl_bound(sequence), 0u);
+  CU_ASSERT_FATAL(idl_is_sequence(sequence->type_spec));
+  sequence = (idl_sequence_t *) sequence->type_spec;
+  CU_ASSERT_EQ(idl_bound(sequence), 0u);
+  CU_ASSERT_EQ(idl_type(sequence->type_spec), IDL_LONG);
+  CU_ASSERT_STREQ(idl_identifier(member->declarators), "values");
+
+  member = idl_next(member);
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_FATAL(idl_is_sequence(member->type_spec));
+  sequence = (idl_sequence_t *) member->type_spec;
+  CU_ASSERT_FATAL(idl_is_sequence(sequence->type_spec));
+  sequence = (idl_sequence_t *) sequence->type_spec;
+  CU_ASSERT_FATAL(idl_is_sequence(sequence->type_spec));
+  sequence = (idl_sequence_t *) sequence->type_spec;
+  CU_ASSERT_EQ(idl_type(sequence->type_spec), IDL_CHAR);
+  CU_ASSERT_STREQ(idl_identifier(member->declarators), "deeply_nested");
+  CU_ASSERT_EQ(idl_next(member), NULL);
+
+  idl_delete_pstate(pstate);
+}
+
 CU_Test(idl_hand_parser, typedef_with_sequence_type)
 {
   idl_pstate_t *pstate;

@@ -244,6 +244,10 @@ Error handling:
     expression bounds for bounded strings, bounded wstrings, bounded
     sequences, and nested sequence bounds. Keep this item open for sequence
     element annotations and nested closing-angle handling.
+  - 2026-07-10 progress: nested unbounded sequence types now handle adjacent
+    template closers by splitting `>>` tokens only when a template `>` is
+    expected. Tests cover double and triple adjacent closers. Keep this item
+    open for sequence element annotations.
 - [ ] Parse structs with members.
   - 2026-07-08 note: only empty struct definitions are parsed so modules can
     have a Bison-valid leaf definition. Full member parsing remains pending.
@@ -630,6 +634,11 @@ unless a test already depends on it.
   expressions, including adjacent string literal concatenation, rebuilt
   hand-parser `cunit_idl` and ran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 48/48 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding template-close splitting for nested sequence
+  types, rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 49/49 passed.
 - 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-10: First fixed-array build failed because the new test used
