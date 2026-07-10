@@ -1188,6 +1188,164 @@ CU_Test(idl_hand_parser, const_declaration_with_char_and_boolean_labels)
   idl_delete_pstate(pstate);
 }
 
+CU_Test(idl_hand_parser, const_declaration_with_scoped_alias_types)
+{
+  idl_pstate_t *pstate;
+  idl_typedef_t *count_type;
+  idl_typedef_t *label_type;
+  idl_const_t *width;
+  idl_const_t *label;
+  const idl_literal_t *literal;
+  const char str[] =
+    "typedef unsigned long Count;"
+    "typedef string<8> Label;"
+    "const Count WIDTH = 5;"
+    "const Label NAME = \"sample\";";
+
+  pstate = parse_string(str);
+  count_type = (idl_typedef_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(count_type, NULL);
+  CU_ASSERT_FATAL(idl_is_typedef(count_type));
+  label_type = idl_next(count_type);
+  CU_ASSERT_NEQ_FATAL(label_type, NULL);
+  CU_ASSERT_FATAL(idl_is_typedef(label_type));
+
+  width = idl_next(label_type);
+  CU_ASSERT_NEQ_FATAL(width, NULL);
+  CU_ASSERT_FATAL(idl_is_const(width));
+  CU_ASSERT_STREQ(idl_identifier(width), "WIDTH");
+  CU_ASSERT_EQ(width->type_spec, count_type->declarators);
+  CU_ASSERT_EQ(idl_type(idl_unalias(width->type_spec)), IDL_ULONG);
+  literal = (const idl_literal_t *) width->const_expr;
+  CU_ASSERT_EQ(idl_type(literal), IDL_ULONG);
+  CU_ASSERT_EQ(literal->value.uint32, 5u);
+
+  label = idl_next(width);
+  CU_ASSERT_NEQ_FATAL(label, NULL);
+  CU_ASSERT_FATAL(idl_is_const(label));
+  CU_ASSERT_STREQ(idl_identifier(label), "NAME");
+  CU_ASSERT_EQ(label->type_spec, label_type->declarators);
+  CU_ASSERT_EQ(idl_type(idl_unalias(label->type_spec)), IDL_STRING);
+  literal = (const idl_literal_t *) label->const_expr;
+  CU_ASSERT_EQ(idl_type(literal), IDL_STRING);
+  CU_ASSERT_STREQ(literal->value.str, "sample");
+  CU_ASSERT_EQ(idl_next(label), NULL);
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, const_declaration_with_enum_constant)
+{
+  idl_pstate_t *pstate;
+  idl_enum_t *color;
+  idl_enumerator_t *green;
+  idl_typedef_t *shade;
+  idl_const_t *pick;
+  idl_union_t *choice;
+  idl_case_t *case_node;
+  const char str[] =
+    "enum Color { RED, GREEN, BLUE };"
+    "typedef Color Shade;"
+    "const Shade PICK = GREEN;"
+    "union Choice switch(Color) {"
+    "  case PICK: long selected;"
+    "  default: long fallback;"
+    "};";
+
+  pstate = parse_string(str);
+  color = (idl_enum_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(color, NULL);
+  CU_ASSERT_FATAL(idl_is_enum(color));
+  green = idl_next(color->enumerators);
+  CU_ASSERT_NEQ_FATAL(green, NULL);
+  CU_ASSERT_FATAL(idl_is_enumerator(green));
+
+  shade = idl_next(color);
+  CU_ASSERT_NEQ_FATAL(shade, NULL);
+  CU_ASSERT_FATAL(idl_is_typedef(shade));
+  pick = idl_next(shade);
+  CU_ASSERT_NEQ_FATAL(pick, NULL);
+  CU_ASSERT_FATAL(idl_is_const(pick));
+  CU_ASSERT_STREQ(idl_identifier(pick), "PICK");
+  CU_ASSERT_EQ(pick->type_spec, shade->declarators);
+  CU_ASSERT_EQ(idl_type(idl_unalias(pick->type_spec)), IDL_ENUM);
+  CU_ASSERT_EQ(pick->const_expr, green);
+
+  choice = idl_next(pick);
+  CU_ASSERT_NEQ_FATAL(choice, NULL);
+  CU_ASSERT_FATAL(idl_is_union(choice));
+  case_node = choice->cases;
+  CU_ASSERT_NEQ_FATAL(case_node, NULL);
+  CU_ASSERT_EQ(idl_case_label_intvalue(case_node->labels), 1);
+  CU_ASSERT_EQ(case_node->labels->const_expr, green);
+  CU_ASSERT_STREQ(idl_identifier(case_node->declarator), "selected");
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, const_declaration_with_bitmask_constant)
+{
+  idl_pstate_t *pstate;
+  idl_bitmask_t *flags;
+  idl_typedef_t *flag_alias;
+  idl_const_t *just_a;
+  idl_const_t *both;
+  idl_union_t *choice;
+  idl_case_t *case_node;
+  const idl_literal_t *literal;
+  const char str[] =
+    "bitmask Flags { A, B };"
+    "typedef Flags FlagAlias;"
+    "const FlagAlias JUST_A = A;"
+    "const FlagAlias BOTH = JUST_A | B;"
+    "union FlagChoice switch(Flags) {"
+    "  case JUST_A: long a;"
+    "  case BOTH: long both;"
+    "  default: long fallback;"
+    "};";
+
+  pstate = parse_string(str);
+  flags = (idl_bitmask_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(flags, NULL);
+  CU_ASSERT_FATAL(idl_is_bitmask(flags));
+  flag_alias = idl_next(flags);
+  CU_ASSERT_NEQ_FATAL(flag_alias, NULL);
+  CU_ASSERT_FATAL(idl_is_typedef(flag_alias));
+
+  just_a = idl_next(flag_alias);
+  CU_ASSERT_NEQ_FATAL(just_a, NULL);
+  CU_ASSERT_FATAL(idl_is_const(just_a));
+  CU_ASSERT_STREQ(idl_identifier(just_a), "JUST_A");
+  CU_ASSERT_EQ(just_a->type_spec, flag_alias->declarators);
+  CU_ASSERT_EQ(idl_type(idl_unalias(just_a->type_spec)), IDL_BITMASK);
+  literal = (const idl_literal_t *) just_a->const_expr;
+  CU_ASSERT_EQ(idl_type(literal), IDL_BITMASK);
+  CU_ASSERT_EQ(literal->value.uint64, 1u);
+
+  both = idl_next(just_a);
+  CU_ASSERT_NEQ_FATAL(both, NULL);
+  CU_ASSERT_FATAL(idl_is_const(both));
+  CU_ASSERT_STREQ(idl_identifier(both), "BOTH");
+  CU_ASSERT_EQ(both->type_spec, flag_alias->declarators);
+  literal = (const idl_literal_t *) both->const_expr;
+  CU_ASSERT_EQ(idl_type(literal), IDL_BITMASK);
+  CU_ASSERT_EQ(literal->value.uint64, 3u);
+
+  choice = idl_next(both);
+  CU_ASSERT_NEQ_FATAL(choice, NULL);
+  CU_ASSERT_FATAL(idl_is_union(choice));
+  case_node = choice->cases;
+  CU_ASSERT_NEQ_FATAL(case_node, NULL);
+  CU_ASSERT_EQ(idl_case_label_intvalue(case_node->labels), 1);
+  CU_ASSERT_STREQ(idl_identifier(case_node->declarator), "a");
+  case_node = idl_next(case_node);
+  CU_ASSERT_NEQ_FATAL(case_node, NULL);
+  CU_ASSERT_EQ(idl_case_label_intvalue(case_node->labels), 3);
+  CU_ASSERT_STREQ(idl_identifier(case_node->declarator), "both");
+
+  idl_delete_pstate(pstate);
+}
+
 CU_Test(idl_hand_parser, struct_with_sequence_members)
 {
   idl_pstate_t *pstate;

@@ -341,6 +341,9 @@ Error handling:
     adjacent string literal concatenation, now parse as primary expressions.
     Keep this item open for any remaining parity checks outside the current
     focused tests.
+  - 2026-07-10 progress: named enum constants and named bitmask constants now
+    evaluate correctly when reused in later constant expressions and union case
+    labels. Keep this item open for annotation-related expression parity.
 - [ ] Parse const declarations.
   - 2026-07-10 progress: unannotated `const` declarations now parse for the
     currently supported const-expression forms. Tests cover integer
@@ -352,6 +355,11 @@ Error handling:
     and string literals, including evaluating a `double` constant as `float`
     and concatenating adjacent string literals. Keep this item open for enum
     constants, scoped const type parity, and annotations.
+  - 2026-07-10 progress: const declarations now cover scoped typedef-backed
+    base and string types, enum constants, and bitmask constants. Enum
+    constants keep referencing the selected enumerator; bitmask constants
+    evaluate to bitmask literals and can be reused in later bitmask
+    expressions and case labels. Keep this item open for annotations.
 - [ ] Parse annotation declarations.
 - [ ] Parse annotation applications without parameters.
 - [ ] Parse positional annotation application parameters.
@@ -663,6 +671,11 @@ unless a test already depends on it.
 - 2026-07-10: After adding string, wstring, and sequence template type specs,
   rebuilt hand-parser `cunit_idl` and ran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 21/21 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding scoped const-type, enum const, and bitmask const
+  parity, rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 52/52 passed.
 - 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-09: Added a null-declaration guard to the struct inheritance helper,
