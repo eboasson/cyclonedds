@@ -458,6 +458,86 @@ CU_Test(idl_hand_parser, union_with_default_case)
   idl_delete_pstate(pstate);
 }
 
+CU_Test(idl_hand_parser, union_with_multiple_case_labels)
+{
+  idl_pstate_t *pstate;
+  idl_union_t *union_node;
+  idl_case_t *case_node;
+  idl_case_label_t *case_label;
+
+  pstate = parse_string(
+    "union Choice switch(long) { case 1: case 2: char c; default: long d; };");
+  union_node = (idl_union_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(union_node, NULL);
+  CU_ASSERT_FATAL(idl_is_union(union_node));
+
+  case_node = union_node->cases;
+  CU_ASSERT_NEQ_FATAL(case_node, NULL);
+  CU_ASSERT_FATAL(idl_is_case(case_node));
+  case_label = case_node->labels;
+  CU_ASSERT_NEQ_FATAL(case_label, NULL);
+  CU_ASSERT_FATAL(idl_is_case_label(case_label));
+  case_label = idl_next(case_label);
+  CU_ASSERT_NEQ_FATAL(case_label, NULL);
+  CU_ASSERT_FATAL(idl_is_case_label(case_label));
+  CU_ASSERT_EQ(idl_next(case_label), NULL);
+  CU_ASSERT_STREQ(idl_identifier(case_node->declarator), "c");
+
+  case_node = idl_next(case_node);
+  CU_ASSERT_NEQ_FATAL(case_node, NULL);
+  CU_ASSERT_FATAL(idl_is_default_case(case_node));
+  CU_ASSERT_STREQ(idl_identifier(case_node->declarator), "d");
+  CU_ASSERT_EQ(idl_next(case_node), NULL);
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, union_with_enum_case_label)
+{
+  idl_pstate_t *pstate;
+  idl_enum_t *color;
+  idl_union_t *union_node;
+  idl_case_t *case_node;
+  const char str[] =
+    "enum Color { Red, Yellow, Blue };"
+    "union Choice switch(Color) { case Red: char c; default: long d; };";
+
+  pstate = parse_string(str);
+  color = (idl_enum_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(color, NULL);
+  CU_ASSERT_FATAL(idl_is_enum(color));
+
+  union_node = idl_next(color);
+  CU_ASSERT_NEQ_FATAL(union_node, NULL);
+  CU_ASSERT_FATAL(idl_is_union(union_node));
+  CU_ASSERT_EQ(
+    union_node->switch_type_spec->type_spec, (idl_type_spec_t *) color);
+
+  case_node = union_node->cases;
+  CU_ASSERT_NEQ_FATAL(case_node, NULL);
+  CU_ASSERT_FATAL(idl_is_case(case_node));
+  CU_ASSERT_EQ(case_node->labels->const_expr, color->enumerators);
+  CU_ASSERT_STREQ(idl_identifier(case_node->declarator), "c");
+
+  case_node = idl_next(case_node);
+  CU_ASSERT_NEQ_FATAL(case_node, NULL);
+  CU_ASSERT_FATAL(idl_is_default_case(case_node));
+  CU_ASSERT_STREQ(idl_identifier(case_node->declarator), "d");
+  CU_ASSERT_EQ(idl_next(case_node), NULL);
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, union_rejects_case_label_from_other_enum)
+{
+  const char str[] =
+    "enum Color { Red };"
+    "enum Shape { Circle };"
+    "union Choice switch(Color) { case Circle: char c; };";
+
+  expect_parse_ret(str, IDL_RETCODE_SEMANTIC_ERROR);
+}
+
 CU_Test(idl_hand_parser, union_forward_declaration_linked_to_definition)
 {
   idl_pstate_t *pstate;
