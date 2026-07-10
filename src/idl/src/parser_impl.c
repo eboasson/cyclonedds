@@ -18,6 +18,7 @@
 #include "idl/string.h"
 
 #include "directive.h"
+#include "expression.h"
 #include "parser_impl.h"
 #include "parser.h"
 #include "scanner.h"
@@ -181,6 +182,10 @@ static idl_retcode_t parse_type_spec(
 static idl_retcode_t parse_positive_int_literal(
   idl_parser_stream_t *stream,
   idl_literal_t **literalp);
+static idl_retcode_t parse_const_expr(
+  idl_parser_stream_t *stream,
+  idl_const_expr_t **const_exprp,
+  idl_location_t *locationp);
 
 static idl_retcode_t
 parse_scoped_name(
@@ -706,7 +711,7 @@ err:
 }
 
 static idl_retcode_t
-parse_const_expr(
+parse_primary_expr(
   idl_parser_stream_t *stream,
   idl_const_expr_t **const_exprp,
   idl_location_t *locationp)
@@ -721,7 +726,84 @@ parse_const_expr(
   if (stream->token.code == IDL_TOKEN_IDENTIFIER ||
       stream->token.code == IDL_TOKEN_SCOPE)
     return parse_scoped_const_expr(stream, const_exprp, locationp);
+  if (stream->token.code == '(') {
+    idl_location_t lparen_location = stream->token.location;
+    idl_location_t expr_location;
+    idl_location_t rparen_location;
+    idl_const_expr_t *const_expr = NULL;
+    idl_retcode_t ret;
+
+    if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+      return ret;
+    if ((ret = parse_const_expr(
+          stream, &const_expr, &expr_location)) != IDL_RETCODE_OK)
+      return ret;
+    if ((ret = expect(stream, ')', &rparen_location)) != IDL_RETCODE_OK) {
+      idl_unreference_node(const_expr);
+      return ret;
+    }
+
+    *const_exprp = const_expr;
+    *locationp = location_span(lparen_location.first, rparen_location.last);
+    return IDL_RETCODE_OK;
+  }
   return syntax_error(stream);
+}
+
+static idl_retcode_t
+parse_unary_expr(
+  idl_parser_stream_t *stream,
+  idl_const_expr_t **const_exprp,
+  idl_location_t *locationp)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_location_t operator_location;
+  idl_location_t operand_location;
+  idl_const_expr_t *operand = NULL;
+  idl_const_expr_t *const_expr = NULL;
+  idl_mask_t operator;
+  idl_retcode_t ret;
+
+  switch (stream->token.code) {
+    case '-':
+      operator = IDL_MINUS;
+      break;
+    case '+':
+      operator = IDL_PLUS;
+      break;
+    case '~':
+      operator = IDL_NOT;
+      break;
+    default:
+      return parse_primary_expr(stream, const_exprp, locationp);
+  }
+
+  operator_location = stream->token.location;
+  if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+    return ret;
+  if ((ret = parse_primary_expr(
+        stream, &operand, &operand_location)) != IDL_RETCODE_OK)
+    return ret;
+
+  ret = idl_create_unary_expr(
+    pstate, &operator_location, operator, operand, &const_expr);
+  if (ret != IDL_RETCODE_OK) {
+    idl_unreference_node(operand);
+    return ret;
+  }
+
+  *const_exprp = const_expr;
+  *locationp = location_span(operator_location.first, operand_location.last);
+  return IDL_RETCODE_OK;
+}
+
+static idl_retcode_t
+parse_const_expr(
+  idl_parser_stream_t *stream,
+  idl_const_expr_t **const_exprp,
+  idl_location_t *locationp)
+{
+  return parse_unary_expr(stream, const_exprp, locationp);
 }
 
 static idl_retcode_t
