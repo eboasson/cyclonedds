@@ -559,3 +559,136 @@ CU_Test(idl_hand_parser, array_declarator_rejects_oversized_bound)
     "struct Sample { long values[4294967296]; };",
     IDL_RETCODE_OUT_OF_RANGE);
 }
+
+CU_Test(idl_hand_parser, struct_with_string_and_wstring_members)
+{
+  idl_pstate_t *pstate;
+  idl_struct_t *strct;
+  idl_member_t *member;
+  const char str[] =
+    "struct Text {"
+    "  string name;"
+    "  string<12> label;"
+    "  wstring wide;"
+    "  wstring<7> wide_label;"
+    "};";
+
+  pstate = parse_string(str);
+  strct = (idl_struct_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(strct, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(strct));
+
+  member = strct->members;
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_FATAL(idl_is_unbounded_string(member->type_spec));
+  CU_ASSERT_EQ(idl_bound(member->type_spec), 0u);
+  CU_ASSERT_STREQ(idl_identifier(member->declarators), "name");
+
+  member = idl_next(member);
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_FATAL(idl_is_bounded_string(member->type_spec));
+  CU_ASSERT_EQ(idl_bound(member->type_spec), 12u);
+  CU_ASSERT_STREQ(idl_identifier(member->declarators), "label");
+
+  member = idl_next(member);
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_FATAL(idl_is_unbounded_wstring(member->type_spec));
+  CU_ASSERT_EQ(idl_bound(member->type_spec), 0u);
+  CU_ASSERT_STREQ(idl_identifier(member->declarators), "wide");
+
+  member = idl_next(member);
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_FATAL(idl_is_bounded_wstring(member->type_spec));
+  CU_ASSERT_EQ(idl_bound(member->type_spec), 7u);
+  CU_ASSERT_STREQ(idl_identifier(member->declarators), "wide_label");
+  CU_ASSERT_EQ(idl_next(member), NULL);
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, struct_with_sequence_members)
+{
+  idl_pstate_t *pstate;
+  idl_struct_t *strct;
+  idl_member_t *member;
+  idl_sequence_t *sequence;
+  const char str[] =
+    "struct Samples {"
+    "  sequence<long> values;"
+    "  sequence<char, 4> bytes;"
+    "  sequence<sequence<long, 2>, 3> nested;"
+    "};";
+
+  pstate = parse_string(str);
+  strct = (idl_struct_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(strct, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(strct));
+
+  member = strct->members;
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_FATAL(idl_is_sequence(member->type_spec));
+  sequence = (idl_sequence_t *) member->type_spec;
+  CU_ASSERT_EQ(idl_bound(sequence), 0u);
+  CU_ASSERT_EQ(idl_type(sequence->type_spec), IDL_LONG);
+  CU_ASSERT_STREQ(idl_identifier(member->declarators), "values");
+
+  member = idl_next(member);
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_FATAL(idl_is_sequence(member->type_spec));
+  sequence = (idl_sequence_t *) member->type_spec;
+  CU_ASSERT_EQ(idl_bound(sequence), 4u);
+  CU_ASSERT_EQ(idl_type(sequence->type_spec), IDL_CHAR);
+  CU_ASSERT_STREQ(idl_identifier(member->declarators), "bytes");
+
+  member = idl_next(member);
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_FATAL(idl_is_sequence(member->type_spec));
+  sequence = (idl_sequence_t *) member->type_spec;
+  CU_ASSERT_EQ(idl_bound(sequence), 3u);
+  CU_ASSERT_FATAL(idl_is_sequence(sequence->type_spec));
+  sequence = (idl_sequence_t *) sequence->type_spec;
+  CU_ASSERT_EQ(idl_bound(sequence), 2u);
+  CU_ASSERT_EQ(idl_type(sequence->type_spec), IDL_LONG);
+  CU_ASSERT_STREQ(idl_identifier(member->declarators), "nested");
+  CU_ASSERT_EQ(idl_next(member), NULL);
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, typedef_with_sequence_type)
+{
+  idl_pstate_t *pstate;
+  idl_typedef_t *typedef_node;
+  idl_struct_t *strct;
+  idl_member_t *member;
+  idl_sequence_t *sequence;
+  const char str[] =
+    "typedef sequence<long, 5> Longs;"
+    "struct Sample { Longs values; };";
+
+  pstate = parse_string(str);
+  typedef_node = (idl_typedef_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(typedef_node, NULL);
+  CU_ASSERT_FATAL(idl_is_typedef(typedef_node));
+  CU_ASSERT_FATAL(idl_is_sequence(typedef_node->type_spec));
+  sequence = (idl_sequence_t *) typedef_node->type_spec;
+  CU_ASSERT_EQ(idl_bound(sequence), 5u);
+  CU_ASSERT_EQ(idl_type(sequence->type_spec), IDL_LONG);
+
+  strct = idl_next(typedef_node);
+  CU_ASSERT_NEQ_FATAL(strct, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(strct));
+  member = strct->members;
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_EQ(member->type_spec, typedef_node->declarators);
+  CU_ASSERT_STREQ(idl_identifier(member->declarators), "values");
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, string_type_rejects_uint32_max_bound)
+{
+  expect_parse_ret(
+    "struct Sample { string<4294967295> value; };",
+    IDL_RETCODE_UNSUPPORTED);
+}

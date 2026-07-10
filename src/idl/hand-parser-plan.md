@@ -220,6 +220,12 @@ Error handling:
     the full `positive_int_const` grammar, including named constants and
     expressions.
 - [ ] Parse string, wstring, and sequence template types.
+  - 2026-07-10 progress: member and typedef type specs now support
+    `string`, `wstring`, `sequence<T>`, and literal-bounded forms such as
+    `string<12>`, `wstring<7>`, and `sequence<long, 4>`. Nested sequences work
+    when tokenized without a `>>` token ambiguity. Keep this item open until
+    template bounds accept full `positive_int_const`, sequence element
+    annotations are parsed, and nested closing-angle handling is audited.
 - [ ] Parse structs with members.
   - 2026-07-08 note: only empty struct definitions are parsed so modules can
     have a Bison-valid leaf definition. Full member parsing remains pending.
@@ -234,6 +240,9 @@ Error handling:
   - 2026-07-10 progress: member declarators now support fixed-array suffixes
     with literal bounds, including multi-dimensional arrays. Keep this item
     open for template type specs, annotations, and non-literal array bounds.
+  - 2026-07-10 progress: member type specs now support string, wstring, and
+    sequence template types with literal bounds. Keep this item open for
+    annotations and non-literal bounds.
 - [x] Parse struct inheritance. Done 2026-07-09 for scoped-name bases,
   including aliases that resolve to structs.
 - [x] Parse struct forward declarations. Done 2026-07-09 for `struct name;`,
@@ -359,6 +368,11 @@ unless a test already depends on it.
   declarator, and relies on `idl_create_declarator` for the existing nonzero
   bound validation. Tests cover member arrays, typedef arrays, zero bounds,
   and bounds larger than `UINT32_MAX`.
+- 2026-07-10: Added string, wstring, and sequence template type parsing for
+  member and typedef type specs. Literal bounds are shared with the array
+  parser, and tests cover bounded/unbounded strings, bounded/unbounded
+  wstrings, bounded/unbounded sequences, nested sequences, typedefs to
+  sequences, and the existing `string<UINT32_MAX>` overflow diagnostic.
 
 ## Differences from Bison parser
 
@@ -398,6 +412,11 @@ unless a test already depends on it.
   with integer-literal bounds. The Bison grammar accepts the full
   `positive_int_const` grammar for bounds; named constants and expression
   bounds remain pending until constant-expression parsing exists.
+- 2026-07-10: Superseding note: in an `ENABLE_IDL_HAND_PARSER=ON` development
+  build, the hand parser also accepts `string`, `wstring`, and `sequence`
+  template type specs with optional integer-literal bounds. The Bison grammar
+  also accepts full `positive_int_const` bounds and sequence element
+  annotations; those remain pending.
 
 ## Local verification log
 
@@ -458,6 +477,11 @@ unless a test already depends on it.
 - 2026-07-10: After adding literal-bound array declarators and the oversized
   bound negative test, ran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 17/17 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding string, wstring, and sequence template type specs,
+  rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 21/21 passed.
 - 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-09: Added a null-declaration guard to the struct inheritance helper,

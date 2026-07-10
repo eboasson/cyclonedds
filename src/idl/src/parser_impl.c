@@ -175,6 +175,12 @@ parse_identifier(idl_parser_stream_t *stream, idl_name_t **namep)
 }
 
 static idl_retcode_t parse_definition(idl_parser_stream_t *stream, void **nodep);
+static idl_retcode_t parse_type_spec(
+  idl_parser_stream_t *stream,
+  idl_type_spec_t **type_specp);
+static idl_retcode_t parse_positive_int_literal(
+  idl_parser_stream_t *stream,
+  idl_literal_t **literalp);
 
 static idl_retcode_t
 parse_scoped_name(
@@ -404,11 +410,128 @@ parse_base_type_spec(idl_parser_stream_t *stream, idl_type_spec_t **type_specp)
   return idl_create_base_type(stream->pstate, &location, mask, type_specp);
 }
 
+static bool
+token_starts_template_type(int32_t code)
+{
+  switch (code) {
+    case IDL_TOKEN_SEQUENCE:
+    case IDL_TOKEN_STRING:
+    case IDL_TOKEN_WSTRING:
+      return true;
+    default:
+      return false;
+  }
+}
+
+static idl_retcode_t
+parse_string_type(
+  idl_parser_stream_t *stream,
+  idl_type_spec_t **type_specp)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  int32_t keyword = stream->token.code;
+  idl_position_t first = stream->token.location.first;
+  idl_position_t last = stream->token.location.last;
+  idl_location_t location;
+  idl_literal_t *bound = NULL;
+  idl_retcode_t ret;
+
+  assert(keyword == IDL_TOKEN_STRING || keyword == IDL_TOKEN_WSTRING);
+  if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+    return ret;
+
+  if (stream->token.code == '<') {
+    idl_location_t rangle_location;
+
+    if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+      return ret;
+    if ((ret = parse_positive_int_literal(stream, &bound)) != IDL_RETCODE_OK)
+      return ret;
+    if ((ret = expect(stream, '>', &rangle_location)) != IDL_RETCODE_OK)
+      goto err;
+    last = rangle_location.last;
+  }
+
+  location = location_span(first, last);
+  if (keyword == IDL_TOKEN_STRING)
+    ret = idl_create_string(pstate, &location, bound, type_specp);
+  else
+    ret = idl_create_wstring(pstate, &location, bound, type_specp);
+  if (ret != IDL_RETCODE_OK)
+    goto err;
+
+  return IDL_RETCODE_OK;
+err:
+  idl_delete_node(bound);
+  return ret;
+}
+
+static idl_retcode_t
+parse_sequence_type(
+  idl_parser_stream_t *stream,
+  idl_type_spec_t **type_specp)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_position_t first = stream->token.location.first;
+  idl_location_t rangle_location;
+  idl_location_t location;
+  idl_type_spec_t *element_type = NULL;
+  idl_literal_t *bound = NULL;
+  idl_sequence_t *sequence = NULL;
+  idl_retcode_t ret;
+
+  assert(stream->token.code == IDL_TOKEN_SEQUENCE);
+  if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+    return ret;
+  if ((ret = expect(stream, '<', NULL)) != IDL_RETCODE_OK)
+    return ret;
+  if ((ret = parse_type_spec(stream, &element_type)) != IDL_RETCODE_OK)
+    return ret;
+
+  if (stream->token.code == ',') {
+    if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+      goto err;
+    if ((ret = parse_positive_int_literal(stream, &bound)) != IDL_RETCODE_OK)
+      goto err;
+  }
+
+  if ((ret = expect(stream, '>', &rangle_location)) != IDL_RETCODE_OK)
+    goto err;
+
+  location = location_span(first, rangle_location.last);
+  ret = idl_create_sequence(
+    pstate, &location, element_type, bound, &sequence);
+  if (ret != IDL_RETCODE_OK)
+    goto err;
+
+  *type_specp = (idl_type_spec_t *) sequence;
+  return IDL_RETCODE_OK;
+err:
+  idl_delete_node(bound);
+  idl_delete_node(element_type);
+  return ret;
+}
+
+static idl_retcode_t
+parse_template_type_spec(
+  idl_parser_stream_t *stream,
+  idl_type_spec_t **type_specp)
+{
+  if (stream->token.code == IDL_TOKEN_STRING ||
+      stream->token.code == IDL_TOKEN_WSTRING)
+    return parse_string_type(stream, type_specp);
+  if (stream->token.code == IDL_TOKEN_SEQUENCE)
+    return parse_sequence_type(stream, type_specp);
+  return syntax_error(stream);
+}
+
 static idl_retcode_t
 parse_type_spec(idl_parser_stream_t *stream, idl_type_spec_t **type_specp)
 {
   if (token_starts_base_type(stream->token.code))
     return parse_base_type_spec(stream, type_specp);
+  if (token_starts_template_type(stream->token.code))
+    return parse_template_type_spec(stream, type_specp);
   if (stream->token.code == IDL_TOKEN_IDENTIFIER ||
       stream->token.code == IDL_TOKEN_SCOPE)
     return parse_scoped_type_spec(stream, type_specp);
