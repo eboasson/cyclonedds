@@ -213,6 +213,12 @@ Error handling:
   whose type spec is already supported by the hand parser and whose
   declarators are simple identifiers.
 - [ ] Parse fixed arrays and multi-dimensional arrays.
+  - 2026-07-10 progress: declarators now support one or more fixed-array
+    bounds when each bound is an integer literal that fits in `IDL_ULONG`.
+    This covers member and typedef arrays, including mixed simple and array
+    declarators in one declaration. Keep this item open until bounds accept
+    the full `positive_int_const` grammar, including named constants and
+    expressions.
 - [ ] Parse string, wstring, and sequence template types.
 - [ ] Parse structs with members.
   - 2026-07-08 note: only empty struct definitions are parsed so modules can
@@ -225,6 +231,9 @@ Error handling:
     refs, including same-module, cross-module, and absolute references. Keep
     this item open for template type specs, array declarators, annotations,
     and the other pending Bison grammar forms.
+  - 2026-07-10 progress: member declarators now support fixed-array suffixes
+    with literal bounds, including multi-dimensional arrays. Keep this item
+    open for template type specs, annotations, and non-literal array bounds.
 - [x] Parse struct inheritance. Done 2026-07-09 for scoped-name bases,
   including aliases that resolve to structs.
 - [x] Parse struct forward declarations. Done 2026-07-09 for `struct name;`,
@@ -276,6 +285,9 @@ Use sanitizer environment when running project code:
 - `LSAN_OPTIONS=detect_leaks=1`
 - if the build uses ASAN: `ASAN_OPTIONS=detect_leaks=1:halt_on_error=1`
 - if the build uses UBSAN: `UBSAN_OPTIONS=halt_on_error=1`
+- 2026-07-10 note: local test runs should also set
+  `CYCLONEDDS_URI='<Transport>fakeudp</Transport>'` to avoid UDP sandbox
+  restrictions unless a real transport is intentionally being tested.
 
 When comparing Bison and hand-parser behavior, prefer stable outputs:
 
@@ -341,6 +353,12 @@ unless a test already depends on it.
   by the existing declaration machinery.
 - 2026-07-09: Added struct inheritance for scoped-name bases, using the same
   resolve, unalias, and `idl_create_inherit_spec` flow as the Bison action.
+- 2026-07-10: Added fixed-array declarator parsing for literal bounds. The
+  parser now creates the same `IDL_ULONG` literal nodes that Bison obtains by
+  evaluating `positive_int_const`, chains multiple dimensions on the
+  declarator, and relies on `idl_create_declarator` for the existing nonzero
+  bound validation. Tests cover member arrays, typedef arrays, zero bounds,
+  and bounds larger than `UINT32_MAX`.
 
 ## Differences from Bison parser
 
@@ -375,6 +393,11 @@ unless a test already depends on it.
   build, the hand parser also accepts struct inheritance with scoped-name
   bases. Multiple inheritance and non-struct bases remain rejected by existing
   semantic checks.
+- 2026-07-10: Superseding note: in an `ENABLE_IDL_HAND_PARSER=ON` development
+  build, the hand parser also accepts member and typedef array declarators
+  with integer-literal bounds. The Bison grammar accepts the full
+  `positive_int_const` grammar for bounds; named constants and expression
+  bounds remain pending until constant-expression parsing exists.
 
 ## Local verification log
 
@@ -428,6 +451,15 @@ unless a test already depends on it.
   `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 11/11 passed.
 - 2026-07-09: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: First fixed-array build failed because the new test used
+  `CU_ASSERT_FALSE`, which this CUnit wrapper does not define. Changed it to
+  the existing `CU_ASSERT(!...)` style and rebuilt `build-hand-parser`
+  `cunit_idl`; result: passed.
+- 2026-07-10: After adding literal-bound array declarators and the oversized
+  bound negative test, ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 17/17 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-09: Added a null-declaration guard to the struct inheritance helper,
   rebuilt hand-parser `cunit_idl`, reran the same hand-parser sanitizer slice;
   result: 13/13 passed. Rebuilt default `build-debug` `cunit_idl` and reran

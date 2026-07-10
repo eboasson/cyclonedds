@@ -10,6 +10,7 @@
 
 #include <assert.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
 
 #include "idl/heap.h"
@@ -415,27 +416,103 @@ parse_type_spec(idl_parser_stream_t *stream, idl_type_spec_t **type_specp)
 }
 
 static idl_retcode_t
-parse_simple_declarator(
+parse_positive_int_literal(
+  idl_parser_stream_t *stream,
+  idl_literal_t **literalp)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_literal_t *literal = NULL;
+  unsigned long long value;
+  idl_retcode_t ret;
+
+  if (stream->token.code != IDL_TOKEN_INTEGER_LITERAL)
+    return syntax_error(stream);
+
+  value = stream->token.value.ullng;
+  if (value > (unsigned long long) UINT32_MAX) {
+    idl_error(pstate, &stream->token.location, "Integer expression overflows");
+    return IDL_RETCODE_OUT_OF_RANGE;
+  }
+
+  ret = idl_create_literal(pstate, &stream->token.location, IDL_ULONG, &literal);
+  if (ret != IDL_RETCODE_OK)
+    return ret;
+  literal->value.uint32 = (uint32_t) value;
+
+  if ((ret = stream_advance(stream)) != IDL_RETCODE_OK) {
+    idl_delete_node(literal);
+    return ret;
+  }
+
+  *literalp = literal;
+  return IDL_RETCODE_OK;
+}
+
+static idl_retcode_t
+parse_fixed_array_sizes(
+  idl_parser_stream_t *stream,
+  idl_const_expr_t **sizesp,
+  idl_position_t *lastp)
+{
+  idl_const_expr_t *sizes = NULL;
+  idl_retcode_t ret;
+
+  assert(stream->token.code == '[');
+  do {
+    idl_literal_t *size = NULL;
+    idl_location_t rbracket_location;
+
+    if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+      goto err;
+    if ((ret = parse_positive_int_literal(stream, &size)) != IDL_RETCODE_OK)
+      goto err;
+    if ((ret = expect(stream, ']', &rbracket_location)) != IDL_RETCODE_OK) {
+      idl_delete_node(size);
+      goto err;
+    }
+    sizes = idl_push_node(sizes, size);
+    *lastp = rbracket_location.last;
+  } while (stream->token.code == '[');
+
+  *sizesp = sizes;
+  return IDL_RETCODE_OK;
+err:
+  idl_delete_node(sizes);
+  return ret;
+}
+
+static idl_retcode_t
+parse_declarator(
   idl_parser_stream_t *stream,
   idl_declarator_t **declaratorp)
 {
   idl_pstate_t *pstate = stream->pstate;
   idl_declarator_t *declarator = NULL;
+  idl_const_expr_t *sizes = NULL;
   idl_name_t *name = NULL;
   idl_location_t location;
+  idl_position_t last;
   idl_retcode_t ret;
 
   if ((ret = parse_identifier(stream, &name)) != IDL_RETCODE_OK)
     return ret;
-  location = name->symbol.location;
-  ret = idl_create_declarator(pstate, &location, name, NULL, &declarator);
+  last = name->symbol.location.last;
+  if (stream->token.code == '[' &&
+      (ret = parse_fixed_array_sizes(stream, &sizes, &last)) != IDL_RETCODE_OK)
+    goto err;
+
+  location = location_span(name->symbol.location.first, last);
+  ret = idl_create_declarator(pstate, &location, name, sizes, &declarator);
   if (ret != IDL_RETCODE_OK) {
-    idl_delete_name(name);
-    return ret;
+    goto err;
   }
 
   *declaratorp = declarator;
   return IDL_RETCODE_OK;
+err:
+  idl_delete_node(sizes);
+  idl_delete_name(name);
+  return ret;
 }
 
 static idl_retcode_t
@@ -446,7 +523,7 @@ parse_declarators(
   idl_declarator_t *declarators = NULL;
   idl_retcode_t ret;
 
-  if ((ret = parse_simple_declarator(stream, &declarators)) != IDL_RETCODE_OK)
+  if ((ret = parse_declarator(stream, &declarators)) != IDL_RETCODE_OK)
     return ret;
 
   while (stream->token.code == ',') {
@@ -454,7 +531,7 @@ parse_declarators(
 
     if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
       goto err;
-    if ((ret = parse_simple_declarator(stream, &declarator)) != IDL_RETCODE_OK)
+    if ((ret = parse_declarator(stream, &declarator)) != IDL_RETCODE_OK)
       goto err;
     declarators = idl_push_node(declarators, declarator);
   }

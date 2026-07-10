@@ -34,6 +34,21 @@ parse_string(const char *str)
   return parse_string_flags(0u, str);
 }
 
+static void
+expect_parse_ret(const char *str, idl_retcode_t expected)
+{
+  idl_pstate_t *pstate = NULL;
+  idl_retcode_t ret;
+
+  ret = idl_create_pstate(0u, NULL, &pstate);
+  CU_ASSERT_EQ_FATAL(ret, IDL_RETCODE_OK);
+  CU_ASSERT_NEQ_FATAL(pstate, NULL);
+
+  ret = idl_parse_string(pstate, str);
+  CU_ASSERT_EQ(ret, expected);
+  idl_delete_pstate(pstate);
+}
+
 CU_Test(idl_hand_parser, module_with_empty_struct)
 {
   idl_pstate_t *pstate;
@@ -429,4 +444,118 @@ CU_Test(idl_hand_parser, struct_inheritance_through_typedef)
   CU_ASSERT_EQ(derived->inherit_spec->base, (idl_type_spec_t *) base);
 
   idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, struct_with_array_declarators)
+{
+  idl_pstate_t *pstate;
+  idl_struct_t *strct;
+  idl_member_t *member;
+  idl_declarator_t *declarator;
+  const idl_literal_t *bound;
+  const char str[] =
+    "struct Sample {"
+    "  long matrix[2][3], scalar;"
+    "  char bytes[4];"
+    "};";
+
+  pstate = parse_string(str);
+  strct = (idl_struct_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(strct, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(strct));
+
+  member = strct->members;
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_EQ(idl_type(member->type_spec), IDL_LONG);
+
+  declarator = member->declarators;
+  CU_ASSERT_NEQ_FATAL(declarator, NULL);
+  CU_ASSERT_STREQ(idl_identifier(declarator), "matrix");
+  CU_ASSERT_FATAL(idl_is_array(declarator));
+  bound = declarator->const_expr;
+  CU_ASSERT_NEQ_FATAL(bound, NULL);
+  CU_ASSERT_FATAL(idl_is_literal(bound));
+  CU_ASSERT_EQ(idl_type(bound), IDL_ULONG);
+  CU_ASSERT_EQ(bound->value.uint32, 2u);
+  CU_ASSERT_EQ(idl_parent(bound), declarator);
+  bound = idl_next(bound);
+  CU_ASSERT_NEQ_FATAL(bound, NULL);
+  CU_ASSERT_FATAL(idl_is_literal(bound));
+  CU_ASSERT_EQ(bound->value.uint32, 3u);
+  CU_ASSERT_EQ(idl_parent(bound), declarator);
+  CU_ASSERT_EQ(idl_next(bound), NULL);
+
+  declarator = idl_next(declarator);
+  CU_ASSERT_NEQ_FATAL(declarator, NULL);
+  CU_ASSERT_STREQ(idl_identifier(declarator), "scalar");
+  CU_ASSERT(!idl_is_array(declarator));
+  CU_ASSERT_EQ(declarator->const_expr, NULL);
+  CU_ASSERT_EQ(idl_next(declarator), NULL);
+
+  member = idl_next(member);
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_EQ(idl_type(member->type_spec), IDL_CHAR);
+  declarator = member->declarators;
+  CU_ASSERT_NEQ_FATAL(declarator, NULL);
+  CU_ASSERT_STREQ(idl_identifier(declarator), "bytes");
+  CU_ASSERT_FATAL(idl_is_array(declarator));
+  bound = declarator->const_expr;
+  CU_ASSERT_NEQ_FATAL(bound, NULL);
+  CU_ASSERT_EQ(bound->value.uint32, 4u);
+  CU_ASSERT_EQ(idl_next(bound), NULL);
+  CU_ASSERT_EQ(idl_next(member), NULL);
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, typedef_with_array_declarators)
+{
+  idl_pstate_t *pstate;
+  idl_typedef_t *typedef_node;
+  idl_declarator_t *matrix;
+  idl_declarator_t *vector;
+  const idl_literal_t *bound;
+
+  pstate = parse_string("typedef long Matrix[2][3], Vector[4];");
+  typedef_node = (idl_typedef_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(typedef_node, NULL);
+  CU_ASSERT_FATAL(idl_is_typedef(typedef_node));
+  CU_ASSERT_EQ(idl_type(typedef_node->type_spec), IDL_LONG);
+
+  matrix = typedef_node->declarators;
+  CU_ASSERT_NEQ_FATAL(matrix, NULL);
+  CU_ASSERT_FATAL(idl_is_array(matrix));
+  CU_ASSERT_STREQ(idl_identifier(matrix), "Matrix");
+  bound = matrix->const_expr;
+  CU_ASSERT_NEQ_FATAL(bound, NULL);
+  CU_ASSERT_EQ(bound->value.uint32, 2u);
+  bound = idl_next(bound);
+  CU_ASSERT_NEQ_FATAL(bound, NULL);
+  CU_ASSERT_EQ(bound->value.uint32, 3u);
+  CU_ASSERT_EQ(idl_next(bound), NULL);
+
+  vector = idl_next(matrix);
+  CU_ASSERT_NEQ_FATAL(vector, NULL);
+  CU_ASSERT_FATAL(idl_is_array(vector));
+  CU_ASSERT_STREQ(idl_identifier(vector), "Vector");
+  bound = vector->const_expr;
+  CU_ASSERT_NEQ_FATAL(bound, NULL);
+  CU_ASSERT_EQ(bound->value.uint32, 4u);
+  CU_ASSERT_EQ(idl_next(bound), NULL);
+  CU_ASSERT_EQ(idl_next(vector), NULL);
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, array_declarator_rejects_zero_bound)
+{
+  expect_parse_ret(
+    "struct Sample { long values[0]; };", IDL_RETCODE_OUT_OF_RANGE);
+}
+
+CU_Test(idl_hand_parser, array_declarator_rejects_oversized_bound)
+{
+  expect_parse_ret(
+    "struct Sample { long values[4294967296]; };",
+    IDL_RETCODE_OUT_OF_RANGE);
 }
