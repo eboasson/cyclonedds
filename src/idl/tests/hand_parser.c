@@ -392,6 +392,16 @@ CU_Test(idl_hand_parser, repeated_struct_forward_declarations)
   idl_delete_pstate(pstate);
 }
 
+CU_Test(idl_hand_parser, union_forward_declaration)
+{
+  expect_parse_ret("union Choice;", IDL_RETCODE_SEMANTIC_ERROR);
+}
+
+CU_Test(idl_hand_parser, repeated_union_forward_declarations)
+{
+  expect_parse_ret("union Choice; union Choice;", IDL_RETCODE_SEMANTIC_ERROR);
+}
+
 CU_Test(idl_hand_parser, struct_inheritance)
 {
   idl_pstate_t *pstate;

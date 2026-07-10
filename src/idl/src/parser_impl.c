@@ -927,6 +927,31 @@ err:
 }
 
 static idl_retcode_t
+parse_union(idl_parser_stream_t *stream, void **nodep)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_location_t keyword_location = stream->token.location;
+  idl_name_t *name = NULL;
+  idl_retcode_t ret;
+
+  assert(stream->token.code == IDL_TOKEN_UNION);
+  if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+    return ret;
+  if ((ret = parse_identifier(stream, &name)) != IDL_RETCODE_OK)
+    return ret;
+
+  if (stream->token.code != ';') {
+    idl_delete_name(name);
+    return syntax_error(stream);
+  }
+
+  ret = idl_create_forward(pstate, &keyword_location, name, IDL_UNION, nodep);
+  if (ret != IDL_RETCODE_OK)
+    idl_delete_name(name);
+  return ret;
+}
+
+static idl_retcode_t
 parse_enumerator(
   idl_parser_stream_t *stream,
   idl_enumerator_t **enumeratorp)
@@ -1169,6 +1194,9 @@ parse_definition(idl_parser_stream_t *stream, void **nodep)
       break;
     case IDL_TOKEN_STRUCT:
       ret = parse_struct(stream, &node);
+      break;
+    case IDL_TOKEN_UNION:
+      ret = parse_union(stream, &node);
       break;
     case IDL_TOKEN_TYPEDEF:
       ret = parse_typedef(stream, &node);

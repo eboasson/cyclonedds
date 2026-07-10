@@ -7,7 +7,10 @@ and switching between machines or threads.
 
 ## Working rules
 
-- Reread this file before each implementation step.
+- Obsolete as of 2026-07-10: reread this file before each implementation
+  step. This was useful during context-churn setup, but the user explicitly
+  scratched the rule so future work should read the plan when useful rather
+  than before every implementation step.
 - Never remove information from this document. Only add new information,
   append corrections, or mark items done.
 - When an item becomes obsolete, keep it and add a dated note explaining why.
@@ -249,6 +252,11 @@ Error handling:
   including repeated forwards linked to the eventual definition.
 - [ ] Parse unions, switch specs, cases, defaults, and labels.
 - [ ] Parse union forward declarations.
+  - 2026-07-10 progress: the hand parser now recognizes `union name;` and
+    repeated union forwards by creating `IDL_UNION | IDL_FORWARD` nodes. A
+    standalone forward still fails final validation as an incomplete type, as
+    expected, so keep this item open until full union definitions can link the
+    forward and an OK forward-plus-definition test exists.
 - [ ] Parse enums and enumerators.
   - 2026-07-10 progress: unannotated enum definitions now parse with
     non-empty comma-separated enumerator lists. Tests cover enumerator values,
@@ -496,6 +504,19 @@ unless a test already depends on it.
   `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 11/11 passed.
 - 2026-07-09: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: At user request, marked the "reread this file before each
+  implementation step" rule obsolete. The plan remains the durable notebook,
+  but it no longer has to be reread mechanically before every small step.
+- 2026-07-10: After adding union-forward recognition, the first focused test
+  run showed that `union Choice;` parses far enough to hit the existing
+  incomplete-forward validation, returning `IDL_RETCODE_SEMANTIC_ERROR`
+  instead of syntax error. Adjusted the tests to capture that observable
+  behavior until full union definitions can complete the forwards.
+- 2026-07-10: Rebuilt hand-parser `cunit_idl` with
+  `cmake --build build-hand-parser --target cunit_idl --parallel` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 31/31 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-10: First fixed-array build failed because the new test used
   `CU_ASSERT_FALSE`, which this CUnit wrapper does not define. Changed it to
   the existing `CU_ASSERT(!...)` style and rebuilt `build-hand-parser`
