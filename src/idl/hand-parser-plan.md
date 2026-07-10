@@ -251,12 +251,21 @@ Error handling:
 - [x] Parse struct forward declarations. Done 2026-07-09 for `struct name;`,
   including repeated forwards linked to the eventual definition.
 - [ ] Parse unions, switch specs, cases, defaults, and labels.
-- [ ] Parse union forward declarations.
+  - 2026-07-10 progress: simple union definitions now parse for
+    `union name switch(type) { ... };` using the existing switch-type, case,
+    case-label, and union AST helpers. The hand parser currently supports
+    default labels and integer-literal `case` labels, one or more labels per
+    branch, one or more branches, and the currently supported `type_spec` and
+    declarator forms for branch members. Keep this item open for full
+    `const_expr`, enum/bit-value labels, annotation support, and broader
+    parity coverage.
+- [x] Parse union forward declarations. Done 2026-07-10 for `union name;`,
+  repeated forwards, and forwards linked to a later simple union definition.
   - 2026-07-10 progress: the hand parser now recognizes `union name;` and
     repeated union forwards by creating `IDL_UNION | IDL_FORWARD` nodes. A
     standalone forward still fails final validation as an incomplete type, as
-    expected, so keep this item open until full union definitions can link the
-    forward and an OK forward-plus-definition test exists.
+    expected. The later simple-union-definition slice added an OK
+    forward-plus-definition test that links the forward to the definition.
 - [ ] Parse enums and enumerators.
   - 2026-07-10 progress: unannotated enum definitions now parse with
     non-empty comma-separated enumerator lists. Tests cover enumerator values,
@@ -515,6 +524,12 @@ unless a test already depends on it.
 - 2026-07-10: Rebuilt hand-parser `cunit_idl` with
   `cmake --build build-hand-parser --target cunit_idl --parallel` and ran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 31/31 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding simple union definitions, rebuilt hand-parser
+  `cunit_idl` with `cmake --build build-hand-parser --target cunit_idl --parallel`
+  and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 35/35 passed.
 - 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-10: First fixed-array build failed because the new test used
