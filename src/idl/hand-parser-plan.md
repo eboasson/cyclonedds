@@ -215,7 +215,9 @@ Error handling:
 - [x] Parse typedefs with simple declarators. Done 2026-07-08 for typedefs
   whose type spec is already supported by the hand parser and whose
   declarators are simple identifiers.
-- [ ] Parse fixed arrays and multi-dimensional arrays.
+- [x] Parse fixed arrays and multi-dimensional arrays. Done 2026-07-10 for
+  literal and evaluated constant-expression dimensions, including named
+  integer constants.
   - 2026-07-10 progress: declarators now support one or more fixed-array
     bounds when each bound is an integer literal that fits in `IDL_ULONG`.
     This covers member and typedef arrays, including mixed simple and array
@@ -227,6 +229,9 @@ Error handling:
     and parenthesized expressions work in array dimensions. Keep this item
     open for named constants once const declarations are parsed and for
     broader Bison-parity coverage.
+  - 2026-07-10 progress: after adding const declarations, fixed-array bounds
+    now also accept named integer constants, including expressions built from
+    earlier constants.
 - [ ] Parse string, wstring, and sequence template types.
   - 2026-07-10 progress: member and typedef type specs now support
     `string`, `wstring`, `sequence<T>`, and literal-bounded forms such as
@@ -322,7 +327,16 @@ Error handling:
     fixed-array and string/wstring/sequence template bounds via an evaluated
     `positive_int_const` helper. Keep this item open for const declarations
     and remaining literal forms.
+  - 2026-07-10 progress: const declarations now reuse the const-expression
+    parser, and later expressions can resolve those constants by scoped name.
+    Keep this item open for floating-point and string literal forms.
 - [ ] Parse const declarations.
+  - 2026-07-10 progress: unannotated `const` declarations now parse for the
+    currently supported const-expression forms. Tests cover integer
+    expression evaluation and using named constants in later array bounds,
+    template bounds, and union labels, plus char and boolean constants used
+    as labels. Keep this item open for floating-point and string literal
+    forms, enum constants, scoped const type parity, and annotations.
 - [ ] Parse annotation declarations.
 - [ ] Parse annotation applications without parameters.
 - [ ] Parse positional annotation application parameters.
@@ -594,6 +608,11 @@ unless a test already depends on it.
 - 2026-07-10: After reusing evaluated `positive_int_const` expressions for
   fixed-array and template bounds, rebuilt hand-parser `cunit_idl` and ran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 44/44 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding unannotated const declarations for currently
+  supported const-expression forms, rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 47/47 passed.
 - 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-10: First fixed-array build failed because the new test used

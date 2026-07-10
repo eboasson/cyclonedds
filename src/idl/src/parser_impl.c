@@ -984,6 +984,65 @@ parse_positive_int_const(
   return ret;
 }
 
+static bool
+token_starts_const_base_type(int32_t code)
+{
+  return code != IDL_TOKEN_WCHAR && token_starts_base_type(code);
+}
+
+static idl_retcode_t
+parse_scoped_const_type(
+  idl_parser_stream_t *stream,
+  idl_type_spec_t **type_specp)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_scoped_name_t *scoped_name = NULL;
+  const idl_declaration_t *declaration = NULL;
+  const idl_node_t *node;
+  static const char fmt[] =
+    "Scoped name '%s' does not resolve to a valid constant type";
+  idl_retcode_t ret;
+
+  if ((ret = parse_scoped_name(stream, &scoped_name)) != IDL_RETCODE_OK)
+    return ret;
+  ret = idl_resolve(pstate, 0u, scoped_name, &declaration);
+  if (ret != IDL_RETCODE_OK)
+    goto err;
+  if (!declaration) {
+    idl_error(pstate, idl_location(scoped_name), fmt, scoped_name->identifier);
+    ret = IDL_RETCODE_SEMANTIC_ERROR;
+    goto err;
+  }
+
+  node = idl_unalias(declaration->node);
+  if (!node ||
+      !(idl_mask(node) & (IDL_BASE_TYPE | IDL_STRING | IDL_ENUM | IDL_BITMASK))) {
+    idl_error(pstate, idl_location(scoped_name), fmt, scoped_name->identifier);
+    ret = IDL_RETCODE_SEMANTIC_ERROR;
+    goto err;
+  }
+
+  *type_specp = idl_reference_node((idl_node_t *) declaration->node);
+err:
+  idl_delete_scoped_name(scoped_name);
+  return ret;
+}
+
+static idl_retcode_t
+parse_const_type(
+  idl_parser_stream_t *stream,
+  idl_type_spec_t **type_specp)
+{
+  if (token_starts_const_base_type(stream->token.code))
+    return parse_base_type_spec(stream, type_specp);
+  if (stream->token.code == IDL_TOKEN_STRING)
+    return parse_string_type(stream, type_specp);
+  if (stream->token.code == IDL_TOKEN_IDENTIFIER ||
+      stream->token.code == IDL_TOKEN_SCOPE)
+    return parse_scoped_const_type(stream, type_specp);
+  return syntax_error(stream);
+}
+
 static idl_retcode_t
 parse_fixed_array_sizes(
   idl_parser_stream_t *stream,
@@ -1796,6 +1855,47 @@ err:
 }
 
 static idl_retcode_t
+parse_const_declaration(idl_parser_stream_t *stream, void **nodep)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  idl_position_t first = stream->token.location.first;
+  idl_location_t expr_location;
+  idl_location_t location;
+  idl_type_spec_t *type_spec = NULL;
+  idl_name_t *name = NULL;
+  idl_const_expr_t *const_expr = NULL;
+  idl_const_t *const_node = NULL;
+  idl_retcode_t ret;
+
+  assert(stream->token.code == IDL_TOKEN_CONST);
+  if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+    return ret;
+  if ((ret = parse_const_type(stream, &type_spec)) != IDL_RETCODE_OK)
+    return ret;
+  if ((ret = parse_identifier(stream, &name)) != IDL_RETCODE_OK)
+    goto err;
+  if ((ret = expect(stream, '=', NULL)) != IDL_RETCODE_OK)
+    goto err;
+  if ((ret = parse_const_expr(
+        stream, &const_expr, &expr_location)) != IDL_RETCODE_OK)
+    goto err;
+
+  location = location_span(first, expr_location.last);
+  ret = idl_create_const(
+    pstate, &location, type_spec, name, const_expr, &const_node);
+  if (ret != IDL_RETCODE_OK)
+    return ret;
+
+  *nodep = const_node;
+  return IDL_RETCODE_OK;
+err:
+  idl_unreference_node(const_expr);
+  idl_delete_name(name);
+  idl_delete_node(type_spec);
+  return ret;
+}
+
+static idl_retcode_t
 parse_module(idl_parser_stream_t *stream, void **nodep)
 {
   idl_pstate_t *pstate = stream->pstate;
@@ -1872,6 +1972,9 @@ parse_definition(idl_parser_stream_t *stream, void **nodep)
       break;
     case IDL_TOKEN_BITMASK:
       ret = parse_bitmask(stream, &node);
+      break;
+    case IDL_TOKEN_CONST:
+      ret = parse_const_declaration(stream, &node);
       break;
     default:
       return syntax_error(stream);

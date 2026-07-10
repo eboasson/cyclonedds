@@ -1004,6 +1004,145 @@ CU_Test(idl_hand_parser, struct_with_expression_template_bounds)
   idl_delete_pstate(pstate);
 }
 
+CU_Test(idl_hand_parser, const_declaration_with_integer_expression)
+{
+  idl_pstate_t *pstate;
+  idl_const_t *const_node;
+  const idl_literal_t *literal;
+
+  pstate = parse_string("const long VALUE = 1 + 2 * 3;");
+  const_node = (idl_const_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(const_node, NULL);
+  CU_ASSERT_FATAL(idl_is_const(const_node));
+  CU_ASSERT_STREQ(idl_identifier(const_node), "VALUE");
+  CU_ASSERT_EQ(idl_type(const_node->type_spec), IDL_LONG);
+  CU_ASSERT_NEQ_FATAL(const_node->const_expr, NULL);
+  CU_ASSERT_FATAL(idl_is_literal(const_node->const_expr));
+  CU_ASSERT_EQ(idl_type(const_node->const_expr), IDL_LONG);
+  literal = (const idl_literal_t *) const_node->const_expr;
+  CU_ASSERT_EQ(literal->value.int32, 7);
+  CU_ASSERT_EQ(idl_parent(literal), const_node);
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, const_declaration_used_in_bounds_and_labels)
+{
+  idl_pstate_t *pstate;
+  idl_const_t *width;
+  idl_const_t *height;
+  idl_struct_t *strct;
+  idl_member_t *member;
+  idl_declarator_t *declarator;
+  const idl_literal_t *bound;
+  idl_sequence_t *sequence;
+  idl_union_t *union_node;
+  const char str[] =
+    "const unsigned long WIDTH = 1 + 2;"
+    "const unsigned long HEIGHT = WIDTH << 1;"
+    "struct Sample {"
+    "  long matrix[WIDTH][HEIGHT];"
+    "  sequence<char, WIDTH + 1> bytes;"
+    "};"
+    "union Choice switch(long) {"
+    "  case HEIGHT: char selected;"
+    "  default: char fallback;"
+    "};";
+
+  pstate = parse_string(str);
+  width = (idl_const_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(width, NULL);
+  CU_ASSERT_FATAL(idl_is_const(width));
+  CU_ASSERT_STREQ(idl_identifier(width), "WIDTH");
+  CU_ASSERT_EQ(((const idl_literal_t *) width->const_expr)->value.uint32, 3u);
+
+  height = idl_next(width);
+  CU_ASSERT_NEQ_FATAL(height, NULL);
+  CU_ASSERT_FATAL(idl_is_const(height));
+  CU_ASSERT_STREQ(idl_identifier(height), "HEIGHT");
+  CU_ASSERT_EQ(((const idl_literal_t *) height->const_expr)->value.uint32, 6u);
+
+  strct = idl_next(height);
+  CU_ASSERT_NEQ_FATAL(strct, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(strct));
+  member = strct->members;
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  declarator = member->declarators;
+  CU_ASSERT_NEQ_FATAL(declarator, NULL);
+  CU_ASSERT_FATAL(idl_is_array(declarator));
+  bound = declarator->const_expr;
+  CU_ASSERT_NEQ_FATAL(bound, NULL);
+  CU_ASSERT_EQ(bound->value.uint32, 3u);
+  bound = idl_next(bound);
+  CU_ASSERT_NEQ_FATAL(bound, NULL);
+  CU_ASSERT_EQ(bound->value.uint32, 6u);
+  CU_ASSERT_EQ(idl_next(bound), NULL);
+
+  member = idl_next(member);
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_FATAL(idl_is_sequence(member->type_spec));
+  sequence = (idl_sequence_t *) member->type_spec;
+  CU_ASSERT_EQ(idl_bound(sequence), 4u);
+
+  union_node = idl_next(strct);
+  CU_ASSERT_NEQ_FATAL(union_node, NULL);
+  CU_ASSERT_FATAL(idl_is_union(union_node));
+  CU_ASSERT_EQ(idl_case_label_intvalue(union_node->cases->labels), 6);
+  CU_ASSERT_STREQ(idl_identifier(union_node->cases->declarator), "selected");
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, const_declaration_with_char_and_boolean_labels)
+{
+  idl_pstate_t *pstate;
+  idl_const_t *mark;
+  idl_const_t *flag;
+  idl_union_t *char_union;
+  idl_union_t *bool_union;
+  const char str[] =
+    "const char MARK = 'x';"
+    "const boolean FLAG = true;"
+    "union CharChoice switch(char) {"
+    "  case MARK: long selected;"
+    "  default: long fallback;"
+    "};"
+    "union BoolChoice switch(boolean) {"
+    "  case FLAG: long yes;"
+    "  default: long no;"
+    "};";
+
+  pstate = parse_string(str);
+  mark = (idl_const_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(mark, NULL);
+  CU_ASSERT_FATAL(idl_is_const(mark));
+  CU_ASSERT_STREQ(idl_identifier(mark), "MARK");
+  CU_ASSERT_EQ(idl_type(mark->const_expr), IDL_CHAR);
+
+  flag = idl_next(mark);
+  CU_ASSERT_NEQ_FATAL(flag, NULL);
+  CU_ASSERT_FATAL(idl_is_const(flag));
+  CU_ASSERT_STREQ(idl_identifier(flag), "FLAG");
+  CU_ASSERT_EQ(idl_type(flag->const_expr), IDL_BOOL);
+
+  char_union = idl_next(flag);
+  CU_ASSERT_NEQ_FATAL(char_union, NULL);
+  CU_ASSERT_FATAL(idl_is_union(char_union));
+  CU_ASSERT_EQ(
+    ((const idl_literal_t *) char_union->cases->labels->const_expr)->value.chr,
+    'x');
+  CU_ASSERT_STREQ(idl_identifier(char_union->cases->declarator), "selected");
+
+  bool_union = idl_next(char_union);
+  CU_ASSERT_NEQ_FATAL(bool_union, NULL);
+  CU_ASSERT_FATAL(idl_is_union(bool_union));
+  CU_ASSERT(
+    ((const idl_literal_t *) bool_union->cases->labels->const_expr)->value.bln);
+  CU_ASSERT_STREQ(idl_identifier(bool_union->cases->declarator), "yes");
+
+  idl_delete_pstate(pstate);
+}
+
 CU_Test(idl_hand_parser, struct_with_sequence_members)
 {
   idl_pstate_t *pstate;
