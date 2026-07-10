@@ -492,6 +492,59 @@ CU_Test(idl_hand_parser, union_with_multiple_case_labels)
   idl_delete_pstate(pstate);
 }
 
+CU_Test(idl_hand_parser, union_with_boolean_case_labels)
+{
+  idl_pstate_t *pstate;
+  idl_union_t *union_node;
+  idl_case_t *case_node;
+
+  pstate = parse_string(
+    "union Choice switch(boolean) { case TRUE: char t; case FALSE: char f; };");
+  union_node = (idl_union_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(union_node, NULL);
+  CU_ASSERT_FATAL(idl_is_union(union_node));
+  CU_ASSERT_EQ(idl_type(union_node->switch_type_spec->type_spec), IDL_BOOL);
+
+  case_node = union_node->cases;
+  CU_ASSERT_NEQ_FATAL(case_node, NULL);
+  CU_ASSERT_FATAL(idl_is_case(case_node));
+  CU_ASSERT_EQ(idl_type(case_node->labels->const_expr), IDL_BOOL);
+  CU_ASSERT_STREQ(idl_identifier(case_node->declarator), "t");
+
+  case_node = idl_next(case_node);
+  CU_ASSERT_NEQ_FATAL(case_node, NULL);
+  CU_ASSERT_FATAL(idl_is_case(case_node));
+  CU_ASSERT_EQ(idl_type(case_node->labels->const_expr), IDL_BOOL);
+  CU_ASSERT_STREQ(idl_identifier(case_node->declarator), "f");
+  CU_ASSERT_EQ(idl_next(case_node), NULL);
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, union_with_char_case_label)
+{
+  idl_pstate_t *pstate;
+  idl_union_t *union_node;
+  idl_case_t *case_node;
+
+  pstate = parse_string("union Choice switch(char) { case 'x': long value; };");
+  union_node = (idl_union_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(union_node, NULL);
+  CU_ASSERT_FATAL(idl_is_union(union_node));
+  CU_ASSERT_EQ(idl_type(union_node->switch_type_spec->type_spec), IDL_CHAR);
+
+  case_node = union_node->cases;
+  CU_ASSERT_NEQ_FATAL(case_node, NULL);
+  CU_ASSERT_FATAL(idl_is_case(case_node));
+  CU_ASSERT_EQ(idl_type(case_node->labels->const_expr), IDL_CHAR);
+  CU_ASSERT_EQ(
+    ((idl_literal_t *) case_node->labels->const_expr)->value.chr, 'x');
+  CU_ASSERT_STREQ(idl_identifier(case_node->declarator), "value");
+  CU_ASSERT_EQ(idl_next(case_node), NULL);
+
+  idl_delete_pstate(pstate);
+}
+
 CU_Test(idl_hand_parser, union_with_enum_case_label)
 {
   idl_pstate_t *pstate;

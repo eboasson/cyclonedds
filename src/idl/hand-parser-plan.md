@@ -264,6 +264,11 @@ Error handling:
     multiple labels on one branch, and rejecting an enumerator from the wrong
     enum. Keep this item open for operators, parentheses, non-integer literal
     forms, and annotation support.
+  - 2026-07-10 progress: union `case` labels now also support boolean and
+    character literals. Tests cover a fully-labelled boolean discriminator and
+    a character discriminator label. Keep this item open for floating-point
+    and string literal syntax checks where relevant, plus full expression
+    operators and parentheses.
 - [x] Parse union forward declarations. Done 2026-07-10 for `union name;`,
   repeated forwards, and forwards linked to a later simple union definition.
   - 2026-07-10 progress: the hand parser now recognizes `union name;` and
@@ -540,6 +545,11 @@ unless a test already depends on it.
 - 2026-07-10: After adding scoped-name union case labels and integer-literal
   type selection, rebuilt hand-parser `cunit_idl` and ran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 38/38 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding boolean and character literal union case labels,
+  rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 40/40 passed.
 - 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-10: First fixed-array build failed because the new test used

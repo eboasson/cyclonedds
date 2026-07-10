@@ -619,6 +619,59 @@ parse_integer_literal_expr(
 }
 
 static idl_retcode_t
+parse_char_literal_expr(
+  idl_parser_stream_t *stream,
+  idl_const_expr_t **const_exprp,
+  idl_location_t *locationp)
+{
+  idl_literal_t *literal = NULL;
+  idl_retcode_t ret;
+
+  assert(stream->token.code == IDL_TOKEN_CHAR_LITERAL);
+  ret = idl_create_literal(
+    stream->pstate, &stream->token.location, IDL_CHAR, &literal);
+  if (ret != IDL_RETCODE_OK)
+    return ret;
+  literal->value.chr = stream->token.value.chr;
+  *locationp = stream->token.location;
+
+  if ((ret = stream_advance(stream)) != IDL_RETCODE_OK) {
+    idl_unreference_node(literal);
+    return ret;
+  }
+
+  *const_exprp = (idl_const_expr_t *) literal;
+  return IDL_RETCODE_OK;
+}
+
+static idl_retcode_t
+parse_boolean_literal_expr(
+  idl_parser_stream_t *stream,
+  idl_const_expr_t **const_exprp,
+  idl_location_t *locationp)
+{
+  idl_literal_t *literal = NULL;
+  idl_retcode_t ret;
+
+  assert(stream->token.code == IDL_TOKEN_TRUE ||
+         stream->token.code == IDL_TOKEN_FALSE);
+  ret = idl_create_literal(
+    stream->pstate, &stream->token.location, IDL_BOOL, &literal);
+  if (ret != IDL_RETCODE_OK)
+    return ret;
+  literal->value.bln = (stream->token.code == IDL_TOKEN_TRUE);
+  *locationp = stream->token.location;
+
+  if ((ret = stream_advance(stream)) != IDL_RETCODE_OK) {
+    idl_unreference_node(literal);
+    return ret;
+  }
+
+  *const_exprp = (idl_const_expr_t *) literal;
+  return IDL_RETCODE_OK;
+}
+
+static idl_retcode_t
 parse_scoped_const_expr(
   idl_parser_stream_t *stream,
   idl_const_expr_t **const_exprp,
@@ -660,6 +713,11 @@ parse_const_expr(
 {
   if (stream->token.code == IDL_TOKEN_INTEGER_LITERAL)
     return parse_integer_literal_expr(stream, const_exprp, locationp);
+  if (stream->token.code == IDL_TOKEN_CHAR_LITERAL)
+    return parse_char_literal_expr(stream, const_exprp, locationp);
+  if (stream->token.code == IDL_TOKEN_TRUE ||
+      stream->token.code == IDL_TOKEN_FALSE)
+    return parse_boolean_literal_expr(stream, const_exprp, locationp);
   if (stream->token.code == IDL_TOKEN_IDENTIFIER ||
       stream->token.code == IDL_TOKEN_SCOPE)
     return parse_scoped_const_expr(stream, const_exprp, locationp);
