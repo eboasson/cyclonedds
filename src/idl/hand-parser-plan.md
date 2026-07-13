@@ -397,6 +397,15 @@ Error handling:
 
 - [ ] Compare AST output or downstream generated output against the Bison
   parser for the existing parser tests.
+  - 2026-07-13 progress: added `scripts/compare-idlc-outputs.sh`, a
+    development helper that runs `idlc` from a Bison-parser build and a
+    hand-parser build through the same output path and compares the copied
+    Bison output with the hand-parser output using `diff -ru`. Local
+    verification compared generated C output successfully for these existing
+    `src/tools/idlc/xtests` inputs: `test_basic.idl`,
+    `test_bounded_seq.idl`, `test_bounded_str.idl`, `test_enum.idl`,
+    `test_bitmask.idl`, `test_union.idl`, `test_struct_keys.idl`,
+    `test_struct_inherit.idl`, `test_alias.idl`, and `test_bool.idl`.
 - [ ] Add focused tests for grammar corners discovered during migration.
 - [ ] Add malformed input tests for representative syntax failures.
   - 2026-07-13 progress: annotation application malformed-parameter tests now
