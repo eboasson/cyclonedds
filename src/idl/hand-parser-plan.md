@@ -565,6 +565,11 @@ unless a test already depends on it.
   - 2026-07-08 note: the first scaffold still includes generated `parser.h`
     for token definitions. This is acceptable only as a temporary coexistence
     step; replacing generated token definitions remains part of removing Bison.
+  - 2026-07-13 answer: introduce reviewed token definitions while preserving
+    Bison-compatible numeric values. `parser_tokens.h` owns the token IDs and
+    keyword lookup; the generated Bison header includes that handwritten header,
+    and `check_generated_sources` verifies the handwritten IDs against fresh
+    Bison output when Bison is available.
 - Should the expression parser be split from the declaration parser early, or
   only after the first working grammar path exists?
 - Which generated IDLC outputs should be part of the parity corpus once the
@@ -572,6 +577,14 @@ unless a test already depends on it.
 
 ## Progress log
 
+- 2026-07-13: Split IDL token IDs out of generated `parser.h` into reviewed
+  `parser_tokens.h`/`parser_tokens.c`, moved keyword recognition away from
+  Bison's generated token-name table, and added an `idl_parser_tokens_check`
+  dependency of `check_generated_sources`. Verification: `check_generated_sources`
+  passed and reported 56 handwritten token IDs matching Bison output; default
+  hand-parser `^idl_` passed 198/198; explicit Bison-oracle `^idl_` passed
+  127/127; Bison-vs-hand IDLC output comparison passed for the 70-file repo
+  corpus and the 73-file OARIS corpus.
 - 2026-07-08: Created the `codex/hand-idl-parser` worktree plan. Initial
   observations: scanner is already hand-written; `processor.c` currently owns
   the Bison push-parser bridge; `parser.y` remains the migration oracle; CMake
