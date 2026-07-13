@@ -399,7 +399,20 @@ Error handling:
   parser for the existing parser tests.
 - [ ] Add focused tests for grammar corners discovered during migration.
 - [ ] Add malformed input tests for representative syntax failures.
+  - 2026-07-13 progress: annotation application malformed-parameter tests now
+    cover no-parameter annotations given a positional parameter, empty
+    parameter lists, mixed positional/keyword forms, missing keyword values,
+    unknown keyword members, and malformed unknown-annotation parameters. The
+    cases are split into separate CTest entries so each one gets independent
+    ASAN/LSAN coverage.
 - [ ] Verify parser-owned cleanup with ASAN/LSAN.
+  - 2026-07-13 progress: the annotation negative sweep exposed and fixed two
+    cleanup issues. Keyword annotation application parameters now parent
+    unscoped expression values as soon as the parameter node is created, so a
+    later syntax error can delete the partially parsed parameter list safely.
+    The hand-parser path also refreshes `builtin_root` immediately after
+    finishing the generated builtin-annotation bootstrap, so failed hand-parser
+    parses delete the finalized builtin annotation tree.
 - [ ] Document any intentional diagnostic differences.
 
 ### Phase 6: Default switch

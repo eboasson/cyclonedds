@@ -35,18 +35,24 @@ parse_string(const char *str)
 }
 
 static void
-expect_parse_ret(const char *str, idl_retcode_t expected)
+expect_parse_ret_flags(uint32_t flags, const char *str, idl_retcode_t expected)
 {
   idl_pstate_t *pstate = NULL;
   idl_retcode_t ret;
 
-  ret = idl_create_pstate(0u, NULL, &pstate);
+  ret = idl_create_pstate(flags, NULL, &pstate);
   CU_ASSERT_EQ_FATAL(ret, IDL_RETCODE_OK);
   CU_ASSERT_NEQ_FATAL(pstate, NULL);
 
   ret = idl_parse_string(pstate, str);
   CU_ASSERT_EQ(ret, expected);
   idl_delete_pstate(pstate);
+}
+
+static void
+expect_parse_ret(const char *str, idl_retcode_t expected)
+{
+  expect_parse_ret_flags(0u, str, expected);
 }
 
 CU_Test(idl_hand_parser, module_with_empty_struct)
@@ -1875,6 +1881,160 @@ CU_Test(idl_hand_parser, unknown_annotation_keyword_parameters)
   CU_ASSERT_EQ(idl_next(strct), NULL);
 
   idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, annotation_application_parameter_scope)
+{
+  idl_pstate_t *pstate;
+  idl_const_t *global;
+  idl_module_t *outer;
+  idl_const_t *local;
+  idl_annotation_t *mark;
+  idl_struct_t *positional;
+  idl_struct_t *keyword;
+  idl_annotation_appl_t *appl;
+  idl_annotation_appl_param_t *param;
+  const idl_literal_t *literal;
+  const char str[] =
+    "const long GLOBAL = 1;"
+    "module outer {"
+    "  const long LOCAL = 2;"
+    "  @annotation mark { long value; };"
+    "  @mark(LOCAL) struct Positional { long f; };"
+    "  @mark(value = ::GLOBAL) struct Keyword { long f; };"
+    "};";
+
+  pstate = parse_string_flags(IDL_FLAG_ANNOTATIONS, str);
+  global = (idl_const_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(global, NULL);
+  CU_ASSERT_FATAL(idl_is_const(global));
+
+  outer = idl_next(global);
+  CU_ASSERT_NEQ_FATAL(outer, NULL);
+  CU_ASSERT_FATAL(idl_is_module(outer));
+  local = (idl_const_t *) outer->definitions;
+  CU_ASSERT_NEQ_FATAL(local, NULL);
+  CU_ASSERT_FATAL(idl_is_const(local));
+  mark = idl_next(local);
+  CU_ASSERT_NEQ_FATAL(mark, NULL);
+  CU_ASSERT_EQ(idl_mask(mark), IDL_ANNOTATION);
+
+  positional = idl_next(mark);
+  CU_ASSERT_NEQ_FATAL(positional, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(positional));
+  appl = positional->node.annotations;
+  CU_ASSERT_NEQ_FATAL(appl, NULL);
+  CU_ASSERT_EQ(appl->annotation, mark);
+  param = appl->parameters;
+  CU_ASSERT_NEQ_FATAL(param, NULL);
+  literal = (const idl_literal_t *) param->const_expr;
+  CU_ASSERT_EQ(idl_type(literal), IDL_LONG);
+  CU_ASSERT_EQ(literal->value.int32, 2);
+
+  keyword = idl_next(positional);
+  CU_ASSERT_NEQ_FATAL(keyword, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(keyword));
+  appl = keyword->node.annotations;
+  CU_ASSERT_NEQ_FATAL(appl, NULL);
+  CU_ASSERT_EQ(appl->annotation, mark);
+  param = appl->parameters;
+  CU_ASSERT_NEQ_FATAL(param, NULL);
+  CU_ASSERT_STREQ(idl_identifier(param->member->declarator), "value");
+  literal = (const idl_literal_t *) param->const_expr;
+  CU_ASSERT_EQ(idl_type(literal), IDL_LONG);
+  CU_ASSERT_EQ(literal->value.int32, 1);
+  CU_ASSERT_EQ(idl_next(param), NULL);
+  CU_ASSERT_EQ(idl_next(keyword), NULL);
+  CU_ASSERT_EQ(idl_next(outer), NULL);
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, annotation_application_rejects_parameter_on_empty_annotation)
+{
+  expect_parse_ret_flags(
+    IDL_FLAG_ANNOTATIONS,
+    "@annotation marker { };"
+    "@marker(1) struct Sample { };",
+    IDL_RETCODE_SEMANTIC_ERROR);
+}
+
+CU_Test(idl_hand_parser, annotation_application_rejects_empty_parameter_list)
+{
+  expect_parse_ret_flags(
+    IDL_FLAG_ANNOTATIONS,
+    "@annotation marker { long value; };"
+    "@marker() struct Sample { };",
+    IDL_RETCODE_SYNTAX_ERROR);
+}
+
+CU_Test(idl_hand_parser, annotation_application_rejects_keyword_then_positional_parameter)
+{
+  expect_parse_ret_flags(
+    IDL_FLAG_ANNOTATIONS,
+    "@annotation marker { long value; };"
+    "@marker(value = 1, 2) struct Sample { };",
+    IDL_RETCODE_SYNTAX_ERROR);
+}
+
+CU_Test(idl_hand_parser, annotation_application_rejects_trailing_keyword_name)
+{
+  expect_parse_ret_flags(
+    IDL_FLAG_ANNOTATIONS,
+    "@annotation marker { long value; };"
+    "@marker(value = 1, extra) struct Sample { };",
+    IDL_RETCODE_SEMANTIC_ERROR);
+}
+
+CU_Test(idl_hand_parser, annotation_application_rejects_unknown_keyword_member)
+{
+  expect_parse_ret_flags(
+    IDL_FLAG_ANNOTATIONS,
+    "@annotation marker { long value; };"
+    "@marker(missing = 1) struct Sample { };",
+    IDL_RETCODE_SEMANTIC_ERROR);
+}
+
+CU_Test(idl_hand_parser, annotation_application_rejects_missing_keyword_value)
+{
+  expect_parse_ret_flags(
+    IDL_FLAG_ANNOTATIONS,
+    "@annotation marker { long value; };"
+    "@marker(value = ) struct Sample { };",
+    IDL_RETCODE_SYNTAX_ERROR);
+}
+
+CU_Test(idl_hand_parser, annotation_application_rejects_positional_then_keyword_parameter)
+{
+  expect_parse_ret_flags(
+    IDL_FLAG_ANNOTATIONS,
+    "@annotation marker { long value; };"
+    "@marker(1, value = 2) struct Sample { };",
+    IDL_RETCODE_SYNTAX_ERROR);
+}
+
+CU_Test(idl_hand_parser, unknown_annotation_rejects_missing_keyword_value)
+{
+  expect_parse_ret_flags(
+    IDL_FLAG_ANNOTATIONS,
+    "@unknown(foo =) struct Loose { };",
+    IDL_RETCODE_SYNTAX_ERROR);
+}
+
+CU_Test(idl_hand_parser, unknown_annotation_rejects_incomplete_expression)
+{
+  expect_parse_ret_flags(
+    IDL_FLAG_ANNOTATIONS,
+    "@unknown(foo = bar +) struct Loose { };",
+    IDL_RETCODE_SYNTAX_ERROR);
+}
+
+CU_Test(idl_hand_parser, unknown_annotation_rejects_bad_positional_start)
+{
+  expect_parse_ret_flags(
+    IDL_FLAG_ANNOTATIONS,
+    "@unknown(,) struct Loose { };",
+    IDL_RETCODE_SYNTAX_ERROR);
 }
 
 CU_Test(idl_hand_parser, struct_with_sequence_members)

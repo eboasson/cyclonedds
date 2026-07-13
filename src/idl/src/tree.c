@@ -3813,6 +3813,8 @@ idl_create_annotation_appl_param(
          (idl_mask(const_expr) & IDL_ENUMERATOR) ||
          (idl_mask(const_expr) & IDL_BIT_VALUE));
   node->const_expr = const_expr;
+  if (!idl_scope(const_expr))
+    ((idl_node_t *)const_expr)->parent = (idl_node_t *)node;
   *((idl_annotation_appl_param_t **)nodep) = node;
   return ret;
 }
