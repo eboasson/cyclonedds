@@ -1781,6 +1781,102 @@ CU_Test(idl_hand_parser, unknown_annotation_positional_parameter)
   idl_delete_pstate(pstate);
 }
 
+CU_Test(idl_hand_parser, annotation_application_keyword_parameters)
+{
+  idl_pstate_t *pstate;
+  idl_annotation_t *knobs;
+  idl_annotation_member_t *low;
+  idl_annotation_member_t *high;
+  idl_struct_t *window;
+  idl_member_t *member;
+  idl_annotation_appl_t *appl;
+  idl_annotation_appl_param_t *param;
+  idl_literal_t *literal;
+  const char str[] =
+    "@annotation knobs {"
+    "  long low;"
+    "  long high;"
+    "  string label default \"steady\";"
+    "};"
+    "@knobs(high = 9, low = 2) struct Window {"
+    "  @range(min = 1, max = 10) long value;"
+    "};";
+
+  pstate = parse_string_flags(IDL_FLAG_ANNOTATIONS, str);
+  knobs = (idl_annotation_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(knobs, NULL);
+  CU_ASSERT_EQ(idl_mask(knobs), IDL_ANNOTATION);
+  low = (idl_annotation_member_t *) knobs->definitions;
+  CU_ASSERT_NEQ_FATAL(low, NULL);
+  CU_ASSERT_FATAL(idl_is_annotation_member(low));
+  high = idl_next(low);
+  CU_ASSERT_NEQ_FATAL(high, NULL);
+  CU_ASSERT_FATAL(idl_is_annotation_member(high));
+
+  window = idl_next(knobs);
+  CU_ASSERT_NEQ_FATAL(window, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(window));
+  appl = window->node.annotations;
+  CU_ASSERT_NEQ_FATAL(appl, NULL);
+  CU_ASSERT_EQ(appl->annotation, knobs);
+  param = appl->parameters;
+  CU_ASSERT_NEQ_FATAL(param, NULL);
+  CU_ASSERT_EQ(param->member, high);
+  literal = (idl_literal_t *) param->const_expr;
+  CU_ASSERT_EQ(idl_type(literal), IDL_LONG);
+  CU_ASSERT_EQ(literal->value.int32, 9);
+  param = idl_next(param);
+  CU_ASSERT_NEQ_FATAL(param, NULL);
+  CU_ASSERT_EQ(param->member, low);
+  literal = (idl_literal_t *) param->const_expr;
+  CU_ASSERT_EQ(idl_type(literal), IDL_LONG);
+  CU_ASSERT_EQ(literal->value.int32, 2);
+  CU_ASSERT_EQ(idl_next(param), NULL);
+  CU_ASSERT_EQ(idl_next(appl), NULL);
+
+  member = window->members;
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_NEQ(member->min.annotation, NULL);
+  literal = (idl_literal_t *) member->min.value;
+  CU_ASSERT_EQ(idl_type(literal), IDL_LONG);
+  CU_ASSERT_EQ(literal->value.int32, 1);
+  CU_ASSERT_NEQ(member->max.annotation, NULL);
+  literal = (idl_literal_t *) member->max.value;
+  CU_ASSERT_EQ(idl_type(literal), IDL_LONG);
+  CU_ASSERT_EQ(literal->value.int32, 10);
+  appl = member->node.annotations;
+  CU_ASSERT_NEQ_FATAL(appl, NULL);
+  CU_ASSERT_STREQ(idl_identifier(appl->annotation), "range");
+  param = appl->parameters;
+  CU_ASSERT_NEQ_FATAL(param, NULL);
+  CU_ASSERT_STREQ(idl_identifier(param->member->declarator), "min");
+  param = idl_next(param);
+  CU_ASSERT_NEQ_FATAL(param, NULL);
+  CU_ASSERT_STREQ(idl_identifier(param->member->declarator), "max");
+  CU_ASSERT_EQ(idl_next(param), NULL);
+  CU_ASSERT_EQ(idl_next(member), NULL);
+  CU_ASSERT_EQ(idl_next(window), NULL);
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, unknown_annotation_keyword_parameters)
+{
+  idl_pstate_t *pstate;
+  idl_struct_t *strct;
+  const char str[] =
+    "@unknown(foo = bar + 1, baz = \"x\") struct LooseKeywords { };";
+
+  pstate = parse_string_flags(IDL_FLAG_ANNOTATIONS, str);
+  strct = (idl_struct_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(strct, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(strct));
+  CU_ASSERT_EQ(strct->node.annotations, NULL);
+  CU_ASSERT_EQ(idl_next(strct), NULL);
+
+  idl_delete_pstate(pstate);
+}
+
 CU_Test(idl_hand_parser, struct_with_sequence_members)
 {
   idl_pstate_t *pstate;

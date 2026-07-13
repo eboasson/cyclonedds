@@ -31,7 +31,9 @@
 typedef struct idl_parser_stream {
   idl_pstate_t *pstate;
   idl_token_t token;
+  idl_token_t peek;
   bool have_token;
+  bool have_peek;
 } idl_parser_stream_t;
 
 static bool
@@ -69,46 +71,82 @@ stream_fini(idl_parser_stream_t *stream)
 {
   if (stream->have_token)
     token_fini(&stream->token);
+  if (stream->have_peek)
+    token_fini(&stream->peek);
 }
 
 static idl_retcode_t
-stream_advance(idl_parser_stream_t *stream)
+stream_scan_token(idl_parser_stream_t *stream, idl_token_t *token)
 {
   idl_pstate_t *pstate = stream->pstate;
 
   for (;;) {
-    idl_retcode_t ret;
-
-    if (stream->have_token)
-      token_fini(&stream->token);
-
-    ret = idl_scan(pstate, &stream->token);
-    stream->have_token = true;
+    idl_retcode_t ret = idl_scan(pstate, token);
     if (ret < 0)
       return ret;
 
-    if (stream->token.code == '\n') {
+    if (token->code == '\n') {
       pstate->scanner.state = IDL_SCAN;
+      token_fini(token);
       continue;
     }
 
-    if (stream->token.code == IDL_TOKEN_COMMENT ||
-        stream->token.code == IDL_TOKEN_LINE_COMMENT) {
+    if (token->code == IDL_TOKEN_COMMENT ||
+        token->code == IDL_TOKEN_LINE_COMMENT) {
+      token_fini(token);
       continue;
     }
 
     if ((unsigned)pstate->scanner.state & (unsigned)IDL_SCAN_DIRECTIVE) {
-      ret = idl_parse_directive(pstate, &stream->token);
-      if (stream->token.code == '\0' &&
+      ret = idl_parse_directive(pstate, token);
+      if (token->code == '\0' &&
           (ret == IDL_RETCODE_OK || ret == IDL_RETCODE_PUSH_MORE))
         return IDL_RETCODE_OK;
       if (ret != IDL_RETCODE_OK && ret != IDL_RETCODE_PUSH_MORE)
         return ret;
+      token_fini(token);
       continue;
     }
 
     return IDL_RETCODE_OK;
   }
+}
+
+static idl_retcode_t
+stream_advance(idl_parser_stream_t *stream)
+{
+  idl_retcode_t ret;
+
+  if (stream->have_token)
+    token_fini(&stream->token);
+
+  if (stream->have_peek) {
+    stream->token = stream->peek;
+    memset(&stream->peek, 0, sizeof(stream->peek));
+    stream->have_peek = false;
+    stream->have_token = true;
+    return IDL_RETCODE_OK;
+  }
+
+  ret = stream_scan_token(stream, &stream->token);
+  stream->have_token = true;
+  return ret;
+}
+
+static idl_retcode_t
+stream_peek(idl_parser_stream_t *stream, const idl_token_t **tokenp)
+{
+  idl_retcode_t ret;
+
+  if (!stream->have_peek) {
+    ret = stream_scan_token(stream, &stream->peek);
+    stream->have_peek = true;
+    if (ret != IDL_RETCODE_OK)
+      return ret;
+  }
+
+  *tokenp = &stream->peek;
+  return IDL_RETCODE_OK;
 }
 
 static idl_location_t
@@ -2445,32 +2483,172 @@ err:
 }
 
 static idl_retcode_t
-parse_annotation_appl_positional_params(
+parse_annotation_appl_positional_param(
   idl_parser_stream_t *stream,
-  idl_const_expr_t **const_exprp,
+  idl_annotation_appl_param_t **paramsp)
+{
+  idl_location_t expr_location;
+  idl_const_expr_t *const_expr = NULL;
+  idl_retcode_t ret;
+
+  if ((ret = parse_const_expr(
+        stream, &const_expr, &expr_location)) != IDL_RETCODE_OK)
+    return ret;
+
+  *paramsp = (idl_annotation_appl_param_t *) const_expr;
+  return IDL_RETCODE_OK;
+}
+
+static void
+delete_annotation_appl_params(idl_annotation_appl_param_t *params)
+{
+  if (!params)
+    return;
+  if (idl_mask(params) & IDL_ANNOTATION_APPL_PARAM)
+    idl_delete_node(params);
+  else
+    idl_unreference_node(params);
+}
+
+static idl_retcode_t
+parse_annotation_appl_keyword_param(
+  idl_parser_stream_t *stream,
+  idl_annotation_appl_param_t **paramp)
+{
+  idl_pstate_t *pstate = stream->pstate;
+  const idl_declaration_t *declaration = NULL;
+  idl_annotation_member_t *member = NULL;
+  idl_annotation_appl_param_t *param = NULL;
+  idl_const_expr_t *const_expr = NULL;
+  idl_name_t *name = NULL;
+  idl_location_t name_location;
+  idl_location_t expr_location;
+  idl_location_t location;
+  idl_retcode_t ret;
+
+  if (parsing_unknown_annotation_params(stream)) {
+    if (stream->token.code != IDL_TOKEN_IDENTIFIER)
+      return syntax_error(stream);
+    if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+      return ret;
+    if ((ret = expect(stream, '=', NULL)) != IDL_RETCODE_OK)
+      return ret;
+    if ((ret = parse_const_expr(
+          stream, &const_expr, &expr_location)) != IDL_RETCODE_OK)
+      return ret;
+    idl_unreference_node(const_expr);
+    *paramp = NULL;
+    return IDL_RETCODE_OK;
+  }
+
+  if ((ret = parse_identifier(stream, &name)) != IDL_RETCODE_OK)
+    return ret;
+  name_location = name->symbol.location;
+
+  declaration = idl_find(pstate, pstate->annotation_scope, name, 0u);
+  if (declaration && (idl_mask(declaration->node) & IDL_DECLARATOR))
+    member = (idl_annotation_member_t *)
+      ((const idl_node_t *) declaration->node)->parent;
+  if (!member || !(idl_mask(member) & IDL_ANNOTATION_MEMBER)) {
+    idl_error(pstate, &name_location,
+      "Unknown annotation member '%s'", name->identifier);
+    ret = IDL_RETCODE_SEMANTIC_ERROR;
+    goto err;
+  }
+  member = idl_reference_node((idl_node_t *) member);
+  idl_delete_name(name);
+  name = NULL;
+
+  if ((ret = expect(stream, '=', NULL)) != IDL_RETCODE_OK)
+    goto err;
+  if ((ret = parse_const_expr(
+        stream, &const_expr, &expr_location)) != IDL_RETCODE_OK)
+    goto err;
+
+  location = location_span(name_location.first, expr_location.last);
+  ret = idl_create_annotation_appl_param(
+    pstate, &location, member, const_expr, &param);
+  if (ret != IDL_RETCODE_OK)
+    goto err;
+  member = NULL;
+  const_expr = NULL;
+
+  *paramp = param;
+  return IDL_RETCODE_OK;
+err:
+  idl_delete_name(name);
+  idl_unreference_node(member);
+  idl_unreference_node(const_expr);
+  return ret;
+}
+
+static idl_retcode_t
+parse_annotation_appl_keyword_params(
+  idl_parser_stream_t *stream,
+  idl_annotation_appl_param_t **paramsp)
+{
+  idl_annotation_appl_param_t *params = NULL;
+  idl_retcode_t ret;
+
+  for (;;) {
+    idl_annotation_appl_param_t *param = NULL;
+
+    if ((ret = parse_annotation_appl_keyword_param(
+          stream, &param)) != IDL_RETCODE_OK)
+      goto err;
+    params = idl_push_node(params, param);
+
+    if (stream->token.code != ',')
+      break;
+    if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+      goto err;
+  }
+
+  *paramsp = params;
+  return IDL_RETCODE_OK;
+err:
+  delete_annotation_appl_params(params);
+  return ret;
+}
+
+static idl_retcode_t
+parse_annotation_appl_params(
+  idl_parser_stream_t *stream,
+  idl_annotation_appl_param_t **paramsp,
   idl_location_t *locationp)
 {
+  const idl_token_t *peek = NULL;
   idl_location_t lparen_location;
-  idl_location_t expr_location;
   idl_location_t rparen_location;
-  idl_const_expr_t *const_expr = NULL;
+  idl_annotation_appl_param_t *params = NULL;
   idl_retcode_t ret;
 
   assert(stream->token.code == '(');
   lparen_location = stream->token.location;
   if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
     return ret;
-  if ((ret = parse_const_expr(
-        stream, &const_expr, &expr_location)) != IDL_RETCODE_OK)
-    return ret;
-  if ((ret = expect(stream, ')', &rparen_location)) != IDL_RETCODE_OK) {
-    idl_unreference_node(const_expr);
-    return ret;
-  }
 
-  *const_exprp = const_expr;
+  if (stream->token.code == IDL_TOKEN_IDENTIFIER &&
+      (ret = stream_peek(stream, &peek)) != IDL_RETCODE_OK)
+    return ret;
+
+  if (peek && peek->code == '=') {
+    ret = parse_annotation_appl_keyword_params(stream, &params);
+  } else {
+    ret = parse_annotation_appl_positional_param(stream, &params);
+  }
+  if (ret != IDL_RETCODE_OK)
+    goto err;
+
+  if ((ret = expect(stream, ')', &rparen_location)) != IDL_RETCODE_OK)
+    goto err;
+
+  *paramsp = params;
   *locationp = location_span(lparen_location.first, rparen_location.last);
   return IDL_RETCODE_OK;
+err:
+  delete_annotation_appl_params(params);
+  return ret;
 }
 
 static idl_retcode_t
@@ -2482,7 +2660,7 @@ parse_annotation_application_after_at(
   idl_pstate_t *pstate = stream->pstate;
   idl_scoped_name_t *scoped_name = NULL;
   idl_annotation_appl_t *annotation_appl = NULL;
-  idl_const_expr_t *positional_param = NULL;
+  idl_annotation_appl_param_t *params = NULL;
   const idl_declaration_t *declaration;
   idl_location_t location;
   idl_retcode_t ret;
@@ -2520,8 +2698,8 @@ parse_annotation_application_after_at(
   if (stream->token.code == '(') {
     idl_location_t params_location;
 
-    if ((ret = parse_annotation_appl_positional_params(
-          stream, &positional_param, &params_location)) != IDL_RETCODE_OK)
+    if ((ret = parse_annotation_appl_params(
+          stream, &params, &params_location)) != IDL_RETCODE_OK)
       goto err;
     location = location_span(location.first, params_location.last);
   }
@@ -2531,13 +2709,13 @@ parse_annotation_application_after_at(
       pstate,
       &location,
       annotation_appl,
-      (idl_annotation_appl_param_t *) positional_param);
+      params);
     if (ret != IDL_RETCODE_OK)
       goto err;
   } else {
-    idl_unreference_node(positional_param);
+    delete_annotation_appl_params(params);
   }
-  positional_param = NULL;
+  params = NULL;
 
   pstate->parser.state = IDL_PARSE;
   pstate->annotation_scope = NULL;
@@ -2547,7 +2725,7 @@ parse_annotation_application_after_at(
 err:
   pstate->parser.state = IDL_PARSE;
   pstate->annotation_scope = NULL;
-  idl_unreference_node(positional_param);
+  delete_annotation_appl_params(params);
   idl_delete_node(annotation_appl);
   idl_delete_scoped_name(scoped_name);
   return ret;

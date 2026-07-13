@@ -382,7 +382,11 @@ Error handling:
   parameters in the annotation scope, evaluates parameters during annotation
   application, and treats unknown annotation parameters as syntax-only so
   unsupported vendor annotations can still be discarded.
-- [ ] Parse keyword annotation application parameters.
+- [x] Parse keyword annotation application parameters. Done 2026-07-13 for
+  comma-separated `name = value` lists. The hand parser now peeks far enough to
+  distinguish keyword parameters from positional identifier expressions,
+  resolves parameter names inside the annotation scope, creates explicit
+  parameter nodes, and keeps unknown annotation keyword arguments syntax-only.
 - [ ] Preserve builtin annotation parsing and callback assignment.
   - 2026-07-10 progress: hand-parser builds now explicitly finish the generated
     parser's builtin-annotation bootstrap before parsing user IDL, so builtin
@@ -735,6 +739,11 @@ unless a test already depends on it.
   focused on annotation parameters.
 - 2026-07-13: Rebuilt hand-parser `cunit_idl` and ran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 58/58 passed.
+- 2026-07-13: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-13: After adding keyword annotation application parameters, rebuilt
+  hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 60/60 passed.
 - 2026-07-13: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-09: Added a null-declaration guard to the struct inheritance helper,
