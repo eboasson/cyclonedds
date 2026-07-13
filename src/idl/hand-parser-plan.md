@@ -406,7 +406,16 @@ Error handling:
     `test_bounded_seq.idl`, `test_bounded_str.idl`, `test_enum.idl`,
     `test_bitmask.idl`, `test_union.idl`, `test_struct_keys.idl`,
     `test_struct_inherit.idl`, `test_alias.idl`, and `test_bool.idl`.
+  - 2026-07-13 progress: the comparison now also covers all 41 IDL files
+    under `src/core`. A shared union-finalization abort in the default Bison
+    build for `XSpaceEnumUnion.idl` was fixed by allowing synthesized bitmask
+    default discriminator literals to advance through used labels. The full
+    `src/core/**/*.idl` generated-output comparison now passes 41/41.
 - [ ] Add focused tests for grammar corners discovered during migration.
+  - 2026-07-13 progress: added `idl_union_default_discriminator_bitmask` to
+    cover explicit and implicit default discriminator synthesis for bitmask
+    switch types, including the `case 0` plus named-bit pattern from
+    `XSpaceEnumUnion.idl`.
 - [ ] Add malformed input tests for representative syntax failures.
   - 2026-07-13 progress: annotation application malformed-parameter tests now
     cover no-parameter annotations given a positional parameter, empty
@@ -672,6 +681,13 @@ unless a test already depends on it.
   --output-on-failure` with the same sanitizer environment passed 126/126; the
   refreshed `src/core/**/*.idl` deterministic comparison again passed 40/41,
   with only the default-Bison `XSpaceEnumUnion.idl` abort remaining.
+- 2026-07-13: Fixed the shared `XSpaceEnumUnion.idl` abort by allowing
+  synthesized bitmask union default discriminator literals to increment through
+  already-used labels. Added focused CUnit coverage for explicit bitmask
+  defaults and implicit defaults after `case 0` plus a named bit. Verification:
+  focused `idl_union_default_discriminator*` tests passed 5/5; hand-parser
+  `^idl_hand_parser_` passed 71/71; default `^idl_` passed 127/127; the
+  refreshed `src/core/**/*.idl` deterministic comparison passed 41/41.
 - 2026-07-10: At user request, marked the "reread this file before each
   implementation step" rule obsolete. The plan remains the durable notebook,
   but it no longer has to be reread mechanically before every small step.
