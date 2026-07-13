@@ -1639,6 +1639,148 @@ CU_Test(idl_hand_parser, annotation_application_on_enum_and_bit_values)
   idl_delete_pstate(pstate);
 }
 
+CU_Test(idl_hand_parser, annotation_application_positional_parameters)
+{
+  idl_pstate_t *pstate;
+  idl_annotation_t *marker;
+  idl_annotation_member_t *annotation_member;
+  idl_struct_t *sample;
+  idl_struct_t *ordered;
+  idl_bitmask_t *bits;
+  idl_enum_t *mode;
+  idl_member_t *member;
+  idl_declarator_t *declarator;
+  idl_sequence_t *sequence;
+  idl_bit_value_t *bit_value;
+  idl_enumerator_t *enumerator;
+  idl_annotation_appl_t *appl;
+  idl_annotation_appl_param_t *param;
+  idl_literal_t *literal;
+  const char str[] =
+    "@annotation marker { long value; };"
+    "@marker(42) struct Sample {"
+    "  @key(false) @hashid(\"wire\") long id;"
+    "  sequence<@try_construct(TRIM) string<5> > names;"
+    "};"
+    "@autoid(SEQUENTIAL) struct Ordered { long a; long b; };"
+    "@bit_bound(8) bitmask Bits { @position(3) A, B };"
+    "enum Mode { @value(5) OFF, ON };";
+
+  pstate = parse_string_flags(IDL_FLAG_ANNOTATIONS, str);
+  marker = (idl_annotation_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(marker, NULL);
+  CU_ASSERT_EQ(idl_mask(marker), IDL_ANNOTATION);
+  annotation_member = (idl_annotation_member_t *) marker->definitions;
+  CU_ASSERT_NEQ_FATAL(annotation_member, NULL);
+  CU_ASSERT_FATAL(idl_is_annotation_member(annotation_member));
+
+  sample = idl_next(marker);
+  CU_ASSERT_NEQ_FATAL(sample, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(sample));
+  appl = sample->node.annotations;
+  CU_ASSERT_NEQ_FATAL(appl, NULL);
+  CU_ASSERT_EQ(appl->annotation, marker);
+  param = appl->parameters;
+  CU_ASSERT_NEQ_FATAL(param, NULL);
+  CU_ASSERT_EQ(param->member, annotation_member);
+  CU_ASSERT_EQ(idl_next(param), NULL);
+  literal = (idl_literal_t *) param->const_expr;
+  CU_ASSERT_EQ(idl_type(literal), IDL_LONG);
+  CU_ASSERT_EQ(literal->value.int32, 42);
+
+  member = sample->members;
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT(!member->key.value);
+  CU_ASSERT_NEQ(member->key.annotation, NULL);
+  declarator = member->declarators;
+  CU_ASSERT_NEQ_FATAL(declarator, NULL);
+  CU_ASSERT_NEQ(declarator->id.annotation, NULL);
+  CU_ASSERT_NEQ(declarator->id.value, 0u);
+  appl = member->node.annotations;
+  CU_ASSERT_NEQ_FATAL(appl, NULL);
+  CU_ASSERT_STREQ(idl_identifier(appl->annotation), "key");
+  param = appl->parameters;
+  CU_ASSERT_NEQ_FATAL(param, NULL);
+  literal = (idl_literal_t *) param->const_expr;
+  CU_ASSERT_EQ(idl_type(literal), IDL_BOOL);
+  CU_ASSERT(!literal->value.bln);
+  appl = idl_next(appl);
+  CU_ASSERT_NEQ_FATAL(appl, NULL);
+  CU_ASSERT_STREQ(idl_identifier(appl->annotation), "hashid");
+  param = appl->parameters;
+  CU_ASSERT_NEQ_FATAL(param, NULL);
+  literal = (idl_literal_t *) param->const_expr;
+  CU_ASSERT_EQ(idl_type(literal), IDL_STRING);
+  CU_ASSERT_STREQ(literal->value.str, "wire");
+  CU_ASSERT_EQ(idl_next(appl), NULL);
+
+  member = idl_next(member);
+  CU_ASSERT_NEQ_FATAL(member, NULL);
+  CU_ASSERT_FATAL(idl_is_sequence(member->type_spec));
+  sequence = (idl_sequence_t *) member->type_spec;
+  CU_ASSERT_EQ(sequence->elem_try_construct.value, IDL_TRIM);
+  CU_ASSERT_NEQ(sequence->elem_try_construct.annotation, NULL);
+  appl = sequence->node.annotations;
+  CU_ASSERT_NEQ_FATAL(appl, NULL);
+  CU_ASSERT_STREQ(idl_identifier(appl->annotation), "try_construct");
+  param = appl->parameters;
+  CU_ASSERT_NEQ_FATAL(param, NULL);
+  CU_ASSERT_STREQ(idl_identifier(param->const_expr), "TRIM");
+  CU_ASSERT_EQ(idl_next(member), NULL);
+
+  ordered = idl_next(sample);
+  CU_ASSERT_NEQ_FATAL(ordered, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(ordered));
+  CU_ASSERT_EQ(ordered->autoid.value, IDL_SEQUENTIAL);
+  CU_ASSERT_NEQ(ordered->autoid.annotation, NULL);
+
+  bits = idl_next(ordered);
+  CU_ASSERT_NEQ_FATAL(bits, NULL);
+  CU_ASSERT_FATAL(idl_is_bitmask(bits));
+  CU_ASSERT_EQ(bits->bit_bound.value, 8);
+  CU_ASSERT_NEQ(bits->bit_bound.annotation, NULL);
+  bit_value = bits->bit_values;
+  CU_ASSERT_NEQ_FATAL(bit_value, NULL);
+  CU_ASSERT_EQ(bit_value->position.value, 3);
+  CU_ASSERT_NEQ(bit_value->position.annotation, NULL);
+  bit_value = idl_next(bit_value);
+  CU_ASSERT_NEQ_FATAL(bit_value, NULL);
+  CU_ASSERT_EQ(bit_value->position.value, 4);
+  CU_ASSERT_EQ(idl_next(bit_value), NULL);
+
+  mode = idl_next(bits);
+  CU_ASSERT_NEQ_FATAL(mode, NULL);
+  CU_ASSERT_FATAL(idl_is_enum(mode));
+  enumerator = mode->enumerators;
+  CU_ASSERT_NEQ_FATAL(enumerator, NULL);
+  CU_ASSERT_EQ(enumerator->value.value, 5);
+  CU_ASSERT_NEQ(enumerator->value.annotation, NULL);
+  enumerator = idl_next(enumerator);
+  CU_ASSERT_NEQ_FATAL(enumerator, NULL);
+  CU_ASSERT_EQ(enumerator->value.value, 6);
+  CU_ASSERT_EQ(idl_next(enumerator), NULL);
+  CU_ASSERT_EQ(idl_next(mode), NULL);
+
+  idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_hand_parser, unknown_annotation_positional_parameter)
+{
+  idl_pstate_t *pstate;
+  idl_struct_t *strct;
+  const char str[] =
+    "@unknown(foo + 1) struct Loose { };";
+
+  pstate = parse_string_flags(IDL_FLAG_ANNOTATIONS, str);
+  strct = (idl_struct_t *) pstate->root;
+  CU_ASSERT_NEQ_FATAL(strct, NULL);
+  CU_ASSERT_FATAL(idl_is_struct(strct));
+  CU_ASSERT_EQ(strct->node.annotations, NULL);
+  CU_ASSERT_EQ(idl_next(strct), NULL);
+
+  idl_delete_pstate(pstate);
+}
+
 CU_Test(idl_hand_parser, struct_with_sequence_members)
 {
   idl_pstate_t *pstate;

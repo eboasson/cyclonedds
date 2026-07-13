@@ -376,7 +376,12 @@ Error handling:
     definitions, enum values, and bitmask values. Focused tests cover those
     positions directly and also cover nested enum, bitmask, and typedef
     definitions inside an annotation body.
-- [ ] Parse positional annotation application parameters.
+- [x] Parse positional annotation application parameters. Done 2026-07-13 for
+  `@annotation(value)` forms. The hand parser now finalizes the positional
+  constant expression through the first annotation member, resolves builtin enum
+  parameters in the annotation scope, evaluates parameters during annotation
+  application, and treats unknown annotation parameters as syntax-only so
+  unsupported vendor annotations can still be discarded.
 - [ ] Parse keyword annotation application parameters.
 - [ ] Preserve builtin annotation parsing and callback assignment.
   - 2026-07-10 progress: hand-parser builds now explicitly finish the generated
@@ -722,6 +727,15 @@ unless a test already depends on it.
 - 2026-07-10: Rebuilt hand-parser `cunit_idl` and ran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 56/56 passed.
 - 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-13: After adding positional annotation application parameters, the
+  first hand-parser test run exposed a test string ambiguity where
+  `string<5>> name` let the bound expression consume `>>` as a shift operator.
+  The test was changed to use separated template closers so this slice remains
+  focused on annotation parameters.
+- 2026-07-13: Rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 58/58 passed.
+- 2026-07-13: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-09: Added a null-declaration guard to the struct inheritance helper,
   rebuilt hand-parser `cunit_idl`, reran the same hand-parser sanitizer slice;

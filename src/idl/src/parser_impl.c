@@ -227,6 +227,13 @@ static idl_retcode_t parse_annotation_applications(
   idl_parser_stream_t *stream,
   idl_annotation_appl_t **annotationsp);
 
+static bool
+parsing_unknown_annotation_params(const idl_parser_stream_t *stream)
+{
+  return stream->pstate->parser.state ==
+         IDL_PARSE_UNKNOWN_ANNOTATION_APPL_PARAMS;
+}
+
 static idl_retcode_t
 parse_scoped_name(
   idl_parser_stream_t *stream,
@@ -804,6 +811,11 @@ parse_scoped_const_expr(
   if ((ret = parse_scoped_name(stream, &scoped_name)) != IDL_RETCODE_OK)
     return ret;
   *locationp = *idl_location(scoped_name);
+  if (parsing_unknown_annotation_params(stream)) {
+    *const_exprp = NULL;
+    ret = IDL_RETCODE_OK;
+    goto err;
+  }
 
   ret = idl_resolve(pstate, 0u, scoped_name, &declaration);
   if (ret != IDL_RETCODE_OK)
@@ -823,11 +835,49 @@ err:
 }
 
 static idl_retcode_t
+parse_unknown_literal_expr(
+  idl_parser_stream_t *stream,
+  idl_const_expr_t **const_exprp,
+  idl_location_t *locationp)
+{
+  idl_position_t first = stream->token.location.first;
+  idl_position_t last;
+  bool string_literal = stream->token.code == IDL_TOKEN_STRING_LITERAL;
+  idl_retcode_t ret;
+
+  assert(parsing_unknown_annotation_params(stream));
+  assert(stream->token.code == IDL_TOKEN_INTEGER_LITERAL ||
+         stream->token.code == IDL_TOKEN_FLOATING_PT_LITERAL ||
+         stream->token.code == IDL_TOKEN_CHAR_LITERAL ||
+         stream->token.code == IDL_TOKEN_STRING_LITERAL ||
+         stream->token.code == IDL_TOKEN_TRUE ||
+         stream->token.code == IDL_TOKEN_FALSE);
+
+  do {
+    last = stream->token.location.last;
+    if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+      return ret;
+  } while (string_literal && stream->token.code == IDL_TOKEN_STRING_LITERAL);
+
+  *const_exprp = NULL;
+  *locationp = location_span(first, last);
+  return IDL_RETCODE_OK;
+}
+
+static idl_retcode_t
 parse_primary_expr(
   idl_parser_stream_t *stream,
   idl_const_expr_t **const_exprp,
   idl_location_t *locationp)
 {
+  if (parsing_unknown_annotation_params(stream) &&
+      (stream->token.code == IDL_TOKEN_INTEGER_LITERAL ||
+       stream->token.code == IDL_TOKEN_FLOATING_PT_LITERAL ||
+       stream->token.code == IDL_TOKEN_CHAR_LITERAL ||
+       stream->token.code == IDL_TOKEN_STRING_LITERAL ||
+       stream->token.code == IDL_TOKEN_TRUE ||
+       stream->token.code == IDL_TOKEN_FALSE))
+    return parse_unknown_literal_expr(stream, const_exprp, locationp);
   if (stream->token.code == IDL_TOKEN_INTEGER_LITERAL)
     return parse_integer_literal_expr(stream, const_exprp, locationp);
   if (stream->token.code == IDL_TOKEN_FLOATING_PT_LITERAL)
@@ -901,6 +951,12 @@ parse_unary_expr(
         stream, &operand, &operand_location)) != IDL_RETCODE_OK)
     return ret;
 
+  if (parsing_unknown_annotation_params(stream)) {
+    *const_exprp = NULL;
+    *locationp = location_span(operator_location.first, operand_location.last);
+    return IDL_RETCODE_OK;
+  }
+
   ret = idl_create_unary_expr(
     pstate, &operator_location, operator, operand, &const_expr);
   if (ret != IDL_RETCODE_OK) {
@@ -950,6 +1006,10 @@ parse_binary_expr(
       goto err;
     if ((ret = parse_operand(stream, &rhs, &rhs_location)) != IDL_RETCODE_OK)
       goto err;
+    if (parsing_unknown_annotation_params(stream)) {
+      lhs_location = location_span(lhs_location.first, rhs_location.last);
+      continue;
+    }
     ret = idl_create_binary_expr(
       pstate, &operator_location, operator, lhs, rhs, &expr);
     if (ret != IDL_RETCODE_OK) {
@@ -2385,6 +2445,35 @@ err:
 }
 
 static idl_retcode_t
+parse_annotation_appl_positional_params(
+  idl_parser_stream_t *stream,
+  idl_const_expr_t **const_exprp,
+  idl_location_t *locationp)
+{
+  idl_location_t lparen_location;
+  idl_location_t expr_location;
+  idl_location_t rparen_location;
+  idl_const_expr_t *const_expr = NULL;
+  idl_retcode_t ret;
+
+  assert(stream->token.code == '(');
+  lparen_location = stream->token.location;
+  if ((ret = stream_advance(stream)) != IDL_RETCODE_OK)
+    return ret;
+  if ((ret = parse_const_expr(
+        stream, &const_expr, &expr_location)) != IDL_RETCODE_OK)
+    return ret;
+  if ((ret = expect(stream, ')', &rparen_location)) != IDL_RETCODE_OK) {
+    idl_unreference_node(const_expr);
+    return ret;
+  }
+
+  *const_exprp = const_expr;
+  *locationp = location_span(lparen_location.first, rparen_location.last);
+  return IDL_RETCODE_OK;
+}
+
+static idl_retcode_t
 parse_annotation_application_after_at(
   idl_parser_stream_t *stream,
   const idl_location_t *at_location,
@@ -2393,6 +2482,7 @@ parse_annotation_application_after_at(
   idl_pstate_t *pstate = stream->pstate;
   idl_scoped_name_t *scoped_name = NULL;
   idl_annotation_appl_t *annotation_appl = NULL;
+  idl_const_expr_t *positional_param = NULL;
   const idl_declaration_t *declaration;
   idl_location_t location;
   idl_retcode_t ret;
@@ -2428,14 +2518,26 @@ parse_annotation_application_after_at(
   }
 
   if (stream->token.code == '(') {
-    ret = syntax_error(stream);
-    goto err;
+    idl_location_t params_location;
+
+    if ((ret = parse_annotation_appl_positional_params(
+          stream, &positional_param, &params_location)) != IDL_RETCODE_OK)
+      goto err;
+    location = location_span(location.first, params_location.last);
   }
 
-  if (annotation_appl &&
-      (ret = idl_finalize_annotation_appl(
-        pstate, &location, annotation_appl, NULL)) != IDL_RETCODE_OK)
-    goto err;
+  if (annotation_appl) {
+    ret = idl_finalize_annotation_appl(
+      pstate,
+      &location,
+      annotation_appl,
+      (idl_annotation_appl_param_t *) positional_param);
+    if (ret != IDL_RETCODE_OK)
+      goto err;
+  } else {
+    idl_unreference_node(positional_param);
+  }
+  positional_param = NULL;
 
   pstate->parser.state = IDL_PARSE;
   pstate->annotation_scope = NULL;
@@ -2445,6 +2547,7 @@ parse_annotation_application_after_at(
 err:
   pstate->parser.state = IDL_PARSE;
   pstate->annotation_scope = NULL;
+  idl_unreference_node(positional_param);
   idl_delete_node(annotation_appl);
   idl_delete_scoped_name(scoped_name);
   return ret;
