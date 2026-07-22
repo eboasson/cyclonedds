@@ -145,12 +145,13 @@ void dds_istream_init_well_formed (
 The old constructor should remain available for now:
 
 ```c
-DDSRT_DEPRECATED_BY ("dds_istream_init_well_formed")
+DDS_DEPRECATED_EXPORT
 void dds_istream_init (...);
 ```
 
-The exact deprecation macro and export handling should follow existing Cyclone
-DDS conventions.
+`DDS_DEPRECATED_EXPORT` is the existing public-header convention.  It does not
+name the replacement in the compiler warning, so the Doxygen `@deprecated` text
+should name `dds_istream_init_well_formed`.
 
 ## Normalize-to-stream helpers
 
@@ -392,7 +393,7 @@ Verification target:
 
 ### 7. Add `dds_istream_init_well_formed`
 
-Status: `[ ]`
+Status: `[x]`
 
 Commit scope:
 
@@ -405,8 +406,11 @@ Decisions so far:
 
 * the new name should make the trust precondition visible at call sites;
 * `dds_istream_init` must remain available for external users for now;
-* the exact deprecation macro and export annotations should follow existing
-  Cyclone DDS conventions.
+* use `DDS_DEPRECATED_EXPORT` for the compatibility alias, because that is the
+  existing public-header convention;
+* keep the old symbol as a wrapper around `dds_istream_init_well_formed`;
+* update the symbol-export probe to reference both the new constructor and the
+  deprecated alias.
 
 Verification target:
 
