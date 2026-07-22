@@ -186,22 +186,67 @@ Error handling:
 
 ### Phase 2: Minimal grammar path
 
-- [ ] Parse an empty specification.
+- [ ] Parse an empty specification. Code support exists, but this remains open
+  until it has a verification path that does not trip `idl_parse_string`'s
+  existing non-null-root assertion.
 - [ ] Parse a single empty module.
-- [ ] Parse nested modules.
-- [ ] Preserve scope creation/finalization semantics for modules.
-- [ ] Add or identify tests for those cases.
+  - 2026-07-08 correction: keep this as historical context, but do not pursue
+    empty modules as a parity target because the Bison grammar rejects them.
+    Use modules containing empty structs for the Phase 2 smoke tests instead.
+- [x] Parse nested modules. Done 2026-07-08 for module definitions containing
+  empty structs.
+- [x] Preserve scope creation/finalization semantics for modules. Done
+  2026-07-08; hand-parser tests assert that parsing returns to global scope
+  and that nested definitions get the expected parent links.
+- [x] Add or identify tests for those cases. Done 2026-07-08 with
+  `idl_hand_parser_*` tests registered only for `ENABLE_IDL_HAND_PARSER`.
 
 ### Phase 3: Type declarations
 
-- [ ] Parse primitive type specs.
-- [ ] Parse scoped names as type refs.
-- [ ] Parse typedefs with simple declarators.
+- [x] Parse primitive type specs. Done 2026-07-08 for base type specs,
+  including extended integer tokens when `IDL_FLAG_EXTENDED_DATA_TYPES` makes
+  the scanner classify them as keywords. This does not include scoped names or
+  template type specs.
+- [x] Parse scoped names as type refs. Done 2026-07-08 for relative,
+  qualified, and absolute scoped names that resolve to existing type specs.
+- [x] Parse typedefs with simple declarators. Done 2026-07-08 for typedefs
+  whose type spec is already supported by the hand parser and whose
+  declarators are simple identifiers.
 - [ ] Parse fixed arrays and multi-dimensional arrays.
+  - 2026-07-10 progress: declarators now support one or more fixed-array
+    bounds when each bound is an integer literal that fits in `IDL_ULONG`.
+    This covers member and typedef arrays, including mixed simple and array
+    declarators in one declaration. Keep this item open until bounds accept
+    the full `positive_int_const` grammar, including named constants and
+    expressions.
 - [ ] Parse string, wstring, and sequence template types.
+  - 2026-07-10 progress: member and typedef type specs now support
+    `string`, `wstring`, `sequence<T>`, and literal-bounded forms such as
+    `string<12>`, `wstring<7>`, and `sequence<long, 4>`. Nested sequences work
+    when tokenized without a `>>` token ambiguity. Keep this item open until
+    template bounds accept full `positive_int_const`, sequence element
+    annotations are parsed, and nested closing-angle handling is audited.
 - [ ] Parse structs with members.
-- [ ] Parse struct inheritance.
-- [ ] Parse struct forward declarations.
+  - 2026-07-08 note: only empty struct definitions are parsed so modules can
+    have a Bison-valid leaf definition. Full member parsing remains pending.
+  - 2026-07-08 progress: member lists now support primitive type specs and
+    comma-separated simple declarators. Keep this item open until members also
+    support scoped-name type refs, template type specs, array declarators,
+    annotations, and other Bison grammar forms.
+  - 2026-07-08 progress: member type specs now also support scoped-name type
+    refs, including same-module, cross-module, and absolute references. Keep
+    this item open for template type specs, array declarators, annotations,
+    and the other pending Bison grammar forms.
+  - 2026-07-10 progress: member declarators now support fixed-array suffixes
+    with literal bounds, including multi-dimensional arrays. Keep this item
+    open for template type specs, annotations, and non-literal array bounds.
+  - 2026-07-10 progress: member type specs now support string, wstring, and
+    sequence template types with literal bounds. Keep this item open for
+    annotations and non-literal bounds.
+- [x] Parse struct inheritance. Done 2026-07-09 for scoped-name bases,
+  including aliases that resolve to structs.
+- [x] Parse struct forward declarations. Done 2026-07-09 for `struct name;`,
+  including repeated forwards linked to the eventual definition.
 - [ ] Parse unions, switch specs, cases, defaults, and labels.
 - [ ] Parse union forward declarations.
 - [ ] Parse enums and enumerators.
@@ -249,6 +294,9 @@ Use sanitizer environment when running project code:
 - `LSAN_OPTIONS=detect_leaks=1`
 - if the build uses ASAN: `ASAN_OPTIONS=detect_leaks=1:halt_on_error=1`
 - if the build uses UBSAN: `UBSAN_OPTIONS=halt_on_error=1`
+- 2026-07-10 note: local test runs should also set
+  `CYCLONEDDS_URI='<Transport>fakeudp</Transport>'` to avoid UDP sandbox
+  restrictions unless a real transport is intentionally being tested.
 
 When comparing Bison and hand-parser behavior, prefer stable outputs:
 
@@ -293,6 +341,38 @@ unless a test already depends on it.
 - 2026-07-08: First default build exposed a missing generated-token include in
   `parser_impl.c`; fixed by including `parser.h` while the scanner still uses
   Bison token definitions.
+- 2026-07-08: Added the first real recursive-descent grammar path: top-level
+  definitions, modules, nested modules, and empty structs as leaf definitions.
+  Empty modules were deliberately not accepted after testing showed that the
+  post-parse XCDR2 validation assumes module definitions are non-null, matching
+  the Bison grammar's requirement that modules contain at least one definition.
+- 2026-07-08: Added `ENABLE_IDL_HAND_PARSER`-only CUnit cases for module
+  parsing, nested module parsing, comments/newlines, and escaped identifiers.
+- 2026-07-08: Added primitive base type parsing and struct member parsing for
+  comma-separated simple declarators. Extended fixed-width integer type names
+  follow the existing scanner flag behavior and are tested with
+  `IDL_FLAG_EXTENDED_DATA_TYPES`.
+- 2026-07-08: Added scoped-name type references for struct members, using
+  `idl_resolve` and requiring the resolved declaration to be an existing type
+  spec, matching the Bison semantic action.
+- 2026-07-08: Added simple typedef declarations using existing type-spec and
+  declarator parsing, including aliases that are later used as member types.
+- 2026-07-09: Added struct forward declarations for `struct name;`, reusing
+  `idl_create_forward` so repeated forwards and later definitions are linked
+  by the existing declaration machinery.
+- 2026-07-09: Added struct inheritance for scoped-name bases, using the same
+  resolve, unalias, and `idl_create_inherit_spec` flow as the Bison action.
+- 2026-07-10: Added fixed-array declarator parsing for literal bounds. The
+  parser now creates the same `IDL_ULONG` literal nodes that Bison obtains by
+  evaluating `positive_int_const`, chains multiple dimensions on the
+  declarator, and relies on `idl_create_declarator` for the existing nonzero
+  bound validation. Tests cover member arrays, typedef arrays, zero bounds,
+  and bounds larger than `UINT32_MAX`.
+- 2026-07-10: Added string, wstring, and sequence template type parsing for
+  member and typedef type specs. Literal bounds are shared with the array
+  parser, and tests cover bounded/unbounded strings, bounded/unbounded
+  wstrings, bounded/unbounded sequences, nested sequences, typedefs to
+  sequences, and the existing `string<UINT32_MAX>` overflow diagnostic.
 
 ## Differences from Bison parser
 
@@ -301,6 +381,42 @@ unless a test already depends on it.
   hand-written parser currently accepts only an empty specification and reports
   `syntax error` for other grammar tokens. This is intentional scaffolding, not
   a parity claim.
+- 2026-07-08: Superseding note for the previous scaffold limitation: in an
+  `ENABLE_IDL_HAND_PARSER=ON` development build, the hand parser now accepts
+  module definitions and empty struct definitions. It still reports
+  `syntax error` for most other grammar constructs. Empty modules are rejected
+  intentionally, because they are not accepted by the Bison grammar and they
+  violate existing post-parse validation assumptions.
+- 2026-07-08: Superseding note: in an `ENABLE_IDL_HAND_PARSER=ON` development
+  build, the hand parser also accepts structs with members whose type spec is a
+  primitive base type and whose declarators are simple identifiers. Members
+  using scoped-name type refs, template types, arrays, annotations, or other
+  pending grammar forms still report `syntax error`.
+- 2026-07-08: Superseding note: in an `ENABLE_IDL_HAND_PARSER=ON` development
+  build, the hand parser also accepts scoped-name type refs in member type
+  specs. Template types, arrays, annotations, and other pending grammar forms
+  still report `syntax error`.
+- 2026-07-08: Superseding note: in an `ENABLE_IDL_HAND_PARSER=ON` development
+  build, the hand parser also accepts typedef declarations with simple
+  declarators when the typedef type spec is already supported. Typedefs with
+  inline constructed types or array declarators are still pending.
+- 2026-07-09: Superseding note: in an `ENABLE_IDL_HAND_PARSER=ON` development
+  build, the hand parser also accepts `struct name;` forward declarations.
+  Union forward declarations are still pending until union parsing exists.
+- 2026-07-09: Superseding note: in an `ENABLE_IDL_HAND_PARSER=ON` development
+  build, the hand parser also accepts struct inheritance with scoped-name
+  bases. Multiple inheritance and non-struct bases remain rejected by existing
+  semantic checks.
+- 2026-07-10: Superseding note: in an `ENABLE_IDL_HAND_PARSER=ON` development
+  build, the hand parser also accepts member and typedef array declarators
+  with integer-literal bounds. The Bison grammar accepts the full
+  `positive_int_const` grammar for bounds; named constants and expression
+  bounds remain pending until constant-expression parsing exists.
+- 2026-07-10: Superseding note: in an `ENABLE_IDL_HAND_PARSER=ON` development
+  build, the hand parser also accepts `string`, `wstring`, and `sequence`
+  template type specs with optional integer-literal bounds. The Bison grammar
+  also accepts full `positive_int_const` bounds and sequence element
+  annotations; those remain pending.
 
 ## Local verification log
 
@@ -317,3 +433,68 @@ unless a test already depends on it.
   `cmake -S . -B build-hand-parser -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=/opt/homebrew/opt/llvm/bin/clang -DCMAKE_CXX_COMPILER=/opt/homebrew/opt/llvm/bin/clang++ -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DSANITIZER=address,undefined -DBUILD_TESTING=OFF -DENABLE_IDL_HAND_PARSER=ON`.
 - 2026-07-08: Built hand-parser-selected `idl` target with
   `cmake --build build-hand-parser --target idl --parallel`; result: passed.
+- 2026-07-08: Reconfigured `build-hand-parser` with `-DBUILD_TESTING=ON`,
+  rebuilt `cunit_idl`, and ran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 3/3 passed.
+- 2026-07-08: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-08 note: the primitive-member and scoped-name verification entries
+  immediately below are not in commit order because repeated command text made
+  the append context ambiguous. The primitive-member checkpoint was verified
+  and committed first; scoped-name type refs were verified afterward.
+- 2026-07-08: After adding scoped-name type refs, rebuilt hand-parser
+  `cunit_idl` with `cmake --build build-hand-parser --target cunit_idl --parallel`
+  and ran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 7/7 passed.
+- 2026-07-08: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-08: After adding primitive member parsing, rebuilt hand-parser
+  `cunit_idl` with `cmake --build build-hand-parser --target cunit_idl --parallel`
+  and ran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 5/5 passed.
+- 2026-07-08: After adding simple typedef declarations, rebuilt hand-parser
+  `cunit_idl` with `cmake --build build-hand-parser --target cunit_idl --parallel`
+  and ran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 9/9 passed.
+- 2026-07-08: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-08: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-08 canonical checkpoint order: primitive member parsing was verified
+  first with hand-parser tests at 5/5, scoped-name type refs second at 7/7,
+  and simple typedef declarations third at 9/9. The default Bison-path
+  `^idl_` slice remained 126/126 after each checkpoint.
+- 2026-07-09: After adding struct forward declarations, rebuilt hand-parser
+  `cunit_idl` with `cmake --build build-hand-parser --target cunit_idl --parallel`
+  and ran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 11/11 passed.
+- 2026-07-09: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: First fixed-array build failed because the new test used
+  `CU_ASSERT_FALSE`, which this CUnit wrapper does not define. Changed it to
+  the existing `CU_ASSERT(!...)` style and rebuilt `build-hand-parser`
+  `cunit_idl`; result: passed.
+- 2026-07-10: After adding literal-bound array declarators and the oversized
+  bound negative test, ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 17/17 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding string, wstring, and sequence template type specs,
+  rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 21/21 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-09: Added a null-declaration guard to the struct inheritance helper,
+  rebuilt hand-parser `cunit_idl`, reran the same hand-parser sanitizer slice;
+  result: 13/13 passed. Rebuilt default `build-debug` `cunit_idl` and reran
+  the same default `^idl_` sanitizer slice; result: 126/126 passed.
+- 2026-07-09: While adding struct inheritance, the first hand-parser test run
+  failed because `parse_struct` treated any token other than `{` after the
+  name as either a forward declaration or syntax error, so it rejected `:`
+  before inheritance parsing could run. Fixed by checking `;`, then optional
+  `: scoped_name`, then `{`.
+- 2026-07-09: After fixing struct inheritance, rebuilt hand-parser `cunit_idl`
+  with `cmake --build build-hand-parser --target cunit_idl --parallel` and ran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 13/13 passed.
+- 2026-07-09: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
