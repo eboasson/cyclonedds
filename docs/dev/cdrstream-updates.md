@@ -419,7 +419,7 @@ Verification target:
 
 ### 8. Migrate straightforward internal stream construction
 
-Status: `[ ]`
+Status: `[x]`
 
 Commit scope:
 
@@ -434,7 +434,15 @@ Decisions so far:
 * the migration should be incremental;
 * direct struct literals in tests may remain temporarily when they are clearer
   or when the test intentionally constructs a malformed stream;
-* no external compatibility break should be introduced.
+* no external compatibility break should be introduced;
+* migrate production serdata paths that construct streams only after
+  normalization or over stored serialized keys;
+* migrate the fuzzer trusted-consumer calls because they run only after
+  successful normalization;
+* migrate internal tests that read, print or extract keys from static,
+  normalized or locally serialized CDR;
+* keep one `dds_istream_init` call in the symbol-export probe so the deprecated
+  compatibility symbol remains covered.
 
 Verification target:
 
