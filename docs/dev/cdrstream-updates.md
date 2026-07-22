@@ -480,7 +480,7 @@ Verification target:
 
 ### 10. Migrate receive and XTypes metadata paths to helpers
 
-Status: `[ ]`
+Status: `[x]`
 
 Commit scope:
 
@@ -494,7 +494,16 @@ Decisions so far:
 * normal receive paths already normalize before stream construction, so this is
   primarily a clarity and misuse-prevention step;
 * TypeInformation and TypeMapping paths need particular care because they use
-  `dds_stream_normalize_xcdr2_data`.
+  `dds_stream_normalize_xcdr2_data`;
+* default serdata receive paths now initialize the trusted stream through the
+  complete-sample helper;
+* the PSMX serialized-data path copies into the owned serdata buffer before
+  normalization, so XCDR2 serialized-key aliases still point into serdata-owned
+  storage;
+* TypeInformation and TypeMapping readers now use the XCDR2 fragment helper;
+* the CDR serdata receive path only validates at construction time, so the dead
+  stream initialization there was removed instead of introducing an unused
+  helper result.
 
 Verification target:
 
