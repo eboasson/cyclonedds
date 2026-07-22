@@ -7,7 +7,10 @@ and switching between machines or threads.
 
 ## Working rules
 
-- Reread this file before each implementation step.
+- Obsolete as of 2026-07-10: reread this file before each implementation
+  step. This was useful during context-churn setup, but the user explicitly
+  scratched the rule so future work should read the plan when useful rather
+  than before every implementation step.
 - Never remove information from this document. Only add new information,
   append corrections, or mark items done.
 - When an item becomes obsolete, keep it and add a dated note explaining why.
@@ -248,9 +251,33 @@ Error handling:
 - [x] Parse struct forward declarations. Done 2026-07-09 for `struct name;`,
   including repeated forwards linked to the eventual definition.
 - [ ] Parse unions, switch specs, cases, defaults, and labels.
-- [ ] Parse union forward declarations.
+  - 2026-07-10 progress: simple union definitions now parse for
+    `union name switch(type) { ... };` using the existing switch-type, case,
+    case-label, and union AST helpers. The hand parser currently supports
+    default labels and integer-literal `case` labels, one or more labels per
+    branch, one or more branches, and the currently supported `type_spec` and
+    declarator forms for branch members. Keep this item open for full
+    `const_expr`, enum/bit-value labels, annotation support, and broader
+    parity coverage.
+- [x] Parse union forward declarations. Done 2026-07-10 for `union name;`,
+  repeated forwards, and forwards linked to a later simple union definition.
+  - 2026-07-10 progress: the hand parser now recognizes `union name;` and
+    repeated union forwards by creating `IDL_UNION | IDL_FORWARD` nodes. A
+    standalone forward still fails final validation as an incomplete type, as
+    expected. The later simple-union-definition slice added an OK
+    forward-plus-definition test that links the forward to the definition.
 - [ ] Parse enums and enumerators.
+  - 2026-07-10 progress: unannotated enum definitions now parse with
+    non-empty comma-separated enumerator lists. Tests cover enumerator values,
+    default-enumerator assignment, use as member type, empty enum rejection,
+    duplicate enumerator rejection, and enum/enumerator name clashes. Keep
+    this item open until enumerator annotations are supported.
 - [ ] Parse bitmasks and bit values.
+  - 2026-07-10 progress: unannotated bitmask definitions now parse with
+    non-empty comma-separated bit value lists. Tests cover implicit bit
+    positions, default bit bound, use as member type, empty bitmask rejection,
+    duplicate bit value rejection, and bitmask/bit-value name clashes. Keep
+    this item open until bit value annotations and `@bit_bound` are supported.
 
 ### Phase 4: Constants and annotations
 
@@ -373,6 +400,14 @@ unless a test already depends on it.
   parser, and tests cover bounded/unbounded strings, bounded/unbounded
   wstrings, bounded/unbounded sequences, nested sequences, typedefs to
   sequences, and the existing `string<UINT32_MAX>` overflow diagnostic.
+- 2026-07-10: Added unannotated enum parsing, using `idl_create_enumerator`
+  while reading the enumerator list and `idl_create_enum` at the closing
+  brace so value/default assignment and name-collision checks stay in the
+  existing tree helpers.
+- 2026-07-10: Added unannotated bitmask parsing, mirroring the enum parsing
+  shape with `idl_create_bit_value` while reading the list and
+  `idl_create_bitmask` at the closing brace so implicit positions and name
+  collision checks stay in the existing tree helpers.
 
 ## Differences from Bison parser
 
@@ -417,6 +452,14 @@ unless a test already depends on it.
   template type specs with optional integer-literal bounds. The Bison grammar
   also accepts full `positive_int_const` bounds and sequence element
   annotations; those remain pending.
+- 2026-07-10: Superseding note: in an `ENABLE_IDL_HAND_PARSER=ON` development
+  build, the hand parser also accepts unannotated enum definitions and enum
+  type references. Enumerator annotations remain pending with the broader
+  annotation parser work.
+- 2026-07-10: Superseding note: in an `ENABLE_IDL_HAND_PARSER=ON` development
+  build, the hand parser also accepts unannotated bitmask definitions and
+  bitmask type references. Bit value annotations and `@bit_bound` remain
+  pending with the broader annotation parser work.
 
 ## Local verification log
 
@@ -470,6 +513,25 @@ unless a test already depends on it.
   `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 11/11 passed.
 - 2026-07-09: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: At user request, marked the "reread this file before each
+  implementation step" rule obsolete. The plan remains the durable notebook,
+  but it no longer has to be reread mechanically before every small step.
+- 2026-07-10: After adding union-forward recognition, the first focused test
+  run showed that `union Choice;` parses far enough to hit the existing
+  incomplete-forward validation, returning `IDL_RETCODE_SEMANTIC_ERROR`
+  instead of syntax error. Adjusted the tests to capture that observable
+  behavior until full union definitions can complete the forwards.
+- 2026-07-10: Rebuilt hand-parser `cunit_idl` with
+  `cmake --build build-hand-parser --target cunit_idl --parallel` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 31/31 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding simple union definitions, rebuilt hand-parser
+  `cunit_idl` with `cmake --build build-hand-parser --target cunit_idl --parallel`
+  and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 35/35 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-10: First fixed-array build failed because the new test used
   `CU_ASSERT_FALSE`, which this CUnit wrapper does not define. Changed it to
   the existing `CU_ASSERT(!...)` style and rebuilt `build-hand-parser`
@@ -477,6 +539,16 @@ unless a test already depends on it.
 - 2026-07-10: After adding literal-bound array declarators and the oversized
   bound negative test, ran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 17/17 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding unannotated bitmask parsing, rebuilt hand-parser
+  `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 29/29 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding unannotated enum parsing, rebuilt hand-parser
+  `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 25/25 passed.
 - 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-10: After adding string, wstring, and sequence template type specs,
