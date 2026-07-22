@@ -360,11 +360,38 @@ Error handling:
     constants keep referencing the selected enumerator; bitmask constants
     evaluate to bitmask literals and can be reused in later bitmask
     expressions and case labels. Keep this item open for annotations.
-- [ ] Parse annotation declarations.
-- [ ] Parse annotation applications without parameters.
-- [ ] Parse positional annotation application parameters.
-- [ ] Parse keyword annotation application parameters.
+- [x] Parse annotation declarations. Done 2026-07-10 for annotation blocks
+  with empty bodies, annotation members with optional defaults, and supported
+  enum, bitmask, const, and typedef definitions inside the annotation body.
+  Annotation applications inside those nested definitions remain covered by the
+  broader application items below.
+- [x] Parse annotation applications without parameters.
+  - 2026-07-10 progress: no-parameter annotation applications now parse before
+    top-level definitions and struct members, including builtin callbacks such
+    as `@key` and custom empty annotations. Keep this item open for switch
+    headers, union branches, enumerators, bit values, sequence element
+    annotations, and annotation applications inside annotation-body definitions.
+  - 2026-07-10 completion: no-parameter annotation applications now also parse
+    on sequence element types, union switch type specs, union branch
+    definitions, enum values, and bitmask values. Focused tests cover those
+    positions directly and also cover nested enum, bitmask, and typedef
+    definitions inside an annotation body.
+- [x] Parse positional annotation application parameters. Done 2026-07-13 for
+  `@annotation(value)` forms. The hand parser now finalizes the positional
+  constant expression through the first annotation member, resolves builtin enum
+  parameters in the annotation scope, evaluates parameters during annotation
+  application, and treats unknown annotation parameters as syntax-only so
+  unsupported vendor annotations can still be discarded.
+- [x] Parse keyword annotation application parameters. Done 2026-07-13 for
+  comma-separated `name = value` lists. The hand parser now peeks far enough to
+  distinguish keyword parameters from positional identifier expressions,
+  resolves parameter names inside the annotation scope, creates explicit
+  parameter nodes, and keeps unknown annotation keyword arguments syntax-only.
 - [ ] Preserve builtin annotation parsing and callback assignment.
+  - 2026-07-10 progress: hand-parser builds now explicitly finish the generated
+    parser's builtin-annotation bootstrap before parsing user IDL, so builtin
+    annotation nodes are not left owned by an unfinished Bison stack. Focused
+    tests cover no-parameter `@key` callback assignment on a struct member.
 
 ### Phase 5: Compatibility and negative tests
 
@@ -372,7 +399,20 @@ Error handling:
   parser for the existing parser tests.
 - [ ] Add focused tests for grammar corners discovered during migration.
 - [ ] Add malformed input tests for representative syntax failures.
+  - 2026-07-13 progress: annotation application malformed-parameter tests now
+    cover no-parameter annotations given a positional parameter, empty
+    parameter lists, mixed positional/keyword forms, missing keyword values,
+    unknown keyword members, and malformed unknown-annotation parameters. The
+    cases are split into separate CTest entries so each one gets independent
+    ASAN/LSAN coverage.
 - [ ] Verify parser-owned cleanup with ASAN/LSAN.
+  - 2026-07-13 progress: the annotation negative sweep exposed and fixed two
+    cleanup issues. Keyword annotation application parameters now parent
+    unscoped expression values as soon as the parameter node is created, so a
+    later syntax error can delete the partially parsed parameter list safely.
+    The hand-parser path also refreshes `builtin_root` immediately after
+    finishing the generated builtin-annotation bootstrap, so failed hand-parser
+    parses delete the finalized builtin annotation tree.
 - [ ] Document any intentional diagnostic differences.
 
 ### Phase 6: Default switch
@@ -536,6 +576,11 @@ unless a test already depends on it.
   build, the hand parser also accepts unannotated bitmask definitions and
   bitmask type references. Bit value annotations and `@bit_bound` remain
   pending with the broader annotation parser work.
+- 2026-07-10: Superseding note: in an `ENABLE_IDL_HAND_PARSER=ON` development
+  build, the hand parser also accepts annotation declarations and no-parameter
+  annotation applications before top-level definitions and struct members.
+  Annotation application parameters and the remaining annotation attachment
+  positions still report `syntax error`.
 
 ## Local verification log
 
@@ -677,6 +722,42 @@ unless a test already depends on it.
   parity, rebuilt hand-parser `cunit_idl` and ran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 52/52 passed.
 - 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding annotation declarations and initial no-parameter
+  annotation applications, the first hand-parser test run failed in two useful
+  ways: `idl_is_bitmask` still rejected annotation-body bitmask parents even
+  though enums already allowed annotation parents, and builtin annotation
+  applications exposed that the hand-parser path left the generated parser's
+  builtin-annotation bootstrap stack unfinished. Fixed by allowing annotation
+  parents for bitmasks and typedefs, and by pushing an EOF token through the
+  generated parser before starting user-IDL parsing in hand-parser builds.
+- 2026-07-10: After those fixes, rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 54/54 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After extending no-parameter annotation applications to the
+  remaining generated-grammar attachment points, the first hand-parser test
+  run found that the debug invariant for annotation application parents had
+  not kept up with the grammar. Fixed the invariant to include consts,
+  typedefs, forward declarations, cases, sequences, enum values, and bit
+  values.
+- 2026-07-10: Rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 56/56 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-13: After adding positional annotation application parameters, the
+  first hand-parser test run exposed a test string ambiguity where
+  `string<5>> name` let the bound expression consume `>>` as a shift operator.
+  The test was changed to use separated template closers so this slice remains
+  focused on annotation parameters.
+- 2026-07-13: Rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 58/58 passed.
+- 2026-07-13: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-13: After adding keyword annotation application parameters, rebuilt
+  hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 60/60 passed.
+- 2026-07-13: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-09: Added a null-declaration guard to the struct inheritance helper,
   rebuilt hand-parser `cunit_idl`, reran the same hand-parser sanitizer slice;
