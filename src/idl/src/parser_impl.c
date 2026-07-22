@@ -22,7 +22,6 @@
 #include "directive.h"
 #include "expression.h"
 #include "parser_impl.h"
-#include "parser.h"
 #include "scanner.h"
 #include "scope.h"
 #include "symbol.h"
