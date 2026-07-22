@@ -215,13 +215,23 @@ Error handling:
 - [x] Parse typedefs with simple declarators. Done 2026-07-08 for typedefs
   whose type spec is already supported by the hand parser and whose
   declarators are simple identifiers.
-- [ ] Parse fixed arrays and multi-dimensional arrays.
+- [x] Parse fixed arrays and multi-dimensional arrays. Done 2026-07-10 for
+  literal and evaluated constant-expression dimensions, including named
+  integer constants.
   - 2026-07-10 progress: declarators now support one or more fixed-array
     bounds when each bound is an integer literal that fits in `IDL_ULONG`.
     This covers member and typedef arrays, including mixed simple and array
     declarators in one declaration. Keep this item open until bounds accept
     the full `positive_int_const` grammar, including named constants and
     expressions.
+  - 2026-07-10 progress: fixed-array bounds now parse and evaluate reusable
+    `const_expr` input as `IDL_ULONG`, so arithmetic, bitwise, shift, unary,
+    and parenthesized expressions work in array dimensions. Keep this item
+    open for named constants once const declarations are parsed and for
+    broader Bison-parity coverage.
+  - 2026-07-10 progress: after adding const declarations, fixed-array bounds
+    now also accept named integer constants, including expressions built from
+    earlier constants.
 - [ ] Parse string, wstring, and sequence template types.
   - 2026-07-10 progress: member and typedef type specs now support
     `string`, `wstring`, `sequence<T>`, and literal-bounded forms such as
@@ -229,6 +239,15 @@ Error handling:
     when tokenized without a `>>` token ambiguity. Keep this item open until
     template bounds accept full `positive_int_const`, sequence element
     annotations are parsed, and nested closing-angle handling is audited.
+  - 2026-07-10 progress: string, wstring, and sequence bounds now reuse the
+    same evaluated `positive_int_const` helper as arrays. Tests cover
+    expression bounds for bounded strings, bounded wstrings, bounded
+    sequences, and nested sequence bounds. Keep this item open for sequence
+    element annotations and nested closing-angle handling.
+  - 2026-07-10 progress: nested unbounded sequence types now handle adjacent
+    template closers by splitting `>>` tokens only when a template `>` is
+    expected. Tests cover double and triple adjacent closers. Keep this item
+    open for sequence element annotations.
 - [ ] Parse structs with members.
   - 2026-07-08 note: only empty struct definitions are parsed so modules can
     have a Bison-valid leaf definition. Full member parsing remains pending.
@@ -257,8 +276,27 @@ Error handling:
     default labels and integer-literal `case` labels, one or more labels per
     branch, one or more branches, and the currently supported `type_spec` and
     declarator forms for branch members. Keep this item open for full
-    `const_expr`, enum/bit-value labels, annotation support, and broader
-    parity coverage.
+    `const_expr`, annotation support, and broader parity coverage.
+  - 2026-07-10 progress: union `case` labels now use a small const-expression
+    parser for integer literals and scoped names resolving to constants,
+    enumerators, or bit values. Tests cover enum discriminator labels,
+    multiple labels on one branch, and rejecting an enumerator from the wrong
+    enum. Keep this item open for operators, parentheses, non-integer literal
+    forms, and annotation support.
+  - 2026-07-10 progress: union `case` labels now also support boolean and
+    character literals. Tests cover a fully-labelled boolean discriminator and
+    a character discriminator label. Keep this item open for floating-point
+    and string literal syntax checks where relevant, plus full expression
+    operators and parentheses.
+  - 2026-07-10 progress: union `case` labels now accept parenthesized primary
+    expressions and unary `+`, `-`, and `~` expressions. Tests cover evaluated
+    signed and bitwise-not labels. Keep this item open for binary operators
+    and the remaining expression grammar.
+  - 2026-07-10 progress: union `case` labels now use the Bison precedence
+    ladder for binary `|`, `^`, `&`, `<<`, `>>`, `+`, `-`, `*`, `/`, and
+    `%` expressions. Tests cover precedence and parenthesized overrides. Keep
+    this item open for using the const-expression parser in bounds and const
+    declarations, floating/string literal syntax checks, and annotations.
 - [x] Parse union forward declarations. Done 2026-07-10 for `union name;`,
   repeated forwards, and forwards linked to a later simple union definition.
   - 2026-07-10 progress: the hand parser now recognizes `union name;` and
@@ -281,9 +319,47 @@ Error handling:
 
 ### Phase 4: Constants and annotations
 
-- [ ] Parse all literal forms accepted by the current scanner.
+- [x] Parse all Bison-supported literal forms accepted by the current scanner.
+  Done 2026-07-10 for integer, floating-point, character, boolean, string,
+  and adjacent string literal concatenation. Wchar/wstring literals remain
+  intentionally unsupported, matching the existing Bison grammar note.
 - [ ] Parse constant expressions with Bison-equivalent precedence.
+  - 2026-07-10 progress: the hand parser now has a reusable
+    const-expression precedence parser for union labels covering primary
+    integer/character/boolean/scoped names, parentheses, unary operators, and
+    binary integer operators. Keep this item open until it is reused for
+    array/template bounds and const declarations, and until remaining literal
+    forms are handled.
+  - 2026-07-10 progress: the reusable const-expression parser is now used for
+    fixed-array and string/wstring/sequence template bounds via an evaluated
+    `positive_int_const` helper. Keep this item open for const declarations
+    and remaining literal forms.
+  - 2026-07-10 progress: const declarations now reuse the const-expression
+    parser, and later expressions can resolve those constants by scoped name.
+    Keep this item open for floating-point and string literal forms.
+  - 2026-07-10 progress: floating-point and string literals, including
+    adjacent string literal concatenation, now parse as primary expressions.
+    Keep this item open for any remaining parity checks outside the current
+    focused tests.
+  - 2026-07-10 progress: named enum constants and named bitmask constants now
+    evaluate correctly when reused in later constant expressions and union case
+    labels. Keep this item open for annotation-related expression parity.
 - [ ] Parse const declarations.
+  - 2026-07-10 progress: unannotated `const` declarations now parse for the
+    currently supported const-expression forms. Tests cover integer
+    expression evaluation and using named constants in later array bounds,
+    template bounds, and union labels, plus char and boolean constants used
+    as labels. Keep this item open for floating-point and string literal
+    forms, enum constants, scoped const type parity, and annotations.
+  - 2026-07-10 progress: const declarations now also accept floating-point
+    and string literals, including evaluating a `double` constant as `float`
+    and concatenating adjacent string literals. Keep this item open for enum
+    constants, scoped const type parity, and annotations.
+  - 2026-07-10 progress: const declarations now cover scoped typedef-backed
+    base and string types, enum constants, and bitmask constants. Enum
+    constants keep referencing the selected enumerator; bitmask constants
+    evaluate to bitmask literals and can be reused in later bitmask
+    expressions and case labels. Keep this item open for annotations.
 - [ ] Parse annotation declarations.
 - [ ] Parse annotation applications without parameters.
 - [ ] Parse positional annotation application parameters.
@@ -532,6 +608,47 @@ unless a test already depends on it.
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 35/35 passed.
 - 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding scoped-name union case labels and integer-literal
+  type selection, rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 38/38 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding boolean and character literal union case labels,
+  rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 40/40 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding parenthesized and unary union case-label
+  expressions, rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 41/41 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding binary-precedence union case-label expressions,
+  rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 42/42 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After reusing evaluated `positive_int_const` expressions for
+  fixed-array and template bounds, rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 44/44 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding unannotated const declarations for currently
+  supported const-expression forms, rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 47/47 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding floating-point and string literal primary
+  expressions, including adjacent string literal concatenation, rebuilt
+  hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 48/48 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding template-close splitting for nested sequence
+  types, rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 49/49 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-10: First fixed-array build failed because the new test used
   `CU_ASSERT_FALSE`, which this CUnit wrapper does not define. Changed it to
   the existing `CU_ASSERT(!...)` style and rebuilt `build-hand-parser`
@@ -554,6 +671,11 @@ unless a test already depends on it.
 - 2026-07-10: After adding string, wstring, and sequence template type specs,
   rebuilt hand-parser `cunit_idl` and ran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 21/21 passed.
+- 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-10: After adding scoped const-type, enum const, and bitmask const
+  parity, rebuilt hand-parser `cunit_idl` and ran
+  `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 52/52 passed.
 - 2026-07-10: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env CYCLONEDDS_URI='<Transport>fakeudp</Transport>' ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
 - 2026-07-09: Added a null-declaration guard to the struct inheritance helper,
