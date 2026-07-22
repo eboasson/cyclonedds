@@ -215,6 +215,10 @@ Error handling:
 - [x] Parse typedefs with simple declarators. Done 2026-07-08 for typedefs
   whose type spec is already supported by the hand parser and whose
   declarators are simple identifiers.
+  - 2026-07-13 progress: typedef declarations now also accept constructed
+    struct, union, enum, and bitmask type declarations in the Bison-compatible
+    `typedef constr_type_dcl declarators` form, including forward references
+    that resolve to an existing definition.
 - [x] Parse fixed arrays and multi-dimensional arrays. Done 2026-07-10 for
   literal and evaluated constant-expression dimensions, including named
   integer constants.
@@ -411,6 +415,9 @@ Error handling:
     build for `XSpaceEnumUnion.idl` was fixed by allowing synthesized bitmask
     default discriminator literals to advance through used labels. The full
     `src/core/**/*.idl` generated-output comparison now passes 41/41.
+  - 2026-07-13 progress: after the cleanup and constructed-typedef fixes, the
+    generated-output comparison covers all 70 IDL files currently found under
+    `src` and `examples` and passes 70/70.
 - [ ] Add focused tests for grammar corners discovered during migration.
   - 2026-07-13 progress: added `idl_union_default_discriminator_bitmask` to
     cover explicit and implicit default discriminator synthesis for bitmask
@@ -431,6 +438,12 @@ Error handling:
     The hand-parser path also refreshes `builtin_root` immediately after
     finishing the generated builtin-annotation bootstrap, so failed hand-parser
     parses delete the finalized builtin annotation tree.
+  - 2026-07-13 progress: the full hand-parser `^idl_` sanitizer slice exposed
+    mixed-ownership cleanup problems for expression/type-spec nodes returned
+    by shared lookup paths. Added a small release helper that unreferences
+    referenced nodes and deletes parser-owned nodes, fixing the leaks in
+    failed const creation and the UAFs in bad-union-switch and incomplete
+    forward tests. The full hand-parser `^idl_` slice now passes 198/198.
 - [ ] Document any intentional diagnostic differences.
 
 ### Phase 6: Default switch
@@ -688,6 +701,21 @@ unless a test already depends on it.
   focused `idl_union_default_discriminator*` tests passed 5/5; hand-parser
   `^idl_hand_parser_` passed 71/71; default `^idl_` passed 127/127; the
   refreshed `src/core/**/*.idl` deterministic comparison passed 41/41.
+- 2026-07-13: Ran the stronger hand-parser `^idl_` CTest slice and investigated
+  the seven remaining failures. Two expression failures were failed-create
+  cleanup leaks, two malformed-type cases were mixed-ownership cleanup UAFs,
+  and three typedef cases needed the generated grammar's
+  `typedef constr_type_dcl declarators` behavior. Added ownership-aware parser
+  cleanup for nodes returned by shared lookup/evaluation paths and added
+  constructed typedef parsing for structs, unions, enums, and bitmasks.
+  Verification: the focused seven-test cluster passed 7/7 and the full
+  hand-parser `^idl_` slice passed 198/198 with ASAN/UBSAN/LSAN and fake UDP.
+- 2026-07-13: Rebuilt both `build-hand-parser` and `build-debug` `idlc`
+  targets and reran the deterministic Bison-vs-hand-parser generated-output
+  comparison over all 70 IDL files currently found under `src` and `examples`;
+  result: 70/70 compared successfully.
+- 2026-07-13: Reran the default Bison-parser `^idl_` sanitizer CTest slice
+  after the hand-parser cleanup/typedef changes; result: 127/127 passed.
 - 2026-07-10: At user request, marked the "reread this file before each
   implementation step" rule obsolete. The plan remains the durable notebook,
   but it no longer has to be reread mechanically before every small step.
