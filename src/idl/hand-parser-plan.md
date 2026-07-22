@@ -397,6 +397,15 @@ Error handling:
 
 - [ ] Compare AST output or downstream generated output against the Bison
   parser for the existing parser tests.
+  - 2026-07-13 progress: added `scripts/compare-idlc-outputs.sh`, a
+    development helper that runs `idlc` from a Bison-parser build and a
+    hand-parser build through the same output path and compares the copied
+    Bison output with the hand-parser output using `diff -ru`. Local
+    verification compared generated C output successfully for these existing
+    `src/tools/idlc/xtests` inputs: `test_basic.idl`,
+    `test_bounded_seq.idl`, `test_bounded_str.idl`, `test_enum.idl`,
+    `test_bitmask.idl`, `test_union.idl`, `test_struct_keys.idl`,
+    `test_struct_inherit.idl`, `test_alias.idl`, and `test_bool.idl`.
 - [ ] Add focused tests for grammar corners discovered during migration.
 - [ ] Add malformed input tests for representative syntax failures.
   - 2026-07-13 progress: annotation application malformed-parameter tests now
@@ -634,6 +643,35 @@ unless a test already depends on it.
   `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-hand-parser -j2 -R '^idl_hand_parser_' --output-on-failure`; result: 11/11 passed.
 - 2026-07-09: Rebuilt default `build-debug` `cunit_idl` and reran
   `cmake -E env ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 LSAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1 ctest --test-dir build-debug -j2 -R '^idl_' --output-on-failure`; result: 126/126 passed.
+- 2026-07-13: Added `src/core/**/*.idl` to the Bison-vs-hand-parser IDLC
+  comparison sweep. The first sanitizer run failed most files in the
+  hand-parser path because directive newline tokens were skipped before
+  `idl_parse_directive` could finalize line-marker/keylist directive state.
+  Fixed `stream_scan_token` to pass newline tokens to directive parsing while
+  in directive state, finalize directive-token storage on all directive exits,
+  and restore `IDL_SCAN` after consuming a directive newline. After this fix,
+  the core sweep improved to 33/41 compared successfully.
+- 2026-07-13: The remaining core failures showed that IDLC's preprocessor
+  output callback was parsing buffered chunks early, which works for the Bison
+  push parser but not for the whole-translation-unit hand parser. Added the
+  `IDL_USE_HAND_WRITTEN_PARSER` compile definition to the `idlc` executable and
+  skipped the early "tokenize to free space" parse in that build, leaving final
+  parsing to see the complete preprocessed translation unit. After rebuilding,
+  the previous hand-parser-only core failures passed in direct checks.
+- 2026-07-13: Reran the full deterministic comparison over all 41 IDL files
+  under `src/core` with ASAN/UBSAN/LSAN. Result: 40/41 compared successfully.
+  The remaining file, `src/core/ddsc/tests/XSpaceEnumUnion.idl`, aborts in the
+  default Bison build before the hand parser is run. `lldb` showed the abort at
+  `increment_literal` from `idl_finalize_union` while synthesizing a default
+  case for enum/bitmask switch literals, so it is tracked as a shared
+  finalization issue rather than a hand-parser output mismatch.
+- 2026-07-13: Verification after rebuilding both `build-hand-parser` and
+  `build-debug`: `ctest --test-dir build-hand-parser -j2 -R
+  '^idl_hand_parser_' --output-on-failure` with ASAN/UBSAN/LSAN and fake UDP
+  passed 71/71; `ctest --test-dir build-debug -j2 -R '^idl_'
+  --output-on-failure` with the same sanitizer environment passed 126/126; the
+  refreshed `src/core/**/*.idl` deterministic comparison again passed 40/41,
+  with only the default-Bison `XSpaceEnumUnion.idl` abort remaining.
 - 2026-07-10: At user request, marked the "reread this file before each
   implementation step" rule obsolete. The plan remains the durable notebook,
   but it no longer has to be reread mechanically before every small step.
