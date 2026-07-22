@@ -190,10 +190,10 @@ enum dds_stream_normalize_result dds_istream_init_from_normalized_xcdr2_data (
   const uint32_t *ops);
 ```
 
-This helper should initialize the stream over the normalized range.  The exact
-range needs care for callers that normalize from a nonzero offset; the API
-should make it clear whether `is->m_index` starts at zero or at the original
-offset.
+This helper initializes the stream over the normalized range.  For callers that
+normalize from a nonzero offset, `is->m_index` starts at zero and `is->m_buffer`
+points at `data + original_off`.  On error or discard, the offset is restored
+and the stream is reset to an empty sentinel.
 
 ## Deferred trusted skip cleanup
 
@@ -451,7 +451,7 @@ Verification target:
 
 ### 9. Add normalize-to-stream helpers
 
-Status: `[ ]`
+Status: `[x]`
 
 Commit scope:
 
@@ -465,8 +465,12 @@ Decisions so far:
 
 * helpers should normalize in place and must not obscure buffer ownership;
 * on success, the stream should cover the accepted normalized byte range;
-* for nonzero start offsets, the helper API must state whether the stream index
-  starts at zero or at the original offset.
+* for nonzero start offsets, the XCDR2 helper initializes the stream with
+  `m_index == 0` over `data + original_off`;
+* on error or discard, helpers reset the stream to an empty sentinel;
+* on error or discard, the complete-sample helper sets `actual_size` to 0;
+* on error or discard, the XCDR2 fragment helper restores `off` to its original
+  value.
 
 Verification target:
 
