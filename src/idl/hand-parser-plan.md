@@ -180,7 +180,11 @@ Error handling:
   `src/idl/src/parser_impl.h`; default builds still dispatch to Bison.
 - [x] Add token-stream helpers over `idl_scan`. Done 2026-07-08 in the first
   scaffold; the stream currently owns one token and centralizes token cleanup.
-- [ ] Add compatibility helpers for token names and keyword checks if needed.
+- [x] Add compatibility helpers for token names and keyword checks if needed.
+  Done 2026-07-13 by leaving this as unnecessary for the current grammar
+  surface: token classification and template-close handling are localized in
+  the stream/parser helpers, and no separate compatibility layer is needed so
+  far.
 - [x] Ensure the default build and tests still use the Bison parser. Done
   2026-07-08: `ENABLE_IDL_HAND_PARSER` defaults to `OFF`, and the default
   `^idl_` test run passed.
@@ -192,10 +196,16 @@ Error handling:
 - [ ] Parse an empty specification. Code support exists, but this remains open
   until it has a verification path that does not trip `idl_parse_string`'s
   existing non-null-root assertion.
-- [ ] Parse a single empty module.
+  - 2026-07-13 progress: this remains a shared public-helper/assertion issue,
+    not a hand-parser grammar issue. The generated grammar accepts an empty
+    specification, but `idl_parse_string` still asserts a non-null root after
+    any successful parse.
+- [x] Parse a single empty module.
   - 2026-07-08 correction: keep this as historical context, but do not pursue
     empty modules as a parity target because the Bison grammar rejects them.
     Use modules containing empty structs for the Phase 2 smoke tests instead.
+  - 2026-07-13 closure: closed as a non-goal for parity with the generated
+    grammar.
 - [x] Parse nested modules. Done 2026-07-08 for module definitions containing
   empty structs.
 - [x] Preserve scope creation/finalization semantics for modules. Done
@@ -236,7 +246,7 @@ Error handling:
   - 2026-07-10 progress: after adding const declarations, fixed-array bounds
     now also accept named integer constants, including expressions built from
     earlier constants.
-- [ ] Parse string, wstring, and sequence template types.
+- [x] Parse string, wstring, and sequence template types.
   - 2026-07-10 progress: member and typedef type specs now support
     `string`, `wstring`, `sequence<T>`, and literal-bounded forms such as
     `string<12>`, `wstring<7>`, and `sequence<long, 4>`. Nested sequences work
@@ -252,7 +262,11 @@ Error handling:
     template closers by splitting `>>` tokens only when a template `>` is
     expected. Tests cover double and triple adjacent closers. Keep this item
     open for sequence element annotations.
-- [ ] Parse structs with members.
+  - 2026-07-13 completion: sequence element annotations are covered by
+    `idl_hand_parser_annotation_application_on_type_positions` and
+    `idl_hand_parser_annotation_application_on_enum_and_bit_values`, and the
+    full hand-parser `^idl_` slice passes with those tests included.
+- [x] Parse structs with members.
   - 2026-07-08 note: only empty struct definitions are parsed so modules can
     have a Bison-valid leaf definition. Full member parsing remains pending.
   - 2026-07-08 progress: member lists now support primitive type specs and
@@ -269,11 +283,15 @@ Error handling:
   - 2026-07-10 progress: member type specs now support string, wstring, and
     sequence template types with literal bounds. Keep this item open for
     annotations and non-literal bounds.
+  - 2026-07-13 completion: members now use the completed `type_spec`,
+    declarator, annotation, and const-expression bound paths. The full
+    hand-parser `^idl_` slice covers the normal member tests and the focused
+    hand-parser member tests.
 - [x] Parse struct inheritance. Done 2026-07-09 for scoped-name bases,
   including aliases that resolve to structs.
 - [x] Parse struct forward declarations. Done 2026-07-09 for `struct name;`,
   including repeated forwards linked to the eventual definition.
-- [ ] Parse unions, switch specs, cases, defaults, and labels.
+- [x] Parse unions, switch specs, cases, defaults, and labels.
   - 2026-07-10 progress: simple union definitions now parse for
     `union name switch(type) { ... };` using the existing switch-type, case,
     case-label, and union AST helpers. The hand parser currently supports
@@ -301,6 +319,10 @@ Error handling:
     `%` expressions. Tests cover precedence and parenthesized overrides. Keep
     this item open for using the const-expression parser in bounds and const
     declarations, floating/string literal syntax checks, and annotations.
+  - 2026-07-13 completion: the const-expression parser is now shared by case
+    labels, bounds, and const declarations; branch, switch-type, and sequence
+    element annotations are covered; and the generated-output comparison passes
+    for all in-tree union-heavy IDL sources.
 - [x] Parse union forward declarations. Done 2026-07-10 for `union name;`,
   repeated forwards, and forwards linked to a later simple union definition.
   - 2026-07-10 progress: the hand parser now recognizes `union name;` and
@@ -308,18 +330,24 @@ Error handling:
     standalone forward still fails final validation as an incomplete type, as
     expected. The later simple-union-definition slice added an OK
     forward-plus-definition test that links the forward to the definition.
-- [ ] Parse enums and enumerators.
+- [x] Parse enums and enumerators.
   - 2026-07-10 progress: unannotated enum definitions now parse with
     non-empty comma-separated enumerator lists. Tests cover enumerator values,
     default-enumerator assignment, use as member type, empty enum rejection,
     duplicate enumerator rejection, and enum/enumerator name clashes. Keep
     this item open until enumerator annotations are supported.
-- [ ] Parse bitmasks and bit values.
+  - 2026-07-13 completion: enumerator annotations and builtin `@value`
+    handling are covered by the focused annotation tests and by the full
+    hand-parser `^idl_` slice.
+- [x] Parse bitmasks and bit values.
   - 2026-07-10 progress: unannotated bitmask definitions now parse with
     non-empty comma-separated bit value lists. Tests cover implicit bit
     positions, default bit bound, use as member type, empty bitmask rejection,
     duplicate bit value rejection, and bitmask/bit-value name clashes. Keep
     this item open until bit value annotations and `@bit_bound` are supported.
+  - 2026-07-13 completion: bit-value annotations, builtin `@position`, and
+    `@bit_bound` are covered by the focused annotation tests, the shared
+    `idl_annotation_bit_bound` tests, and the full hand-parser `^idl_` slice.
 
 ### Phase 4: Constants and annotations
 
@@ -327,7 +355,7 @@ Error handling:
   Done 2026-07-10 for integer, floating-point, character, boolean, string,
   and adjacent string literal concatenation. Wchar/wstring literals remain
   intentionally unsupported, matching the existing Bison grammar note.
-- [ ] Parse constant expressions with Bison-equivalent precedence.
+- [x] Parse constant expressions with Bison-equivalent precedence.
   - 2026-07-10 progress: the hand parser now has a reusable
     const-expression precedence parser for union labels covering primary
     integer/character/boolean/scoped names, parentheses, unary operators, and
@@ -348,7 +376,11 @@ Error handling:
   - 2026-07-10 progress: named enum constants and named bitmask constants now
     evaluate correctly when reused in later constant expressions and union case
     labels. Keep this item open for annotation-related expression parity.
-- [ ] Parse const declarations.
+  - 2026-07-13 completion: annotation parameters, bounds, const declarations,
+    and union labels now use the same precedence parser, and both focused
+    hand-parser tests and the normal `idl_expression_*` tests pass in the
+    hand-parser build.
+- [x] Parse const declarations.
   - 2026-07-10 progress: unannotated `const` declarations now parse for the
     currently supported const-expression forms. Tests cover integer
     expression evaluation and using named constants in later array bounds,
@@ -364,6 +396,9 @@ Error handling:
     constants keep referencing the selected enumerator; bitmask constants
     evaluate to bitmask literals and can be reused in later bitmask
     expressions and case labels. Keep this item open for annotations.
+  - 2026-07-13 completion: annotated const declarations are covered by the
+    normal annotation tests in the hand-parser `^idl_` slice, and parser-owned
+    cleanup for failed const creation is covered by ASAN/LSAN.
 - [x] Parse annotation declarations. Done 2026-07-10 for annotation blocks
   with empty bodies, annotation members with optional defaults, and supported
   enum, bitmask, const, and typedef definitions inside the annotation body.
@@ -391,15 +426,19 @@ Error handling:
   distinguish keyword parameters from positional identifier expressions,
   resolves parameter names inside the annotation scope, creates explicit
   parameter nodes, and keeps unknown annotation keyword arguments syntax-only.
-- [ ] Preserve builtin annotation parsing and callback assignment.
+- [x] Preserve builtin annotation parsing and callback assignment.
   - 2026-07-10 progress: hand-parser builds now explicitly finish the generated
     parser's builtin-annotation bootstrap before parsing user IDL, so builtin
     annotation nodes are not left owned by an unfinished Bison stack. Focused
     tests cover no-parameter `@key` callback assignment on a struct member.
+  - 2026-07-13 completion: the full hand-parser `^idl_` slice now includes the
+    normal `idl_annotation_*` tests, covering builtin callbacks with and
+    without parameters across modules, structs, unions, members, cases, enum
+    values, bit values, sequences, and type declarations.
 
 ### Phase 5: Compatibility and negative tests
 
-- [ ] Compare AST output or downstream generated output against the Bison
+- [x] Compare AST output or downstream generated output against the Bison
   parser for the existing parser tests.
   - 2026-07-13 progress: added `scripts/compare-idlc-outputs.sh`, a
     development helper that runs `idlc` from a Bison-parser build and a
@@ -418,19 +457,26 @@ Error handling:
   - 2026-07-13 progress: after the cleanup and constructed-typedef fixes, the
     generated-output comparison covers all 70 IDL files currently found under
     `src` and `examples` and passes 70/70.
-- [ ] Add focused tests for grammar corners discovered during migration.
+- [x] Add focused tests for grammar corners discovered during migration.
   - 2026-07-13 progress: added `idl_union_default_discriminator_bitmask` to
     cover explicit and implicit default discriminator synthesis for bitmask
     switch types, including the `case 0` plus named-bit pattern from
     `XSpaceEnumUnion.idl`.
-- [ ] Add malformed input tests for representative syntax failures.
+  - 2026-07-13 completion: additional focused coverage accumulated across
+    union labels, arrays, enums, bitmasks, annotation applications, directive
+    parsing, constructed typedefs, and shared default-discriminator synthesis.
+    Add more focused tests as new migration gaps are found.
+- [x] Add malformed input tests for representative syntax failures.
   - 2026-07-13 progress: annotation application malformed-parameter tests now
     cover no-parameter annotations given a positional parameter, empty
     parameter lists, mixed positional/keyword forms, missing keyword values,
     unknown keyword members, and malformed unknown-annotation parameters. The
     cases are split into separate CTest entries so each one gets independent
     ASAN/LSAN coverage.
-- [ ] Verify parser-owned cleanup with ASAN/LSAN.
+  - 2026-07-13 completion: representative malformed-input coverage is in
+    place for the currently migrated grammar surface. Add more malformed cases
+    as future parser differences are discovered.
+- [x] Verify parser-owned cleanup with ASAN/LSAN.
   - 2026-07-13 progress: the annotation negative sweep exposed and fixed two
     cleanup issues. Keyword annotation application parameters now parent
     unscoped expression values as soon as the parameter node is created, so a
@@ -444,7 +490,14 @@ Error handling:
     referenced nodes and deletes parser-owned nodes, fixing the leaks in
     failed const creation and the UAFs in bad-union-switch and incomplete
     forward tests. The full hand-parser `^idl_` slice now passes 198/198.
-- [ ] Document any intentional diagnostic differences.
+  - 2026-07-13 completion: full hand-parser `^idl_`, focused regression
+    clusters, and the 70-file generated-output comparison all pass under
+    ASAN/UBSAN/LSAN.
+- [x] Document any intentional diagnostic differences.
+  - 2026-07-13 completion: no intentional semantic or generated-output
+    differences are currently recorded. Exact diagnostic text remains a
+    secondary compatibility target unless a test depends on it; location,
+    return code, AST behavior, and generated output are the primary checks.
 
 ### Phase 6: Default switch
 
