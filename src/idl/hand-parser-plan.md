@@ -501,8 +501,23 @@ Error handling:
 
 ### Phase 6: Default switch
 
-- [ ] Make the hand parser the default parser.
-- [ ] Keep a temporary Bison-oracle option if useful for review.
+- [x] Make the hand parser the default parser.
+  - 2026-07-13 progress: `ENABLE_IDL_HAND_PARSER` now defaults to `ON`, so
+    fresh builds use the hand parser unless explicitly configured otherwise.
+    The option is defined before `src/tools/idlc` is added so the IDL library
+    and the `idlc` executable see the same default value.
+- [x] Keep a temporary Bison-oracle option if useful for review.
+  - 2026-07-13 progress: configuring with `-DENABLE_IDL_HAND_PARSER=OFF`
+    still selects the generated Bison parser and keeps the comparison/oracle
+    path available during review.
+  - 2026-07-13 verification: a fresh sanitizer build configured without an
+    explicit `ENABLE_IDL_HAND_PARSER` cached the option as `ON`, built `idlc`
+    and `cunit_idl`, compiled `idlc.c` with
+    `IDL_USE_HAND_WRITTEN_PARSER=1`, passed the hand-parser `^idl_` slice
+    198/198, and matched the explicit Bison-oracle generated output for all
+    70 IDL files under `src` and `examples`. The existing explicit
+    Bison-oracle build cached the option as `OFF`, rebuilt `idlc` and
+    `cunit_idl`, and passed the Bison `^idl_` slice 127/127.
 - [ ] Remove checked-in generated parser output after parity is accepted.
 - [ ] Remove Bison regeneration logic from CMake.
 - [ ] Remove `parser.y` or move it to documentation/history if desired.
@@ -769,6 +784,16 @@ unless a test already depends on it.
   result: 70/70 compared successfully.
 - 2026-07-13: Reran the default Bison-parser `^idl_` sanitizer CTest slice
   after the hand-parser cleanup/typedef changes; result: 127/127 passed.
+- 2026-07-13: Flipped the default so fresh builds use the hand-written parser
+  while preserving `-DENABLE_IDL_HAND_PARSER=OFF` as the Bison-oracle path.
+  The first fresh-default `idlc` comparison exposed that defining the option
+  in `src/idl/CMakeLists.txt` was too late for `src/tools/idlc`, so `idlc`
+  still compiled with `IDL_USE_HAND_WRITTEN_PARSER=0`. Moved the option to
+  the top-level CMake file before `src/tools` is added. Verification after the
+  fix: fresh default `idlc.c` compiles with `IDL_USE_HAND_WRITTEN_PARSER=1`,
+  the single `ddsi_xt_typeinfo.idl` repro passes, fresh default `^idl_` passes
+  198/198, explicit Bison-oracle `^idl_` passes 127/127, and the 70-file
+  generated-output comparison passes against the fresh default build.
 - 2026-07-10: At user request, marked the "reread this file before each
   implementation step" rule obsolete. The plan remains the durable notebook,
   but it no longer has to be reread mechanically before every small step.
