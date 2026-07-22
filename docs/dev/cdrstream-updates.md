@@ -313,7 +313,7 @@ Verification target:
 
 ### 4. Align `print` with the trusted stream contract
 
-Status: `[ ]`
+Status: `[x]`
 
 Commit scope:
 
@@ -328,7 +328,9 @@ Decisions so far:
 * printing should not validate untrusted CDR;
 * XCDR1 optional member ids have already been accepted by `normalize`;
 * print support should be fuzzed after normalization so deviations from `read`
-  are caught without making print a validator.
+  are caught without making print a validator;
+* the existing print path already uses the trusted optional-presence
+  interpretation, so no release-build member-id lookup was added.
 
 Verification target:
 
@@ -337,7 +339,7 @@ Verification target:
 
 ### 5. Align `extract_key` with the trusted stream contract
 
-Status: `[ ]`
+Status: `[x]`
 
 Commit scope:
 
@@ -350,7 +352,10 @@ Decisions so far:
 * optional key members are not supported by the local type system;
 * optional non-key members may still have to be skipped while extracting keys;
 * key extraction should not repeat member-id validation for final/appendable
-  optional members.
+  optional members;
+* the existing key-extraction path already uses the trusted optional-presence
+  interpretation for final/appendable optionals and skips XCDR1 optional
+  non-key members by parameter length.
 
 Verification target:
 
@@ -361,7 +366,7 @@ Verification target:
 
 ### 6. Expand the sample deserialization fuzzer consumers
 
-Status: `[ ]`
+Status: `[x]`
 
 Commit scope:
 
@@ -376,7 +381,9 @@ Decisions so far:
 * XCDR1 and XCDR2 need independent corpora because the encodings differ
   substantially;
 * consumer fuzzing is useful for consistency, not for redefining consumers as
-  untrusted-input validators.
+  untrusted-input validators;
+* each consumer gets a fresh `dds_istream_t` over the same normalized byte range
+  so consumption by one path cannot hide behavior in another.
 
 Verification target:
 
