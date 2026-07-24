@@ -177,8 +177,8 @@ enum dds_stream_normalize_result dds_istream_init_from_normalized_sample (
 On success, this would initialize `is` over `actual_size` bytes.  On discard or
 error, it would leave `is` uninitialized or reset it to an empty sentinel.
 
-For the TypeInformation and TypeMapping paths that use
-`dds_stream_normalize_xcdr2_data`, a fragment-oriented helper is also useful:
+For the TypeInformation and TypeMapping paths, a fragment-oriented helper is
+also useful:
 
 ```c
 enum dds_stream_normalize_result dds_istream_init_from_normalized_xcdr2_data (
@@ -493,8 +493,8 @@ Decisions so far:
 * the migration should happen after the helper APIs are stable;
 * normal receive paths already normalize before stream construction, so this is
   primarily a clarity and misuse-prevention step;
-* TypeInformation and TypeMapping paths need particular care because they use
-  `dds_stream_normalize_xcdr2_data`;
+* TypeInformation and TypeMapping paths need particular care because they
+  normalize XCDR2 fragments;
 * default serdata receive paths now initialize the trusted stream through the
   complete-sample helper;
 * the PSMX serialized-data path copies into the owned serdata buffer before

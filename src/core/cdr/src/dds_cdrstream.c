@@ -196,6 +196,8 @@ enum tryconstruct {
 };
 
 #define NORMALIZE_MAX_DEPTH 100   // max nesting for recursive types in normalize (also limits TypeObject nesting)
+#define MUTABLE_MEMBER_LIMIT 512
+#define MUTABLE_MEMBER_MASK_WORDS ((MUTABLE_MEMBER_LIMIT + 31) / 32)
 
 struct normalize_state {
   unsigned char * restrict data;  // payload
@@ -3939,6 +3941,183 @@ static void dds_stream_set_dlc_required_prefixes1 (uint32_t *ops, bool in_recurs
   }
 }
 
+static bool dds_stream_mutable_member_counts_within_limit1 (const uint32_t *ops, bool in_recursive);
+
+static bool dds_stream_mutable_member_counts_within_limit_union (const uint32_t *ops, bool in_recursive)
+{
+  const uint32_t numcases = ops[2];
+  const uint32_t *jeq_op = ops + DDS_OP_ADR_JSR (ops[3]);
+  for (uint32_t i = 0; i < numcases; i++)
+  {
+    switch (DDS_JEQ_TYPE (jeq_op[0]))
+    {
+      case DDS_SOP_VAL_BST: case DDS_SOP_VAL_BWSTR:
+      case DDS_SOP_VAL_SEQ: case DDS_SOP_VAL_BSQ:
+      case DDS_SOP_VAL_ARR: case DDS_SOP_VAL_UNI: case DDS_SOP_VAL_STU: {
+        const bool recursive = DDS_OP_ADR_JSR (jeq_op[0]) <= 0;
+        if (!in_recursive && !dds_stream_mutable_member_counts_within_limit1 (jeq_op + DDS_OP_ADR_JSR (jeq_op[0]), recursive))
+          return false;
+        break;
+      }
+      case DDS_SOP_VAL_BLN: case DDS_SOP_VAL_1BY: case DDS_SOP_VAL_2BY: case DDS_SOP_VAL_4BY: case DDS_SOP_VAL_8BY:
+      case DDS_SOP_VAL_16BY: case DDS_SOP_VAL_STR: case DDS_SOP_VAL_WSTR: case DDS_SOP_VAL_WCHAR:
+      case DDS_SOP_VAL_ENU: case DDS_SOP_VAL_BMK:
+        break;
+      case DDS_SOP_VAL_EXT:
+        abort ();
+        break;
+    }
+    jeq_op += (DDS_OP (jeq_op[0]) == DDS_OP_JEQ) ? 3 : 4;
+  }
+  return true;
+}
+
+static bool dds_stream_mutable_member_count_pl (const uint32_t *ops, uint32_t *count)
+{
+  uint32_t insn, ops_csr = 0;
+  while ((insn = ops[ops_csr]) != DDS_OP_RTS)
+  {
+    assert (DDS_OP (insn) == DDS_OP_PLM);
+    const uint32_t *plm_ops = ops + ops_csr + DDS_OP_ADR_PLM (insn);
+    if (DDS_PLM_FLAGS (insn) & DDS_OP_FLAG_BASE)
+    {
+      assert (DDS_OP (plm_ops[0]) == DDS_OP_PLC);
+      if (!dds_stream_mutable_member_count_pl (plm_ops + 1, count))
+        return false;
+    }
+    else
+    {
+      if (*count == MUTABLE_MEMBER_LIMIT)
+        return false;
+      (*count)++;
+    }
+    ops_csr += 2;
+  }
+  return true;
+}
+
+static const uint32_t *dds_stream_mutable_member_counts_within_limit_plc (const uint32_t *ops, bool in_recursive, bool *ok)
+{
+  if (op_is_union_adr (*ops))
+  {
+    if (!dds_stream_mutable_member_counts_within_limit_union (ops, in_recursive))
+      *ok = false;
+    return dds_stream_skip_adr_insns (*ops, ops);
+  }
+
+  uint32_t count = 0;
+  if (!dds_stream_mutable_member_count_pl (ops, &count))
+  {
+    *ok = false;
+    return ops;
+  }
+
+  uint32_t insn;
+  while (*ok && (insn = *ops) != DDS_OP_RTS)
+  {
+    assert (DDS_OP (insn) == DDS_OP_PLM);
+    const uint32_t *plm_ops = ops + DDS_OP_ADR_PLM (insn);
+    if (DDS_PLM_FLAGS (insn) & DDS_OP_FLAG_BASE)
+    {
+      assert (DDS_OP (plm_ops[0]) == DDS_OP_PLC);
+      (void) dds_stream_mutable_member_counts_within_limit_plc (plm_ops + 1, in_recursive, ok);
+    }
+    else if (!dds_stream_mutable_member_counts_within_limit1 (plm_ops, in_recursive))
+      *ok = false;
+    ops += 2;
+  }
+  return ops;
+}
+
+static bool dds_stream_mutable_member_counts_within_limit_adr (const uint32_t *ops, bool in_recursive)
+{
+  const uint32_t insn = *ops;
+  switch (DDS_OP_TYPE (insn))
+  {
+    case DDS_SOP_VAL_SEQ: case DDS_SOP_VAL_BSQ: {
+      const enum dds_stream_typecode subtype = DDS_OP_SUBTYPE (insn);
+      if (type_has_subtype_or_members (subtype))
+      {
+        const uint32_t bound_op = seq_is_bounded (DDS_OP_TYPE (insn)) ? 1 : 0;
+        const bool recursive = DDS_OP_ADR_JSR (ops[3 + bound_op]) <= 0;
+        if (!in_recursive && !dds_stream_mutable_member_counts_within_limit1 (ops + DDS_OP_ADR_JSR (ops[3 + bound_op]), recursive))
+          return false;
+      }
+      break;
+    }
+    case DDS_SOP_VAL_ARR: {
+      const enum dds_stream_typecode subtype = DDS_OP_SUBTYPE (insn);
+      if (type_has_subtype_or_members (subtype))
+      {
+        const bool recursive = DDS_OP_ADR_JSR (ops[3]) <= 0;
+        if (!in_recursive && !dds_stream_mutable_member_counts_within_limit1 (ops + DDS_OP_ADR_JSR (ops[3]), recursive))
+          return false;
+      }
+      break;
+    }
+    case DDS_SOP_VAL_UNI:
+      if (!dds_stream_mutable_member_counts_within_limit_union (ops, in_recursive))
+        return false;
+      break;
+    case DDS_SOP_VAL_EXT: {
+      const bool recursive = DDS_OP_ADR_JSR (ops[2]) <= 0;
+      if (!in_recursive && !dds_stream_mutable_member_counts_within_limit1 (ops + DDS_OP_ADR_JSR (ops[2]), recursive))
+        return false;
+      break;
+    }
+    case DDS_SOP_VAL_BLN: case DDS_SOP_VAL_1BY: case DDS_SOP_VAL_2BY: case DDS_SOP_VAL_4BY: case DDS_SOP_VAL_8BY:
+    case DDS_SOP_VAL_16BY: case DDS_SOP_VAL_STR: case DDS_SOP_VAL_BST: case DDS_SOP_VAL_WSTR: case DDS_SOP_VAL_BWSTR:
+    case DDS_SOP_VAL_WCHAR: case DDS_SOP_VAL_ENU: case DDS_SOP_VAL_BMK:
+      break;
+    case DDS_SOP_VAL_STU:
+      abort ();
+      break;
+  }
+  return true;
+}
+
+static bool dds_stream_mutable_member_counts_within_limit1 (const uint32_t *ops, bool in_recursive)
+{
+  uint32_t insn;
+  while ((insn = *ops) != DDS_OP_RTS)
+  {
+    switch (DDS_OP (insn))
+    {
+      case DDS_SOP_ADR:
+        if (!dds_stream_mutable_member_counts_within_limit_adr (ops, in_recursive))
+          return false;
+        ops = dds_stream_skip_adr_insns (insn, ops);
+        break;
+      case DDS_SOP_JSR: {
+        const bool recursive = DDS_OP_JUMP (insn) <= 0;
+        if (!in_recursive && !dds_stream_mutable_member_counts_within_limit1 (ops + DDS_OP_JUMP (insn), recursive))
+          return false;
+        ops++;
+        break;
+      }
+      case DDS_SOP_DLC:
+        ops++;
+        break;
+      case DDS_SOP_PLC: {
+        bool ok = true;
+        ops = dds_stream_mutable_member_counts_within_limit_plc (ops + 1, in_recursive, &ok);
+        if (!ok)
+          return false;
+        break;
+      }
+      case DDS_SOP_RTS: case DDS_SOP_JEQ: case DDS_SOP_JEQ4: case DDS_SOP_KOF: case DDS_SOP_PLM: case DDS_SOP_MID:
+        abort ();
+        break;
+    }
+  }
+  return true;
+}
+
+static bool dds_stream_mutable_member_counts_within_limit (const uint32_t *ops)
+{
+  return dds_stream_mutable_member_counts_within_limit1 (ops, false);
+}
+
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
 static const uint32_t *dds_stream_skip_adr_insns_default (uint32_t insn, char * restrict data, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table, const uint32_t *ops, enum sample_data_state sample_state)
 {
@@ -6068,8 +6247,59 @@ enum normalize_pl_member_result {
   NPMR_ERROR // found the data, but normalization failed
 };
 
+static inline void mutable_member_mask_set (uint32_t mask[MUTABLE_MEMBER_MASK_WORDS], uint32_t slot)
+{
+  mask[slot / 32] |= 1u << (slot % 32);
+}
+
+static inline void mutable_member_mask_clear (uint32_t mask[MUTABLE_MEMBER_MASK_WORDS], uint32_t slot)
+{
+  mask[slot / 32] &= ~(1u << (slot % 32));
+}
+
+static bool mutable_member_mask_nonzero (const uint32_t mask[MUTABLE_MEMBER_MASK_WORDS])
+{
+  for (uint32_t n = 0; n < MUTABLE_MEMBER_MASK_WORDS; n++)
+  {
+    if (mask[n] != 0)
+      return true;
+  }
+  return false;
+}
+
+static bool mutable_member_is_required (uint32_t insn)
+{
+  return (insn & DDS_OP_FLAG_KEY) || ((insn & DDS_OP_FLAG_MU) && !op_type_optional (insn));
+}
+
+static bool dds_stream_pl_required_mask (const uint32_t *ops, uint32_t *slot, uint32_t missing[MUTABLE_MEMBER_MASK_WORDS])
+{
+  uint32_t insn, ops_csr = 0;
+  while ((insn = ops[ops_csr]) != DDS_OP_RTS)
+  {
+    assert (DDS_OP (insn) == DDS_OP_PLM);
+    const uint32_t *plm_ops = ops + ops_csr + DDS_OP_ADR_PLM (insn);
+    if (DDS_PLM_FLAGS (insn) & DDS_OP_FLAG_BASE)
+    {
+      assert (DDS_OP (plm_ops[0]) == DDS_OP_PLC);
+      if (!dds_stream_pl_required_mask (plm_ops + 1, slot, missing))
+        return false;
+    }
+    else
+    {
+      if (*slot >= MUTABLE_MEMBER_LIMIT)
+        return false;
+      if (mutable_member_is_required (*plm_ops))
+        mutable_member_mask_set (missing, *slot);
+      (*slot)++;
+    }
+    ops_csr += 2;
+  }
+  return true;
+}
+
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
-static enum normalize_pl_member_result dds_stream_normalize_pl_member (struct normalize_state const * const st, uint32_t * restrict const off, const uint32_t m_id, const uint32_t *ops)
+static enum normalize_pl_member_result dds_stream_normalize_pl_member (struct normalize_state const * const st, uint32_t * restrict const off, const uint32_t m_id, const uint32_t *ops, uint32_t *slot, uint32_t missing[MUTABLE_MEMBER_MASK_WORDS])
 {
   uint32_t insn, ops_csr = 0;
   enum normalize_pl_member_result result = NPMR_NOT_FOUND;
@@ -6082,18 +6312,33 @@ static enum normalize_pl_member_result dds_stream_normalize_pl_member (struct no
     {
       assert (DDS_OP (plm_ops[0]) == DDS_OP_PLC);
       plm_ops++; /* skip PLC to go to first PLM from base type */
-      result = dds_stream_normalize_pl_member (st, off, m_id, plm_ops);
+      result = dds_stream_normalize_pl_member (st, off, m_id, plm_ops, slot, missing);
     }
     else if (ops[ops_csr + 1] == m_id)
     {
+      if (*slot >= MUTABLE_MEMBER_LIMIT)
+        return NPMR_ERROR;
+      const uint32_t matched_slot = *slot;
       enum dds_stream_normalize_result nres = stream_normalize_data_impl (st, off, &plm_ops, true);
       switch (nres)
       {
-        case DDS_STREAM_NORMALIZE_SUCCESS: result = NPMR_FOUND; break;
-        case DDS_STREAM_NORMALIZE_DISCARD: result = NPMR_DISCARD; break;
+        case DDS_STREAM_NORMALIZE_SUCCESS:
+          mutable_member_mask_clear (missing, matched_slot);
+          result = NPMR_FOUND;
+          break;
+        case DDS_STREAM_NORMALIZE_DISCARD:
+          mutable_member_mask_clear (missing, matched_slot);
+          result = NPMR_DISCARD;
+          break;
         case DDS_STREAM_NORMALIZE_ERROR: result = NPMR_ERROR; break;
       }
       break;
+    }
+    else
+    {
+      if (*slot >= MUTABLE_MEMBER_LIMIT)
+        return NPMR_ERROR;
+      (*slot)++;
     }
     ops_csr += 2;
   }
@@ -6104,6 +6349,11 @@ static enum normalize_pl_member_result dds_stream_normalize_pl_member (struct no
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
 static enum dds_stream_normalize_result stream_normalize_xcdr1_pl (struct normalize_state const * const st, uint32_t * restrict const off, uint32_t const * * const ops)
 {
+  uint32_t missing[MUTABLE_MEMBER_MASK_WORDS] = { 0 };
+  uint32_t required_slot = 0;
+  if (!dds_stream_pl_required_mask (*ops, &required_slot, missing))
+    return normalize_error ();
+
   bool paramlist_end = false;
   do
   {
@@ -6135,7 +6385,8 @@ static enum dds_stream_normalize_result stream_normalize_xcdr1_pl (struct normal
         // don't allow member values that exceed its declared size
         const struct normalize_state st1 = offset_and_shorten_normalize_state (st, input_offset, param_length);
         uint32_t off1 = 0;
-        switch (dds_stream_normalize_pl_member (&st1, &off1, phdr_mid, *ops))
+        uint32_t slot = 0;
+        switch (dds_stream_normalize_pl_member (&st1, &off1, phdr_mid, *ops, &slot, missing))
         {
           case NPMR_NOT_FOUND: // FIXME: can now fix this FIXME!
             /* FIXME: the caller should be able to differentiate between a sample that
@@ -6172,6 +6423,9 @@ static enum dds_stream_normalize_result stream_normalize_xcdr1_pl (struct normal
   }
   while (!paramlist_end);
 
+  if (mutable_member_mask_nonzero (missing))
+    return normalize_error ();
+
   /* skip all PLM-memberid pairs */
   while (**ops != DDS_OP_RTS)
     *ops += 2;
@@ -6183,6 +6437,11 @@ static enum dds_stream_normalize_result stream_normalize_xcdr1_pl (struct normal
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
 static enum dds_stream_normalize_result stream_normalize_xcdr2_pl (struct normalize_state const * const st, uint32_t * restrict const off, uint32_t const * * const ops)
 {
+  uint32_t missing[MUTABLE_MEMBER_MASK_WORDS] = { 0 };
+  uint32_t required_slot = 0;
+  if (!dds_stream_pl_required_mask (*ops, &required_slot, missing))
+    return normalize_error ();
+
   /* normalize DHEADER */
   uint32_t pl_sz;
   if (!read_and_normalize_uint32 (st, off, &pl_sz))
@@ -6238,7 +6497,8 @@ static enum dds_stream_normalize_result stream_normalize_xcdr2_pl (struct normal
       return normalize_error ();
     // don't allow member values that exceed its declared size
     const struct normalize_state st2 = shorten_normalize_state (&st1, *off + msz);
-    switch (dds_stream_normalize_pl_member (&st2, off, m_id, *ops))
+    uint32_t slot = 0;
+    switch (dds_stream_normalize_pl_member (&st2, off, m_id, *ops, &slot, missing))
     {
       case NPMR_NOT_FOUND:
         /* FIXME: the caller should be able to differentiate between a sample that
@@ -6265,6 +6525,9 @@ static enum dds_stream_normalize_result stream_normalize_xcdr2_pl (struct normal
         return normalize_error ();
     }
   }
+
+  if (mutable_member_mask_nonzero (missing))
+    return normalize_error ();
 
   /* skip all PLM-memberid pairs */
   while (**ops != DDS_OP_RTS)
@@ -6344,8 +6607,9 @@ static enum dds_stream_normalize_result stream_normalize_data_impl (struct norma
   return normalize_success ();
 }
 
-enum dds_stream_normalize_result dds_stream_normalize_xcdr2_data (char * restrict data, uint32_t * restrict off, uint32_t size, bool bswap, const uint32_t *ops)
+static enum dds_stream_normalize_result dds_stream_normalize_xcdr2_data (char * restrict data, uint32_t * restrict off, uint32_t size, bool bswap, const uint32_t *ops)
 {
+  assert (dds_stream_mutable_member_counts_within_limit (ops));
   const struct dds_cdrstream_desc_mid_table empty_mid_table = { .table = (struct ddsrt_hh *) &ddsrt_hh_empty, .op0 = ops };
   const uint32_t *tmp_ops = ops;
   const struct normalize_state st = {
@@ -8942,9 +9206,12 @@ static const uint32_t *dds_stream_get_enum_value_maps (const struct dds_cdrstrea
   return ++ops;
 }
 
-void dds_cdrstream_desc_init_with_nops (struct dds_cdrstream_desc *desc, const struct dds_cdrstream_allocator *allocator,
+dds_return_t dds_cdrstream_desc_init_with_nops (struct dds_cdrstream_desc *desc, const struct dds_cdrstream_allocator *allocator,
     uint32_t size, uint32_t align, uint32_t flagset, const uint32_t *ops, uint32_t nops, const dds_key_descriptor_t *keys, uint32_t nkeys)
 {
+  if (!dds_stream_mutable_member_counts_within_limit (ops))
+    return DDS_RETCODE_BAD_PARAMETER;
+
   desc->size = size;
   desc->align = align;
   desc->opt_size_xcdr1 = 0;
@@ -9008,12 +9275,13 @@ void dds_cdrstream_desc_init_with_nops (struct dds_cdrstream_desc *desc, const s
   /* Get the flagset from the descriptor, except for flags that are calculated
      using the CDR stream serializer. */
   desc->flagset = dds_stream_descriptor_flags (desc, flagset, NULL, NULL);
+  return DDS_RETCODE_OK;
 }
 
-void dds_cdrstream_desc_init (struct dds_cdrstream_desc *desc, const struct dds_cdrstream_allocator *allocator,
+dds_return_t dds_cdrstream_desc_init (struct dds_cdrstream_desc *desc, const struct dds_cdrstream_allocator *allocator,
     uint32_t size, uint32_t align, uint32_t flagset, const uint32_t *ops, const dds_key_descriptor_t *keys, uint32_t nkeys)
 {
-  dds_cdrstream_desc_init_with_nops (desc, allocator, size, align, flagset, ops, 0, keys, nkeys);
+  return dds_cdrstream_desc_init_with_nops (desc, allocator, size, align, flagset, ops, 0, keys, nkeys);
 }
 
 static void free_member_id (void *vinfo, void *varg)
