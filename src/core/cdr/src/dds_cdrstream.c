@@ -894,6 +894,11 @@ static inline bool op_type_base (const uint32_t insn)
   return (opflags & DDS_OP_FLAG_BASE);
 }
 
+static inline bool op_is_dlc (const uint32_t insn)
+{
+  return DDS_OP (insn) == DDS_OP_DLC;
+}
+
 static inline bool op_is_union_adr (const uint32_t insn)
 {
   return DDS_OP (insn) == DDS_OP_ADR && DDS_OP_TYPE (insn) == DDS_SOP_VAL_UNI;
@@ -2685,7 +2690,7 @@ static const uint32_t *dds_stream_getsize_adr (uint32_t insn, struct getsize_sta
 
       /* skip DLC instruction for base type, so that the DHEADER is not
           serialized for base types */
-      if (op_type_base (insn) && jsr_ops[0] == DDS_OP_DLC)
+      if (op_type_base (insn) && op_is_dlc (jsr_ops[0]))
         jsr_ops++;
 
       /* don't forward is_mutable_member, subtype can have other extensibility */
@@ -3695,7 +3700,7 @@ static inline const uint32_t *dds_stream_read_adr (uint32_t insn, dds_istream_t 
 
       /* skip DLC instruction for base type, handle as if it is final because the base type's
          members follow the derived types members without an extra DHEADER */
-      if (op_type_base (insn) && jsr_ops[0] == DDS_OP_DLC)
+      if (op_type_base (insn) && op_is_dlc (jsr_ops[0]))
         jsr_ops++;
 
       (void) dds_stream_read_impl (&is1, addr, allocator, mid_table, jsr_ops, false, cdr_kind, sample_state);
@@ -3746,6 +3751,192 @@ static const uint32_t *dds_stream_skip_adr_insns (uint32_t insn, const uint32_t 
     }
   }
   return NULL;
+}
+
+static const uint32_t *dds_stream_dlc_required_prefix_end (const uint32_t *dlc_ops)
+  ddsrt_attribute_warn_unused_result ddsrt_nonnull_all;
+
+static bool dds_stream_appendable_member_is_required (uint32_t insn, const uint32_t *ops)
+{
+  if ((insn & DDS_OP_FLAG_KEY) || ((insn & DDS_OP_FLAG_MU) && !op_type_optional (insn)))
+    return true;
+
+  if (op_type_base (insn) && DDS_OP_TYPE (insn) == DDS_SOP_VAL_EXT)
+  {
+    const uint32_t *jsr_ops = ops + DDS_OP_ADR_JSR (ops[2]);
+    if (op_is_dlc (jsr_ops[0]))
+      return dds_stream_dlc_required_prefix_end (jsr_ops) > jsr_ops;
+  }
+  return false;
+}
+
+static const uint32_t *dds_stream_dlc_required_prefix_end (const uint32_t *dlc_ops)
+{
+  assert (op_is_dlc (dlc_ops[0]));
+  const uint32_t *ops = dlc_ops + 1;
+  const uint32_t *required_end = dlc_ops;
+  bool seen_member = false;
+  uint32_t insn;
+  while ((insn = *ops) != DDS_OP_RTS)
+  {
+    switch (DDS_OP (insn))
+    {
+      case DDS_SOP_ADR: {
+        const uint32_t *next_ops = dds_stream_skip_adr_insns (insn, ops);
+        if (!seen_member || dds_stream_appendable_member_is_required (insn, ops))
+          required_end = next_ops;
+        seen_member = true;
+        ops = next_ops;
+        break;
+      }
+      case DDS_SOP_JSR:
+        ops++;
+        break;
+      case DDS_SOP_RTS: case DDS_SOP_JEQ: case DDS_SOP_JEQ4: case DDS_SOP_KOF: case DDS_SOP_DLC: case DDS_SOP_PLC: case DDS_SOP_PLM: case DDS_SOP_MID:
+        abort ();
+        break;
+    }
+  }
+  return required_end;
+}
+
+static void dds_stream_set_dlc_required_prefixes1 (uint32_t *ops, bool in_recursive);
+
+static void dds_stream_set_dlc_required_prefixes_union (uint32_t *ops, bool in_recursive)
+{
+  const uint32_t numcases = ops[2];
+  uint32_t *jeq_op = ops + DDS_OP_ADR_JSR (ops[3]);
+  for (uint32_t i = 0; i < numcases; i++)
+  {
+    switch (DDS_JEQ_TYPE (jeq_op[0]))
+    {
+      case DDS_SOP_VAL_BST: case DDS_SOP_VAL_BWSTR:
+      case DDS_SOP_VAL_SEQ: case DDS_SOP_VAL_BSQ:
+      case DDS_SOP_VAL_ARR: case DDS_SOP_VAL_UNI: case DDS_SOP_VAL_STU: {
+        const bool recursive = DDS_OP_ADR_JSR (jeq_op[0]) <= 0;
+        if (!in_recursive)
+          dds_stream_set_dlc_required_prefixes1 (jeq_op + DDS_OP_ADR_JSR (jeq_op[0]), recursive);
+        break;
+      }
+      case DDS_SOP_VAL_BLN: case DDS_SOP_VAL_1BY: case DDS_SOP_VAL_2BY: case DDS_SOP_VAL_4BY: case DDS_SOP_VAL_8BY:
+      case DDS_SOP_VAL_16BY: case DDS_SOP_VAL_STR: case DDS_SOP_VAL_WSTR: case DDS_SOP_VAL_WCHAR:
+      case DDS_SOP_VAL_ENU: case DDS_SOP_VAL_BMK:
+        break;
+      case DDS_SOP_VAL_EXT:
+        abort ();
+        break;
+    }
+    jeq_op += (DDS_OP (jeq_op[0]) == DDS_OP_JEQ) ? 3 : 4;
+  }
+}
+
+static uint32_t *dds_stream_set_dlc_required_prefixes_plc (uint32_t *ops, bool in_recursive)
+{
+  if (op_is_union_adr (*ops))
+  {
+    dds_stream_set_dlc_required_prefixes_union (ops, in_recursive);
+    return (uint32_t *) dds_stream_skip_adr_insns (*ops, ops);
+  }
+
+  uint32_t insn;
+  while ((insn = *ops) != DDS_OP_RTS)
+  {
+    assert (DDS_OP (insn) == DDS_OP_PLM);
+    uint32_t *plm_ops = ops + DDS_OP_ADR_PLM (insn);
+    if (DDS_PLM_FLAGS (insn) & DDS_OP_FLAG_BASE)
+    {
+      assert (DDS_OP (plm_ops[0]) == DDS_OP_PLC);
+      (void) dds_stream_set_dlc_required_prefixes_plc (plm_ops + 1, in_recursive);
+    }
+    else
+      dds_stream_set_dlc_required_prefixes1 (plm_ops, in_recursive);
+    ops += 2;
+  }
+  return ops;
+}
+
+static void dds_stream_set_dlc_required_prefixes_adr (uint32_t *ops, bool in_recursive)
+{
+  const uint32_t insn = *ops;
+  switch (DDS_OP_TYPE (insn))
+  {
+    case DDS_SOP_VAL_SEQ: case DDS_SOP_VAL_BSQ: {
+      const enum dds_stream_typecode subtype = DDS_OP_SUBTYPE (insn);
+      if (type_has_subtype_or_members (subtype))
+      {
+        const uint32_t bound_op = seq_is_bounded (DDS_OP_TYPE (insn)) ? 1 : 0;
+        const bool recursive = DDS_OP_ADR_JSR (ops[3 + bound_op]) <= 0;
+        if (!in_recursive)
+          dds_stream_set_dlc_required_prefixes1 (ops + DDS_OP_ADR_JSR (ops[3 + bound_op]), recursive);
+      }
+      break;
+    }
+    case DDS_SOP_VAL_ARR: {
+      const enum dds_stream_typecode subtype = DDS_OP_SUBTYPE (insn);
+      if (type_has_subtype_or_members (subtype))
+      {
+        const bool recursive = DDS_OP_ADR_JSR (ops[3]) <= 0;
+        if (!in_recursive)
+          dds_stream_set_dlc_required_prefixes1 (ops + DDS_OP_ADR_JSR (ops[3]), recursive);
+      }
+      break;
+    }
+    case DDS_SOP_VAL_UNI:
+      dds_stream_set_dlc_required_prefixes_union (ops, in_recursive);
+      break;
+    case DDS_SOP_VAL_EXT: {
+      const bool recursive = DDS_OP_ADR_JSR (ops[2]) <= 0;
+      if (!in_recursive)
+        dds_stream_set_dlc_required_prefixes1 (ops + DDS_OP_ADR_JSR (ops[2]), recursive);
+      break;
+    }
+    case DDS_SOP_VAL_BLN: case DDS_SOP_VAL_1BY: case DDS_SOP_VAL_2BY: case DDS_SOP_VAL_4BY: case DDS_SOP_VAL_8BY:
+    case DDS_SOP_VAL_16BY: case DDS_SOP_VAL_STR: case DDS_SOP_VAL_WSTR: case DDS_SOP_VAL_WCHAR:
+    case DDS_SOP_VAL_BST: case DDS_SOP_VAL_BWSTR: case DDS_SOP_VAL_ENU: case DDS_SOP_VAL_BMK:
+      break;
+    case DDS_SOP_VAL_STU:
+      abort ();
+      break;
+  }
+}
+
+static void dds_stream_set_dlc_required_prefixes1 (uint32_t *ops, bool in_recursive)
+{
+  uint32_t insn;
+  while ((insn = *ops) != DDS_OP_RTS)
+  {
+    switch (DDS_OP (insn))
+    {
+      case DDS_SOP_ADR:
+        dds_stream_set_dlc_required_prefixes_adr (ops, in_recursive);
+        ops = (uint32_t *) dds_stream_skip_adr_insns (insn, ops);
+        break;
+      case DDS_SOP_JSR: {
+        const bool recursive = DDS_OP_JUMP (insn) <= 0;
+        if (!in_recursive)
+          dds_stream_set_dlc_required_prefixes1 (ops + DDS_OP_JUMP (insn), recursive);
+        ops++;
+        break;
+      }
+      case DDS_SOP_DLC: {
+        const uint32_t *required_end = dds_stream_dlc_required_prefix_end (ops);
+        const ptrdiff_t required_prefix = required_end - ops;
+        assert (required_prefix >= 0);
+        assert (required_prefix <= UINT16_MAX);
+        if (required_prefix > UINT16_MAX)
+          abort ();
+        ops[0] = DDS_OP_DLC | (uint32_t) required_prefix;
+        ops++;
+        break;
+      }
+      case DDS_SOP_PLC:
+        ops = dds_stream_set_dlc_required_prefixes_plc (ops + 1, in_recursive);
+        break;
+      case DDS_SOP_RTS: case DDS_SOP_JEQ: case DDS_SOP_JEQ4: case DDS_SOP_KOF: case DDS_SOP_PLM: case DDS_SOP_MID:
+        abort ();
+        break;
+    }
+  }
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
@@ -5711,7 +5902,7 @@ static enum dds_stream_normalize_result stream_normalize_adr_impl (struct normal
       {
         const uint32_t *jsr_ops = *ops + DDS_OP_ADR_JSR ((*ops)[2]);
         /* skip DLC instruction for base type, the base type members are not preceded by a DHEADER */
-        if (op_type_base (**ops) && jsr_ops[0] == DDS_OP_DLC)
+        if (op_type_base (**ops) && op_is_dlc (jsr_ops[0]))
           jsr_ops++;
         *ops += jmp ? jmp : 3;
         return stream_normalize_data_impl (st, off, &jsr_ops, false);
@@ -5723,7 +5914,7 @@ static enum dds_stream_normalize_result stream_normalize_adr_impl (struct normal
         const struct normalize_state st1 = nested_normalize_state (st);
         const uint32_t *jsr_ops = *ops + DDS_OP_ADR_JSR ((*ops)[2]);
         /* skip DLC instruction for base type, the base type members are not preceded by a DHEADER */
-        if (op_type_base (**ops) && jsr_ops[0] == DDS_OP_DLC)
+        if (op_type_base (**ops) && op_is_dlc (jsr_ops[0]))
           jsr_ops++;
         *ops += jmp ? jmp : 3;
         return stream_normalize_data_impl (&st1, off, &jsr_ops, false);
@@ -5808,10 +5999,14 @@ static enum dds_stream_normalize_result stream_normalize_delimited_impl (struct 
   struct normalize_state st1 = shorten_normalize_state (st, *off + delimited_sz);
   assert (st1.size <= st->size);
 
+  const uint32_t *dlc_ops = *ops;
+  const uint16_t required_prefix = DDS_OP_DLC_REQUIRED_PREFIX (*dlc_ops);
+  const uint32_t *required_end = dlc_ops + required_prefix;
   (*ops)++; /* skip DLC op */
   uint32_t insn;
-  while ((insn = **ops) != DDS_OP_RTS && *off < st1.size)
+  while ((insn = **ops) != DDS_OP_RTS && (*off < st1.size || (required_prefix && *ops < required_end)))
   {
+    const uint32_t *ops0 = *ops;
     switch (DDS_OP (insn))
     {
       case DDS_SOP_ADR:
@@ -5831,6 +6026,8 @@ static enum dds_stream_normalize_result stream_normalize_delimited_impl (struct 
         abort ();
         break;
     }
+    if (*ops == ops0)
+      return normalize_error ();
   }
 
   if (insn != DDS_OP_RTS)
@@ -5839,6 +6036,8 @@ static enum dds_stream_normalize_result stream_normalize_delimited_impl (struct 
     if (!type_widening_allowed)
       return NULL;
 #endif
+    if (required_prefix && *ops < required_end)
+      return normalize_error ();
     /* skip fields that are not in serialized data for appendable type */
     while ((insn = **ops) != DDS_OP_RTS)
       *ops = dds_stream_skip_adr_insns (insn, *ops);
@@ -7764,7 +7963,7 @@ static const uint32_t * dds_stream_print_adr (char **buf, size_t *bufsize, uint3
       const uint32_t *jsr_ops = ops + DDS_OP_ADR_JSR (ops[2]);
       const uint32_t jmp = DDS_OP_ADR_JMP (ops[2]);
       /* skip DLC instruction for base type, DHEADER is not in the data for base types */
-      if (op_type_base (insn) && jsr_ops[0] == DDS_OP_DLC)
+      if (op_type_base (insn) && op_is_dlc (jsr_ops[0]))
         jsr_ops++;
       if (dds_stream_print_sample1 (buf, bufsize, &is1, jsr_ops, true, false, cdr_kind) == NULL)
         return NULL;
@@ -8325,7 +8524,7 @@ static const uint32_t *dds_stream_key_size_adr (const uint32_t *ops, uint32_t in
 
       /* skip DLC instruction for base type, handle as if it is final because the base type's
          members follow the derived types members without an extra DHEADER */
-      if (op_type_base (insn) && jsr_ops[0] == DDS_OP_DLC)
+      if (op_type_base (insn) && op_is_dlc (jsr_ops[0]))
         jsr_ops++;
 
       (void) dds_stream_key_size (jsr_ops, k);
@@ -8766,6 +8965,7 @@ void dds_cdrstream_desc_init_with_nops (struct dds_cdrstream_desc *desc, const s
   /* Copy all ops, including the member ID table (if present) */
   desc->ops.ops = allocator->malloc (desc->ops.nops * sizeof (*desc->ops.ops));
   memcpy (desc->ops.ops, ops, desc->ops.nops * sizeof (*desc->ops.ops));
+  dds_stream_set_dlc_required_prefixes1 (desc->ops.ops, false);
 
   /* In case the actual number of instructions (counted_ops) is larger than the value of
      nops, then the descriptor was generated by an older version of IDLC (pre-XCDR1 optional
