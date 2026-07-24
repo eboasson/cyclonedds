@@ -186,6 +186,7 @@ struct dds_cdrstream_ops_info {
   dds_data_type_properties_t data_types;
   uint32_t supported_data_representations;
   uint32_t descriptor_flags;
+  bool mutable_member_counts_within_limit;
 };
 
 enum tryconstruct {
@@ -1174,6 +1175,49 @@ static const uint32_t *dds_stream_get_ops_info_uni (const uint32_t *ops, bool to
   return ops;
 }
 
+static void dds_stream_get_ops_info_count_mutable_member (struct dds_cdrstream_ops_info *info, uint32_t *mutable_member_count)
+{
+  if (*mutable_member_count == MUTABLE_MEMBER_LIMIT)
+    info->mutable_member_counts_within_limit = false;
+  else
+    (*mutable_member_count)++;
+}
+
+ddsrt_nonnull_all
+static const uint32_t *dds_stream_get_ops_info_plc_members (const uint32_t *ops, bool top_level_key_scope, struct dds_cdrstream_ops_info *info, bool in_xcdr1_delimited_scope, uint32_t value_bound_xcdrv, uint32_t tail_bound_xcdrv, bool in_recursive, uint32_t *mutable_member_count)
+{
+  uint32_t insn;
+  while ((insn = *ops) != DDS_OP_RTS)
+  {
+    switch (DDS_OP (insn))
+    {
+      case DDS_SOP_PLM: {
+        uint32_t flags = DDS_PLM_FLAGS (insn);
+        const uint32_t *plm_ops = ops + DDS_OP_ADR_PLM (insn);
+        if (flags & DDS_OP_FLAG_BASE)
+        {
+          assert (DDS_OP (plm_ops[0]) == DDS_OP_PLC);
+          (void) dds_stream_get_ops_info_plc_members (plm_ops + 1, top_level_key_scope, info, in_xcdr1_delimited_scope, value_bound_xcdrv, tail_bound_xcdrv, in_recursive, mutable_member_count);
+        }
+        else
+        {
+          dds_stream_get_ops_info_count_mutable_member (info, mutable_member_count);
+          if (!in_recursive)
+            dds_stream_get_ops_info1 (plm_ops, top_level_key_scope, info, in_xcdr1_delimited_scope, 0, XCDR12_REP, in_recursive);
+        }
+        ops += 2;
+        break;
+      }
+      default:
+        abort (); /* only list of (PLM, member-id) supported */
+        break;
+    }
+  }
+  if (ops > info->ops_end)
+    info->ops_end = ops;
+  return ops;
+}
+
 ddsrt_nonnull_all
 static const uint32_t *dds_stream_get_ops_info_plc (const uint32_t *ops, bool top_level_key_scope, struct dds_cdrstream_ops_info *info, bool in_xcdr1_delimited_scope, uint32_t value_bound_xcdrv, uint32_t tail_bound_xcdrv, bool in_recursive)
 {
@@ -1189,32 +1233,8 @@ static const uint32_t *dds_stream_get_ops_info_plc (const uint32_t *ops, bool to
     return dds_stream_get_ops_info_uni (ops, top_level_key_scope, info, value_bound_xcdrv, tail_bound_xcdrv, at_tail, in_recursive, true);
   }
 
-  uint32_t insn;
-  while ((insn = *ops) != DDS_OP_RTS)
-  {
-    switch (DDS_OP (insn))
-    {
-      case DDS_SOP_PLM: {
-        uint32_t flags = DDS_PLM_FLAGS (insn);
-        const uint32_t *plm_ops = ops + DDS_OP_ADR_PLM (insn);
-        if (flags & DDS_OP_FLAG_BASE)
-        {
-          assert (DDS_OP (plm_ops[0]) == DDS_OP_PLC);
-          (void) dds_stream_get_ops_info_plc (plm_ops + 1, top_level_key_scope, info, in_xcdr1_delimited_scope, value_bound_xcdrv, tail_bound_xcdrv, in_recursive);
-        }
-        else if (!in_recursive)
-          dds_stream_get_ops_info1 (plm_ops, top_level_key_scope, info, in_xcdr1_delimited_scope, 0, XCDR12_REP, in_recursive);
-        ops += 2;
-        break;
-      }
-      default:
-        abort (); /* only list of (PLM, member-id) supported */
-        break;
-    }
-  }
-  if (ops > info->ops_end)
-    info->ops_end = ops;
-  return ops;
+  uint32_t mutable_member_count = 0;
+  return dds_stream_get_ops_info_plc_members (ops, top_level_key_scope, info, in_xcdr1_delimited_scope, value_bound_xcdrv, tail_bound_xcdrv, in_recursive, &mutable_member_count);
 }
 
 ddsrt_nonnull_all
@@ -1344,7 +1364,15 @@ static void dds_stream_get_ops_info (const uint32_t *ops, struct dds_cdrstream_o
   info->data_types = DDS_DATA_TYPE_IS_MEMCPY_SAFE;
   info->supported_data_representations = XCDR12_REP;
   info->descriptor_flags = DDS_TOPIC_FIXED_SIZE;
+  info->mutable_member_counts_within_limit = true;
   dds_stream_get_ops_info1 (ops, true, info, true, 0, XCDR12_REP, false);
+}
+
+static bool dds_stream_mutable_member_counts_within_limit (const uint32_t *ops)
+{
+  struct dds_cdrstream_ops_info info;
+  dds_stream_get_ops_info (ops, &info);
+  return info.mutable_member_counts_within_limit;
 }
 
 ddsrt_nonnull_all
@@ -3753,369 +3781,6 @@ static const uint32_t *dds_stream_skip_adr_insns (uint32_t insn, const uint32_t 
     }
   }
   return NULL;
-}
-
-static const uint32_t *dds_stream_dlc_required_prefix_end (const uint32_t *dlc_ops)
-  ddsrt_attribute_warn_unused_result ddsrt_nonnull_all;
-
-static bool dds_stream_appendable_member_is_required (uint32_t insn, const uint32_t *ops)
-{
-  if ((insn & DDS_OP_FLAG_KEY) || ((insn & DDS_OP_FLAG_MU) && !op_type_optional (insn)))
-    return true;
-
-  if (op_type_base (insn) && DDS_OP_TYPE (insn) == DDS_SOP_VAL_EXT)
-  {
-    const uint32_t *jsr_ops = ops + DDS_OP_ADR_JSR (ops[2]);
-    if (op_is_dlc (jsr_ops[0]))
-      return dds_stream_dlc_required_prefix_end (jsr_ops) > jsr_ops;
-  }
-  return false;
-}
-
-static const uint32_t *dds_stream_dlc_required_prefix_end (const uint32_t *dlc_ops)
-{
-  assert (op_is_dlc (dlc_ops[0]));
-  const uint32_t *ops = dlc_ops + 1;
-  const uint32_t *required_end = dlc_ops;
-  bool seen_member = false;
-  uint32_t insn;
-  while ((insn = *ops) != DDS_OP_RTS)
-  {
-    switch (DDS_OP (insn))
-    {
-      case DDS_SOP_ADR: {
-        const uint32_t *next_ops = dds_stream_skip_adr_insns (insn, ops);
-        if (!seen_member || dds_stream_appendable_member_is_required (insn, ops))
-          required_end = next_ops;
-        seen_member = true;
-        ops = next_ops;
-        break;
-      }
-      case DDS_SOP_JSR:
-        ops++;
-        break;
-      case DDS_SOP_RTS: case DDS_SOP_JEQ: case DDS_SOP_JEQ4: case DDS_SOP_KOF: case DDS_SOP_DLC: case DDS_SOP_PLC: case DDS_SOP_PLM: case DDS_SOP_MID:
-        abort ();
-        break;
-    }
-  }
-  return required_end;
-}
-
-static void dds_stream_set_dlc_required_prefixes1 (uint32_t *ops, bool in_recursive);
-
-static void dds_stream_set_dlc_required_prefixes_union (uint32_t *ops, bool in_recursive)
-{
-  const uint32_t numcases = ops[2];
-  uint32_t *jeq_op = ops + DDS_OP_ADR_JSR (ops[3]);
-  for (uint32_t i = 0; i < numcases; i++)
-  {
-    switch (DDS_JEQ_TYPE (jeq_op[0]))
-    {
-      case DDS_SOP_VAL_BST: case DDS_SOP_VAL_BWSTR:
-      case DDS_SOP_VAL_SEQ: case DDS_SOP_VAL_BSQ:
-      case DDS_SOP_VAL_ARR: case DDS_SOP_VAL_UNI: case DDS_SOP_VAL_STU: {
-        const bool recursive = DDS_OP_ADR_JSR (jeq_op[0]) <= 0;
-        if (!in_recursive)
-          dds_stream_set_dlc_required_prefixes1 (jeq_op + DDS_OP_ADR_JSR (jeq_op[0]), recursive);
-        break;
-      }
-      case DDS_SOP_VAL_BLN: case DDS_SOP_VAL_1BY: case DDS_SOP_VAL_2BY: case DDS_SOP_VAL_4BY: case DDS_SOP_VAL_8BY:
-      case DDS_SOP_VAL_16BY: case DDS_SOP_VAL_STR: case DDS_SOP_VAL_WSTR: case DDS_SOP_VAL_WCHAR:
-      case DDS_SOP_VAL_ENU: case DDS_SOP_VAL_BMK:
-        break;
-      case DDS_SOP_VAL_EXT:
-        abort ();
-        break;
-    }
-    jeq_op += (DDS_OP (jeq_op[0]) == DDS_OP_JEQ) ? 3 : 4;
-  }
-}
-
-static uint32_t *dds_stream_set_dlc_required_prefixes_plc (uint32_t *ops, bool in_recursive)
-{
-  if (op_is_union_adr (*ops))
-  {
-    dds_stream_set_dlc_required_prefixes_union (ops, in_recursive);
-    return (uint32_t *) dds_stream_skip_adr_insns (*ops, ops);
-  }
-
-  uint32_t insn;
-  while ((insn = *ops) != DDS_OP_RTS)
-  {
-    assert (DDS_OP (insn) == DDS_OP_PLM);
-    uint32_t *plm_ops = ops + DDS_OP_ADR_PLM (insn);
-    if (DDS_PLM_FLAGS (insn) & DDS_OP_FLAG_BASE)
-    {
-      assert (DDS_OP (plm_ops[0]) == DDS_OP_PLC);
-      (void) dds_stream_set_dlc_required_prefixes_plc (plm_ops + 1, in_recursive);
-    }
-    else
-      dds_stream_set_dlc_required_prefixes1 (plm_ops, in_recursive);
-    ops += 2;
-  }
-  return ops;
-}
-
-static void dds_stream_set_dlc_required_prefixes_adr (uint32_t *ops, bool in_recursive)
-{
-  const uint32_t insn = *ops;
-  switch (DDS_OP_TYPE (insn))
-  {
-    case DDS_SOP_VAL_SEQ: case DDS_SOP_VAL_BSQ: {
-      const enum dds_stream_typecode subtype = DDS_OP_SUBTYPE (insn);
-      if (type_has_subtype_or_members (subtype))
-      {
-        const uint32_t bound_op = seq_is_bounded (DDS_OP_TYPE (insn)) ? 1 : 0;
-        const bool recursive = DDS_OP_ADR_JSR (ops[3 + bound_op]) <= 0;
-        if (!in_recursive)
-          dds_stream_set_dlc_required_prefixes1 (ops + DDS_OP_ADR_JSR (ops[3 + bound_op]), recursive);
-      }
-      break;
-    }
-    case DDS_SOP_VAL_ARR: {
-      const enum dds_stream_typecode subtype = DDS_OP_SUBTYPE (insn);
-      if (type_has_subtype_or_members (subtype))
-      {
-        const bool recursive = DDS_OP_ADR_JSR (ops[3]) <= 0;
-        if (!in_recursive)
-          dds_stream_set_dlc_required_prefixes1 (ops + DDS_OP_ADR_JSR (ops[3]), recursive);
-      }
-      break;
-    }
-    case DDS_SOP_VAL_UNI:
-      dds_stream_set_dlc_required_prefixes_union (ops, in_recursive);
-      break;
-    case DDS_SOP_VAL_EXT: {
-      const bool recursive = DDS_OP_ADR_JSR (ops[2]) <= 0;
-      if (!in_recursive)
-        dds_stream_set_dlc_required_prefixes1 (ops + DDS_OP_ADR_JSR (ops[2]), recursive);
-      break;
-    }
-    case DDS_SOP_VAL_BLN: case DDS_SOP_VAL_1BY: case DDS_SOP_VAL_2BY: case DDS_SOP_VAL_4BY: case DDS_SOP_VAL_8BY:
-    case DDS_SOP_VAL_16BY: case DDS_SOP_VAL_STR: case DDS_SOP_VAL_WSTR: case DDS_SOP_VAL_WCHAR:
-    case DDS_SOP_VAL_BST: case DDS_SOP_VAL_BWSTR: case DDS_SOP_VAL_ENU: case DDS_SOP_VAL_BMK:
-      break;
-    case DDS_SOP_VAL_STU:
-      abort ();
-      break;
-  }
-}
-
-static void dds_stream_set_dlc_required_prefixes1 (uint32_t *ops, bool in_recursive)
-{
-  uint32_t insn;
-  while ((insn = *ops) != DDS_OP_RTS)
-  {
-    switch (DDS_OP (insn))
-    {
-      case DDS_SOP_ADR:
-        dds_stream_set_dlc_required_prefixes_adr (ops, in_recursive);
-        ops = (uint32_t *) dds_stream_skip_adr_insns (insn, ops);
-        break;
-      case DDS_SOP_JSR: {
-        const bool recursive = DDS_OP_JUMP (insn) <= 0;
-        if (!in_recursive)
-          dds_stream_set_dlc_required_prefixes1 (ops + DDS_OP_JUMP (insn), recursive);
-        ops++;
-        break;
-      }
-      case DDS_SOP_DLC: {
-        const uint32_t *required_end = dds_stream_dlc_required_prefix_end (ops);
-        const ptrdiff_t required_prefix = required_end - ops;
-        assert (required_prefix >= 0);
-        assert (required_prefix <= UINT16_MAX);
-        if (required_prefix > UINT16_MAX)
-          abort ();
-        ops[0] = DDS_OP_DLC | (uint32_t) required_prefix;
-        ops++;
-        break;
-      }
-      case DDS_SOP_PLC:
-        ops = dds_stream_set_dlc_required_prefixes_plc (ops + 1, in_recursive);
-        break;
-      case DDS_SOP_RTS: case DDS_SOP_JEQ: case DDS_SOP_JEQ4: case DDS_SOP_KOF: case DDS_SOP_PLM: case DDS_SOP_MID:
-        abort ();
-        break;
-    }
-  }
-}
-
-static bool dds_stream_mutable_member_counts_within_limit1 (const uint32_t *ops, bool in_recursive);
-
-static bool dds_stream_mutable_member_counts_within_limit_union (const uint32_t *ops, bool in_recursive)
-{
-  const uint32_t numcases = ops[2];
-  const uint32_t *jeq_op = ops + DDS_OP_ADR_JSR (ops[3]);
-  for (uint32_t i = 0; i < numcases; i++)
-  {
-    switch (DDS_JEQ_TYPE (jeq_op[0]))
-    {
-      case DDS_SOP_VAL_BST: case DDS_SOP_VAL_BWSTR:
-      case DDS_SOP_VAL_SEQ: case DDS_SOP_VAL_BSQ:
-      case DDS_SOP_VAL_ARR: case DDS_SOP_VAL_UNI: case DDS_SOP_VAL_STU: {
-        const bool recursive = DDS_OP_ADR_JSR (jeq_op[0]) <= 0;
-        if (!in_recursive && !dds_stream_mutable_member_counts_within_limit1 (jeq_op + DDS_OP_ADR_JSR (jeq_op[0]), recursive))
-          return false;
-        break;
-      }
-      case DDS_SOP_VAL_BLN: case DDS_SOP_VAL_1BY: case DDS_SOP_VAL_2BY: case DDS_SOP_VAL_4BY: case DDS_SOP_VAL_8BY:
-      case DDS_SOP_VAL_16BY: case DDS_SOP_VAL_STR: case DDS_SOP_VAL_WSTR: case DDS_SOP_VAL_WCHAR:
-      case DDS_SOP_VAL_ENU: case DDS_SOP_VAL_BMK:
-        break;
-      case DDS_SOP_VAL_EXT:
-        abort ();
-        break;
-    }
-    jeq_op += (DDS_OP (jeq_op[0]) == DDS_OP_JEQ) ? 3 : 4;
-  }
-  return true;
-}
-
-static bool dds_stream_mutable_member_count_pl (const uint32_t *ops, uint32_t *count)
-{
-  uint32_t insn, ops_csr = 0;
-  while ((insn = ops[ops_csr]) != DDS_OP_RTS)
-  {
-    assert (DDS_OP (insn) == DDS_OP_PLM);
-    const uint32_t *plm_ops = ops + ops_csr + DDS_OP_ADR_PLM (insn);
-    if (DDS_PLM_FLAGS (insn) & DDS_OP_FLAG_BASE)
-    {
-      assert (DDS_OP (plm_ops[0]) == DDS_OP_PLC);
-      if (!dds_stream_mutable_member_count_pl (plm_ops + 1, count))
-        return false;
-    }
-    else
-    {
-      if (*count == MUTABLE_MEMBER_LIMIT)
-        return false;
-      (*count)++;
-    }
-    ops_csr += 2;
-  }
-  return true;
-}
-
-static const uint32_t *dds_stream_mutable_member_counts_within_limit_plc (const uint32_t *ops, bool in_recursive, bool *ok)
-{
-  if (op_is_union_adr (*ops))
-  {
-    if (!dds_stream_mutable_member_counts_within_limit_union (ops, in_recursive))
-      *ok = false;
-    return dds_stream_skip_adr_insns (*ops, ops);
-  }
-
-  uint32_t count = 0;
-  if (!dds_stream_mutable_member_count_pl (ops, &count))
-  {
-    *ok = false;
-    return ops;
-  }
-
-  uint32_t insn;
-  while (*ok && (insn = *ops) != DDS_OP_RTS)
-  {
-    assert (DDS_OP (insn) == DDS_OP_PLM);
-    const uint32_t *plm_ops = ops + DDS_OP_ADR_PLM (insn);
-    if (DDS_PLM_FLAGS (insn) & DDS_OP_FLAG_BASE)
-    {
-      assert (DDS_OP (plm_ops[0]) == DDS_OP_PLC);
-      (void) dds_stream_mutable_member_counts_within_limit_plc (plm_ops + 1, in_recursive, ok);
-    }
-    else if (!dds_stream_mutable_member_counts_within_limit1 (plm_ops, in_recursive))
-      *ok = false;
-    ops += 2;
-  }
-  return ops;
-}
-
-static bool dds_stream_mutable_member_counts_within_limit_adr (const uint32_t *ops, bool in_recursive)
-{
-  const uint32_t insn = *ops;
-  switch (DDS_OP_TYPE (insn))
-  {
-    case DDS_SOP_VAL_SEQ: case DDS_SOP_VAL_BSQ: {
-      const enum dds_stream_typecode subtype = DDS_OP_SUBTYPE (insn);
-      if (type_has_subtype_or_members (subtype))
-      {
-        const uint32_t bound_op = seq_is_bounded (DDS_OP_TYPE (insn)) ? 1 : 0;
-        const bool recursive = DDS_OP_ADR_JSR (ops[3 + bound_op]) <= 0;
-        if (!in_recursive && !dds_stream_mutable_member_counts_within_limit1 (ops + DDS_OP_ADR_JSR (ops[3 + bound_op]), recursive))
-          return false;
-      }
-      break;
-    }
-    case DDS_SOP_VAL_ARR: {
-      const enum dds_stream_typecode subtype = DDS_OP_SUBTYPE (insn);
-      if (type_has_subtype_or_members (subtype))
-      {
-        const bool recursive = DDS_OP_ADR_JSR (ops[3]) <= 0;
-        if (!in_recursive && !dds_stream_mutable_member_counts_within_limit1 (ops + DDS_OP_ADR_JSR (ops[3]), recursive))
-          return false;
-      }
-      break;
-    }
-    case DDS_SOP_VAL_UNI:
-      if (!dds_stream_mutable_member_counts_within_limit_union (ops, in_recursive))
-        return false;
-      break;
-    case DDS_SOP_VAL_EXT: {
-      const bool recursive = DDS_OP_ADR_JSR (ops[2]) <= 0;
-      if (!in_recursive && !dds_stream_mutable_member_counts_within_limit1 (ops + DDS_OP_ADR_JSR (ops[2]), recursive))
-        return false;
-      break;
-    }
-    case DDS_SOP_VAL_BLN: case DDS_SOP_VAL_1BY: case DDS_SOP_VAL_2BY: case DDS_SOP_VAL_4BY: case DDS_SOP_VAL_8BY:
-    case DDS_SOP_VAL_16BY: case DDS_SOP_VAL_STR: case DDS_SOP_VAL_BST: case DDS_SOP_VAL_WSTR: case DDS_SOP_VAL_BWSTR:
-    case DDS_SOP_VAL_WCHAR: case DDS_SOP_VAL_ENU: case DDS_SOP_VAL_BMK:
-      break;
-    case DDS_SOP_VAL_STU:
-      abort ();
-      break;
-  }
-  return true;
-}
-
-static bool dds_stream_mutable_member_counts_within_limit1 (const uint32_t *ops, bool in_recursive)
-{
-  uint32_t insn;
-  while ((insn = *ops) != DDS_OP_RTS)
-  {
-    switch (DDS_OP (insn))
-    {
-      case DDS_SOP_ADR:
-        if (!dds_stream_mutable_member_counts_within_limit_adr (ops, in_recursive))
-          return false;
-        ops = dds_stream_skip_adr_insns (insn, ops);
-        break;
-      case DDS_SOP_JSR: {
-        const bool recursive = DDS_OP_JUMP (insn) <= 0;
-        if (!in_recursive && !dds_stream_mutable_member_counts_within_limit1 (ops + DDS_OP_JUMP (insn), recursive))
-          return false;
-        ops++;
-        break;
-      }
-      case DDS_SOP_DLC:
-        ops++;
-        break;
-      case DDS_SOP_PLC: {
-        bool ok = true;
-        ops = dds_stream_mutable_member_counts_within_limit_plc (ops + 1, in_recursive, &ok);
-        if (!ok)
-          return false;
-        break;
-      }
-      case DDS_SOP_RTS: case DDS_SOP_JEQ: case DDS_SOP_JEQ4: case DDS_SOP_KOF: case DDS_SOP_PLM: case DDS_SOP_MID:
-        abort ();
-        break;
-    }
-  }
-  return true;
-}
-
-static bool dds_stream_mutable_member_counts_within_limit (const uint32_t *ops)
-{
-  return dds_stream_mutable_member_counts_within_limit1 (ops, false);
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
@@ -8478,13 +8143,18 @@ size_t dds_stream_print_key (dds_istream_t *is, const struct dds_cdrstream_desc 
   return size;
 }
 
+static uint32_t dds_stream_countops_info (const uint32_t *ops, uint32_t nkeys, const dds_key_descriptor_t *keys, struct dds_cdrstream_ops_info *info)
+{
+  dds_stream_get_ops_info (ops, info);
+  for (uint32_t n = 0; n < nkeys; n++)
+    dds_stream_countops_keyoffset (ops, &keys[n], &info->ops_end);
+  return (uint32_t) (info->ops_end - ops);
+}
+
 uint32_t dds_stream_countops (const uint32_t *ops, uint32_t nkeys, const dds_key_descriptor_t *keys)
 {
   struct dds_cdrstream_ops_info info;
-  dds_stream_get_ops_info (ops, &info);
-  for (uint32_t n = 0; n < nkeys; n++)
-    dds_stream_countops_keyoffset (ops, &keys[n], &info.ops_end);
-  return (uint32_t) (info.ops_end - ops);
+  return dds_stream_countops_info (ops, nkeys, keys, &info);
 }
 
 uint32_t dds_stream_supported_data_representations (const uint32_t *ops)
@@ -8992,24 +8662,28 @@ static const uint32_t *dds_stream_key_size (const uint32_t *ops, struct key_prop
   return ops;
 }
 
-uint32_t dds_stream_descriptor_flags (struct dds_cdrstream_desc *desc, uint32_t flagset, uint32_t *keysz_xcdrv1,
-    uint32_t *keysz_xcdrv2)
+static uint32_t dds_stream_descriptor_flags_impl (struct dds_cdrstream_desc *desc, uint32_t flagset, uint32_t *keysz_xcdrv1,
+    uint32_t *keysz_xcdrv2, const struct dds_cdrstream_ops_info *ops_info)
 {
   if (keysz_xcdrv1 != NULL)
     *keysz_xcdrv1 = 0;
   if (keysz_xcdrv2 != NULL)
     *keysz_xcdrv2 = 0;
 
-  struct dds_cdrstream_ops_info info;
-  dds_stream_get_ops_info (desc->ops.ops, &info);
+  struct dds_cdrstream_ops_info info_store;
+  if (ops_info == NULL)
+  {
+    dds_stream_get_ops_info (desc->ops.ops, &info_store);
+    ops_info = &info_store;
+  }
 
   uint32_t descriptor_flags = flagset & DDS_CDR_DESCRIPTOR_PRESERVED_FLAGS;
-  descriptor_flags |= info.descriptor_flags & DDS_TOPIC_FIXED_SIZE;
+  descriptor_flags |= ops_info->descriptor_flags & DDS_TOPIC_FIXED_SIZE;
 
   if (desc->keys.nkeys > 0)
   {
     struct key_props key_properties = { 0 };
-    key_properties.supported_data_representations = info.supported_data_representations;
+    key_properties.supported_data_representations = ops_info->supported_data_representations;
     (void) dds_stream_key_size (desc->ops.ops, &key_properties);
 
     if (keysz_xcdrv1 != NULL)
@@ -9041,6 +8715,12 @@ uint32_t dds_stream_descriptor_flags (struct dds_cdrstream_desc *desc, uint32_t 
   }
 
   return descriptor_flags;
+}
+
+uint32_t dds_stream_descriptor_flags (struct dds_cdrstream_desc *desc, uint32_t flagset, uint32_t *keysz_xcdrv1,
+    uint32_t *keysz_xcdrv2)
+{
+  return dds_stream_descriptor_flags_impl (desc, flagset, keysz_xcdrv1, keysz_xcdrv2, NULL);
 }
 
 static int key_cmp_idx (const void *va, const void *vb)
@@ -9209,9 +8889,6 @@ static const uint32_t *dds_stream_get_enum_value_maps (const struct dds_cdrstrea
 dds_return_t dds_cdrstream_desc_init_with_nops (struct dds_cdrstream_desc *desc, const struct dds_cdrstream_allocator *allocator,
     uint32_t size, uint32_t align, uint32_t flagset, const uint32_t *ops, uint32_t nops, const dds_key_descriptor_t *keys, uint32_t nkeys)
 {
-  if (!dds_stream_mutable_member_counts_within_limit (ops))
-    return DDS_RETCODE_BAD_PARAMETER;
-
   desc->size = size;
   desc->align = align;
   desc->opt_size_xcdr1 = 0;
@@ -9226,13 +8903,22 @@ dds_return_t dds_cdrstream_desc_init_with_nops (struct dds_cdrstream_desc *desc,
     qsort (desc->keys.keys_definition_order, nkeys, sizeof (*desc->keys.keys_definition_order), key_cmp_idx);
 
   /* Get the actual number of ops, excluding the member ID table ops */
-  uint32_t counted_ops = dds_stream_countops (ops, nkeys, keys);
+  struct dds_cdrstream_ops_info ops_info;
+  uint32_t counted_ops = dds_stream_countops_info (ops, nkeys, keys, &ops_info);
+  if (!ops_info.mutable_member_counts_within_limit)
+  {
+    if (desc->keys.keys != NULL)
+      allocator->free (desc->keys.keys);
+    if (desc->keys.keys_definition_order != NULL)
+      allocator->free (desc->keys.keys_definition_order);
+    memset (desc, 0, sizeof (*desc));
+    return DDS_RETCODE_BAD_PARAMETER;
+  }
   desc->ops.nops = (counted_ops < nops) ? nops : counted_ops;
 
   /* Copy all ops, including the member ID table (if present) */
   desc->ops.ops = allocator->malloc (desc->ops.nops * sizeof (*desc->ops.ops));
   memcpy (desc->ops.ops, ops, desc->ops.nops * sizeof (*desc->ops.ops));
-  dds_stream_set_dlc_required_prefixes1 (desc->ops.ops, false);
 
   /* In case the actual number of instructions (counted_ops) is larger than the value of
      nops, then the descriptor was generated by an older version of IDLC (pre-XCDR1 optional
@@ -9274,7 +8960,7 @@ dds_return_t dds_cdrstream_desc_init_with_nops (struct dds_cdrstream_desc *desc,
 
   /* Get the flagset from the descriptor, except for flags that are calculated
      using the CDR stream serializer. */
-  desc->flagset = dds_stream_descriptor_flags (desc, flagset, NULL, NULL);
+  desc->flagset = dds_stream_descriptor_flags_impl (desc, flagset, NULL, NULL, &ops_info);
   return DDS_RETCODE_OK;
 }
 

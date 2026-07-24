@@ -4073,15 +4073,21 @@ CU_Test (ddsc_cdrstream, check_mutable_required_members_normalize)
 CU_Test (ddsc_cdrstream, check_mutable_member_limit_descriptor_init)
 {
   const uint32_t nmembers = 513;
-  const uint32_t nops = 1 + 2 * nmembers + 1;
+  const uint32_t member_ops = 1 + 2 * nmembers + 1;
+  const uint32_t nops = member_ops + 3 * nmembers;
   uint32_t *ops = ddsrt_calloc (nops, sizeof (*ops));
   ops[0] = DDS_OP_PLC;
   for (uint32_t n = 0; n < nmembers; n++)
   {
-    ops[1 + 2 * n] = DDS_OP_PLM;
+    const uint32_t plm_idx = 1 + 2 * n;
+    const uint32_t adr_idx = member_ops + 3 * n;
+    ops[plm_idx] = DDS_OP_PLM | (adr_idx - plm_idx);
     ops[2 + 2 * n] = n;
+    ops[adr_idx] = DDS_OP_ADR | DDS_OP_TYPE_4BY;
+    ops[adr_idx + 1] = 0;
+    ops[adr_idx + 2] = DDS_OP_RTS;
   }
-  ops[nops - 1] = DDS_OP_RTS;
+  ops[member_ops - 1] = DDS_OP_RTS;
 
   struct dds_cdrstream_desc desc;
   const dds_return_t ret = dds_cdrstream_desc_init_with_nops (&desc, &dds_cdrstream_default_allocator, 0, 1, 0, ops, nops, NULL, 0);
