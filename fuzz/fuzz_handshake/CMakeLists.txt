@@ -10,15 +10,15 @@ endif()
 # dependencies are not yet tracked by every cmake distribution. This makes it
 # necessary to source the cmake configuration files from the build directories
 # of protobuf (using the CONFIG argument to find_package)...
-set(PROTOBUF_ROOT "${CMAKE_BINARY_DIR}/../LPM/external.protobuf")
+set(fuzz_protobuf_root "${CMAKE_BINARY_DIR}/../LPM/external.protobuf")
 
-set(absl_DIR "${PROTOBUF_ROOT}/lib/cmake/absl")
+set(absl_DIR "${fuzz_protobuf_root}/lib/cmake/absl")
 find_package(absl REQUIRED CONFIG)
 
-set(utf8_range_DIR "${PROTOBUF_ROOT}/lib/cmake/utf8_range")
+set(utf8_range_DIR "${fuzz_protobuf_root}/lib/cmake/utf8_range")
 find_package(utf8_range REQUIRED CONFIG)
 
-set(protobuf_DIR "${PROTOBUF_ROOT}/lib/cmake/protobuf")
+set(protobuf_DIR "${fuzz_protobuf_root}/lib/cmake/protobuf")
 # ...sometime in the future these two statements should suffice:
 set(Protobuf_USE_STATIC_LIBS ON)
 find_package(protobuf REQUIRED CONFIG)
@@ -59,5 +59,4 @@ target_link_libraries(fuzz_handshake
     protobuf::libprotobuf
     CycloneDDS::ddsc
     $ENV{LIB_FUZZING_ENGINE}
-    OpenSSL::SSL
-    stdc++)
+    OpenSSL::SSL)
