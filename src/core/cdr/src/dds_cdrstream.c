@@ -1369,12 +1369,14 @@ static void dds_stream_get_ops_info (const uint32_t *ops, struct dds_cdrstream_o
   dds_stream_get_ops_info1 (ops, true, info, true, 0, XCDR12_REP, false);
 }
 
+#ifndef NDEBUG
 static bool dds_stream_mutable_member_counts_within_limit (const uint32_t *ops)
 {
   struct dds_cdrstream_ops_info info;
   dds_stream_get_ops_info (ops, &info);
   return info.mutable_member_counts_within_limit;
 }
+#endif
 
 ddsrt_nonnull_all
 static char *dds_stream_reuse_string_bound (dds_istream_t *is, char * restrict str, const uint32_t size)
