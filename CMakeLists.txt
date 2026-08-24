@@ -65,7 +65,6 @@ option(WERROR "Treat compiler warnings as errors" OFF)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/Modules")
 
 option(BUILD_IDLC "Build IDL preprocessor" ${not_crosscompiling})
-option(ENABLE_IDL_HAND_PARSER "Use the hand-written IDL parser" ON)
 option(BUILD_DDSPERF "Build ddsperf tool" ${not_crosscompiling})
 option(INSTALL_XMLTYPE "Install xmltype tool" OFF)
 
@@ -100,26 +99,6 @@ if(${CMAKE_C_COMPILER_ID} STREQUAL "SunPro")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "SunOS")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m64")
   set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -m64")
-endif()
-
-# Homebrew
-if(APPLE)
-  # Hint Homebrew prefixes to find_* commands. Use of CMAKE_PREFIX_PATH is
-  # required because full signature mode for find_package implies Config mode.
-  find_program(brew NAMES brew)
-  if (brew)
-    foreach(formula bison)
-      execute_process(
-        COMMAND ${brew} --prefix ${formula}
-        OUTPUT_VARIABLE prefix
-        ERROR_QUIET)
-      string(STRIP "${prefix}" prefix)
-      if(EXISTS "${prefix}")
-        # Append to ensure user specified paths come first.
-        set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};${prefix}")
-      endif()
-    endforeach()
-  endif()
 endif()
 
 # Set reasonably strict warning options for clang, gcc, msvc
@@ -420,9 +399,6 @@ if(TARGET _confgen_check)
 endif()
 if(TARGET ddsi_xtypes_generated_check)
   add_dependencies(check_generated_sources ddsi_xtypes_generated_check)
-endif()
-if(TARGET idl_parser_tokens_check)
-  add_dependencies(check_generated_sources idl_parser_tokens_check)
 endif()
 if(BUILD_EXAMPLES AND HAVE_IDLC)
   add_subdirectory(examples)

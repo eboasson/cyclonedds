@@ -10,7 +10,6 @@
 # SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 #
 include(GenerateExportHeader)
-include(HashUtilities)
 
 find_package(Threads QUIET REQUIRED)
 
@@ -18,98 +17,6 @@ set(binary_dir "${CMAKE_CURRENT_BINARY_DIR}")
 set(source_dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 configure_file(include/idl/version.h.in include/idl/version.h @ONLY)
-
-check_hashes(
-  _bison_hash_correct
-  HASH_FILES
-    src/parser.y
-  APPEND_FILES
-    ${CMAKE_CURRENT_LIST_DIR}/src/parser.c
-    ${CMAKE_CURRENT_LIST_DIR}/src/parser.h
-)
-
-find_package(BISON 3.0.4 QUIET)
-
-if(NOT ${_bison_hash_correct})
-  if(NOT BISON_FOUND)
-    find_package(BISON 3.0.4)
-  endif()
-
-  if(BISON_FOUND)
-    message(STATUS "Running Bison, parser.y was updated.")
-    message(STATUS "${source_dir}")
-
-    file(REMOVE src/parser.c)
-    file(REMOVE src/parser.h)
-
-    # Run bison targetting an intermediate file
-    bison_target(bison_t src/parser.y ${binary_dir}/parser.c DEFINES_FILE ${binary_dir}/parser.h)
-
-    # Run postprocessing (copying/hashing)
-    add_custom_command(
-      OUTPUT
-        ${binary_dir}/src/parser.c
-        ${binary_dir}/src/parser.h
-      COMMAND ${CMAKE_COMMAND} ARGS
-        "-Dsource_dir=${source_dir}"
-        "-Dbinary_dir=${binary_dir}"
-        "-DMAIN_PROJECT_DIR=${CMAKE_SOURCE_DIR}"
-        -P ${CMAKE_CURRENT_LIST_DIR}/postprocess-parser.cmake
-      DEPENDS ${binary_dir}/parser.c ${binary_dir}/parser.h
-    )
-  else()
-    message(FATAL_ERROR "parser.y was updated but parser.c not regenerated, and no bison available!")
-  endif()
-else()
-  file(COPY ${source_dir}/src/parser.c DESTINATION ${binary_dir}/src)
-  file(COPY ${source_dir}/src/parser.h DESTINATION ${binary_dir}/src)
-endif()
-
-set(_parser_tokens_check_dir "${binary_dir}/generated-source-check/parser_tokens")
-set(_parser_tokens_check_stamp "${_parser_tokens_check_dir}/parser_tokens.ok")
-if(BISON_FOUND)
-  set(_parser_tokens_check_parser_c "${_parser_tokens_check_dir}/parser.c")
-  set(_parser_tokens_check_parser_h "${_parser_tokens_check_dir}/parser.h")
-  add_custom_command(
-    OUTPUT "${_parser_tokens_check_stamp}"
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${_parser_tokens_check_dir}"
-    COMMAND "${BISON_EXECUTABLE}"
-      "--defines=${_parser_tokens_check_parser_h}"
-      -o "${_parser_tokens_check_parser_c}"
-      "${source_dir}/src/parser.y"
-    COMMAND ${CMAKE_COMMAND}
-      "-DHAND_WRITTEN_HEADER=${source_dir}/src/parser_tokens.h"
-      "-DBISON_HEADER=${_parser_tokens_check_parser_h}"
-      -P "${CMAKE_SOURCE_DIR}/cmake/CheckBisonTokenIds.cmake"
-    COMMAND ${CMAKE_COMMAND} -E touch "${_parser_tokens_check_stamp}"
-    DEPENDS
-      "${source_dir}/src/parser.y"
-      "${source_dir}/src/parser_tokens.h"
-      "${CMAKE_SOURCE_DIR}/cmake/CheckBisonTokenIds.cmake"
-    VERBATIM)
-else()
-  add_custom_command(
-    OUTPUT "${_parser_tokens_check_stamp}"
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${_parser_tokens_check_dir}"
-    COMMAND ${CMAKE_COMMAND} -E echo
-      "Bison not found; comparing parser_tokens.h with checked-in parser.h."
-    COMMAND ${CMAKE_COMMAND}
-      "-DHAND_WRITTEN_HEADER=${source_dir}/src/parser_tokens.h"
-      "-DBISON_HEADER=${source_dir}/src/parser.h"
-      -P "${CMAKE_SOURCE_DIR}/cmake/CheckBisonTokenIds.cmake"
-    COMMAND ${CMAKE_COMMAND} -E touch "${_parser_tokens_check_stamp}"
-    DEPENDS
-      "${source_dir}/src/parser.h"
-      "${source_dir}/src/parser_tokens.h"
-      "${CMAKE_SOURCE_DIR}/cmake/CheckBisonTokenIds.cmake"
-    VERBATIM)
-endif()
-add_custom_target(
-  idl_parser_tokens_check
-  DEPENDS "${_parser_tokens_check_stamp}"
-  COMMENT "Checking handwritten IDL parser token IDs against Bison output.")
-
-set_source_files_properties(${binary_dir}/src/parser.c ${binary_dir}/src/parser.h PROPERTIES GENERATED TRUE)
 
 set(headers
   include/idl/expression.h
@@ -145,7 +52,6 @@ set(sources
   src/print.c
   src/keylist.c
   src/hashid.c
-  src/parser.c
   src/heap.c
   src/parser_impl.c
   src/annotation.h
@@ -153,7 +59,6 @@ set(sources
   src/expression.h
   src/file.h
   src/hashid.h
-  src/parser.h
   src/parser_tokens.h
   src/scanner.h
   src/parser_impl.h
@@ -210,12 +115,6 @@ add_library(${PROJECT_NAME}::idl ALIAS idl)
 if(MSVC)
   # ignore warning 5286 and 5287 about enum type conversion
   target_compile_options(idl PRIVATE /wd5286 /wd5287)
-endif()
-
-if(ENABLE_IDL_HAND_PARSER)
-  target_compile_definitions(idl PRIVATE IDL_USE_HAND_WRITTEN_PARSER=1)
-else()
-  target_compile_definitions(idl PRIVATE IDL_USE_HAND_WRITTEN_PARSER=0)
 endif()
 
 set_target_properties(

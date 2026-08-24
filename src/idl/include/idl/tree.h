@@ -388,9 +388,8 @@ struct idl_forward {
   idl_node_t node;
   struct idl_name *name;
   /* FIXME: no reference count is maintained for type specifier in forward
-            declarations as it may introduce cyclic dependencies. perfect
-            reason to remove use of destructors in Bison and use a pool
-            allocator instead */
+            declarations as it may introduce cyclic dependencies. a pool
+            allocator would make this easier to handle */
   idl_type_spec_t *type_spec;
 };
 

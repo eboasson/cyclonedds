@@ -28,11 +28,6 @@
 #include "keylist.h"
 
 #include "parser_impl.h"
-#include "parser.h"
-
-#ifndef IDL_USE_HAND_WRITTEN_PARSER
-#define IDL_USE_HAND_WRITTEN_PARSER 0
-#endif
 
 static const idl_file_t builtin_file =
   { NULL, "<builtin>" };
@@ -43,78 +38,127 @@ static const idl_source_t builtin_source =
 static const idl_name_t builtin_name =
   { { BUILTIN_LOCATION }, "", false };
 
-static idl_retcode_t parse_grammar(idl_pstate_t *pstate, idl_token_t *tok);
+static void
+reset_builtin_input(idl_pstate_t *pstate, const char *syntax)
+{
+  pstate->parser.state = IDL_PARSE;
+  pstate->annotation_scope = NULL;
+  pstate->scanner.state = IDL_SCAN;
+  pstate->buffer.data = (char *)syntax;
+  pstate->buffer.size = pstate->buffer.used = strlen(syntax);
+  pstate->scanner.cursor = pstate->buffer.data;
+  pstate->scanner.limit = pstate->buffer.data + pstate->buffer.used;
+  pstate->scanner.position = (idl_position_t)BUILTIN_POSITION;
+}
+
+static void
+clear_builtin_input(idl_pstate_t *pstate)
+{
+  pstate->buffer.data = NULL;
+  pstate->buffer.size = pstate->buffer.used = 0;
+  pstate->scanner.cursor = pstate->scanner.limit = NULL;
+  pstate->scanner.position.line = 0;
+  pstate->scanner.position.column = 0;
+}
+
+static void
+free_token_value(idl_token_t *tok)
+{
+  switch (tok->code) {
+    case IDL_TOKEN_IDENTIFIER:
+    case IDL_TOKEN_STRING_LITERAL:
+    case IDL_TOKEN_PP_NUMBER:
+    case IDL_TOKEN_COMMENT:
+    case IDL_TOKEN_LINE_COMMENT:
+      if (tok->value.str)
+        idl_free(tok->value.str);
+      break;
+    default:
+      break;
+  }
+  memset(tok, 0, sizeof(*tok));
+}
+
+static idl_retcode_t
+find_builtin_annotation_name(
+  idl_pstate_t *pstate,
+  const char *syntax,
+  idl_name_t *name,
+  unsigned *seen)
+{
+  idl_token_t tok;
+  idl_retcode_t ret = IDL_RETCODE_OK;
+  bool after_at = false;
+  bool after_annotation = false;
+
+  memset(name, 0, sizeof(*name));
+  memset(&tok, 0, sizeof(tok));
+  *seen = 0;
+
+  reset_builtin_input(pstate, syntax);
+  do {
+    int32_t code;
+    if ((ret = idl_scan(pstate, &tok)) < 0)
+      break;
+    ret = IDL_RETCODE_OK;
+    code = tok.code;
+
+    if (after_annotation && tok.code == IDL_TOKEN_IDENTIFIER) {
+      (*seen)++;
+      if (*seen == 1) {
+        name->symbol.location = tok.location;
+        name->identifier = tok.value.str;
+        name->is_annotation = true;
+        tok.value.str = NULL;
+      }
+      after_annotation = false;
+    } else if (after_at && tok.code == IDL_TOKEN_ANNOTATION) {
+      after_at = false;
+      after_annotation = true;
+    } else {
+      after_at = tok.code == IDL_TOKEN_ANNOTATION_SYMBOL;
+      after_annotation = false;
+    }
+
+    free_token_value(&tok);
+    if (code == '\0')
+      break;
+  } while (true);
+
+  clear_builtin_input(pstate);
+  return ret;
+}
 
 static idl_retcode_t
 parse_builtin_annotations(
   idl_pstate_t *pstate,
   const idl_builtin_annotation_t *annotations)
 {
-  idl_token_t token;
   idl_retcode_t ret = IDL_RETCODE_OK;
 
   for (size_t i=0; annotations[i].syntax; i++) {
-    unsigned seen = 0, save = 0;
-    idl_scope_t *scope = NULL;
     idl_name_t name;
-    pstate->scanner.state = IDL_SCAN;
-    pstate->buffer.data = (char *)annotations[i].syntax;
-    pstate->buffer.size = pstate->buffer.used = strlen(pstate->buffer.data);
-    pstate->scanner.cursor = pstate->buffer.data;
-    pstate->scanner.limit = pstate->buffer.data + pstate->buffer.used;
-    pstate->scanner.position = (idl_position_t)BUILTIN_POSITION;
+    unsigned seen;
 
-    memset(&name, 0, sizeof(name));
-    memset(&token, 0, sizeof(token));
-    do {
-      save = 0;
-      if ((ret = idl_scan(pstate, &token)) < 0)
-        break;
-      ret = IDL_RETCODE_OK;
-      /* ignore comments and processor directives */
-      if (token.code != '\0' &&
-          token.code != '\n' &&
-          token.code != IDL_TOKEN_COMMENT &&
-          token.code != IDL_TOKEN_LINE_COMMENT &&
-          !((unsigned)pstate->scanner.state & (unsigned)IDL_SCAN_DIRECTIVE))
-      {
-        if (pstate->parser.state == IDL_PARSE_ANNOTATION) {
-          assert(token.code == IDL_TOKEN_IDENTIFIER);
-          seen++;
-          save = (seen == 1);
-          scope = pstate->scope;
-        }
-        ret = parse_grammar(pstate, &token);
-      }
-      switch (token.code) {
-        case '\n':
-          pstate->scanner.state = IDL_SCAN;
-          break;
-        case IDL_TOKEN_IDENTIFIER:
-          if (save) {
-            name.symbol.location = token.location;
-            name.identifier = token.value.str;
-            name.is_annotation = true;
-          }
-          /* fall through */
-        case IDL_TOKEN_STRING_LITERAL:
-        case IDL_TOKEN_PP_NUMBER:
-        case IDL_TOKEN_COMMENT:
-        case IDL_TOKEN_LINE_COMMENT:
-          if (token.value.str && !save) {
-            idl_free(token.value.str);
-          }
-          break;
-        default:
-          break;
-      }
-    } while (token.code != '\0' &&
-             (ret == IDL_RETCODE_OK || ret == IDL_RETCODE_PUSH_MORE));
+    if ((ret = find_builtin_annotation_name(
+          pstate, annotations[i].syntax, &name, &seen)) != IDL_RETCODE_OK) {
+      idl_free(name.identifier);
+      return ret;
+    }
+
+    reset_builtin_input(pstate, annotations[i].syntax);
+    ret = idl_parse_hand_written(pstate);
+    clear_builtin_input(pstate);
+    if (ret != IDL_RETCODE_OK) {
+      idl_free(name.identifier);
+      return ret;
+    }
 
     if (seen == 1) {
       idl_annotation_t *annotation;
       const idl_declaration_t *declaration;
-      declaration = idl_find(pstate, scope, &name, IDL_FIND_ANNOTATION);
+      declaration = idl_find(
+        pstate, pstate->global_scope, &name, IDL_FIND_ANNOTATION);
       if (declaration) {
         annotation = (idl_annotation_t *)declaration->node;
         /* multiple definitions of the same annotation may exist, provided
@@ -131,7 +175,7 @@ parse_builtin_annotations(
     /* builtin annotations must not declare more than one annotation per block
        to avoid ambiguity in annotation-callback mapping */
     if (seen > 1) {
-      idl_error(pstate, &token.location,
+      idl_error(pstate, &name.symbol.location,
         "Multiple declarations of builtin annotations in same block");
       return IDL_RETCODE_SYNTAX_ERROR;
     }
@@ -139,8 +183,6 @@ parse_builtin_annotations(
 
   return ret;
 }
-
-extern int idl_yydebug;
 
 idl_retcode_t
 idl_create_pstate(
@@ -154,8 +196,6 @@ idl_create_pstate(
   (void)flags;
   if (!(pstate = idl_calloc(1, sizeof(*pstate))))
     goto err_pstate;
-  if (!(pstate->parser.yypstate = idl_yypstate_new()))
-    goto err_yypstate;
   if (idl_create_scope(pstate, IDL_GLOBAL_SCOPE, &builtin_name, NULL, &scope))
     goto err_scope;
 
@@ -187,8 +227,6 @@ idl_create_pstate(
   *pstatep = pstate;
   return IDL_RETCODE_OK;
 err_scope:
-  idl_yypstate_delete(pstate->parser.yypstate);
-err_yypstate:
   idl_free(pstate);
 err_pstate:
   return IDL_RETCODE_NO_MEMORY;
@@ -208,11 +246,6 @@ static void delete_source(idl_source_t *src)
 void idl_delete_pstate(idl_pstate_t *pstate)
 {
   if (pstate) {
-    /* parser */
-    if (pstate->parser.yypstate) {
-      idl_yypstate_delete_stack(pstate->parser.yypstate);
-      idl_yypstate_delete(pstate->parser.yypstate);
-    }
     idl_delete_node(pstate->builtin_root);
     /* directive */
     if (pstate->directive)
@@ -305,46 +338,6 @@ idl_warning(
   va_start(ap, fmt);
   idl_log(pstate, IDL_LC_WARNING, loc, fmt, ap);
   va_end(ap);
-}
-
-static idl_retcode_t parse_grammar(idl_pstate_t *pstate, idl_token_t *tok)
-{
-  IDL_YYSTYPE yylval;
-
-  switch (tok->code) {
-    case IDL_TOKEN_CHAR_LITERAL:
-      yylval.chr = tok->value.chr;
-      break;
-    case IDL_TOKEN_IDENTIFIER:
-    case IDL_TOKEN_STRING_LITERAL:
-      yylval.str = tok->value.str;
-      break;
-    case IDL_TOKEN_INTEGER_LITERAL:
-      yylval.ullng = tok->value.ullng;
-      break;
-    case IDL_TOKEN_FLOATING_PT_LITERAL:
-      yylval.ldbl = tok->value.ldbl;
-      break;
-    default:
-      memset(&yylval, 0, sizeof(yylval));
-      break;
-  }
-
-  idl_retcode_t result = IDL_RETCODE_BAD_PARAMETER;
-  switch (idl_yypush_parse(pstate->parser.yypstate, tok->code, &yylval, &tok->location, pstate, &result))
-  {
-    case 0:
-      return IDL_RETCODE_OK;
-    case 1:
-      return result;
-    case 2:
-      return IDL_RETCODE_NO_MEMORY;
-    case YYPUSH_MORE:
-      return IDL_RETCODE_PUSH_MORE;
-    default:
-      assert (0);
-  }
-  return IDL_RETCODE_BAD_PARAMETER;
 }
 
 static idl_retcode_t validate_forwards(idl_pstate_t *pstate, void *root)
@@ -498,56 +491,8 @@ idl_retcode_t idl_parse(idl_pstate_t *pstate)
 {
   idl_retcode_t ret;
 
-#if IDL_USE_HAND_WRITTEN_PARSER
-  {
-    idl_token_t tok;
-    memset(&tok, 0, sizeof(tok));
-    if ((ret = parse_grammar(pstate, &tok)) != IDL_RETCODE_OK)
-      goto err;
-    pstate->builtin_root = pstate->root;
-  }
   if ((ret = idl_parse_hand_written(pstate)) != IDL_RETCODE_OK)
     goto err;
-#else
-  idl_token_t tok;
-  memset(&tok, 0, sizeof(tok));
-
-  do {
-    if ((ret = idl_scan(pstate, &tok)) < 0)
-      break;
-    ret = IDL_RETCODE_OK;
-    if (tok.code != IDL_TOKEN_COMMENT && tok.code != IDL_TOKEN_LINE_COMMENT) {
-      if ((unsigned)pstate->scanner.state & (unsigned)IDL_SCAN_DIRECTIVE) {
-        ret = idl_parse_directive(pstate, &tok);
-        if ((tok.code == '\0') &&
-            (ret == IDL_RETCODE_OK || ret == IDL_RETCODE_PUSH_MORE))
-          goto grammar;
-      } else if (tok.code != '\n') {
-grammar:
-        ret = parse_grammar(pstate, &tok);
-      }
-    }
-    /* idl_free memory associated with token value */
-    switch (tok.code) {
-      case '\n':
-        pstate->scanner.state = IDL_SCAN;
-        break;
-      case IDL_TOKEN_IDENTIFIER:
-      case IDL_TOKEN_STRING_LITERAL:
-      case IDL_TOKEN_PP_NUMBER:
-      case IDL_TOKEN_COMMENT:
-      case IDL_TOKEN_LINE_COMMENT:
-        if (tok.value.str)
-          idl_free(tok.value.str);
-        break;
-      default:
-        break;
-    }
-  } while ((tok.code != '\0') &&
-           (ret == IDL_RETCODE_OK || ret == IDL_RETCODE_PUSH_MORE));
-  if (ret != IDL_RETCODE_OK)
-    goto err;
-#endif
 
   pstate->builtin_root = pstate->root;
   for (idl_node_t *node = pstate->root; node; node = node->next) {

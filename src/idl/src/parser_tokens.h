@@ -13,13 +13,12 @@
 
 #include "idl/processor.h"
 
-#ifndef IDL_YYTOKENTYPE
-#define IDL_YYTOKENTYPE
-enum idl_yytokentype {
-  IDL_YYEMPTY = -2,
-  IDL_YYEOF = 0,
-  IDL_YYerror = 256,
-  IDL_YYUNDEF = 257,
+#ifndef IDL_TOKEN_KIND_H
+#define IDL_TOKEN_KIND_H
+enum idl_token_kind {
+  IDL_TOKEN_EOF = 0,
+  IDL_TOKEN_ERROR = 256,
+  IDL_TOKEN_UNDEFINED = 257,
   IDL_TOKEN_LINE_COMMENT = 258,
   IDL_TOKEN_COMMENT = 259,
   IDL_TOKEN_PP_NUMBER = 260,
@@ -73,7 +72,7 @@ enum idl_yytokentype {
   IDL_TOKEN_LSHIFT = 308,
   IDL_TOKEN_RSHIFT = 309
 };
-typedef enum idl_yytokentype idl_yytoken_kind_t;
+typedef enum idl_token_kind idl_token_kind_t;
 #endif
 
 int idl_iskeyword(idl_pstate_t *pstate, const char *str, int nc);
