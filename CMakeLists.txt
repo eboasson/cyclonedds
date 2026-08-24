@@ -63,8 +63,10 @@ endif()
 option(WERROR "Treat compiler warnings as errors" OFF)
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/Modules")
+set(CycloneDDS_IDLC_GENERATE_CMAKE
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/tools/idlc/cmake/Generate.cmake")
 
-option(BUILD_IDLC "Build IDL preprocessor" ${not_crosscompiling})
+option(BUILD_IDLC "Build IDL compiler" ${not_crosscompiling})
 option(BUILD_DDSPERF "Build ddsperf tool" ${not_crosscompiling})
 option(INSTALL_XMLTYPE "Install xmltype tool" OFF)
 
@@ -378,7 +380,7 @@ install(
   COMPONENT dev
 )
 install(
-  FILES "${CycloneDDS_SOURCE_DIR}/cmake/Modules/Generate.cmake"
+  FILES "${CycloneDDS_IDLC_GENERATE_CMAKE}"
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}/idlc"
   COMPONENT dev)
 

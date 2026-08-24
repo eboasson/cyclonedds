@@ -22,7 +22,6 @@ elseif(INSTALL_XMLTYPE)
 endif()
 
 if(BUILD_IDLC)
-  add_subdirectory(idlpp)
   add_subdirectory(idlc)
 endif()
 

@@ -10,7 +10,7 @@
 # SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 #
 include(CUnit)
-include(Generate)
+include("${CycloneDDS_IDLC_GENERATE_CMAKE}")
 
 idlc_generate(TARGET RoundTrip FILES RoundTrip.idl)
 idlc_generate(TARGET Space FILES Space.idl WARNINGS no-implicit-extensibility)

@@ -79,7 +79,7 @@ endif()
 #       can be done, but a proper export header can only be generated from the
 #       final library.
 #       see: https://gitlab.kitware.com/cmake/cmake/-/issues/18399
-set(script "${PROJECT_SOURCE_DIR}/src/ddsrt/rename.cmake")
+set(script "${CMAKE_CURRENT_SOURCE_DIR}/../../../ddsrt/rename.cmake")
 set(templates
   include/dds/ddsrt/misc.h
   include/dds/ddsrt/attributes.h
@@ -89,7 +89,7 @@ set(templates
 # FIXME: move general functionality to ddsrt
 
 foreach(source ${templates})
-  set(input "${PROJECT_SOURCE_DIR}/src/ddsrt/${source}")
+  set(input "${CMAKE_CURRENT_SOURCE_DIR}/../../../ddsrt/${source}")
   # map include path. i.e. map include/dds/ddsrt to include/idl
   string(REGEX REPLACE "(/dds(rt)?)+" "/idl" source "${source}")
   set(output "${binary_dir}/${source}")
@@ -137,8 +137,8 @@ target_include_directories(
   INTERFACE
     "$<INSTALL_INTERFACE:include>"
   PRIVATE
-    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../core/ddsi/include>"
-    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../core/cdr/include>")
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../../core/ddsi/include>"
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../../core/cdr/include>")
 
 target_link_libraries(idl PRIVATE Threads::Threads)
 

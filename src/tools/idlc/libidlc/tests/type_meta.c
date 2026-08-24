@@ -20,7 +20,7 @@
 #include "dds/ddsc/dds_opcodes.h"
 #include "dds/cdr/dds_cdrstream.h"
 #include "idl/string.h"
-#include "libidlc/libidlc__descriptor.h"
+#include "libidlc__descriptor.h"
 #include "idlc/generator.h"
 #include "test_common.h"
 

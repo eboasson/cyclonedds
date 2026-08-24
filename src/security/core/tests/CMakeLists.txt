@@ -11,7 +11,7 @@
 #
 include (GenerateExportHeader)
 include (CUnit)
-include (Generate)
+include ("${CycloneDDS_IDLC_GENERATE_CMAKE}")
 
 idlc_generate(TARGET SecurityCoreTests FILES SecurityCoreTests.idl WARNINGS no-implicit-extensibility)
 

@@ -17,7 +17,6 @@ set(sources
 
 if(ENABLE_TYPELIB)
   list(APPEND sources
-    ../src/descriptor_type_meta.c
     type_meta.c)
 endif()
 
@@ -25,12 +24,11 @@ add_cunit_executable(cunit_idlc ${sources})
 
 target_include_directories(
   cunit_idlc PRIVATE
-    "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../include>"
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>"
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src>"
-    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../../core/ddsi/include>"
-    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../../core/cdr/include>"
-    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../../core/cdr/include>")
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../idlc/include>"
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../../../core/ddsi/include>"
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../../../core/cdr/include>")
 
 if(MSVC)
   # ignore warnings C6255 and 6263 about _alloca

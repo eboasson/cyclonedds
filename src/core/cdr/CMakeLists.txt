@@ -18,7 +18,7 @@ set(srcs_cdr
 set(hdrs_private_cdr
   "${CMAKE_CURRENT_LIST_DIR}/include/dds/cdr/dds_cdrstream.h")
 
-if(${CMAKE_PROJECT_NAME} STREQUAL "CycloneDDS")
+if(TARGET ddsc)
   target_sources(ddsc PRIVATE ${srcs_cdr} ${hdrs_private_cdr})
   target_include_directories(ddsc PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>")
 
@@ -29,7 +29,11 @@ if(${CMAKE_PROJECT_NAME} STREQUAL "CycloneDDS")
   )
 else()
   set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../../../cmake/Modules")
-  include(Generate)
+  if(NOT DEFINED CycloneDDS_IDLC_GENERATE_CMAKE)
+    set(CycloneDDS_IDLC_GENERATE_CMAKE
+        "${CMAKE_CURRENT_LIST_DIR}/../../tools/idlc/cmake/Generate.cmake")
+  endif()
+  include("${CycloneDDS_IDLC_GENERATE_CMAKE}")
   include(GenerateExportHeader)
 
   # Generate CDR library as a standalone library

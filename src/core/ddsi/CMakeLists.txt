@@ -318,6 +318,8 @@ if(NOT CMAKE_CROSSCOMPILING AND TARGET idlc AND TARGET libidlc)
   endforeach()
 
   set(_ddsi_xtypes_check_dir "${CMAKE_CURRENT_BINARY_DIR}/generated-source-check/xtypes")
+  set(_ddsi_xtypes_normalize_script "${CMAKE_CURRENT_LIST_DIR}/../../tools/idlc/cmake/NormalizeIdlcGeneratedFile.cmake")
+  set(_ddsi_xtypes_check_script "${CMAKE_CURRENT_LIST_DIR}/../../../cmake/CheckGeneratedFile.cmake")
   set(_ddsi_xtypes_check_outputs "")
   set(_ddsi_xtypes_check_commands "")
   foreach(_xtypes_name ${_ddsi_xtypes_idl_names})
@@ -362,19 +364,19 @@ if(NOT CMAKE_CROSSCOMPILING AND TARGET idlc AND TARGET libidlc)
         "-DOUTPUT=${_xtypes_generated_src}"
         "-DSOURCE=${CMAKE_CURRENT_LIST_DIR}/idl/${_xtypes_name}.idl"
         "-DPUBLIC_INCLUDE_DIR=dds/ddsi"
-        -P ${CMAKE_SOURCE_DIR}/cmake/NormalizeIdlcGeneratedFile.cmake
+        -P ${_ddsi_xtypes_normalize_script}
       COMMAND ${CMAKE_COMMAND}
         "-DINPUT=${_xtypes_raw_dir}/${_xtypes_name}.h"
         "-DOUTPUT=${_xtypes_generated_hdr}"
         "-DSOURCE=${CMAKE_CURRENT_LIST_DIR}/idl/${_xtypes_name}.idl"
         "-DPUBLIC_INCLUDE_DIR=dds/ddsi"
         "-DHEADER_GUARD=${_xtypes_header_guard}"
-        -P ${CMAKE_SOURCE_DIR}/cmake/NormalizeIdlcGeneratedFile.cmake
+        -P ${_ddsi_xtypes_normalize_script}
       DEPENDS
         idlc
         libidlc
         ${_ddsi_xtypes_idl_files}
-        ${CMAKE_SOURCE_DIR}/cmake/NormalizeIdlcGeneratedFile.cmake
+        ${_ddsi_xtypes_normalize_script}
       VERBATIM)
 
     list(APPEND _ddsi_xtypes_check_outputs
@@ -384,11 +386,11 @@ if(NOT CMAKE_CROSSCOMPILING AND TARGET idlc AND TARGET libidlc)
       COMMAND ${CMAKE_COMMAND}
         "-DGENERATED_FILE=${_xtypes_generated_src}"
         "-DCHECKED_IN_FILE=${_xtypes_checked_in_src}"
-        -P ${CMAKE_SOURCE_DIR}/cmake/CheckGeneratedFile.cmake
+        -P ${_ddsi_xtypes_check_script}
       COMMAND ${CMAKE_COMMAND}
         "-DGENERATED_FILE=${_xtypes_generated_hdr}"
         "-DCHECKED_IN_FILE=${_xtypes_checked_in_hdr}"
-        -P ${CMAKE_SOURCE_DIR}/cmake/CheckGeneratedFile.cmake)
+        -P ${_ddsi_xtypes_check_script})
   endforeach()
 
   add_custom_target(
