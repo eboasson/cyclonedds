@@ -10,6 +10,7 @@
 
 #include <wchar.h>
 #include <stdint.h>
+#include <setjmp.h>
 
 #include "CUnit/Theory.h"
 #include "dds/dds.h"
@@ -3156,6 +3157,59 @@ CU_Test (ddsc_cdrstream, check_sequence_alloc)
   }
 }
 #undef D
+
+
+static jmp_buf sequence_alloc_jmp;
+static size_t sequence_alloc_size;
+
+static void *record_sequence_malloc (size_t size)
+{
+  sequence_alloc_size = size;
+  longjmp (sequence_alloc_jmp, 1);
+  return NULL;
+}
+
+static void *record_sequence_realloc (void *ptr, size_t size)
+{
+  (void) ptr;
+  return record_sequence_malloc (size);
+}
+
+static void record_sequence_free (void *ptr)
+{
+  (void) ptr;
+}
+
+CU_Test (ddsc_cdrstream, sequence_allocation_size_does_not_wrap)
+{
+  if (sizeof (size_t) <= sizeof (uint32_t))
+    return;
+
+  // Exit from the allocator callback so this checks the requested size
+  // without constructing or allocating a multi-gigabyte sample.
+  const struct dds_cdrstream_allocator allocator = {
+    .malloc = record_sequence_malloc,
+    .realloc = record_sequence_realloc,
+    .free = record_sequence_free
+  };
+  const uint32_t num = UINT32_MAX / (uint32_t) sizeof (wchar_t *) + 1;
+  const uint32_t cdr[] = { num };
+  CdrStreamWstring_t4 sample = { 0 };
+  struct dds_cdrstream_desc desc;
+  dds_cdrstream_desc_from_topic_desc (&desc, &CdrStreamWstring_t4_desc);
+
+  sequence_alloc_size = 0;
+  if (setjmp (sequence_alloc_jmp) == 0)
+  {
+    dds_istream_t is;
+    dds_istream_init_well_formed (&is, sizeof (cdr), cdr, DDSI_RTPS_CDR_ENC_VERSION_1);
+    dds_stream_read_sample (&is, &sample, &allocator, &desc);
+    CU_FAIL_FATAL ("sequence allocation was not attempted");
+  }
+  CU_ASSERT_EQ (sequence_alloc_size, (size_t) num * sizeof (wchar_t *));
+
+  dds_cdrstream_desc_fini (&desc, &dds_cdrstream_default_allocator);
+}
 
 
 struct test_cdr_params {

@@ -3053,7 +3053,11 @@ size_t dds_stream_getsize_key (const char *sample, const struct dds_cdrstream_de
 ddsrt_nonnull_all
 static void malloc_sequence_buffer (dds_sequence_t *seq, const struct dds_cdrstream_allocator *allocator, uint32_t num, uint32_t elem_size)
 {
-  const uint32_t size = num * elem_size;
+  // Cast-to-size_t: with 32-bit size_t it has no effect, with a 64-bit size_t an oversize
+  // num * elem_size will cause an allocation > 4GB but otherwise has no effect.
+  // Normalize must prevent that oversize case and so at run-time this cast is useless but
+  // harmless. However, there is a unit test that relies on it.
+  const size_t size = num * (size_t) elem_size;
   seq->_buffer = allocator->malloc (size);
   seq->_release = true;
   seq->_maximum = num;
@@ -3068,8 +3072,10 @@ static void grow_sequence_buffer_initialize (dds_sequence_t *seq, const struct d
   //  (_maximum >  0 && _buffer != NULL)
   // if _buffer is a non-null pointer, it must point to memory
   // obtained from "allocator"
-  const uint32_t size = num * elem_size;
-  const uint32_t off = seq->_maximum * elem_size;
+  //
+  // cast-to-size_t see malloc_sequence_buffer
+  const size_t size = num * (size_t) elem_size;
+  const size_t off = seq->_maximum * (size_t) elem_size;
   seq->_buffer = allocator->realloc (seq->_buffer, size);
   seq->_release = true; // usually already true
   seq->_maximum = num;
@@ -3095,7 +3101,8 @@ static void adjust_sequence_buffer_initialize (dds_sequence_t *seq, const struct
   assert (num > 0);
   if (*sample_state != SAMPLE_DATA_INITIALIZED)
   {
-    const uint32_t size = num * elem_size;
+    // cast-to-size_t see malloc_sequence_buffer (here only for consistency)
+    const size_t size = num * (size_t) elem_size;
     malloc_sequence_buffer (seq, allocator, num, elem_size);
     memset (seq->_buffer, 0, size);
     *sample_state = SAMPLE_DATA_INITIALIZED;
@@ -5036,6 +5043,8 @@ static enum dds_stream_normalize_result normalize_seq_arr_body (struct normalize
       const uint32_t *enum_op = *ops;
       const uint32_t sz = DDS_OP_TYPE_SZ (**ops);
       const uint32_t max = (*ops)[2 + x0];
+      if (num > UINT32_MAX / sizeof (uint32_t))
+        return normalize_error ();
       *ops += 3 + x0;
       if ((res = normalize_enumarray (st1, off, enum_op, sz, num, max, tc)) != DDS_STREAM_NORMALIZE_SUCCESS)
         return res;
@@ -5055,7 +5064,11 @@ static enum dds_stream_normalize_result normalize_seq_arr_body (struct normalize
       const enum tryconstruct tc = tryconstruct_mode (**ops, true);
       size_t maxsz;
       if (subtype == DDS_SOP_VAL_STR)
+      {
+        if (num > UINT32_MAX / sizeof (char *))
+          return normalize_error ();
         maxsz = SIZE_MAX;
+      }
       else if (num > UINT32_MAX / (*ops)[2 + x0 + x1])
         return normalize_error ();
       else
@@ -5071,7 +5084,11 @@ static enum dds_stream_normalize_result normalize_seq_arr_body (struct normalize
       const enum tryconstruct tc = tryconstruct_mode (**ops, true);
       size_t maxsz;
       if (subtype == DDS_SOP_VAL_WSTR)
+      {
+        if (num > UINT32_MAX / sizeof (wchar_t *))
+          return normalize_error ();
         maxsz = SIZE_MAX;
+      }
       else if (num > (UINT32_MAX / sizeof (wchar_t)) / (*ops)[2 + x0 + x1])
         return normalize_error ();
       else
@@ -5083,6 +5100,8 @@ static enum dds_stream_normalize_result normalize_seq_arr_body (struct normalize
       break;
     }
     case DDS_SOP_VAL_WCHAR: {
+      if (num > UINT32_MAX / sizeof (wchar_t))
+        return normalize_error ();
       *ops += 2 + x0;
       for (uint32_t i = 0; i < num; i++)
         if (!normalize_wchar (st1, off))
