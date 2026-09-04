@@ -367,7 +367,7 @@ static enum find_internal_interface_index_result find_internal_interface_index (
 
 static enum find_internal_interface_index_result find_internal_interface_index (const struct ddsi_domaingv *gv, uint32_t nwstack_if_index, int *internal_if_index)
 {
-  if (nwstack_if_index == 0)
+  if (nwstack_if_index == 0 || gv->config.interface_filtering == DDSI_INTERFACE_FILTERING_OFF)
     return FIIIR_NO_INFO;
   for (int i = 0; i < gv->n_interfaces; i++)
   {
@@ -376,6 +376,12 @@ static enum find_internal_interface_index_result find_internal_interface_index (
       *internal_if_index = i;
       return FIIIR_MATCH;
     }
+  }
+  if (gv->config.interface_filtering == DDSI_INTERFACE_FILTERING_NORMAL &&
+      nwstack_if_index == gv->loopback_if_index)
+  {
+    // not matched against one of ours, but we accept it nonetheless */
+    return FIIIR_NO_INFO;
   }
   return FIIIR_NO_MATCH;
 }

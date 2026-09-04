@@ -183,6 +183,10 @@ struct ddsi_domaingv {
   /* whether we're using a link-local address (and therefore
      only listening to multicasts on that interface) */
   int using_link_local_intf;
+  /* The interface index of the loopback interface for implementing interface filtering
+     mode "normal". There may be multiple loopback interfaces, but it seems overkill to
+     support that. */
+  uint32_t loopback_if_index;
 
   /* Addressing: actual own (preferred) IP address, IP address
      advertised in discovery messages (so that an external IP address on

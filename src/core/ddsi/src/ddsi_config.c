@@ -198,6 +198,7 @@ DUPF(maybe_int32);
 DUPF(domainId);
 DUPF(transport_selector);
 DUPF(many_sockets_mode);
+DUPF(interface_filtering);
 DU(deaf_mute);
 #ifdef DDS_HAS_TCP_TLS
 DUPF(min_tls_version);
@@ -1118,6 +1119,10 @@ static const char *tracemask_names[] = {
 static const uint32_t tracemask_codes[] = {
   DDS_LC_FATAL, DDS_LC_ERROR, DDS_LC_WARNING, DDS_LC_INFO, DDS_LC_CONFIG, DDS_LC_DISCOVERY, DDS_LC_DATA, DDS_LC_RADMIN, DDS_LC_TIMING, DDS_LC_TRAFFIC, DDS_LC_TOPIC, DDS_LC_TCP, DDS_LC_PLIST, DDS_LC_WHC, DDS_LC_THROTTLE, DDS_LC_RHC, DDS_LC_CONTENT, DDS_LC_MALFORMED, DDS_LC_TYPELIB, DDS_LC_USER1, DDS_LC_USER2, DDS_LC_USER3, DDS_LC_USER, DDS_LC_ALL
 };
+
+static const char *en_interface_filtering_vs[] = { "off", "normal", "strict", NULL };
+static const enum ddsi_interface_filtering en_interface_filtering_ms[] = { DDSI_INTERFACE_FILTERING_OFF, DDSI_INTERFACE_FILTERING_NORMAL, DDSI_INTERFACE_FILTERING_STRICT, 0 };
+GENERIC_ENUM_CTYPE (interface_filtering, enum ddsi_interface_filtering)
 
 static enum update_result uf_tracemask (struct ddsi_cfgst *cfgst, UNUSED_ARG (void *parent), UNUSED_ARG (struct cfgelem const * const cfgelem), UNUSED_ARG (int first), const char *value)
 {

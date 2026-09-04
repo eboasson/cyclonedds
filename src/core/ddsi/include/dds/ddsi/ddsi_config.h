@@ -188,6 +188,12 @@ enum ddsi_many_sockets_mode {
   DDSI_MSM_MANY_UNICAST
 };
 
+enum ddsi_interface_filtering {
+  DDSI_INTERFACE_FILTERING_OFF,
+  DDSI_INTERFACE_FILTERING_NORMAL,
+  DDSI_INTERFACE_FILTERING_STRICT
+};
+
 #ifdef DDS_HAS_SECURITY
 struct ddsi_plugin_library_properties {
   char *library_path;
@@ -437,6 +443,7 @@ struct ddsi_config
   int generate_keyhash;
   uint32_t max_sample_size;
   enum ddsi_boolean_default extended_packet_info;
+  enum ddsi_interface_filtering interface_filtering;
 
   /* compability options */
   enum ddsi_standards_conformance standards_conformance;
