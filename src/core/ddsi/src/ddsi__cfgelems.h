@@ -2231,6 +2231,17 @@ static struct cfgelem discovery_cfgelems[] = {
     DESCRIPTION(
       "<p>This setting controls the default participant lease duration.<p>"),
     UNIT("duration")),
+  ENUM("InterfaceFiltering", NULL, 1, "normal",
+    MEMBER(interface_filtering),
+    FUNCTIONS(0, uf_interface_filtering, 0, pf_interface_filtering),
+    DESCRIPTION(
+      "<p>This element decides how strictly the participant discovery filters \n"
+      "on reception interface (requires extended packet info to be enabled, see \n"
+      "Internal/ExtendedPacketInfo:</p>\n"
+      "<ul><li><i>off</i>: no filtering</li>\n"
+      "<li><i>normal</i>: only the configured interfaces and loopback</li>\n"
+      "<li><i>strict</i>: only the configured interfaces</li></ul>\n"),
+    VALUES("off","strict","normal")),
   END_MARKER
 };
 

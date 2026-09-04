@@ -529,6 +529,14 @@ int ddsi_gather_network_interfaces (struct ddsi_domaingv *gv)
     assert (maxq_list[i] < n_interfaces);
 #endif
 
+  gv->loopback_if_index = 0;
+  for (size_t i = 0; i < n_interfaces; i++) {
+    if (interfaces[i].loopback) {
+      gv->loopback_if_index = interfaces[i].if_index;
+      break;
+    }
+  }
+
   bool ok = true;
   gv->n_interfaces = 0;
 
