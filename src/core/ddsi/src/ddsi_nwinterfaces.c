@@ -191,7 +191,7 @@ static enum maybe_add_interface_result maybe_add_interface (struct ddsi_domaingv
   if (ddsi_locator_from_sockaddr (gv->m_factory, &dst->loc, ifa->addr) < 0)
     return MAI_IGNORED;
   ddsi_locator_to_string_no_port(addrbuf, sizeof(addrbuf), &dst->loc);
-  GVLOG (DDS_LC_CONFIG, " %s(", addrbuf);
+  GVLOG (DDS_LC_CONFIG, " %s@%"PRIu32"(", addrbuf, ifa->index);
 
   bool link_local = false;
   bool loopback = false;
