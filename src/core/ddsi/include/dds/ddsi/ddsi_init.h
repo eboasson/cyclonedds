@@ -25,6 +25,12 @@ struct ddsi_domaingv;
 /** @component ddsi_init */
 int ddsi_config_prep (struct ddsi_domaingv *gv, struct ddsi_cfgst *cfgst);
 
+/** @component ddsi_init
+ * Release tracing after the last domain log message, including failed setup.
+ * Must precede ddsi_config_fini for configurations parsed from XML.
+ */
+void ddsi_config_fini_trace (struct ddsi_domaingv *gv);
+
 /** @component ddsi_init */
 int ddsi_init (struct ddsi_domaingv *gv, struct ddsi_psmx_instance_locators *psmx_locators);
 

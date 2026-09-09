@@ -207,6 +207,7 @@ fail_ddsi_init:
 fail_psmx_init:
   dds_pubsub_message_exchange_fini(domain);
 fail_ddsi_config:
+  ddsi_config_fini_trace (&domain->gv);
   if (domain->cfgst)
     ddsi_config_fini (domain->cfgst);
 fail_config:
@@ -349,6 +350,7 @@ static dds_return_t dds_domain_free (dds_entity *vdomain)
 
   ddsrt_avl_delete (&dds_domaintree_def, &dds_global.m_domains, domain);
   dds_entity_final_deinit_before_free (vdomain);
+  ddsi_config_fini_trace (&domain->gv);
   if (domain->cfgst)
     ddsi_config_fini (domain->cfgst);
   dds_free (vdomain);

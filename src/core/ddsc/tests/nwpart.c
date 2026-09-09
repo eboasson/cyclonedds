@@ -158,6 +158,7 @@ static void setup (struct ddsi_domaingv *gv, const struct ddsi_config *config, b
 
 static void teardown (struct ddsi_domaingv *gv)
 {
+  ddsi_config_fini_trace (gv);
   // for some reason, GCC 12's analyzer thinks some of this is uninitialised
 #if __GNUC__ >= 12
   DDSRT_WARNING_GNUC_OFF(analyzer-use-of-uninitialized-value)

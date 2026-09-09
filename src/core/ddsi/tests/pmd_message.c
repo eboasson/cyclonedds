@@ -72,6 +72,7 @@ static void teardown (void)
 {
   ddsi_fini (&gv);
   ddsi_rbufpool_free (rbufpool);
+  ddsi_config_fini_trace (&gv);
   ddsi_config_fini (cfgst);
   ddsi_iid_fini ();
   ddsi_thread_states_fini ();

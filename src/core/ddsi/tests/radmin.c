@@ -58,6 +58,7 @@ static void teardown (void)
 {
   ddsi_fini (&gv);
   ddsi_rbufpool_free (rbpool);
+  ddsi_config_fini_trace (&gv);
 
   // On shutdown, there is an expectation that the thread was discovered dynamically.
   // We overrode it in the setup code, we undo it now.
