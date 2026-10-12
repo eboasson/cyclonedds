@@ -1049,6 +1049,49 @@ CU_Test (ddsc_dynamic_type, existing_nested_constructing, .init = dynamic_type_i
   dds_dynamic_type_unref (&dstruct_nested);
 }
 
+CU_Test (ddsc_dynamic_type, nested_minimal_dependencies, .init = dynamic_type_init, .fini = dynamic_type_fini)
+{
+  dds_dynamic_type_t leaf = dds_dynamic_type_create (participant,
+      (dds_dynamic_type_descriptor_t) { .kind = DDS_DYNAMIC_STRUCTURE, .name = "MinimalDependencyLeaf" });
+  CU_ASSERT_EQ_FATAL (leaf.ret, DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (dds_dynamic_type_add_member (&leaf, DDS_DYNAMIC_MEMBER_PRIM (DDS_DYNAMIC_UINT32, "value")), DDS_RETCODE_OK);
+
+  dds_dynamic_type_t middle = dds_dynamic_type_create (participant,
+      (dds_dynamic_type_descriptor_t) { .kind = DDS_DYNAMIC_STRUCTURE, .name = "MinimalDependencyMiddle" });
+  CU_ASSERT_EQ_FATAL (middle.ret, DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (dds_dynamic_type_add_member (&middle, DDS_DYNAMIC_MEMBER (leaf, "leaf")), DDS_RETCODE_OK);
+
+  dds_dynamic_type_t top = dds_dynamic_type_create (participant,
+      (dds_dynamic_type_descriptor_t) { .kind = DDS_DYNAMIC_STRUCTURE, .name = "MinimalDependencyTop" });
+  CU_ASSERT_EQ_FATAL (top.ret, DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (dds_dynamic_type_add_member (&top, DDS_DYNAMIC_MEMBER (middle, "middle")), DDS_RETCODE_OK);
+
+  /* Register only the root. The leaf's minimal TypeObject is generated before
+     the middle type can acquire a reference to it. */
+  dds_typeinfo_t *type_info;
+  CU_ASSERT_EQ_FATAL (dds_dynamic_type_register (&top, &type_info), DDS_RETCODE_OK);
+  struct ddsi_domaingv *gv = get_domaingv (participant);
+  CU_ASSERT_FATAL (ddsi_type_resolved (gv, top.x[0], DDSI_TYPE_INCLUDE_DEPS));
+  CU_ASSERT (ddsi_type_resolved (gv, top.x[1], DDSI_TYPE_INCLUDE_DEPS));
+  CU_ASSERT_EQ_FATAL (type_info->x.minimal.dependent_typeids._length, 2);
+  for (uint32_t n = 0; n < type_info->x.minimal.dependent_typeids._length; n++)
+  {
+    const dds_typeid_t *type_id = (const dds_typeid_t *) &type_info->x.minimal.dependent_typeids._buffer[n].type_id;
+    dds_typeobj_t *type_obj = NULL;
+    CU_ASSERT_EQ (dds_get_typeobj (participant, type_id, 0, &type_obj), DDS_RETCODE_OK);
+    if (type_obj != NULL)
+      CU_ASSERT_EQ (dds_free_typeobj (type_obj), DDS_RETCODE_OK);
+  }
+
+  dds_free_typeinfo (type_info);
+  CU_ASSERT_EQ_FATAL (dds_dynamic_type_unref (&top), DDS_RETCODE_OK);
+  ddsrt_mutex_lock (&gv->typelib_lock);
+  CU_ASSERT (ddsrt_avl_is_empty (&gv->typelib));
+  CU_ASSERT (ddsrt_avl_is_empty (&gv->typedeps));
+  CU_ASSERT (ddsrt_avl_is_empty (&gv->typedeps_reverse));
+  ddsrt_mutex_unlock (&gv->typelib_lock);
+}
+
 CU_Test (ddsc_dynamic_type, recursive_struct_disabled, .init = dynamic_type_no_recursive_init, .fini = dynamic_type_fini)
 {
   struct ddsi_domaingv *gv = get_domaingv (participant);
