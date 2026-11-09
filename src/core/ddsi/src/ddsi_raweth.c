@@ -22,6 +22,7 @@
 
 #if defined(__APPLE__)
 #include <TargetConditionals.h>
+#include <errno.h>
 #endif
 
 #if (defined(__linux) || defined(__FreeBSD__) || defined(__QNXNTO__) || (defined(__APPLE__) && TARGET_OS_OSX)) && !LWIP_SOCKET
@@ -638,6 +639,16 @@ static dds_return_t ddsi_raweth_create_conn (struct ddsi_tran_conn **conn_out, s
     DDS_CERROR (&fact->gv->logconfig, "ddsi_raweth_create_conn %s port %u failed ... retcode = %d\n", mcast ? "multicast" : "unicast", port, r);
     return DDS_RETCODE_ERROR;
   }
+
+#if defined(__APPLE__)
+  /* We supply the complete Ethernet header. Let BPF write it directly so
+     the interface can transmit without a configured IPv4 address. */
+  if (ioctl (sock, BIOCSHDRCMPLT, &mode) < 0) {
+    DDS_CERROR (&fact->gv->logconfig, "raweth: BIOCSHDRCMPLT on %s failed: %s\n", intf->name, strerror (errno));
+    ddsrt_close (sock);
+    return DDS_RETCODE_ERROR;
+  }
+#endif
 
   if ((r = ioctl (sock, BIOCPROMISC, &mode)) == -1 ) {
     ddsrt_close (sock);
