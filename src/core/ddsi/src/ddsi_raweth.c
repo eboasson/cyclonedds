@@ -789,6 +789,10 @@ static void ddsi_raweth_release_conn (struct ddsi_tran_conn * conn)
               uc->m_base.m_base.m_port);
   ddsrt_socket_ext_fini (&uc->m_sockext);
   ddsrt_close (uc->m_sockext.sock);
+#if DDSI_USE_BSD
+  ddsrt_mutex_destroy (&uc->lock);
+  ddsrt_free (uc->buffer);
+#endif
   ddsrt_free (conn);
 }
 
