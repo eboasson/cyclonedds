@@ -247,7 +247,7 @@ static dds_return_t ddsi_raweth_conn_write (struct ddsi_tran_conn * conn, const 
   dstaddr.sll_halen = 6;
   memcpy(dstaddr.sll_addr, dst->address + 10, 6);
 
-  hdrlen = set_ethernet_header(&vhdr, (uint16_t) uc->m_base.m_base.m_port, dst, &uc->m_base.m_base.gv->interfaces[0].loc);
+  hdrlen = set_ethernet_header(&vhdr, (uint16_t) conn->m_base.m_port, dst, &conn->m_interf->loc);
 
   DDSRT_STATIC_ASSERT(DDSI_TRAN_RESERVED_IOV_SLOTS >= 1);
   // beware: casting const away; it works with how things are now, but it is a bit nasty
@@ -530,7 +530,7 @@ static dds_return_t ddsi_raweth_conn_write (struct ddsi_tran_conn * conn, const 
 
   assert(msgfrags->niov <= INT_MAX - 1); // we'll be adding one later on
 
-  hdrlen = set_ethernet_header(&vhdr, (uint16_t) uc->m_base.m_base.m_port, dst, &uc->m_base.m_base.gv->interfaces[0].loc);
+  hdrlen = set_ethernet_header(&vhdr, (uint16_t) conn->m_base.m_port, dst, &conn->m_interf->loc);
 
   DDSRT_STATIC_ASSERT(DDSI_TRAN_RESERVED_IOV_SLOTS >= 1);
 
@@ -729,7 +729,7 @@ static int ddsi_raweth_conn_locator (struct ddsi_tran_factory * fact, struct dds
   {
     loc->kind = DDSI_LOCATOR_KIND_RAWETH;
     loc->port = uc->m_base.m_base.m_port;
-    memcpy(loc->address, uc->m_base.m_base.gv->interfaces[0].loc.address, sizeof (loc->address));
+    memcpy(loc->address, uc->m_base.m_interf->loc.address, sizeof (loc->address));
     ret = 0;
   }
   return ret;

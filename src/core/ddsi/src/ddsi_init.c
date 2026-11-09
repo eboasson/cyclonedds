@@ -122,9 +122,11 @@ static enum make_uc_sockets_ret make_uc_sockets (struct ddsi_domaingv *gv, uint3
       return MUSRET_SUCCESS;
     }
   }
-
-  *pdisc = ddsi_get_port (&gv->config, DDSI_PORT_UNI_DISC, ppid);
-  *pdata = ddsi_get_port (&gv->config, DDSI_PORT_UNI_DATA, ppid);
+  else
+  {
+    *pdisc = ddsi_get_port (&gv->config, DDSI_PORT_UNI_DISC, ppid);
+    *pdata = ddsi_get_port (&gv->config, DDSI_PORT_UNI_DATA, ppid);
+  }
 
   if (*pdisc != DDSI_TRAN_RANDOM_PORT_NUMBER && !ddsi_is_valid_port (gv->m_factory, *pdisc))
     return MUSRET_INVALID_PORTS;
@@ -1700,7 +1702,11 @@ int ddsi_init (struct ddsi_domaingv *gv, struct ddsi_psmx_instance_locators *psm
   dds_return_t rc;
   for (int i = 0; i < gv->n_interfaces; i++)
   {
-    if (use_udp_receive_for_xmit && ddsi_factory_supports (gv->m_factory, gv->interfaces[i].loc.kind))
+    const bool raweth = gv->interfaces[i].loc.kind == DDSI_LOCATOR_KIND_RAWETH;
+    /* The raw Ethernet receive socket is bound to the first interface. A
+       second socket on that interface would capture the same frames. */
+    if ((raweth && i == 0) ||
+        (use_udp_receive_for_xmit && ddsi_factory_supports (gv->m_factory, gv->interfaces[i].loc.kind)))
     {
       const int j = gv->disc_conn_uc[i] ? i : 0;
       gv->xmit_conns_meta[i] = gv->disc_conn_uc[j];
@@ -1718,7 +1724,8 @@ int ddsi_init (struct ddsi_domaingv *gv, struct ddsi_psmx_instance_locators *psm
     struct ddsi_tran_factory * fact = ddsi_factory_find_supported_kind (gv, gv->interfaces[i].loc.kind);
     assert (fact != NULL);
     struct ddsi_tran_conn *xmit_conn;
-    rc = ddsi_factory_create_conn (&xmit_conn, fact, 0, &qos);
+    const uint32_t xmit_port = raweth ? port_disc_uc : DDSI_TRAN_RANDOM_PORT_NUMBER;
+    rc = ddsi_factory_create_conn (&xmit_conn, fact, xmit_port, &qos);
     if (rc != DDS_RETCODE_OK)
       goto err_mc_conn;
     gv->xmit_conns_meta[i] = xmit_conn;
