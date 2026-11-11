@@ -398,24 +398,23 @@ err:
   return tpd;
 }
 
-dds_return_t ddsi_lookup_topic_definition (struct ddsi_domaingv *gv, const char * topic_name, const ddsi_typeid_t *type_id, struct ddsi_topic_definition **tpd)
+dds_qos_t *ddsi_lookup_topic_definition_qos (struct ddsi_domaingv *gv, const char *topic_name, const ddsi_typeid_t *type_id)
 {
-  assert (tpd != NULL);
   struct ddsrt_hh_iter it;
-  dds_return_t ret = DDS_RETCODE_OK;
-  *tpd = NULL;
+  dds_qos_t *qos = NULL;
   ddsrt_mutex_lock (&gv->topic_defs_lock);
-  for (struct ddsi_topic_definition *tpd1 = ddsrt_hh_iter_first (gv->topic_defs, &it); tpd1; tpd1 = ddsrt_hh_iter_next (&it))
+  for (struct ddsi_topic_definition *tpd = ddsrt_hh_iter_first (gv->topic_defs, &it); tpd; tpd = ddsrt_hh_iter_next (&it))
   {
-    if (!strcmp (tpd1->xqos->topic_name, topic_name) &&
-        (ddsi_typeid_is_none (type_id) || ((tpd1->xqos->present & DDSI_QP_TYPE_INFORMATION) && !ddsi_typeid_compare (type_id, ddsi_typeinfo_complete_typeid (tpd1->xqos->type_information)))))
+    if (!strcmp (tpd->xqos->topic_name, topic_name) &&
+        (ddsi_typeid_is_none (type_id) || !ddsi_typeid_compare (type_id, ddsi_typeinfo_complete_typeid (tpd->xqos->type_information))))
     {
-      *tpd = tpd1;
+      assert (tpd->xqos->present & DDSI_QP_TYPE_INFORMATION);
+      qos = ddsi_xqos_dup (tpd->xqos);
       break;
     }
   }
   ddsrt_mutex_unlock (&gv->topic_defs_lock);
-  return ret;
+  return qos;
 }
 
 /* PROXY-TOPIC --------------------------------------------------- */

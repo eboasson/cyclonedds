@@ -315,6 +315,17 @@ CU_Test (ddsc_topic_find_global, same_name, .init = topic_find_global_init, .fin
   ret = dds_get_typeinfo (topic_remote2, &typeinfo2);
   CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
 
+  /* Neither definition has been created locally yet. A name-only lookup
+     must use the type information from whichever remote definition it finds. */
+  dds_entity_t any_topic = dds_find_topic (DDS_FIND_SCOPE_GLOBAL, g_participant1, topic_name, NULL, DDS_SECS (5));
+  CU_ASSERT_GT_FATAL (any_topic, 0);
+  ddsi_typeinfo_t *any_typeinfo;
+  CU_ASSERT_EQ_FATAL (dds_get_typeinfo (any_topic, &any_typeinfo), DDS_RETCODE_OK);
+  CU_ASSERT (ddsi_typeinfo_equal (any_typeinfo, typeinfo1, DDSI_TYPE_IGNORE_DEPS) ||
+             ddsi_typeinfo_equal (any_typeinfo, typeinfo2, DDSI_TYPE_IGNORE_DEPS));
+  dds_free_typeinfo (any_typeinfo);
+  CU_ASSERT_EQ_FATAL (dds_delete (any_topic), DDS_RETCODE_OK);
+
   dds_entity_t topic1 = dds_find_topic (DDS_FIND_SCOPE_GLOBAL, g_participant1, topic_name, typeinfo1, DDS_SECS (5));
   CU_ASSERT_GT_FATAL (topic1, 0);
   dds_entity_t topic2 = dds_find_topic (DDS_FIND_SCOPE_GLOBAL, g_participant1, topic_name, typeinfo2, DDS_SECS (5));
