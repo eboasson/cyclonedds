@@ -959,6 +959,42 @@ CU_Test(ddsc_cdr, timeout)
   cdr_timeout (&gops);
 }
 
+static bool accept_all_samples (const void *sample, void *arg)
+{
+  (void) sample;
+  (void) arg;
+  return true;
+}
+
+CU_Test(ddsc_cdr, write_forward_errors)
+{
+  const dds_entity_t pp = dds_create_participant (0, NULL, NULL);
+  CU_ASSERT_GT_FATAL (pp, 0);
+  char topicname[100];
+  create_unique_topic_name ("ddsc_cdr_write_forward_errors", topicname, sizeof topicname);
+  const struct tw tw = make_topic (pp, topicname, "x", NULL);
+  CU_ASSERT_EQ_FATAL (dds_set_topic_filter_and_arg (tw.tp, accept_all_samples, NULL), DDS_RETCODE_OK);
+  const dds_entity_t wr = dds_create_writer (pp, tw.tp, NULL, NULL);
+  CU_ASSERT_GT_FATAL (wr, 0);
+
+  const struct sampletype xs = { .key = "aap", .value = "banaan" };
+  struct ddsi_serdata *sd = make_sample (&tw, &xs);
+  CU_ASSERT_NEQ_FATAL (sd, NULL);
+
+  // Keep the original reference and give each call one additional reference.
+  CU_ASSERT_EQ_FATAL (dds_writecdr (DDS_ENTITY_NIL, ddsi_serdata_ref (sd)), DDS_RETCODE_BAD_PARAMETER);
+  CU_ASSERT_EQ_FATAL (ddsrt_atomic_ld32 (&sd->refc), 1);
+  CU_ASSERT_EQ_FATAL (dds_forwardcdr (DDS_ENTITY_NIL, ddsi_serdata_ref (sd)), DDS_RETCODE_BAD_PARAMETER);
+  CU_ASSERT_EQ_FATAL (ddsrt_atomic_ld32 (&sd->refc), 1);
+  CU_ASSERT_EQ_FATAL (dds_writecdr (wr, ddsi_serdata_ref (sd)), DDS_RETCODE_ERROR);
+  CU_ASSERT_EQ_FATAL (ddsrt_atomic_ld32 (&sd->refc), 1);
+  CU_ASSERT_EQ_FATAL (dds_forwardcdr (wr, ddsi_serdata_ref (sd)), DDS_RETCODE_ERROR);
+  CU_ASSERT_EQ_FATAL (ddsrt_atomic_ld32 (&sd->refc), 1);
+
+  ddsi_serdata_unref (sd);
+  CU_ASSERT_EQ_FATAL (dds_delete (pp), DDS_RETCODE_OK);
+}
+
 CU_Test(ddsc_cdr, forward_conv_serdata)
 {
   dds_return_t rc;
