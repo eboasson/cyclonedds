@@ -998,8 +998,8 @@ dds_get_domainid(dds_entity_t entity, dds_domainid_t *id);
  * @ingroup domain
  * @component participant
  *
- * This operation acquires the participants created on a domain and returns
- * the number of found participants.
+ * Returns the total number of local participants in the given domain,
+ * including those that do not fit in the supplied array.
  *
  * If more participants are found than fit in the array, the subset returned
  * is unspecified. If none are found and an array is supplied, its first element
