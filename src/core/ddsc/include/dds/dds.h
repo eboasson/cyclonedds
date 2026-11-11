@@ -2562,8 +2562,9 @@ dds_write_flush(dds_entity_t entity);
  *
  * @param[in]  writer The writer entity.
  * @param[in]  serdata Serialized value to be written.
+ *             If non-null, the call consumes one reference on both success and error.
  *
- * @returns A dds_return_t indicating success or failure. On error, some writers failed to flush buffered messages.
+ * @returns A dds_return_t indicating success or failure.
  *
  * @retval DDS_RETCODE_OK
  *             The writer successfully wrote the serialized value.
@@ -2591,6 +2592,7 @@ dds_writecdr(dds_entity_t writer, struct ddsi_serdata *serdata);
  *
  * @param[in]  writer The writer entity.
  * @param[in]  serdata Serialized value to be written.
+ *             If non-null, the call consumes one reference on both success and error.
  *
  * @returns A dds_return_t indicating success or failure.
  *
