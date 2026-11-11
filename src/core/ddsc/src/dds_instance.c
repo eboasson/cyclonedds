@@ -295,10 +295,8 @@ dds_return_t dds_instance_get_key (dds_entity_t entity, dds_instance_handle_t ih
     if (!ddsi_serdata_untyped_to_sample (topic->m_stype, tk->m_sample, data, NULL, NULL))
       ret = DDS_RETCODE_ERROR;
     else
-    {
-      ddsi_tkmap_instance_unref (e->m_domain->gv.m_tkmap, tk);
       ret = DDS_RETCODE_OK;
-    }
+    ddsi_tkmap_instance_unref (e->m_domain->gv.m_tkmap, tk);
   }
   ddsi_thread_state_asleep (thrst);
   dds_entity_unlock (e);
