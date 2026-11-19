@@ -12,6 +12,7 @@
 #include <limits.h>
 
 #include "dds/dds.h"
+#include "dds/ddsrt/atomics.h"
 #include "dds/ddsrt/process.h"
 #include "dds/ddsrt/threads.h"
 #include "dds/ddsrt/environ.h"
@@ -126,6 +127,51 @@ CU_Test(ddsc_topic_find_local, participant, .init = topic_find_local_init, .fini
   dds_entity_t topic = dds_find_topic (DDS_FIND_SCOPE_PARTICIPANT, g_participant1, g_topic_name_local, g_type_info, 0);
   CU_ASSERT_GT_FATAL (topic, 0);
   CU_ASSERT_NEQ_FATAL (topic, g_topic1);
+}
+
+struct participant_wait {
+  ddsrt_atomic_uint32_t started;
+  dds_entity_t found;
+};
+
+static uint32_t wait_for_topic_in_participant (void *arg)
+{
+  struct participant_wait *wait = arg;
+  ddsrt_atomic_st32 (&wait->started, 1);
+  wait->found = dds_find_topic (DDS_FIND_SCOPE_PARTICIPANT, g_participant2, g_topic_name_local, g_type_info, DDS_SECS (2));
+  return 0;
+}
+
+static uint32_t topic_version (struct ddsi_domaingv *gv)
+{
+  ddsrt_mutex_lock (&gv->new_topic_lock);
+  const uint32_t version = gv->new_topic_version;
+  ddsrt_mutex_unlock (&gv->new_topic_lock);
+  return version;
+}
+
+CU_Test(ddsc_topic_find_local, participant_wait_for_existing_definition, .init = topic_find_local_init, .fini = topic_find_local_fini)
+{
+  CU_ASSERT_EQ_FATAL (dds_find_topic (DDS_FIND_SCOPE_PARTICIPANT, g_participant2, g_topic_name_local, g_type_info, 0), 0);
+  struct ddsi_domaingv *gv = get_domaingv (g_participant2);
+  const uint32_t before = topic_version (gv);
+  struct participant_wait wait = { 0 };
+  ddsrt_thread_t thread;
+  ddsrt_threadattr_t attr;
+  ddsrt_threadattr_init (&attr);
+  CU_ASSERT_EQ_FATAL (ddsrt_thread_create (&thread, "find_topic", &attr, wait_for_topic_in_participant, &wait), DDS_RETCODE_OK);
+  while (!ddsrt_atomic_ld32 (&wait.started))
+    dds_sleepfor (DDS_MSECS (1));
+  dds_entity_t created = dds_create_topic (g_participant2, &Space_Type1_desc, g_topic_name_local, NULL, NULL);
+  const uint32_t after = topic_version (gv);
+  CU_ASSERT_EQ_FATAL (ddsrt_thread_join (thread, NULL), DDS_RETCODE_OK);
+  CU_ASSERT_GT_FATAL (created, 0);
+  /* Even if creation preceded the waiter's first scan, it had to notify
+     waiters: this definition already existed in participant 1. */
+  CU_ASSERT_NEQ (after, before);
+  CU_ASSERT_GT_FATAL (wait.found, 0);
+  CU_ASSERT_NEQ (wait.found, created);
+  CU_ASSERT_EQ (dds_get_participant (wait.found), g_participant2);
 }
 
 CU_Test(ddsc_topic_find_local, non_participants, .init = topic_find_local_init, .fini = topic_find_local_fini)
