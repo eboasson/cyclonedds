@@ -284,7 +284,9 @@ function(IDLC_GENERATE_GENERIC)
     add_custom_target("${_target}_generate" DEPENDS "${_outputs}")
   endif()
   if(${CMAKE_GENERATOR} MATCHES "Xcode")
-    set_target_properties("${_target}_generate" PROPERTIES XCODE_GENERATE_SCHEME NO)
+    set_target_properties("${_target}_generate" PROPERTIES
+      XCODE_GENERATE_SCHEME NO
+      FOLDER "Generated IDL")
   endif()
 
   add_library(${_target} INTERFACE)
