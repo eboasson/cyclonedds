@@ -911,6 +911,24 @@ CU_Test (ddsc_typewrap, alias_base_validation, .init = typewrap_init, .fini = ty
   derived.xt._u.structure.members.seq = &derived_member;
 
   CU_ASSERT_EQ (ddsi_xt_validate (gv, &derived), DDS_RETCODE_OK);
+
+  /* A key of the derived type can contain an optional non-key member if its
+     base supplies an explicit key. The alias can arrive before that base. */
+  struct xt_struct_member key_member = {
+    .id = 0, .flags = DDS_XTypes_TRY_CONSTRUCT1 | DDS_XTypes_IS_KEY, .type = &derived
+  };
+  struct ddsi_type key_owner = { .xt = {
+    .kind = DDSI_TYPEID_KIND_COMPLETE, ._d = DDS_XTypes_TK_STRUCTURE,
+    ._u.structure = { .flags = DDS_XTypes_IS_FINAL, .members = { .length = 1, .seq = &key_member } }
+  } };
+  derived_member.flags |= DDS_XTypes_IS_OPTIONAL;
+  base.xt._d = DDS_XTypes_TK_NONE;
+  CU_ASSERT_EQ (ddsi_xt_validate (gv, &key_owner), DDS_RETCODE_OK);
+  base.xt._d = DDS_XTypes_TK_STRUCTURE;
+  CU_ASSERT_EQ (ddsi_xt_validate (gv, &key_owner), DDS_RETCODE_BAD_PARAMETER);
+  base_member.flags |= DDS_XTypes_IS_KEY;
+  CU_ASSERT_EQ (ddsi_xt_validate (gv, &key_owner), DDS_RETCODE_OK);
+
   derived_member.id = base_member.id;
   CU_ASSERT_EQ (ddsi_xt_validate (gv, &derived), DDS_RETCODE_BAD_PARAMETER);
 
@@ -918,6 +936,66 @@ CU_Test (ddsc_typewrap, alias_base_validation, .init = typewrap_init, .fini = ty
   base.state = DDSI_TYPE_RESOLVED;
   base.xt._u.structure.base_type = &int32_type;
   CU_ASSERT_EQ (ddsi_xt_validate (gv, &derived), DDS_RETCODE_BAD_PARAMETER);
+}
+
+CU_Test (ddsc_typewrap, deferred_discriminator_alias, .init = typewrap_init, .fini = typewrap_fini)
+{
+  struct ddsi_domaingv *gv = get_domaingv (participant);
+  struct ddsi_type enumeration = { .xt = { .kind = DDSI_TYPEID_KIND_COMPLETE } };
+  struct ddsi_type alias = { .xt = {
+    .kind = DDSI_TYPEID_KIND_COMPLETE, ._d = DDS_XTypes_TK_ALIAS, ._u.alias.related_type = &enumeration
+  } };
+  struct ddsi_type int32_type = { .xt = { ._d = DDS_XTypes_TK_INT32 } };
+  int32_t label = 1;
+  struct xt_union_member member = {
+    .id = 1, .flags = DDS_XTypes_TRY_CONSTRUCT1, .type = &int32_type,
+    .label_seq = { ._length = 1, ._buffer = &label }
+  };
+  struct ddsi_type un = { .xt = {
+    .kind = DDSI_TYPEID_KIND_COMPLETE, ._d = DDS_XTypes_TK_UNION,
+    ._u.union_type = { .flags = DDS_XTypes_IS_FINAL, .disc_type = &alias, .disc_flags = DDS_XTypes_TRY_CONSTRUCT1,
+                       .members = { .length = 1, .seq = &member } }
+  } };
+  CU_ASSERT_EQ (ddsi_xt_validate (gv, &un), DDS_RETCODE_OK);
+  struct xt_enum_literal literal = { .value = 0 };
+  enumeration.xt._d = DDS_XTypes_TK_ENUM;
+  enumeration.xt._u.enum_type = (struct xt_enum) {
+    .flags = DDS_XTypes_IS_FINAL, .bit_bound = 8, .literals = { .length = 1, .seq = &literal }
+  };
+  CU_ASSERT_EQ (ddsi_xt_validate (gv, &un), DDS_RETCODE_BAD_PARAMETER);
+  label = literal.value;
+  CU_ASSERT_EQ (ddsi_xt_validate (gv, &un), DDS_RETCODE_OK);
+}
+
+CU_Test (ddsc_typewrap, deferred_validation_depth, .init = typewrap_init, .fini = typewrap_fini)
+{
+  struct ddsi_domaingv *gv = get_domaingv (participant);
+  struct ddsi_type integer = { .xt = { .kind = DDSI_TYPEID_KIND_FULLY_DESCRIPTIVE, ._d = DDS_XTypes_TK_INT32 } };
+  const uint32_t count = 128;
+  struct ddsi_type *chain = ddsrt_calloc (count, sizeof (*chain));
+  for (uint32_t i = 0; i < count; i++)
+  {
+    init_test_hash_id (&chain[i].xt.id, (uint8_t) i);
+    chain[i].xt.kind = DDSI_TYPEID_KIND_COMPLETE;
+    if (i + 1 < count)
+    {
+      chain[i].state = DDSI_TYPE_PARTIAL_RESOLVED;
+      chain[i].xt._d = DDS_XTypes_TK_ALIAS;
+      chain[i].xt._u.alias.related_type = &chain[i + 1];
+    }
+  }
+  /* The oldest dependent exceeds the path bound while the leaf is missing.
+     As each dependency commits, validation only needs the next hash type. */
+  CU_ASSERT_EQ (ddsi_xt_validate_for_resolution (gv, chain, false), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (ddsi_xt_validate (gv, chain), DDS_RETCODE_BAD_PARAMETER);
+  chain[count - 1].xt._d = DDS_XTypes_TK_ALIAS;
+  chain[count - 1].xt._u.alias.related_type = &integer;
+  for (uint32_t i = count; i > 0; i--)
+  {
+    CU_ASSERT_EQ (ddsi_xt_validate (gv, &chain[i - 1]), DDS_RETCODE_OK);
+    chain[i - 1].state = DDSI_TYPE_RESOLVED;
+  }
+  ddsrt_free (chain);
 }
 
 CU_Test (ddsc_typewrap, invalid_dependency_state, .init = typewrap_init, .fini = typewrap_fini)
