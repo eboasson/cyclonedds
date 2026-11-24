@@ -455,7 +455,12 @@ dds_return_t dds_get_typeobj (dds_entity_t entity, const dds_typeid_t *type_id, 
     struct ddsi_type *type;
     if ((ret = ddsi_wait_for_type_resolved (gv, (const ddsi_typeid_t *) type_id, timeout, &type, DDSI_TYPE_IGNORE_DEPS, DDSI_TYPE_SEND_REQUEST)) == DDS_RETCODE_OK)
     {
+      /* A partial type may have become invalid since the wait returned. */
+      ddsrt_mutex_lock (&gv->typelib_lock);
       *type_obj = ddsi_type_get_typeobj (gv, type);
+      if (*type_obj == NULL)
+        ret = DDS_RETCODE_BAD_PARAMETER;
+      ddsrt_mutex_unlock (&gv->typelib_lock);
       ddsi_type_unref (gv, type);
     }
   }

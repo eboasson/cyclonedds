@@ -660,7 +660,7 @@ static void counting_typewrap_init (void)
   typewrap_init ();
 }
 
-static void counting_typewrap_fini (void)
+static void typewrap_allocator_fini (void)
 {
   typewrap_fini ();
   restore_allocator ();
@@ -675,7 +675,7 @@ static void refresh_minimal_struct_id (struct ddsi_type *type)
   type->xt.id.x = id;
 }
 
-CU_Test (ddsc_typewrap, shared_key_member_assignability, .init = counting_typewrap_init, .fini = counting_typewrap_fini)
+CU_Test (ddsc_typewrap, shared_key_member_assignability, .init = counting_typewrap_init, .fini = typewrap_allocator_fini)
 {
   struct ddsi_domaingv *gv = get_domaingv (participant);
   struct ddsi_type strings[2], nested[2], second[2], outer[2];
@@ -1066,6 +1066,260 @@ CU_Test (ddsc_typewrap, invalid_dependency_state, .init = typewrap_init, .fini =
   ddsi_typeid_fini (&dep_typeid);
 }
 
+CU_TheoryDataPoints (ddsc_typewrap, deferred_inherited_member_ids) = {
+  CU_DataPoints (bool, false, true),
+  CU_DataPoints (bool, false, true)
+};
+
+CU_Theory ((bool base_first, bool member_pending), ddsc_typewrap, deferred_inherited_member_ids,
+    .init = typewrap_init, .fini = typewrap_fini)
+{
+  enum { BASE, DERIVED, SIBLING, OUTER, NTYPES };
+  const ddsi_typeid_t integer = { .x = { ._d = DDS_XTypes_TK_INT32 } };
+  struct DDS_XTypes_TypeObject objects[NTYPES];
+  struct DDS_XTypes_CompleteStructMember members[NTYPES];
+  ddsi_typeid_t ids[NTYPES];
+  init_struct_dependency_typeobject (&objects[BASE], &members[BASE], "Base", "first", 1, &integer);
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&objects[BASE], &ids[BASE]), DDS_RETCODE_OK);
+
+  /* Both derived types use the same base. Only one introduces a duplicate member id. */
+  ddsi_typeid_t member_typeid = integer;
+  if (member_pending)
+    init_test_hash_id (&member_typeid, 42); /* This definition never arrives. */
+  init_struct_dependency_typeobject (&objects[DERIVED], &members[DERIVED], "Duplicate", "second", 1, &member_typeid);
+  objects[DERIVED]._u.complete._u.struct_type.header.base_type = ids[BASE].x;
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&objects[DERIVED], &ids[DERIVED]), DDS_RETCODE_OK);
+  init_struct_dependency_typeobject (&objects[SIBLING], &members[SIBLING], "Distinct", "second", 2, &integer);
+  objects[SIBLING]._u.complete._u.struct_type.header.base_type = ids[BASE].x;
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&objects[SIBLING], &ids[SIBLING]), DDS_RETCODE_OK);
+  init_struct_dependency_typeobject (&objects[OUTER], &members[OUTER], "Outer", "child", 1, &ids[DERIVED]);
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&objects[OUTER], &ids[OUTER]), DDS_RETCODE_OK);
+
+  struct ddsi_domaingv *gv = get_domaingv (participant);
+  struct ddsi_type *types[NTYPES];
+  /* Create the genuine DERIVED -> BASE edge first through TypeInformation. */
+  struct DDS_XTypes_TypeIdentifierWithSize advertised = { .type_id = ids[BASE].x };
+  ddsi_typeinfo_t info = { .x.complete = {
+    .typeid_with_size.type_id = ids[DERIVED].x, .dependent_typeid_count = 1,
+    .dependent_typeids = { ._maximum = 1, ._length = 1, ._buffer = &advertised }
+  } };
+  CU_ASSERT_EQ_FATAL (ddsi_type_ref_proxy (gv, &types[DERIVED], &info, DDSI_TYPEID_KIND_COMPLETE, NULL), DDS_RETCODE_OK);
+  ddsrt_mutex_lock (&gv->typelib_lock);
+  CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (gv, &types[BASE], &ids[BASE]), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (gv, &types[SIBLING], &ids[SIBLING]), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (gv, &types[OUTER], &ids[OUTER]), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (ddsi_type_add_typeobj (gv, types[OUTER], &objects[OUTER]), DDS_RETCODE_OK);
+  if (base_first)
+    CU_ASSERT_EQ (ddsi_type_add_typeobj (gv, types[BASE], &objects[BASE]), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (ddsi_type_add_typeobj (gv, types[SIBLING], &objects[SIBLING]), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (ddsi_type_add_typeobj (gv, types[DERIVED], &objects[DERIVED]),
+      base_first ? DDS_RETCODE_BAD_PARAMETER : DDS_RETCODE_OK);
+  if (!base_first)
+  {
+    CU_ASSERT_EQ (types[OUTER]->state, DDSI_TYPE_PARTIAL_RESOLVED);
+    CU_ASSERT_EQ (types[SIBLING]->state, DDSI_TYPE_PARTIAL_RESOLVED);
+    CU_ASSERT_EQ (types[DERIVED]->state, DDSI_TYPE_PARTIAL_RESOLVED);
+    CU_ASSERT_EQ (ddsi_type_add_typeobj (gv, types[BASE], &objects[BASE]), DDS_RETCODE_OK);
+  }
+  CU_ASSERT_EQ (types[BASE]->state, DDSI_TYPE_RESOLVED);
+  CU_ASSERT_EQ (types[SIBLING]->state, DDSI_TYPE_RESOLVED);
+  CU_ASSERT_EQ (types[DERIVED]->state, DDSI_TYPE_INVALID);
+  CU_ASSERT_EQ (types[OUTER]->state, DDSI_TYPE_INVALID);
+  /* Neither a mismatched object nor a repeated definition can revive an invalid type. */
+  CU_ASSERT_EQ (ddsi_type_add_typeobj (gv, types[DERIVED], &objects[BASE]), DDS_RETCODE_BAD_PARAMETER);
+  CU_ASSERT_EQ (ddsi_type_add_typeobj (gv, types[DERIVED], &objects[DERIVED]), DDS_RETCODE_BAD_PARAMETER);
+  CU_ASSERT_EQ (types[DERIVED]->state, DDSI_TYPE_INVALID);
+  ddsrt_mutex_unlock (&gv->typelib_lock);
+  struct ddsi_type *resolved;
+  CU_ASSERT_EQ (ddsi_wait_for_type_resolved (gv, &ids[OUTER], 0, &resolved, DDSI_TYPE_INCLUDE_DEPS, DDSI_TYPE_NO_REQUEST),
+      DDS_RETCODE_BAD_PARAMETER);
+#ifdef DDS_HAS_TYPE_DISCOVERY
+  dds_typeobj_t *snapshot = NULL;
+  CU_ASSERT_EQ (dds_get_typeobj (participant, &ids[DERIVED], 0, &snapshot), DDS_RETCODE_BAD_PARAMETER);
+  CU_ASSERT_EQ (snapshot, NULL);
+#endif
+  for (size_t n = 0; n < NTYPES; n++)
+    ddsi_type_unref (gv, types[n]);
+}
+
+static ddsrt_thread_local const struct ddsi_type *fail_after_type_resolved;
+
+static void *fail_inherited_member_ids_malloc (size_t size)
+{
+  /* One base member plus two derived members. Only fail the scratch
+     allocation after the selected dependency has finished validation. */
+  if (fail_after_type_resolved != NULL && fail_after_type_resolved->state == DDSI_TYPE_RESOLVED &&
+      size == 3 * sizeof (DDS_XTypes_MemberId))
+  {
+    fail_after_type_resolved = NULL;
+    return NULL;
+  }
+  return malloc (size);
+}
+
+static void typewrap_validation_retry_init (void)
+{
+  ddsrt_set_allocator ((ddsrt_allocation_ops_t) { .malloc = fail_inherited_member_ids_malloc });
+  typewrap_init ();
+}
+
+CU_TheoryDataPoints (ddsc_typewrap, retry_dependent_validation) = {
+  CU_DataPoints (bool, false, true)
+};
+
+CU_Theory ((bool poll_outer), ddsc_typewrap, retry_dependent_validation,
+    .init = typewrap_validation_retry_init, .fini = typewrap_allocator_fini)
+{
+  const ddsi_typeid_t integer = { .x = { ._d = DDS_XTypes_TK_INT32 } };
+  struct DDS_XTypes_TypeObject base_obj, derived_obj, outer_obj;
+  struct DDS_XTypes_CompleteStructMember base_member, derived_members[2], outer_member;
+  ddsi_typeid_t base_id, derived_id, outer_id;
+  init_struct_dependency_typeobject (&base_obj, &base_member, "Base", "first", 1, &integer);
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&base_obj, &base_id), DDS_RETCODE_OK);
+  init_struct_dependency_typeobject (&derived_obj, derived_members, "Derived", "second", 2, &integer);
+  derived_members[1] = derived_members[0];
+  derived_members[1].common.member_id = 3;
+  strcpy (derived_members[1].detail.name, "third");
+  derived_obj._u.complete._u.struct_type.member_seq._maximum = 2;
+  derived_obj._u.complete._u.struct_type.member_seq._length = 2;
+  derived_obj._u.complete._u.struct_type.header.base_type = base_id.x;
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&derived_obj, &derived_id), DDS_RETCODE_OK);
+  init_struct_dependency_typeobject (&outer_obj, &outer_member, "Outer", "nested", 1, &derived_id);
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&outer_obj, &outer_id), DDS_RETCODE_OK);
+
+  struct ddsi_domaingv *gv = get_domaingv (participant);
+  struct ddsi_type *base, *derived, *outer, *resolved = NULL;
+  ddsrt_mutex_lock (&gv->typelib_lock);
+  CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (gv, &base, &base_id), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (gv, &derived, &derived_id), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (gv, &outer, &outer_id), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (ddsi_type_add_typeobj (gv, outer, &outer_obj), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (ddsi_type_add_typeobj (gv, derived, &derived_obj), DDS_RETCODE_OK);
+  fail_after_type_resolved = base;
+  const dds_return_t ret = ddsi_type_add_typeobj (gv, base, &base_obj);
+  const bool allocation_failed = fail_after_type_resolved == NULL;
+  fail_after_type_resolved = NULL;
+  CU_ASSERT (allocation_failed);
+  CU_ASSERT_EQ (ret, DDS_RETCODE_OK);
+  CU_ASSERT_EQ (base->state, DDSI_TYPE_RESOLVED);
+  CU_ASSERT_EQ (derived->state, DDSI_TYPE_PARTIAL_RESOLVED);
+  CU_ASSERT_EQ (outer->state, DDSI_TYPE_PARTIAL_RESOLVED);
+  ddsrt_mutex_unlock (&gv->typelib_lock);
+
+  CU_ASSERT_EQ (ddsi_wait_for_type_resolved (gv, poll_outer ? &outer_id : &derived_id, 0, &resolved,
+      DDSI_TYPE_INCLUDE_DEPS, DDSI_TYPE_NO_REQUEST),
+      DDS_RETCODE_OK);
+  CU_ASSERT_EQ (resolved, poll_outer ? outer : derived);
+  ddsrt_mutex_lock (&gv->typelib_lock);
+  CU_ASSERT_EQ (derived->state, DDSI_TYPE_RESOLVED);
+  CU_ASSERT_EQ (outer->state, DDSI_TYPE_RESOLVED);
+  ddsi_type_unref_locked (gv, resolved);
+  ddsi_type_unref_locked (gv, outer);
+  ddsi_type_unref_locked (gv, derived);
+  ddsi_type_unref_locked (gv, base);
+  ddsrt_mutex_unlock (&gv->typelib_lock);
+}
+
+CU_Test (ddsc_typewrap, validate_partial_after_promotion, .init = typewrap_validation_retry_init, .fini = typewrap_allocator_fini)
+{
+  enum { BASE, INNER, ARM, MISSING, PARENT, NTYPES };
+  const char *const names[] = { "Base", "Inner", "Arm", "Missing" };
+  const ddsi_typeid_t integer = { .x = { ._d = DDS_XTypes_TK_INT32 } };
+  struct DDS_XTypes_TypeObject objects[NTYPES];
+  struct DDS_XTypes_CompleteStructMember members[PARENT], parent_members[2];
+  ddsi_typeid_t ids[NTYPES];
+  const ddsi_typeid_t *child = &integer;
+  for (size_t i = 0; i < PARENT; i++)
+  {
+    init_struct_dependency_typeobject (&objects[i], &members[i], names[i], "value", 1, child);
+    CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&objects[i], &ids[i]), DDS_RETCODE_OK);
+    child = &ids[i];
+  }
+
+  /* Parent reaches Base directly by inheritance and indirectly through Arm
+     and Inner. Its other member keeps it partial throughout Base's install. */
+  init_struct_dependency_typeobject (&objects[PARENT], parent_members, "Parent", "arm", 2, &ids[ARM]);
+  parent_members[1] = parent_members[0];
+  parent_members[1].common.member_id = 3;
+  parent_members[1].common.member_type_id = ids[MISSING].x;
+  strcpy (parent_members[1].detail.name, "pending");
+  objects[PARENT]._u.complete._u.struct_type.header.base_type = ids[BASE].x;
+  objects[PARENT]._u.complete._u.struct_type.member_seq._length = 2;
+  objects[PARENT]._u.complete._u.struct_type.member_seq._maximum = 2;
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&objects[PARENT], &ids[PARENT]), DDS_RETCODE_OK);
+
+  struct ddsi_domaingv *gv = get_domaingv (participant);
+  struct ddsi_type *types[NTYPES];
+  ddsrt_mutex_lock (&gv->typelib_lock);
+  for (size_t i = 0; i < NTYPES; i++)
+    CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (gv, &types[i], &ids[i]), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (ddsi_type_add_typeobj (gv, types[PARENT], &objects[PARENT]), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (ddsi_type_add_typeobj (gv, types[ARM], &objects[ARM]), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (ddsi_type_add_typeobj (gv, types[INNER], &objects[INNER]), DDS_RETCODE_OK);
+
+  /* Observe the parent's provisional validation after the longer arm resolves.
+     Only Parent has three member IDs to check. */
+  fail_after_type_resolved = types[ARM];
+  const dds_return_t ret = ddsi_type_add_typeobj (gv, types[BASE], &objects[BASE]);
+  const bool allocation_failed = fail_after_type_resolved == NULL;
+  fail_after_type_resolved = NULL;
+  CU_ASSERT_EQ (ret, DDS_RETCODE_OK);
+  CU_ASSERT (allocation_failed);
+  CU_ASSERT_EQ (types[ARM]->state, DDSI_TYPE_RESOLVED);
+  CU_ASSERT_EQ (types[PARENT]->state, DDSI_TYPE_PARTIAL_RESOLVED);
+  CU_ASSERT (types[PARENT]->retry_validation);
+
+  CU_ASSERT_EQ (ddsi_type_add_typeobj (gv, types[MISSING], &objects[MISSING]), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (types[PARENT]->state, DDSI_TYPE_RESOLVED);
+  for (size_t i = 0; i < NTYPES; i++)
+    ddsi_type_unref_locked (gv, types[i]);
+  ddsrt_mutex_unlock (&gv->typelib_lock);
+}
+
+CU_Test (ddsc_typewrap, advertised_only_dependency, .init = typewrap_init, .fini = typewrap_fini)
+{
+  const ddsi_typeid_t integer = { .x = { ._d = DDS_XTypes_TK_INT32 } };
+  struct DDS_XTypes_TypeObject parent_obj, extra_obj;
+  struct DDS_XTypes_CompleteStructMember parent_member, extra_member;
+  init_struct_dependency_typeobject (&parent_obj, &parent_member, "Simple", "value", 1, &integer);
+  init_struct_dependency_typeobject (&extra_obj, &extra_member, "InvalidExtra", "value", 1, &integer);
+  extra_obj._u.complete._u.struct_type.struct_flags = 0;
+  ddsi_typeid_t parent_id, extra_id;
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&parent_obj, &parent_id), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&extra_obj, &extra_id), DDS_RETCODE_OK);
+
+  struct ddsi_domaingv *gv = get_domaingv (participant);
+  struct ddsi_type *parent, *extra, *proxy;
+  ddsrt_mutex_lock (&gv->typelib_lock);
+  CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (gv, &parent, &parent_id), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (gv, &extra, &extra_id), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (ddsi_type_add_typeobj (gv, parent, &parent_obj), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (parent->state, DDSI_TYPE_RESOLVED);
+  ddsrt_mutex_unlock (&gv->typelib_lock);
+
+  struct DDS_XTypes_TypeIdentifierWithSize advertised = { .type_id = extra_id.x };
+  ddsi_typeinfo_t info = { .x.complete = {
+    .typeid_with_size.type_id = parent_id.x, .dependent_typeid_count = 1,
+    .dependent_typeids = { ._maximum = 1, ._length = 1, ._buffer = &advertised }
+  } };
+  CU_ASSERT_EQ_FATAL (ddsi_type_ref_proxy (gv, &proxy, &info, DDSI_TYPEID_KIND_COMPLETE, NULL), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (proxy, parent);
+  ddsrt_mutex_lock (&gv->typelib_lock);
+  CU_ASSERT_EQ (parent->state, DDSI_TYPE_RESOLVED);
+  CU_ASSERT_EQ (ddsi_type_add_typeobj (gv, extra, &extra_obj), DDS_RETCODE_BAD_PARAMETER);
+  CU_ASSERT_EQ (extra->state, DDSI_TYPE_INVALID);
+  CU_ASSERT_EQ (parent->state, DDSI_TYPE_RESOLVED);
+  ddsi_type_unref_locked (gv, proxy);
+  ddsrt_mutex_unlock (&gv->typelib_lock);
+
+  CU_ASSERT_EQ (ddsi_type_ref_proxy (gv, &proxy, &info, DDSI_TYPEID_KIND_COMPLETE, NULL), DDS_RETCODE_BAD_PARAMETER);
+  ddsrt_mutex_lock (&gv->typelib_lock);
+  CU_ASSERT_EQ (parent->state, DDSI_TYPE_RESOLVED);
+  ddsi_type_unref_locked (gv, parent);
+  ddsi_type_unref_locked (gv, extra);
+  ddsrt_mutex_unlock (&gv->typelib_lock);
+}
+
 static void init_scc_typeid (ddsi_typeid_t *typeid, int32_t length, int32_t index)
 {
   memset (typeid, 0, sizeof (*typeid));
@@ -1252,8 +1506,15 @@ CU_Test (ddsc_typewrap, scc_identifier_bounds, .init = typewrap_init, .fini = ty
   struct ddsi_type *type = NULL;
 
   ddsrt_mutex_lock (&gv->typelib_lock);
+  init_scc_typeid (&typeid, 0, 1);
+  const dds_sequence_DDS_XTypes_TypeIdentifierTypeObjectPair pairs = { 0 };
+  bool complete = true;
+  dds_return_t ret = ddsi_type_add_scc_typeobjs_locked (gv, &pairs, &typeid.x, false, &complete);
+  CU_ASSERT_EQ (ret, DDS_RETCODE_BAD_PARAMETER);
+  CU_ASSERT (!complete);
+
   init_scc_typeid (&typeid, 1, 2);
-  dds_return_t ret = ddsi_type_ref_id_locked (gv, &type, &typeid);
+  ret = ddsi_type_ref_id_locked (gv, &type, &typeid);
   CU_ASSERT_EQ (ret, DDS_RETCODE_BAD_PARAMETER);
   CU_ASSERT_EQ (type, NULL);
 
@@ -1334,7 +1595,47 @@ CU_Test (ddsc_typewrap, scc_component_must_be_strongly_connected, .init = typewr
   ddsrt_mutex_unlock (&gv->typelib_lock);
 }
 
-CU_Test (ddsc_typewrap, scc_import_closes_suffix_cycles, .init = typewrap_init, .fini = typewrap_fini)
+CU_TheoryDataPoints (ddsc_typewrap, mismatching_typeid_dependencies) = {
+  CU_DataPoints (bool, false, true)
+};
+
+CU_Theory ((bool cycle), ddsc_typewrap, mismatching_typeid_dependencies, .init = typewrap_init, .fini = typewrap_fini)
+{
+  struct ddsi_domaingv *gv = get_domaingv (participant);
+  ddsi_typeid_t a_id, b_id, integer = { .x = { ._d = DDS_XTypes_TK_INT32 } };
+  init_test_hash_id (&a_id, 1);
+  init_test_hash_id (&b_id, 2);
+  struct DDS_XTypes_TypeObject a_obj, b_obj;
+  struct DDS_XTypes_CompleteStructMember a_member, b_member;
+  init_struct_dependency_typeobject (&a_obj, &a_member, "A", "b", 1, &b_id);
+  init_struct_dependency_typeobject (&b_obj, &b_member, "B", "value", 1, cycle ? &a_id : &integer);
+  b_member.common.member_flags |= DDS_XTypes_IS_OPTIONAL;
+
+  ddsrt_mutex_lock (&gv->typelib_lock);
+  const bool saved = gv->config.allow_mismatching_typeid;
+  gv->config.allow_mismatching_typeid = true;
+  struct ddsi_type *a, *b;
+  CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (gv, &a, &a_id), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (gv, &b, &b_id), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (ddsi_type_add_typeobj (gv, a, &a_obj), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (a->state, DDSI_TYPE_PARTIAL_RESOLVED);
+  CU_ASSERT_EQ (ddsi_type_add_typeobj (gv, b, &b_obj), cycle ? DDS_RETCODE_BAD_PARAMETER : DDS_RETCODE_OK);
+  CU_ASSERT_EQ (a->state, cycle ? DDSI_TYPE_INVALID : DDSI_TYPE_RESOLVED);
+  CU_ASSERT_EQ (b->state, a->state);
+  ddsi_type_unref_locked (gv, a);
+  ddsi_type_unref_locked (gv, b);
+  CU_ASSERT (ddsrt_avl_is_empty (&gv->typelib));
+  CU_ASSERT (ddsrt_avl_is_empty (&gv->typedeps));
+  CU_ASSERT (ddsrt_avl_is_empty (&gv->typedeps_reverse));
+  gv->config.allow_mismatching_typeid = saved;
+  ddsrt_mutex_unlock (&gv->typelib_lock);
+}
+
+CU_TheoryDataPoints (ddsc_typewrap, scc_import_closes_suffix_cycles) = {
+  CU_DataPoints (bool, false, true)
+};
+
+CU_Theory ((bool allow_mismatching_typeid), ddsc_typewrap, scc_import_closes_suffix_cycles, .init = typewrap_init, .fini = typewrap_fini)
 {
   struct scc_suffix_closure_case c;
   init_scc_suffix_closure_case (&c);
@@ -1345,6 +1646,8 @@ CU_Test (ddsc_typewrap, scc_import_closes_suffix_cycles, .init = typewrap_init, 
   struct ddsi_type *missed_side_type = NULL;
   bool complete = false;
   ddsrt_mutex_lock (&gv->typelib_lock);
+  const bool saved = gv->config.allow_mismatching_typeid;
+  gv->config.allow_mismatching_typeid = allow_mismatching_typeid;
   dds_return_t ret = ddsi_type_ref_id_locked (gv, &type, &c.scc_typeid);
   CU_ASSERT_EQ (ret, DDS_RETCODE_OK);
   CU_ASSERT_NEQ (type, NULL);
@@ -1378,6 +1681,7 @@ CU_Test (ddsc_typewrap, scc_import_closes_suffix_cycles, .init = typewrap_init, 
   CU_ASSERT_EQ (ddsrt_avl_is_empty (&gv->typelib), true);
   CU_ASSERT_EQ (ddsrt_avl_is_empty (&gv->typedeps), true);
   CU_ASSERT_EQ (ddsrt_avl_is_empty (&gv->typedeps_reverse), true);
+  gv->config.allow_mismatching_typeid = saved;
   ddsrt_mutex_unlock (&gv->typelib_lock);
 }
 
@@ -1428,6 +1732,10 @@ CU_Test (ddsc_typewrap, scc_import_rolls_back_suffix_cycle_on_realloc_failure, .
       CU_ASSERT_EQ (type->scc->n_types, 1u);
       CU_ASSERT_EQ (type->scc->types[0], type);
     }
+    CU_ASSERT_EQ (type->state, DDSI_TYPE_UNRESOLVED);
+    ret = ddsi_type_add_scc_typeobjs_locked (gv, &c.pairseq, &c.pair.type_identifier, true, &complete);
+    CU_ASSERT_EQ (ret, DDS_RETCODE_OK);
+    CU_ASSERT_EQ (type->state, DDSI_TYPE_RESOLVED);
   }
   ddsi_type_unref_locked (gv, missed_side_type);
   ddsi_type_unref_locked (gv, first_path_type);
@@ -1556,7 +1864,7 @@ CU_Theory ((uint8_t kind, bool keep_sibling, bool fail_second_slot), ddsc_typewr
       if (keep_sibling)
       {
         CU_ASSERT_EQ (sibling->refc, 1);
-        CU_ASSERT_EQ (sibling->state, DDSI_TYPE_UNRESOLVED);
+        CU_ASSERT_EQ (sibling->state, DDSI_TYPE_INVALID);
         CU_ASSERT (!sibling->scc->active);
         CU_ASSERT_EQ (sibling->scc->types[0], NULL);
         CU_ASSERT_EQ (sibling->scc->types[1], sibling);
@@ -1709,7 +2017,7 @@ CU_Theory ((uint8_t kind, bool fail_registration, bool keep_sibling), ddsc_typew
     {
       CU_ASSERT_EQ (ddsi_type_lookup_locked (gv, &ids[1]), sibling);
       CU_ASSERT_EQ (sibling->refc, 1);
-      CU_ASSERT_EQ (sibling->state, DDSI_TYPE_UNRESOLVED);
+      CU_ASSERT_EQ (sibling->state, DDSI_TYPE_INVALID);
       CU_ASSERT_EQ (sibling->scc, scc);
       CU_ASSERT_NEQ_FATAL (scc, NULL);
       CU_ASSERT (!scc->active);
