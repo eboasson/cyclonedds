@@ -273,6 +273,7 @@ struct ddsi_type_dep {
   ddsi_typeid_t src_type_id;    // type that has the dependency on dep_type_id
   ddsi_typeid_t dep_type_id;    // dependent type, a direct or indirect dependency of src_type_id
   bool from_type_info;          // entry was added based on a dependent type in the type-info, requires unref of the dependent type on deletion
+  bool from_definition;         // direct reference in the stored TypeObject or plain collection identifier
 };
 
 struct ddsi_type;
@@ -295,6 +296,7 @@ struct ddsi_type {
   ddsrt_avl_node_t avl_node;
   struct ddsi_type_scc *scc;
   enum ddsi_type_state state;
+  bool retry_validation;                      /* validation ran out of resources; definition is retained */
   struct ddsi_type *replacement;              /* canonical type replacing this dynamic construction record */
   bool freeing;                               /* set while finalizing, so recursive back-edges can be ignored */
   ddsi_seqno_t request_seqno;                        /* sequence number of the last type lookup request message */

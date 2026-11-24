@@ -123,7 +123,13 @@ dds_return_t ddsi_type_scc_attach_locked (struct ddsi_domaingv *gv, struct ddsi_
   ddsrt_attribute_warn_unused_result ddsrt_nonnull_all;
 
 /** @component type_system */
-void ddsi_type_update_state_locked (struct ddsi_domaingv *gv, struct ddsi_type *type) ddsrt_nonnull_all;
+dds_return_t ddsi_type_update_state_locked (struct ddsi_domaingv *gv, struct ddsi_type *type) ddsrt_nonnull_all;
+
+/** Retry deferred validation of the retained root and its structural dependencies.
+ * The caller holds typelib_lock and stays awake through the matching updates.
+ * @component type_system */
+dds_return_t ddsi_type_retry_validation_locked (struct ddsi_domaingv *gv, struct ddsi_type *root,
+    struct ddsi_generic_proxy_endpoint ***matches, uint32_t *n_matches) ddsrt_nonnull_all;
 
 /** @component type_system */
 dds_return_t ddsi_type_get_typeinfo_ser (struct ddsi_domaingv *gv, const struct ddsi_type *type_c, unsigned char **data, uint32_t *sz);

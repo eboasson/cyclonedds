@@ -70,6 +70,9 @@ static int32_t tl_request_get_deps (struct ddsi_domaingv * const gv, struct ddsr
   if (ddsi_type_visit_seen (visited, type))
     return cnt;
 
+  if (type->state == DDSI_TYPE_INVALID || type->state == DDSI_TYPE_RESOLVED)
+    return cnt;
+
   struct ddsi_type_dep tmpl, *dep = &tmpl;
   memset (&tmpl, 0, sizeof (tmpl));
   ddsi_typeid_copy (&tmpl.src_type_id, &type->xt.id);
@@ -79,7 +82,8 @@ static int32_t tl_request_get_deps (struct ddsi_domaingv * const gv, struct ddsr
   {
     struct ddsi_type *dep_type = ddsi_type_lookup_locked (gv, &dep->dep_type_id);
     assert (dep_type);
-    if (!gv->config.allow_recursive_types && ddsi_typeid_contains_scc_impl (&dep_type->xt.id.x))
+    if (dep_type->state == DDSI_TYPE_INVALID ||
+        (!gv->config.allow_recursive_types && ddsi_typeid_contains_scc_impl (&dep_type->xt.id.x)))
       continue;
     if (!ddsi_type_resolved_locked (gv, dep_type, DDSI_TYPE_IGNORE_DEPS))
     {
@@ -317,44 +321,47 @@ bool ddsi_tl_request_type (struct ddsi_domaingv * const gv, const ddsi_typeid_t 
   /* The entity index owns the writer. Stay awake from lookup through the write. */
   struct ddsi_thread_state * const thrst = ddsi_lookup_thread_state ();
   ddsi_thread_state_awake (thrst, gv);
-  struct ddsi_writer *wr = get_typelookup_writer (gv, DDSI_ENTITYID_TL_SVC_BUILTIN_REQUEST_WRITER);
-  if (wr == NULL)
+  struct ddsi_generic_proxy_endpoint **matches = NULL;
+  uint32_t n_matches = 0;
+  if (type->state == DDSI_TYPE_PARTIAL_RESOLVED && deps == DDSI_TYPE_INCLUDE_DEPS)
+    (void) ddsi_type_retry_validation_locked (gv, type, &matches, &n_matches);
+  bool done = ddsi_type_resolved_locked (gv, type, deps);
+  struct ddsi_writer *wr = NULL;
+  struct ddsi_serdata *serdata = NULL;
+  if (!done && type->state != DDSI_TYPE_INVALID &&
+      (wr = get_typelookup_writer (gv, DDSI_ENTITYID_TL_SVC_BUILTIN_REQUEST_WRITER)) != NULL)
   {
+    DDS_Builtin_TypeLookup_Request request;
+    type->request_seqno++;
+    const dds_return_t n = create_tl_request_msg (gv, &request, wr, proxypp_guid, type, deps);
+    if (n > 0)
+    {
+      if (ddsi_serdata_from_sample_err (&serdata, gv->tl_svc_request_type, SDK_DATA, &request) == DDS_RETCODE_OK)
+        serdata->timestamp = ddsrt_time_wallclock ();
+      else
+        GVTRACE (" from_sample failed\n");
+    }
+    else
+      GVTRACE (n < 0 ? "request failed" : "no resolvable types");
+    ddsrt_free (request.data._u.getTypes.type_ids._buffer);
+  }
+  else if (!done && type->state != DDSI_TYPE_INVALID)
     GVTRACE ("no pp found with tl request writer");
-    goto err_unlock;
-  }
-
-  DDS_Builtin_TypeLookup_Request request;
-  type->request_seqno++;
-  dds_return_t n = create_tl_request_msg (gv, &request, wr, proxypp_guid, type, deps);
-  if (n <= 0)
-  {
-    GVTRACE (n == 0 ? "no resolvable types" : "out of memory");
-    goto err_unlock;
-  }
-
-  struct ddsi_serdata *serdata;
-  dds_return_t rc = ddsi_serdata_from_sample_err (&serdata, gv->tl_svc_request_type, SDK_DATA, &request);
-  ddsrt_free (request.data._u.getTypes.type_ids._buffer);
-  if (rc != DDS_RETCODE_OK)
-  {
-    GVTRACE (" from_sample failed\n");
-    goto err_unlock;
-  }
-  serdata->timestamp = ddsrt_time_wallclock ();
   ddsrt_mutex_unlock (&gv->typelib_lock);
 
-  GVTRACE ("wr "PGUIDFMT" typeid %s\n", PGUID (wr->e.guid), ddsi_make_typeid_str (&tidstr, type_id));
-  struct ddsi_tkmap_instance *tk = ddsi_tkmap_lookup_instance_ref (gv->m_tkmap, serdata);
-  ddsi_write_sample_gc (thrst, NULL, wr, serdata, tk);
-  ddsi_tkmap_instance_unref (gv->m_tkmap, tk);
+  if (serdata != NULL)
+  {
+    GVTRACE ("wr "PGUIDFMT" typeid %s\n", PGUID (wr->e.guid), ddsi_make_typeid_str (&tidstr, type_id));
+    struct ddsi_tkmap_instance *tk = ddsi_tkmap_lookup_instance_ref (gv->m_tkmap, serdata);
+    ddsi_write_sample_gc (thrst, NULL, wr, serdata, tk);
+    ddsi_tkmap_instance_unref (gv->m_tkmap, tk);
+    done = true;
+  }
+  for (uint32_t i = 0; i < n_matches; i++)
+    ddsi_update_proxy_endpoint_matching (gv, matches[i]);
+  ddsrt_free (matches);
   ddsi_thread_state_asleep (thrst);
-  return true;
-
-err_unlock:
-  ddsrt_mutex_unlock (&gv->typelib_lock);
-  ddsi_thread_state_asleep (thrst);
-  return false;
+  return done;
 }
 
 static void create_tl_reply_msg (DDS_Builtin_TypeLookup_Reply *reply, const struct DDS_SampleIdentity *requestid, const struct DDS_XTypes_TypeIdentifierTypeObjectPairSeq *types)
@@ -554,7 +561,12 @@ void ddsi_tl_add_types (struct ddsi_domaingv *gv, const DDS_Builtin_TypeLookup_R
     }
     if (ddsi_type_resolved_locked (gv, type, DDSI_TYPE_IGNORE_DEPS))
     {
-      GVTRACE (" already resolved\n");
+      /* Retry the installed definition if final validation ran out of memory. */
+      if (type->retry_validation && ddsi_type_update_state_locked (gv, type) == DDS_RETCODE_OK && type->state == DDSI_TYPE_RESOLVED)
+      {
+        ddsi_type_get_gpe_matches (gv, type, gpe_match_upd, n_match_upd);
+        resolved = true;
+      }
       continue;
     }
 

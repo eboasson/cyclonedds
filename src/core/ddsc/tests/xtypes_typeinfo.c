@@ -331,7 +331,7 @@ static uint32_t count_typeobj_deps_locked (struct ddsi_domaingv *gv, const ddsi_
   while ((dep = ddsrt_avl_lookup_succ (td, &gv->typedeps, dep)) != NULL &&
          ddsi_typeid_compare (type_id, &dep->src_type_id) == 0)
   {
-    if (!dep->from_type_info)
+    if (dep->from_definition)
       count++;
   }
 

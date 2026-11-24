@@ -1447,6 +1447,47 @@ CU_Test(ddsc_typelookup, scc_import_disabled, .init = typelookup_init, .fini = t
   gv->config.allow_recursive_types = allow_recursive_types;
 }
 
+CU_TheoryDataPoints (ddsc_typelookup, scc_late_external_base) = {
+  CU_DataPoints (bool, false, true)
+};
+
+CU_Theory ((bool duplicate_member_id), ddsc_typelookup, scc_late_external_base,
+    .init = typelookup_init, .fini = typelookup_fini)
+{
+  const uint32_t edges[] = { 2, 1 };
+  DDS_XTypes_TypeIdentifierTypeObjectPair pairs[2] = { 0 };
+  struct DDS_XTypes_TypeObject typeobjs[2], base_obj;
+  struct DDS_XTypes_CompleteStructMember members[2], base_member;
+  struct DDS_XTypes_TypeIdentifier element_typeids[2];
+  init_scc_reply_pairs (pairs, typeobjs, members, element_typeids, 2, edges);
+
+  const struct DDS_XTypes_TypeIdentifier integer = { ._d = DDS_XTypes_TK_INT32 };
+  init_scc_struct_typeobject (&base_obj, &base_member, "ExternalBase", "value", &integer);
+  base_member.common.member_id = duplicate_member_id ? members[0].common.member_id : 2;
+  ddsi_typeid_t base_id;
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&base_obj, &base_id), DDS_RETCODE_OK);
+  typeobjs[0]._u.complete._u.struct_type.header.base_type = base_id.x;
+  pairs[0].type_object = typeobjs[0];
+  refresh_scc_reply_hash (pairs, typeobjs, 2);
+
+  struct ddsi_domaingv *gv = get_domaingv (g_participant1);
+  struct ddsi_type *types[2], *base;
+  ref_scc_reply_types (gv, types, pairs, 2);
+  import_scc_reply_direct (gv, pairs, 2, DDS_RETCODE_OK, true);
+  ddsrt_mutex_lock (&gv->typelib_lock);
+  CU_ASSERT_EQ (types[0]->state, DDSI_TYPE_PARTIAL_RESOLVED);
+  CU_ASSERT_EQ (types[1]->state, DDSI_TYPE_PARTIAL_RESOLVED);
+  CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (gv, &base, &base_id), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (ddsi_type_add_typeobj (gv, base, &base_obj), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (base->state, DDSI_TYPE_RESOLVED);
+  const enum ddsi_type_state expected = duplicate_member_id ? DDSI_TYPE_INVALID : DDSI_TYPE_RESOLVED;
+  CU_ASSERT_EQ (types[0]->state, expected);
+  CU_ASSERT_EQ (types[1]->state, expected);
+  ddsi_type_unref_locked (gv, base);
+  ddsrt_mutex_unlock (&gv->typelib_lock);
+  unref_scc_reply_types (gv, types, 2);
+}
+
 CU_Test(ddsc_typelookup, scc_failed_import_rolls_back_slots, .init = typelookup_init, .fini = typelookup_fini)
 {
   const uint32_t edges[] = { 2, 1 };
@@ -1471,14 +1512,29 @@ CU_Test(ddsc_typelookup, scc_failed_import_rolls_back_slots, .init = typelookup_
   refresh_scc_reply_hash (pairs, typeobjs, 2);
 
   ref_scc_reply_types (gv, types, pairs, 2);
+  /* The parent uses the first slot. Its dependency must survive rollback of
+     the component's own edges when importing the second slot fails. */
+  struct DDS_XTypes_TypeObject parent_obj;
+  struct DDS_XTypes_CompleteStructMember parent_member;
+  init_scc_struct_typeobject (&parent_obj, &parent_member, "SccParent", "child", &pairs[0].type_identifier);
+  ddsi_typeid_t parent_id;
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&parent_obj, &parent_id), DDS_RETCODE_OK);
+  struct ddsi_type *parent;
+  ddsrt_mutex_lock (&gv->typelib_lock);
+  CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (gv, &parent, &parent_id), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (ddsi_type_add_typeobj (gv, parent, &parent_obj), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (parent->state, DDSI_TYPE_PARTIAL_RESOLVED);
+  ddsrt_mutex_unlock (&gv->typelib_lock);
   import_scc_reply_direct (gv, pairs, 2, DDS_RETCODE_BAD_PARAMETER, true);
 
   ddsrt_mutex_lock (&gv->typelib_lock);
   for (uint32_t n = 0; n < 2; n++)
   {
-    CU_ASSERT (!ddsi_type_resolved_locked (gv, types[n], DDSI_TYPE_IGNORE_DEPS));
+    CU_ASSERT_EQ (types[n]->state, DDSI_TYPE_INVALID);
     CU_ASSERT_EQ (types[n]->xt._d, DDS_XTypes_TK_NONE);
   }
+  CU_ASSERT_EQ (parent->state, DDSI_TYPE_INVALID);
+  ddsi_type_unref_locked (gv, parent);
   ddsrt_mutex_unlock (&gv->typelib_lock);
   unref_scc_reply_types (gv, types, 2);
   ddsrt_mutex_lock (&gv->typelib_lock);
@@ -1500,7 +1556,10 @@ CU_Test(ddsc_typelookup, scc_rejects_hash_mismatch, .init = typelookup_init, .fi
   struct ddsi_domaingv *gv = get_domaingv (g_participant1);
   ref_scc_reply_types (gv, types, pairs, 2);
   add_scc_type_lookup_reply (gv, pairs, 2);
-  assert_scc_reply_types_resolved (gv, types, 2, false);
+  ddsrt_mutex_lock (&gv->typelib_lock);
+  for (size_t n = 0; n < 2; n++)
+    CU_ASSERT_EQ (types[n]->state, DDSI_TYPE_UNRESOLVED);
+  ddsrt_mutex_unlock (&gv->typelib_lock);
   unref_scc_reply_types (gv, types, 2);
 }
 

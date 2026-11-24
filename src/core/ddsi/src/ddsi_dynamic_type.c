@@ -429,7 +429,7 @@ static dds_return_t dynamic_type_finalize_locked (struct ddsi_type **type, struc
       else
       {
         (*type)->state = DDSI_TYPE_PARTIAL_RESOLVED;
-        ddsi_type_update_state_locked (gv, *type);
+        ret = ddsi_type_update_state_locked (gv, *type);
       }
     }
     else
