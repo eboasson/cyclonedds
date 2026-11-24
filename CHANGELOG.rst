@@ -21,6 +21,9 @@ Limitations on backwards compatibility:
   an actual member with id ``0`` if one exists; otherwise it still selects the
   discriminator for compatibility with existing discriminator configuration
   code.
+* The C binding now accounts for collections whose element keys serialize
+  to zero bytes. If the complete serialized key fits in 16 bytes, the
+  inline RTPS key hash can now contain the key directly.
 
 `V0.7.0 (2020-08-06) <https://github.com/eclipse-cyclonedds/cyclonedds/compare/V0.6.0...0.7.0>`_
 -----------------------------------------------------------------------------------------------

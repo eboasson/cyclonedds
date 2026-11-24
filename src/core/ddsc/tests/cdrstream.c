@@ -1611,6 +1611,10 @@ CU_Test(ddsc_cdrstream, key_size)
     { D(t45), false, false, VAR, VAR, false },
     { D(t46), false, false, VAR, VAR, false },
 
+    { D(empty_key_array), true, true, 0, 4, true }, // XCDR2 DHEADER only
+    { D(empty_key_bseq), true, true, 4, 8, true }, // sequence length plus XCDR2 DHEADER
+    { D(empty_key_seq), true, true, 4, 8, true },
+
     { D(t47), true, true, 4, 4, true },
     { D(t48), true, true, 5, 5, true },
   };
