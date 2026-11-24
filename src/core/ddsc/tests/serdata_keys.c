@@ -21,6 +21,7 @@
 #include "test_common.h"
 #include "mem_ser.h"
 #include "SerdataData.h"
+#include "CdrStreamKeySize.h"
 
 #define DDS_CONFIG "${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}<Discovery><ExternalDomainId>0</ExternalDomainId></Discovery>"
 
@@ -34,6 +35,45 @@ static dds_entity_t create_pp (dds_domainid_t domain_id)
   CU_ASSERT_GEQ_FATAL (participant, 0);
   ddsrt_free (conf);
   return participant;
+}
+
+static void check_from_keyhash (const struct ddsi_serdata *ref, const unsigned char *keyholder, size_t size, bool direct)
+{
+  ddsi_keyhash_t hash = { .value = { 0 } };
+  struct ddsi_serdata *decoded;
+  if (!direct)
+  {
+    ddsi_serdata_get_keyhash (ref, &hash, true);
+    CU_ASSERT_EQ_FATAL (ddsi_serdata_from_keyhash_err (&decoded, ref->type, &hash), DDS_RETCODE_BAD_PARAMETER);
+    CU_ASSERT_EQ (decoded, NULL);
+    return;
+  }
+
+  CU_ASSERT_LEQ_FATAL (size, sizeof (hash.value));
+  memcpy (hash.value, keyholder, size);
+  CU_ASSERT_EQ_FATAL (ddsi_serdata_from_keyhash_err (&decoded, ref->type, &hash), DDS_RETCODE_OK);
+  CU_ASSERT_NEQ_FATAL (decoded, NULL);
+  CU_ASSERT_EQ (decoded->kind, SDK_KEY);
+  CU_ASSERT_EQ (decoded->hash, ref->hash);
+  CU_ASSERT (ddsi_serdata_eqkey (decoded, ref));
+
+  // The reconstructed key-only sample includes the topic's normal encapsulation and headers.
+  const uint32_t wire_size = ddsi_serdata_size (ref);
+  CU_ASSERT_EQ_FATAL (ddsi_serdata_size (decoded), wire_size);
+  ddsrt_iovec_t expected, actual;
+  struct ddsi_serdata *expected_ref = ddsi_serdata_to_ser_ref (ref, 0, wire_size, &expected);
+  struct ddsi_serdata *actual_ref = ddsi_serdata_to_ser_ref (decoded, 0, wire_size, &actual);
+  CU_ASSERT_MEMEQ (actual.iov_base, actual.iov_len, expected.iov_base, expected.iov_len);
+  ddsi_serdata_to_ser_unref (actual_ref, &actual);
+  ddsi_serdata_to_ser_unref (expected_ref, &expected);
+  ddsi_serdata_unref (decoded);
+
+  if (size < sizeof (hash.value))
+  {
+    hash.value[size] = 1;
+    CU_ASSERT_EQ (ddsi_serdata_from_keyhash_err (&decoded, ref->type, &hash), DDS_RETCODE_BAD_PARAMETER);
+    CU_ASSERT_EQ (decoded, NULL);
+  }
 }
 
 static void do_test_key_write_xcdrv (const dds_topic_descriptor_t *desc, size_t sample_sz, dds_data_representation_id_t data_repr)
@@ -176,6 +216,14 @@ T_INIT_SIMPLE(SerdataKeyOrderHashId)
 T_INIT_SIMPLE(SerdataKeyOrderAppendable)
 T_INIT_SIMPLE(SerdataKeyOrderMutable)
 
+static void *init_SerdataKeyExternal (void)
+{
+  SerdataKeyExternal *sample = ddsrt_malloc (sizeof (*sample));
+  sample->fields = ddsrt_malloc (sizeof (*sample->fields));
+  *sample->fields = (SerdataExternalFields) { .tag = 2, .item = { ._d = UINT64_C(0x100000001), ._u.number = 3 } };
+  return sample;
+}
+
 #define T_INIT_NESTED(t) static void *init_ ## t (void) { \
   t *sample = ddsrt_malloc (sizeof (*sample)); \
   memset (sample, 0, sizeof (*sample)); \
@@ -205,6 +253,41 @@ static void *init_SerdataKeyOrderFinalNestedNonKeyAppendable (void)
   sample->z->a = 1;
   sample->z->b = 2;
   sample->z->c = 3;
+  return sample;
+}
+
+static void *init_CdrStreamKeySize_t11 (void)
+{
+  CdrStreamKeySize_t11 *sample = ddsrt_malloc (sizeof (*sample));
+  *sample = (CdrStreamKeySize_t11) { .a = "abc", .b = 3 };
+  return sample;
+}
+
+static void *init_CdrStreamKeySize_t32 (void)
+{
+  static uint8_t bytes[] = { 0x34, 0x56 };
+  CdrStreamKeySize_t32 *sample = ddsrt_malloc (sizeof (*sample));
+  *sample = (CdrStreamKeySize_t32) { .a = 0x12, .b = { ._length = 2, ._maximum = 2, ._buffer = bytes } };
+  return sample;
+}
+
+static void *init_CdrStreamKeySize_empty_key_array (void)
+{
+  return ddsrt_calloc (1, sizeof (CdrStreamKeySize_empty_key_array));
+}
+
+static void *init_CdrStreamKeySize_empty_key_bseq (void)
+{
+  static CdrStreamKeySize_empty_key_element elements[] = { { .payload = 5 }, { .payload = 7 } };
+  CdrStreamKeySize_empty_key_bseq *sample = ddsrt_malloc (sizeof (*sample));
+  *sample = (CdrStreamKeySize_empty_key_bseq) { .elements = { ._length = 2, ._maximum = 2, ._buffer = elements } };
+  return sample;
+}
+
+static void *init_CdrStreamKeySize_t47 (void)
+{
+  CdrStreamKeySize_t47 *sample = ddsrt_malloc (sizeof (*sample));
+  *sample = (CdrStreamKeySize_t47) { ._d = 2, ._u.u2 = 7 };
   return sample;
 }
 
@@ -401,30 +484,37 @@ static void print_check_cdr (const struct dds_serdata_default *sd, const unsigne
   fflush (stdout);
 }
 
-static void check_key_keyhash (struct dds_serdata_default *sd,
-  const unsigned char *expected_key_xcdrv2, size_t expected_key_sz_xcdrv2,
-  const unsigned char *expected_key_keyhash, size_t expected_key_sz_keyhash)
+struct expected_keyhash {
+  const unsigned char *cdr; // Big-endian PLAIN_CDR2 key-holder
+  size_t size;
+  size_t max_size;          // Maximum over all values of this type
+};
+
+#define KEYHASH(max_size, ...) { (raw){ __VA_ARGS__ }, sizeof ((raw){ __VA_ARGS__ }), (max_size) }
+
+static void check_key_keyhash (struct dds_serdata_default *sd, const unsigned char *expected_key_xcdrv2,
+                              size_t expected_key_sz_xcdrv2, const struct expected_keyhash *keyhash)
 {
-  // key in sd must be translated into XCDRv2 key, so also check when testing data representation XCDR1
-  CU_ASSERT_EQ ((size_t) sd->key.keysize, expected_key_sz_xcdrv2);
-  int cmp_key = memcmp (serdata_default_keybuf (sd), expected_key_xcdrv2, expected_key_sz_xcdrv2);
-  if (cmp_key != 0)
-    tprintf("** key match failed **\n");
-  CU_ASSERT_EQ (cmp_key, 0);
+  // Serdata stores the key-only sample in XCDR2 for both data representations.
+  CU_ASSERT_MEMEQ_FATAL (serdata_default_keybuf (sd), sd->key.keysize, expected_key_xcdrv2, expected_key_sz_xcdrv2);
 
-  // get and check keyhash
-  struct ddsi_keyhash kh, exp_kh;
-  ddsi_serdata_get_keyhash (&sd->c, &kh, true);
-
+  struct ddsi_keyhash kh, expected;
   ddsrt_md5_state_t md5st;
   ddsrt_md5_init (&md5st);
-  ddsrt_md5_append (&md5st, (ddsrt_md5_byte_t *) expected_key_keyhash, (uint32_t) expected_key_sz_keyhash);
-  ddsrt_md5_finish (&md5st, (ddsrt_md5_byte_t *) exp_kh.value);
+  ddsrt_md5_append (&md5st, keyhash->cdr, (uint32_t) keyhash->size);
+  ddsrt_md5_finish (&md5st, expected.value);
 
-  int cmp = memcmp (kh.value, exp_kh.value, 16);
-  if (cmp != 0)
-    tprintf("** keyhash match failed **\n");
-  CU_ASSERT_EQ_FATAL (cmp, 0);
+  ddsi_serdata_get_keyhash (&sd->c, &kh, true);
+  CU_ASSERT_MEMEQ_FATAL (kh.value, sizeof (kh.value), expected.value, sizeof (expected.value));
+
+  CU_ASSERT_LEQ_FATAL (keyhash->size, keyhash->max_size);
+  if (keyhash->max_size <= sizeof (expected.value))
+  {
+    memset (expected.value, 0, sizeof (expected.value));
+    memcpy (expected.value, keyhash->cdr, keyhash->size);
+  }
+  ddsi_serdata_get_keyhash (&sd->c, &kh, false);
+  CU_ASSERT_MEMEQ_FATAL (kh.value, sizeof (kh.value), expected.value, sizeof (expected.value));
 }
 
 #if DDSRT_ENDIAN == DDSRT_LITTLE_ENDIAN
@@ -440,14 +530,13 @@ CU_Test(ddsc_serdata, key_serialization)
     size_t data_sz;                   // CDR data length
     const unsigned char * key;        // CDR for key-only sample
     size_t key_sz;                    // length of key CDR
-    const unsigned char * keyhash;    // CDR used for keyhash calculation (big-endian, final)
-    size_t keyhash_sz;                // length of CDR for keyhash
   };
 
   const struct {
     const dds_topic_descriptor_t *desc;
     init_fn init;
     struct expected_key xcdrv[2];
+    struct expected_keyhash keyhash;
   } tests[] = {
     { &SerdataKeyOrder_desc, init_SerdataKeyOrder,
       { {
@@ -457,9 +546,6 @@ CU_Test(ddsc_serdata, key_serialization)
         }, 16,
         (raw){
           1,0,0,0,0,0,0,0,SER64(3)
-        }, 16,
-        (raw){
-          1,0,0,0,0,0,0,0,SER64BE(3)
         }, 16
       }, {
         MAKE_ENCHDR(CDR2),
@@ -468,11 +554,9 @@ CU_Test(ddsc_serdata, key_serialization)
         }, 12,
         (raw){
           1,0,0,0,SER64(3)
-        }, 12,
-        (raw){
-          1,0,0,0,SER64BE(3)
         }, 12
-      } }
+      } },
+      KEYHASH(12, 1,0,0,0,SER64BE(3))
     },
     { &SerdataKeyOrderId_desc, init_SerdataKeyOrderId,
       { {
@@ -482,11 +566,7 @@ CU_Test(ddsc_serdata, key_serialization)
         }, 16,
         (raw){
           1,0,0,0,0,0,0,0,SER64(3)
-        }, 16,
-        (raw){
-          SER64BE(3),1,
-          0,0,0 // padding
-        }, 9
+        }, 16
       }, {
         MAKE_ENCHDR(CDR2),
         (raw){
@@ -494,12 +574,9 @@ CU_Test(ddsc_serdata, key_serialization)
         }, 12,
         (raw){
           1,0,0,0,SER64(3)
-        }, 12,
-        (raw){
-          SER64BE(3),1,
-          0,0,0, // padding
-        }, 9
-      } }
+        }, 12
+      } },
+      KEYHASH(9, SER64BE(3),1)
     },
     { &SerdataKeyOrderHashId_desc, init_SerdataKeyOrderHashId,
       { {
@@ -509,11 +586,7 @@ CU_Test(ddsc_serdata, key_serialization)
         }, 16,
         (raw){
           1,0,0,0,0,0,0,0,SER64(3)
-        }, 16,
-        (raw){
-          SER64BE(3),1,
-          0,0,0, // padding
-        }, 9
+        }, 16
       }, {
         MAKE_ENCHDR(CDR2),
         (raw){
@@ -521,12 +594,9 @@ CU_Test(ddsc_serdata, key_serialization)
         }, 12,
         (raw){
           1,0,0,0,SER64(3)
-        }, 12,
-        (raw){
-          SER64BE(3),1,
-          0,0,0, // padding
-        }, 9
-      } }
+        }, 12
+      } },
+      KEYHASH(9, SER64BE(3),1)
     },
     { &SerdataKeyOrderAppendable_desc, init_SerdataKeyOrderAppendable,
       { {
@@ -536,11 +606,7 @@ CU_Test(ddsc_serdata, key_serialization)
         }, 16,
         (raw){
           1,0,0,0,0,0,0,0,SER64(3)
-        }, 16,
-        (raw){
-          SER64BE(3),1,
-          0,0,0 // padding
-        }, 9
+        }, 16
       }, {
         MAKE_ENCHDR(D_CDR2),
         (raw){
@@ -550,12 +616,9 @@ CU_Test(ddsc_serdata, key_serialization)
         (raw){
           SER_DHEADER(12),1,0,0,0,
           SER64(3)
-        }, 16,
-        (raw){
-          SER64BE(3),1,
-          0,0,0 // padding
-        }, 9
-      } }
+        }, 16
+      } },
+      KEYHASH(9, SER64BE(3),1)
     },
     { &SerdataKeyOrderMutable_desc, init_SerdataKeyOrderMutable,
       { {
@@ -570,11 +633,7 @@ CU_Test(ddsc_serdata, key_serialization)
           SER_PHDR_EXT(0,4,3),1,0,0,0,
           SER_PHDR_EXT(0,8,1),SER64(3),
           SER_PHDR_END(),
-        }, 40,
-        (raw){
-          SER64BE(3),1,
-          0,0,0 // padding
-        }, 9
+        }, 40
       }, {
         MAKE_ENCHDR(PL_CDR2),
         (raw){
@@ -587,12 +646,9 @@ CU_Test(ddsc_serdata, key_serialization)
           SER_DHEADER(20),
           SER_EMHEADER(0,0,3),1,0,0,0,
           SER_EMHEADER(0,3,1),SER64(3)
-        }, 24,
-        (raw){
-          SER64BE(3),1,
-          0,0,0 // padding
-        }, 9
-      } }
+        }, 24
+      } },
+      KEYHASH(9, SER64BE(3),1)
     },
     { &SerdataKeyOrderFinalNestedMutable_desc, init_SerdataKeyOrderFinalNestedMutable,
       { {
@@ -609,12 +665,7 @@ CU_Test(ddsc_serdata, key_serialization)
             SER_PHDR_EXT(0,4,3),1,0,0,0,
             SER_PHDR_EXT(0,8,1),SER64(3),
             SER_PHDR_END(),
-        }, 44,
-        (raw){
-          SER64BE(3),1,
-          10,
-          0,0 // padding
-        }, 10
+        }, 44
       }, {
         MAKE_ENCHDR(CDR2),
         (raw){
@@ -629,13 +680,9 @@ CU_Test(ddsc_serdata, key_serialization)
             SER_DHEADER(20),
             SER_EMHEADER(0,0,3),1,0,0,0,
             SER_EMHEADER(0,3,1),SER64(3)
-        }, 28,
-        (raw){
-          SER64BE(3),1,
-          10,
-          0,0 // padding
-        }, 10
-      } }
+        }, 28
+      } },
+      KEYHASH(10, SER64BE(3),1, 10)
     },
     { &SerdataKeyOrderFinalNestedNonKeyMutable_desc, init_SerdataKeyOrderFinalNestedNonKeyMutable,
       { {
@@ -647,10 +694,6 @@ CU_Test(ddsc_serdata, key_serialization)
             SER_PHDR_EXT(0,8,1),SER64(3),
             SER_PHDR_END(),
         }, 60,
-        (raw){
-          10,
-          0,0,0 // padding
-        }, 1,
         (raw){
           10,
           0,0,0 // padding
@@ -667,12 +710,9 @@ CU_Test(ddsc_serdata, key_serialization)
         (raw){
           10,
           0,0,0, // padding
-        }, 1,
-        (raw){
-          10,
-          0,0,0 // padding
         }, 1
-      } }
+      } },
+      KEYHASH(1, 10)
     },
     { &SerdataKeyOrderFinalNestedNonKeyAppendable_desc, init_SerdataKeyOrderFinalNestedNonKeyAppendable,
       { {
@@ -685,10 +725,6 @@ CU_Test(ddsc_serdata, key_serialization)
             0,0,0,0, // more padding because of XCDR1 alignment rules
             SER64(3),
         }, 32,
-        (raw){
-          10,
-          0,0,0 // padding
-        }, 1,
         (raw){
           10,
           0,0,0 // padding
@@ -707,12 +743,9 @@ CU_Test(ddsc_serdata, key_serialization)
         (raw){
           10,
           0,0,0, // padding
-        }, 1,
-        (raw){
-          10,
-          0,0,0 // padding
         }, 1
-      } }
+      } },
+      KEYHASH(1, 10)
     },
     { &SerdataKeyOrderAppendableNestedMutable_desc, init_SerdataKeyOrderAppendableNestedMutable,
       { {
@@ -729,12 +762,7 @@ CU_Test(ddsc_serdata, key_serialization)
             SER_PHDR_EXT(0,4,3),1,0,0,0,
             SER_PHDR_EXT(0,8,1),SER64(3),
             SER_PHDR_END(),
-        }, 44,
-        (raw){
-          SER64BE(3),1,
-          10,
-          0,0 // padding
-        }, 10
+        }, 44
       }, {
         MAKE_ENCHDR(D_CDR2),
         (raw){
@@ -749,13 +777,9 @@ CU_Test(ddsc_serdata, key_serialization)
             SER_DHEADER(20),
             SER_EMHEADER(0,0,3),1,0,0,0,
             SER_EMHEADER(0,3,1),SER64(3)
-        }, 32,
-        (raw){
-          SER64BE(3),1,
-          10,
-          0,0 // padding
-        }, 10
-      } }
+        }, 32
+      } },
+      KEYHASH(10, SER64BE(3),1, 10)
     },
     { &SerdataKeyOrderMutableNestedMutable_desc, init_SerdataKeyOrderMutableNestedMutable,
       { {
@@ -777,12 +801,7 @@ CU_Test(ddsc_serdata, key_serialization)
             SER_PHDR_EXT(0,8,1),SER64(3),
             SER_PHDR_END(),
           SER_PHDR_END(),
-        }, 72,
-        (raw){
-          SER64BE(3),1,
-          10,
-          0,0 // padding
-        }, 10
+        }, 72
       }, {
         MAKE_ENCHDR(PL_CDR2),
         (raw){
@@ -802,13 +821,9 @@ CU_Test(ddsc_serdata, key_serialization)
             SER_DHEADER(20),
             SER_EMHEADER(0,0,3),1,0,0,0,
             SER_EMHEADER(0,3,1),SER64(3)
-        }, 44,
-        (raw){
-          SER64BE(3),1,
-          10,
-          0,0 // padding
-        }, 10
-      } }
+        }, 44
+      } },
+      KEYHASH(10, SER64BE(3),1, 10)
     },
     { &SerdataKeyOrderMutableNestedAppendable_desc, init_SerdataKeyOrderMutableNestedAppendable,
       { {
@@ -829,13 +844,9 @@ CU_Test(ddsc_serdata, key_serialization)
           SER_EMHEADER(0,4,1),SER_NEXTINT(16),
             SER_DHEADER(12),1,0,0,0,
             SER64(3)
-        }, 36,
-        (raw){
-          SER64BE(3),1,
-          10,
-          0,0 // padding
-        }, 10
-      } }
+        }, 36
+      } },
+      KEYHASH(10, SER64BE(3),1, 10)
     },
     { &SerdataKeyOrderMutableNestedFinal_desc, init_SerdataKeyOrderMutableNestedFinal,
       { {
@@ -856,14 +867,7 @@ CU_Test(ddsc_serdata, key_serialization)
             0,0,0,0, // padding
             SER64(3),
           SER_PHDR_END()
-        }, 48,
-        (raw){
-          1,0,0,0,
-          0,0,0,0, // padding
-          SER64BE(3),
-          10,
-          0,0,0 // padding
-        }, 17
+        }, 48
       }, {
         MAKE_ENCHDR(PL_CDR2),
         (raw){
@@ -880,13 +884,57 @@ CU_Test(ddsc_serdata, key_serialization)
           SER_EMHEADER(0,4,1),SER_NEXTINT(12),
             1,0,0,0,
             SER64(3)
-        }, 32,
-        (raw){
-          1,0,0,0,SER64BE(3),
-          10,
-          0,0,0 // padding
-        }, 13
-      } }
+        }, 32
+      } },
+      KEYHASH(13, 1,0,0,0,SER64BE(3), 10)
+    },
+    { &CdrStreamKeySize_t11_desc, init_CdrStreamKeySize_t11,
+      { {
+        MAKE_ENCHDR(CDR),
+        (raw){ SER32(4),'a','b','c',0,SER64(3) }, 16,
+        (raw){ SER32(4),'a','b','c',0,SER64(3) }, 16
+      }, {
+        MAKE_ENCHDR(CDR2),
+        (raw){ SER32(4),'a','b','c',0,SER64(3) }, 16,
+        (raw){ SER32(4),'a','b','c',0,SER64(3) }, 16
+      } },
+      KEYHASH(16, SER32BE(4),'a','b','c',0,SER64BE(3))
+    },
+    { &SerdataKeyExternal_desc, init_SerdataKeyExternal,
+      { {
+        MAKE_ENCHDR(CDR),
+        (raw){ 2,0,0,0,0,0,0,0,SER64(UINT64_C(0x100000001)),3,0,0,0 }, 17,
+        (raw){ 2,0,0,0,0,0,0,0,SER64(UINT64_C(0x100000001)) }, 16
+      }, {
+        MAKE_ENCHDR(CDR2),
+        (raw){ 2,0,0,0,SER64(UINT64_C(0x100000001)),3,0,0,0 }, 13,
+        (raw){ 2,0,0,0,SER64(UINT64_C(0x100000001)) }, 12
+      } },
+      KEYHASH(9, SER64BE(UINT64_C(0x100000001)),2)
+    },
+    { &CdrStreamKeySize_t32_desc, init_CdrStreamKeySize_t32,
+      { {
+        MAKE_ENCHDR(CDR),
+        (raw){ 0x12,0,0,0,SER32(2),0x34,0x56,0,0 }, 10,
+        (raw){ 0x12,0,0,0,SER32(2),0x34,0x56,0,0 }, 10
+      }, {
+        MAKE_ENCHDR(CDR2),
+        (raw){ 0x12,0,0,0,SER32(2),0x34,0x56,0,0 }, 10,
+        (raw){ 0x12,0,0,0,SER32(2),0x34,0x56,0,0 }, 10
+      } },
+      KEYHASH(11, 0x12,0,0,0,SER32BE(2),0x34,0x56)
+    },
+    { &CdrStreamKeySize_t47_desc, init_CdrStreamKeySize_t47,
+      { {
+        MAKE_ENCHDR(CDR),
+        (raw){ SER32(2),7,0,0,0 }, 5,
+        (raw){ SER32(2) }, 4
+      }, {
+        MAKE_ENCHDR(CDR2),
+        (raw){ SER32(2),7,0,0,0 }, 5,
+        (raw){ SER32(2) }, 4
+      } },
+      KEYHASH(4, SER32BE(2))
     },
     { &SerdataKeyString_desc, init_SerdataKeyString,
       { {
@@ -900,11 +948,6 @@ CU_Test(ddsc_serdata, key_serialization)
           1,0,0,0,
           SER32(5),'t','e','s','t','\0',
           0,0,0 // padding
-        }, 13,
-        (raw){
-          1,0,0,0,
-          SER32BE(5),'t','e','s','t','\0',
-          0,0,0 // padding
         }, 13
       }, {
         MAKE_ENCHDR(CDR2),
@@ -917,13 +960,9 @@ CU_Test(ddsc_serdata, key_serialization)
           1,0,0,0,
           SER32(5),'t','e','s','t','\0',
           0,0,0 // padding
-        }, 13,
-        (raw){
-          1,0,0,0,
-          SER32BE(5),'t','e','s','t','\0',
-          0,0,0 // padding
         }, 13
-      } }
+      } },
+      KEYHASH(SIZE_MAX, 1,0,0,0, SER32BE(5),'t','e','s','t','\0')
     },
     { &SerdataKeyStringBounded_desc, init_SerdataKeyStringBounded,
       { {
@@ -937,11 +976,6 @@ CU_Test(ddsc_serdata, key_serialization)
           1,0,0,0,
           SER32(3),'t','s','\0',
           0 // padding
-        }, 11,
-        (raw){
-          1,0,0,0,
-          SER32BE(3),'t','s','\0',
-          0 // padding
         }, 11
       }, {
         MAKE_ENCHDR(CDR2),
@@ -954,13 +988,9 @@ CU_Test(ddsc_serdata, key_serialization)
           1,0,0,0,
           SER32(3),'t','s','\0',
           0 // padding
-        }, 11,
-        (raw){
-          1,0,0,0,
-          SER32BE(3),'t','s','\0',
-          0 // padding
         }, 11
-      } }
+      } },
+      KEYHASH(12, 1,0,0,0, SER32BE(3),'t','s','\0')
     },
     { &SerdataKeyStringAppendable_desc, init_SerdataKeyStringAppendable,
       { {
@@ -974,10 +1004,6 @@ CU_Test(ddsc_serdata, key_serialization)
           1,0,0,0,
           SER32(5),'t','e','s','t','\0',
           0,0,0 // padding
-        }, 13,
-        (raw){
-          1,0,0,0,SER32BE(5),'t','e','s','t','\0',
-          0,0,0 // padding
         }, 13
       }, {
         MAKE_ENCHDR(D_CDR2),
@@ -992,12 +1018,9 @@ CU_Test(ddsc_serdata, key_serialization)
           1,0,0,0,
           SER32(5),'t','e','s','t','\0',
           0,0,0 // padding
-        }, 17,
-        (raw){
-          1,0,0,0,SER32BE(5),'t','e','s','t','\0',
-          0,0,0 // padding
-        }, 13
-      } }
+        }, 17
+      } },
+      KEYHASH(SIZE_MAX, 1,0,0,0,SER32BE(5),'t','e','s','t','\0')
     },
     { &SerdataKeyStringBoundedAppendable_desc, init_SerdataKeyStringBoundedAppendable,
       { {
@@ -1009,10 +1032,6 @@ CU_Test(ddsc_serdata, key_serialization)
         (raw){
           1,0,0,0,
           SER32(4),'t','s','t','\0'
-        }, 12,
-        (raw){
-          1,0,0,0,
-          SER32BE(4),'t','s','t','\0'
         }, 12
       }, {
         MAKE_ENCHDR(D_CDR2),
@@ -1025,19 +1044,13 @@ CU_Test(ddsc_serdata, key_serialization)
           SER_DHEADER(12),
           1,0,0,0,
           SER32(4),'t','s','t','\0'
-        }, 16,
-        (raw){
-          1,0,0,0,
-          SER32BE(4),'t','s','t','\0'
-        }, 12
-      } }
+        }, 16
+      } },
+      KEYHASH(12, 1,0,0,0, SER32BE(4),'t','s','t','\0')
     },
     { &SerdataKeyArr_desc, init_SerdataKeyArr,
       { {
         MAKE_ENCHDR(CDR),
-        (raw){
-          0,1,2,3,4,5,6,7,8,9,10,11
-        }, 12,
         (raw){
           0,1,2,3,4,5,6,7,8,9,10,11
         }, 12,
@@ -1051,11 +1064,9 @@ CU_Test(ddsc_serdata, key_serialization)
         }, 12,
         (raw){
           0,1,2,3,4,5,6,7,8,9,10,11
-        }, 12,
-        (raw){
-          0,1,2,3,4,5,6,7,8,9,10,11
         }, 12
-      } }
+      } },
+      KEYHASH(12, 0,1,2,3,4,5,6,7,8,9,10,11)
     },
     { &SerdataKeyArrStrBounded_desc, init_SerdataKeyArrStrBounded,
       { {
@@ -1070,12 +1081,6 @@ CU_Test(ddsc_serdata, key_serialization)
           SER32(3),'t','s','\0',
           0, /* padding */
           SER32(3),'t','s','\0',
-          0 /* padding */
-        }, 15,
-        (raw){
-          SER32BE(3),'t','s','\0',
-          0, /* padding */
-          SER32BE(3),'t','s','\0',
           0 /* padding */
         }, 15
       }, {
@@ -1093,15 +1098,9 @@ CU_Test(ddsc_serdata, key_serialization)
           0, /* padding */
           SER32(3),'t','s','\0',
           0 /* padding */
-        }, 19,
-        (raw){
-          SER_DHEADERBE(15),
-          SER32BE(3),'t','s','\0',
-          0, /* padding */
-          SER32BE(3),'t','s','\0',
-          0 /* padding */
         }, 19
-      } }
+      } },
+      KEYHASH(19, SER_DHEADERBE(15), SER32BE(3),'t','s','\0', 0, SER32BE(3),'t','s','\0')
     },
     { &SerdataKeyNestedFinalImplicit_desc, init_SerdataKeyNestedFinalImplicit,
       { {
@@ -1122,15 +1121,7 @@ CU_Test(ddsc_serdata, key_serialization)
             3,0,0,0,0,0,SER64(5),
           // f
           SER32(20)
-        }, 20,
-        (raw){
-          SER32BE(20),  // f
-          3,0,0,0,      // d.z.a
-          SER64BE(5),   // d.z.c
-          2,            // d.y
-          1,            // d.x
-          0,0           // padding
-        }, 18
+        }, 20
       }, {
         MAKE_ENCHDR(CDR2),
         (raw){
@@ -1149,16 +1140,9 @@ CU_Test(ddsc_serdata, key_serialization)
             3,0,SER64(5),
           // f
           SER32(20)
-        }, 16,
-        (raw){
-          SER32BE(20),  // f
-          3,0,0,0,      // d.z.a
-          SER64BE(5),   // d.z.c
-          2,            // d.y
-          1,            // d.x
-          0,0           // padding
-        }, 18
-      } }
+        }, 16
+      } },
+      KEYHASH(18, SER32BE(20), 3,0,0,0, SER64BE(5), 2,1)
     },
     { &SerdataKeyNestedFinalImplicit2_desc, init_SerdataKeyNestedFinalImplicit2,
       { {
@@ -1171,11 +1155,6 @@ CU_Test(ddsc_serdata, key_serialization)
           11,12,13,14,
           15,16,17,18
         }, 16,
-        (raw){
-          // a
-          1,2,
-          5,6
-        }, 4,
         (raw){
           // a
           1,2,
@@ -1195,13 +1174,9 @@ CU_Test(ddsc_serdata, key_serialization)
           // a
           1,2,
           5,6
-        }, 4,
-        (raw){
-          // a
-          1,2,
-          5,6
         }, 4
-      } }
+      } },
+      KEYHASH(4, 1,2,5,6)
     },
     { &SerdataKeyNestedMutableImplicit_desc, init_SerdataKeyNestedMutableImplicit,
       { {
@@ -1237,15 +1212,7 @@ CU_Test(ddsc_serdata, key_serialization)
           SER_PHDR_END(),
           // f
           SER32(20)
-        }, 68,
-        (raw){
-          SER32BE(20),  // f
-          3,0,0,0,      // d.z.a
-          SER64BE(5),   // d.z.c
-          2,            // d.y
-          1,            // d.x
-          0,0           // padding
-        }, 18
+        }, 68
       }, {
         MAKE_ENCHDR(D_CDR2),
         (raw){
@@ -1277,16 +1244,9 @@ CU_Test(ddsc_serdata, key_serialization)
             3,0,0,0,
             SER64(5),
           SER32(20)
-        }, 48,
-        (raw){
-          SER32BE(20),  // f
-          3,0,0,0,      // d.z.a
-          SER64BE(5),   // d.z.c
-          2,            // d.y
-          1,            // d.x
-          0,0           // padding
-        }, 18
-      } }
+        }, 48
+      } },
+      KEYHASH(18, SER32BE(20), 3,0,0,0, SER64BE(5), 2,1)
     },
     { &SerdataKeyInheritMutable_desc, init_SerdataKeyInheritMutable,
       { {
@@ -1330,14 +1290,9 @@ CU_Test(ddsc_serdata, key_serialization)
             SER16(6),SER16(8),
           SER_EMHEADER(0,1,4),SER16(10),
           0,0 // padding
-        }, 26,
-        (raw){
-          SER16BE(10),
-          SER16BE(8),
-          SER16BE(6),
-          0,0 // padding
-        }, 6
-      } }
+        }, 26
+      } },
+      KEYHASH(6, SER16BE(10), SER16BE(8), SER16BE(6))
     },
     { &SerdataKeySequence_desc, init_SerdataKeySequence,
       { {
@@ -1347,9 +1302,6 @@ CU_Test(ddsc_serdata, key_serialization)
         }, 12,
         (raw){
           SER32(2), SER32(5), SER32(6)
-        }, 12,
-        (raw){
-          SER32BE(2), SER32BE(5), SER32BE(6)
         }, 12
       }, {
         MAKE_ENCHDR(CDR2),
@@ -1358,11 +1310,33 @@ CU_Test(ddsc_serdata, key_serialization)
         }, 12,
         (raw){
           SER32(2), SER32(5), SER32(6)
-        }, 12,
-        (raw){
-          SER32BE(2), SER32BE(5), SER32BE(6)
         }, 12
-      } }
+      } },
+      KEYHASH(SIZE_MAX, SER32BE(2), SER32BE(5), SER32BE(6))
+    },
+    { &CdrStreamKeySize_empty_key_array_desc, init_CdrStreamKeySize_empty_key_array,
+      { {
+        MAKE_ENCHDR(CDR),
+        (unsigned char[68]){ 0 }, 68,
+        (raw){ 0 }, 0
+      }, {
+        MAKE_ENCHDR(CDR2),
+        (unsigned char[72]){ SER_DHEADER(68) }, 72,
+        (raw){ SER_DHEADER(0) }, 4
+      } },
+      KEYHASH(4, SER_DHEADERBE(0))
+    },
+    { &CdrStreamKeySize_empty_key_bseq_desc, init_CdrStreamKeySize_empty_key_bseq,
+      { {
+        MAKE_ENCHDR(CDR),
+        (raw){ SER32(2), SER32(5), SER32(7) }, 12,
+        (raw){ SER32(2) }, 4
+      }, {
+        MAKE_ENCHDR(CDR2),
+        (raw){ SER_DHEADER(12), SER32(2), SER32(5), SER32(7) }, 16,
+        (raw){ SER_DHEADER(4), SER32(2) }, 8
+      } },
+      KEYHASH(8, SER_DHEADERBE(4), SER32BE(2))
     },
     { &SerdataKeySequenceStruct_desc, init_SerdataKeySequenceStruct,
       { {
@@ -1372,9 +1346,6 @@ CU_Test(ddsc_serdata, key_serialization)
         }, 20,
         (raw){
           SER32(2), SER32(5), SER32(7),
-        }, 12,
-        (raw){
-          SER32BE(2), SER32BE(5), SER32BE(7),
         }, 12
       }, {
         MAKE_ENCHDR(CDR2),
@@ -1383,11 +1354,9 @@ CU_Test(ddsc_serdata, key_serialization)
         }, 24,
         (raw){
           SER_DHEADER(12), SER32(2), SER32(5), SER32(7),
-        }, 16,
-        (raw){
-          SER_DHEADERBE(12), SER32BE(2), SER32BE(5), SER32BE(7),
         }, 16
-      } }
+      } },
+      KEYHASH(SIZE_MAX, SER_DHEADERBE(12), SER32BE(2), SER32BE(5), SER32BE(7))
     },
     { &SerdataKeySequenceStructAppendable_desc, init_SerdataKeySequenceStructAppendable,
       { {
@@ -1399,11 +1368,9 @@ CU_Test(ddsc_serdata, key_serialization)
         }, 32,
         (raw){
           SER_DHEADER(20), SER32(2), SER_DHEADER(4), SER32(5), SER_DHEADER(4), SER32(7),
-        }, 24,
-        (raw){
-          SER_DHEADERBE(20), SER32BE(2), SER_DHEADERBE(4), SER32BE(5), SER_DHEADERBE(4), SER32BE(7),
         }, 24
-      } }
+      } },
+      KEYHASH(SIZE_MAX, SER_DHEADERBE(20), SER32BE(2), SER_DHEADERBE(4), SER32BE(5), SER_DHEADERBE(4), SER32BE(7))
     },
     { &SerdataKeySequenceNested_desc, init_SerdataKeySequenceNested,
       { {
@@ -1413,9 +1380,6 @@ CU_Test(ddsc_serdata, key_serialization)
         }, 28,
         (raw){
           SER32(2), SER32(2), SER32(0), SER32(1), SER32(2), SER32(2), SER32(3)
-        }, 28,
-        (raw){
-          SER32BE(2), SER32BE(2), SER32BE(0), SER32BE(1), SER32BE(2), SER32BE(2), SER32BE(3)
         }, 28
       }, {
         MAKE_ENCHDR(CDR2),
@@ -1424,11 +1388,10 @@ CU_Test(ddsc_serdata, key_serialization)
         }, 40,
         (raw){
           SER_DHEADER(36), SER32(2), SER_DHEADER(12), SER32(2), SER32(0), SER32(1), SER_DHEADER(12), SER32(2), SER32(2), SER32(3)
-        }, 40,
-        (raw){
-          SER_DHEADERBE(36), SER32BE(2), SER_DHEADERBE(12), SER32BE(2), SER32BE(0), SER32BE(1), SER_DHEADERBE(12), SER32BE(2), SER32BE(2), SER32BE(3)
         }, 40
-      } }
+      } },
+      KEYHASH(SIZE_MAX,
+        SER_DHEADERBE(36), SER32BE(2), SER_DHEADERBE(12), SER32BE(2), SER32BE(0), SER32BE(1), SER_DHEADERBE(12), SER32BE(2), SER32BE(2), SER32BE(3))
     },
   };
 
@@ -1437,6 +1400,7 @@ CU_Test(ddsc_serdata, key_serialization)
   for (uint32_t test_index = 0; test_index < sizeof (tests) / sizeof (tests[0]); test_index++)
   {
     dds_entity_t participant = create_pp (0);
+    const struct expected_keyhash *keyhash = &tests[test_index].keyhash;
     const uint32_t supported_representations = dds_stream_supported_data_representations (tests[test_index].desc->m_ops);
     CU_ASSERT_NEQ_FATAL (supported_representations, 0u);
 
@@ -1479,8 +1443,7 @@ CU_Test(ddsc_serdata, key_serialization)
         int cmp = memcmp (sd->data, tests[test_index].xcdrv[dr].data, exp_sz_aligned);
         CU_ASSERT_EQ (cmp, 0);
 
-        check_key_keyhash (sd, tests[test_index].xcdrv[1].key, tests[test_index].xcdrv[1].key_sz,
-            tests[test_index].xcdrv[dr].keyhash, tests[test_index].xcdrv[dr].keyhash_sz);
+        check_key_keyhash (sd, tests[test_index].xcdrv[1].key, tests[test_index].xcdrv[1].key_sz, keyhash);
         ddsi_serdata_unref (&sd->c);
       }
 
@@ -1501,8 +1464,8 @@ CU_Test(ddsc_serdata, key_serialization)
         int cmp = memcmp (sd->data, exp_data, exp_sz_aligned);
         CU_ASSERT_EQ (cmp, 0);
 
-        check_key_keyhash (sd, tests[test_index].xcdrv[1].key, tests[test_index].xcdrv[1].key_sz,
-            tests[test_index].xcdrv[dr].keyhash, tests[test_index].xcdrv[dr].keyhash_sz);
+        check_key_keyhash (sd, tests[test_index].xcdrv[1].key, tests[test_index].xcdrv[1].key_sz, keyhash);
+        check_from_keyhash (sd0, keyhash->cdr, keyhash->size, keyhash->max_size <= DDS_FIXED_KEY_MAX_SIZE);
         ddsi_serdata_unref (&sd->c);
       }
 
@@ -1521,8 +1484,7 @@ CU_Test(ddsc_serdata, key_serialization)
         struct dds_serdata_default *sd = (struct dds_serdata_default *) sd0;
         ddsrt_free (key_cdr.iov_base);
 
-        check_key_keyhash (sd, tests[test_index].xcdrv[1].key, tests[test_index].xcdrv[1].key_sz,
-            tests[test_index].xcdrv[dr].keyhash, tests[test_index].xcdrv[dr].keyhash_sz);
+        check_key_keyhash (sd, tests[test_index].xcdrv[1].key, tests[test_index].xcdrv[1].key_sz, keyhash);
 
         ddsi_serdata_unref (&sd->c);
       }
@@ -1541,8 +1503,7 @@ CU_Test(ddsc_serdata, key_serialization)
         struct dds_serdata_default *sd = (struct dds_serdata_default *) sd0;
         ddsrt_free (data_cdr.iov_base);
 
-        check_key_keyhash (sd, tests[test_index].xcdrv[1].key, tests[test_index].xcdrv[1].key_sz,
-            tests[test_index].xcdrv[dr].keyhash, tests[test_index].xcdrv[dr].keyhash_sz);
+        check_key_keyhash (sd, tests[test_index].xcdrv[1].key, tests[test_index].xcdrv[1].key_sz, keyhash);
 
         ddsi_serdata_unref (&sd->c);
       }

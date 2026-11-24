@@ -63,6 +63,9 @@ module CdrStreamKeySize {
   @topic @final struct t44 { @key octet a[9999999]; };
   @topic @final struct t45 { @key string<9999> a[9999]; };
   @topic @final struct t46 { @key wstring<9999> a[9999]; };
+  @topic @final struct seq_size_17 { @key sequence<octet, 13> a; };
+  @topic @final struct seq_size_add_overflow { @key sequence<octet, 0xfffffffc> a; };
+  @topic @final struct seq_size_mul_overflow { @key sequence<uint32, 0x40000000> a; };
 
   // Each element has payload, but its key serializes to zero bytes.
   @nested @final struct empty_key_marker {};

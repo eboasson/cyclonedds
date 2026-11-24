@@ -24,6 +24,14 @@ Limitations on backwards compatibility:
 * The C binding now accounts for collections whose element keys serialize
   to zero bytes. If the complete serialized key fits in 16 bytes, the
   inline RTPS key hash can now contain the key directly.
+* The C binding now computes the RTPS key hash using big-endian XCDR2
+  for both XCDR1 and XCDR2 samples. For XCDR1 samples this can change
+  the serialized key bytes used to compute the hash and the decision to
+  use MD5. The size calculation also handles large collection bounds
+  for both representations. Peers that use the optional inline key hash may
+  see a different value after upgrading. When a dispose or unregister
+  supplies only a key hash, the C binding now decodes recoverable keys
+  using the same XCDR2 rules.
 
 `V0.7.0 (2020-08-06) <https://github.com/eclipse-cyclonedds/cyclonedds/compare/V0.6.0...0.7.0>`_
 -----------------------------------------------------------------------------------------------
