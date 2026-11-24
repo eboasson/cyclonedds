@@ -984,6 +984,25 @@ static const struct xt_type *ddsi_xt_unalias (const struct xt_type *t)
   return t->_d == DDS_XTypes_TK_ALIAS ? ddsi_xt_unalias (&t->_u.alias.related_type->xt) : t;
 }
 
+static bool xt_definition_in_progress (const struct ddsi_type *type)
+{
+  return (type->state == DDSI_TYPE_CONSTRUCTING || type->state == DDSI_TYPE_COMPLETING) && !ddsi_typeid_is_none (&type->xt.id);
+}
+
+/* Cross-type checks run during installation as well as before full resolution.
+   Stop at a missing definition or one whose fields are still being filled in,
+   including when it is reached through an alias. */
+static const struct xt_type *xt_validation_dependency (const struct ddsi_type *type)
+{
+  while (!ddsi_xt_missing_definition (&type->xt) && !xt_definition_in_progress (type))
+  {
+    if (type->xt._d != DDS_XTypes_TK_ALIAS)
+      return &type->xt;
+    type = type->xt._u.alias.related_type;
+  }
+  return NULL;
+}
+
 static dds_return_t xt_resolve_valid_struct_base_type (struct ddsi_domaingv *gv, const struct xt_type *t, const struct xt_type **base_type)
 {
   assert (t->_d == DDS_XTypes_TK_STRUCTURE);
@@ -991,12 +1010,9 @@ static dds_return_t xt_resolve_valid_struct_base_type (struct ddsi_domaingv *gv,
   if (!t->_u.structure.base_type)
     return DDS_RETCODE_OK;
 
-  /* Only a base type that has a definition, i.e. has a type object or is fully
-     descriptive, can be used to check the type. */
-  const struct xt_type *bt = &t->_u.structure.base_type->xt;
-  if (ddsi_xt_missing_definition (bt))
+  const struct xt_type *bt = xt_validation_dependency (t->_u.structure.base_type);
+  if (!bt)
     return DDS_RETCODE_OK;
-  bt = ddsi_xt_unalias (bt);
   if (bt->_d != DDS_XTypes_TK_STRUCTURE)
   {
     GVTRACE ("base type for struct is not a struct type\n");
@@ -1006,17 +1022,11 @@ static dds_return_t xt_resolve_valid_struct_base_type (struct ddsi_domaingv *gv,
   return DDS_RETCODE_OK;
 }
 
-static dds_return_t xt_valid_struct_base_type (struct ddsi_domaingv *gv, const struct xt_type *t)
+static dds_return_t xt_valid_union_disc_type (struct ddsi_domaingv *gv, const struct xt_type *disc_type)
 {
-  const struct xt_type *base_type;
-  return xt_resolve_valid_struct_base_type (gv, t, &base_type);
-}
-
-static dds_return_t xt_valid_union_disc_type (struct ddsi_domaingv *gv, const struct xt_type *t)
-{
-  if (ddsi_xt_missing_definition (&t->_u.union_type.disc_type->xt))
+  if (!disc_type)
     return DDS_RETCODE_OK;
-  uint8_t d = ddsi_xt_unalias (&t->_u.union_type.disc_type->xt)->_d;
+  const uint8_t d = disc_type->_d;
   if (d != DDS_XTypes_TK_BOOLEAN
       && d != DDS_XTypes_TK_BYTE && d != DDS_XTypes_TK_CHAR8 && d != DDS_XTypes_TK_CHAR16
       && d != DDS_XTypes_TK_INT8 && d != DDS_XTypes_TK_INT16 && d != DDS_XTypes_TK_INT32 && d != DDS_XTypes_TK_INT64
@@ -1056,16 +1066,15 @@ static int32_t xt_enum_value_max (DDS_XTypes_BitBound bit_bound)
   return (bit_bound >= 32) ? INT32_MAX : (int32_t) ((UINT32_C (1) << (bit_bound - 1)) - 1);
 }
 
-static dds_return_t xt_union_label_range (const struct xt_type *disc_type, struct xt_union_label_range *range)
+static dds_return_t xt_union_label_range (const struct xt_type *dt, struct xt_union_label_range *range)
 {
-  if (ddsi_xt_missing_definition (disc_type))
+  if (!dt)
   {
     range->min = INT64_MIN;
     range->max = UINT64_MAX;
     return DDS_RETCODE_OK;
   }
 
-  const struct xt_type *dt = ddsi_xt_unalias (disc_type);
   switch (dt->_d)
   {
     case DDS_XTypes_TK_BOOLEAN:
@@ -1147,17 +1156,17 @@ static dds_return_t xt_valid_struct_member_ids (struct ddsi_domaingv *gv, const 
     if ((ret = xt_resolve_valid_struct_base_type (gv, t1, &t1)) != DDS_RETCODE_OK)
       return ret;
   }
-  if (cnt == 0 && !t->_u.structure.base_type)
+  if (cnt == 0)
   {
     ret = DDS_RETCODE_OK;
     goto empty;
   }
 
-  DDS_XTypes_MemberId *ids = ddsrt_malloc (cnt * sizeof (*ids));
+  DDS_XTypes_MemberId *ids = ddsrt_malloc_s (cnt * sizeof (*ids));
   if (ids == NULL)
   {
     GVTRACE ("out-of-memory while checking struct member ids\n");
-    ret = DDS_RETCODE_BAD_PARAMETER;
+    ret = DDS_RETCODE_OUT_OF_RESOURCES;
     goto failed;
   }
 
@@ -1201,11 +1210,11 @@ static dds_return_t xt_valid_union_member_ids (struct ddsi_domaingv *gv, const s
   }
 
   const bool mutable_union = (t->_u.union_type.flags & DDS_XTypes_IS_MUTABLE) != 0;
-  DDS_XTypes_MemberId *ids = ddsrt_malloc (cnt * sizeof (*ids));
+  DDS_XTypes_MemberId *ids = ddsrt_malloc_s (cnt * sizeof (*ids));
   if (ids == NULL)
   {
     GVTRACE ("out-of-memory while checking union member ids\n");
-    ret = DDS_RETCODE_BAD_PARAMETER;
+    ret = DDS_RETCODE_OUT_OF_RESOURCES;
     goto failed;
   }
 
@@ -1236,7 +1245,7 @@ failed:
   return ret;
 }
 
-static dds_return_t xt_valid_union_case_labels (struct ddsi_domaingv *gv, const struct xt_type *t)
+static dds_return_t xt_valid_union_case_labels (struct ddsi_domaingv *gv, const struct xt_type *t, const struct xt_type *disc_type)
 {
   assert (ddsi_xt_has_definition (t) && t->_d == DDS_XTypes_TK_UNION);
   dds_return_t ret = DDS_RETCODE_OK;
@@ -1255,7 +1264,7 @@ static dds_return_t xt_valid_union_case_labels (struct ddsi_domaingv *gv, const 
   if (cnt == 0)
     goto empty;
 
-  int32_t *labels = ddsrt_malloc (cnt * sizeof (*labels));
+  int32_t *labels = ddsrt_malloc_s (cnt * sizeof (*labels));
   if (labels == NULL)
   {
     GVTRACE ("out-of-memory while checking union case labels\n");
@@ -1263,14 +1272,12 @@ static dds_return_t xt_valid_union_case_labels (struct ddsi_domaingv *gv, const 
     goto failed;
   }
 
-  const struct xt_type *disc_type = &t->_u.union_type.disc_type->xt;
-  const struct xt_type *disc_type_def = ddsi_xt_missing_definition (disc_type) ? NULL : ddsi_xt_unalias (disc_type);
   struct xt_union_label_range range = { 0, 0 };
   if ((ret = xt_union_label_range (disc_type, &range)) != DDS_RETCODE_OK)
     goto failed_labels;
   uint64_t bitmask_allowed_mask = 0;
-  if (disc_type_def && disc_type_def->_d == DDS_XTypes_TK_BITMASK)
-    bitmask_allowed_mask = xt_union_label_bitmask_allowed_mask (disc_type_def);
+  if (disc_type && disc_type->_d == DDS_XTypes_TK_BITMASK)
+    bitmask_allowed_mask = xt_union_label_bitmask_allowed_mask (disc_type);
 
   uint32_t cnt1 = 0;
   for (uint32_t n = 0; n < t->_u.union_type.members.length; n++)
@@ -1285,13 +1292,13 @@ static dds_return_t xt_valid_union_case_labels (struct ddsi_domaingv *gv, const 
         ret = DDS_RETCODE_BAD_PARAMETER;
         goto failed_labels;
       }
-      if (disc_type_def && disc_type_def->_d == DDS_XTypes_TK_ENUM && !xt_union_label_in_enum (disc_type_def, label))
+      if (disc_type && disc_type->_d == DDS_XTypes_TK_ENUM && !xt_union_label_in_enum (disc_type, label))
       {
         GVTRACE ("union case label %"PRId32" not present in enum discriminator\n", label);
         ret = DDS_RETCODE_BAD_PARAMETER;
         goto failed_labels;
       }
-      if (disc_type_def && disc_type_def->_d == DDS_XTypes_TK_BITMASK && (((uint64_t) (uint32_t) label) & ~bitmask_allowed_mask) != 0)
+      if (disc_type && disc_type->_d == DDS_XTypes_TK_BITMASK && (((uint64_t) (uint32_t) label) & ~bitmask_allowed_mask) != 0)
       {
         GVTRACE ("union case label %"PRId32" sets bits not present in bitmask discriminator\n", label);
         ret = DDS_RETCODE_BAD_PARAMETER;
@@ -1345,14 +1352,14 @@ static dds_return_t xt_valid_enum_values (struct ddsi_domaingv *gv, const struct
     goto failed;
   }
 
-  int32_t *values = ddsrt_malloc (cnt * sizeof (*values));
+  int32_t *values = ddsrt_malloc_s (cnt * sizeof (*values));
   if (values == NULL)
   {
     GVTRACE ("out-of-memory while checking enum values\n");
     ret = DDS_RETCODE_OUT_OF_RESOURCES;
     goto failed;
   }
-  DDS_XTypes_NameHash *name_hashes = ddsrt_malloc (cnt * sizeof (*name_hashes));
+  DDS_XTypes_NameHash *name_hashes = ddsrt_malloc_s (cnt * sizeof (*name_hashes));
   if (name_hashes == NULL)
   {
     GVTRACE ("out-of-memory while checking enum literal names\n");
@@ -1416,14 +1423,14 @@ static dds_return_t xt_valid_bitmask_positions (struct ddsi_domaingv *gv, const 
     goto failed;
   }
 
-  uint16_t *positions = ddsrt_malloc (cnt * sizeof (*positions));
+  uint16_t *positions = ddsrt_malloc_s (cnt * sizeof (*positions));
   if (positions == NULL)
   {
     GVTRACE ("out-of-memory while checking bitmask positions\n");
     ret = DDS_RETCODE_OUT_OF_RESOURCES;
     goto failed;
   }
-  DDS_XTypes_NameHash *name_hashes = ddsrt_malloc (cnt * sizeof (*name_hashes));
+  DDS_XTypes_NameHash *name_hashes = ddsrt_malloc_s (cnt * sizeof (*name_hashes));
   if (name_hashes == NULL)
   {
     GVTRACE ("out-of-memory while checking bitmask flag names\n");
@@ -1608,7 +1615,7 @@ static dds_return_t xt_valid_array_bounds (struct ddsi_domaingv *gv, const struc
 {
   const struct xt_type *t = arr;
   uint32_t dims = 1;
-  while (t->_d == DDS_XTypes_TK_ARRAY)
+  while (t && t->_d == DDS_XTypes_TK_ARRAY)
   {
     if (t->_u.array.bounds._length == 0)
       return DDS_RETCODE_BAD_PARAMETER;
@@ -1624,7 +1631,7 @@ static dds_return_t xt_valid_array_bounds (struct ddsi_domaingv *gv, const struc
       }
       dims *= t->_u.array.bounds._buffer[n];
     }
-    t = ddsi_xt_unalias (&t->_u.array.c.element_type->xt);
+    t = xt_validation_dependency (t->_u.array.c.element_type);
   }
   return DDS_RETCODE_OK;
 }
@@ -1718,20 +1725,16 @@ static const char *xt_validate_edge_descr (enum xt_validate_edge edge)
   return "unknown";
 }
 
-static bool xt_validate_can_skip_committed_hash (const struct xt_validate_context *context,
+static bool xt_validate_can_skip_dependency (const struct xt_validate_context *context,
     const struct xt_type *t, bool in_key, enum xt_validate_edge edge)
 {
-  if (!context->allow_recursive_types)
-    return false;
-  if (edge == XT_VALIDATE_EDGE_TOP || xt_is_non_hash (t))
+  if (edge == XT_VALIDATE_EDGE_TOP)
     return false;
 
   const struct ddsi_type *type = ddsi_type_from_xt_type (t);
-  if (type->state == DDSI_TYPE_CONSTRUCTING || type->state == DDSI_TYPE_COMPLETING)
-    return !ddsi_typeid_is_none (&type->xt.id);
-  if (in_key)
-    return false;
-  return type->state == DDSI_TYPE_RESOLVED;
+  if (xt_definition_in_progress (type))
+    return true;
+  return context->allow_recursive_types && !in_key && !xt_is_non_hash (t) && type->state == DDSI_TYPE_RESOLVED;
 }
 
 static dds_return_t xt_validate_enter (struct ddsi_domaingv *gv, struct xt_validate_context *context,
@@ -1759,7 +1762,7 @@ static dds_return_t xt_validate_enter (struct ddsi_domaingv *gv, struct xt_valid
     return DDS_RETCODE_BAD_PARAMETER;
   }
 
-  if ((*node = ddsrt_calloc (1, sizeof (**node))) == NULL)
+  if ((*node = ddsrt_calloc_s (1, sizeof (**node))) == NULL)
     return DDS_RETCODE_OUT_OF_RESOURCES;
   (*node)->type = t;
   (*node)->in_key = in_key;
@@ -1780,7 +1783,7 @@ static dds_return_t xt_validate_impl (struct ddsi_domaingv *gv, struct xt_valida
   if (depth >= XT_VALIDATE_MAX_DEPTH)
   {
     GVTRACE ("type validation recursion depth exceeded\n");
-    return DDS_RETCODE_BAD_PARAMETER;
+    return DDS_RETCODE_NOT_ENOUGH_SPACE;
   }
 
   if ((ret = xt_validate_enter (gv, context, t, in_key, edge, indirect_edge, depth, &node, &skip)) != DDS_RETCODE_OK || skip)
@@ -1788,7 +1791,7 @@ static dds_return_t xt_validate_impl (struct ddsi_domaingv *gv, struct xt_valida
 
   if (ddsi_xt_missing_definition (t))
     return DDS_RETCODE_OK;
-  if (xt_validate_can_skip_committed_hash (context, t, in_key, edge))
+  if (xt_validate_can_skip_dependency (context, t, in_key, edge))
   {
     node->state = XT_VALIDATE_VALIDATED;
     return DDS_RETCODE_OK;
@@ -1802,17 +1805,22 @@ static dds_return_t xt_validate_impl (struct ddsi_domaingv *gv, struct xt_valida
       if ((ret = xt_valid_type_flags (gv, t->_u.structure.flags, t->_d))
           || (ret = xt_valid_struct_member_flags_raw (gv, t))
           || (t->_u.structure.base_type && (ret = xt_validate_impl (gv, context, &t->_u.structure.base_type->xt, in_key, XT_VALIDATE_EDGE_AGGREGATE, false, depth + 1)))
-          || (t->_u.structure.base_type && (ret = xt_valid_struct_base_type (gv, t)))
           || (ret = xt_valid_struct_member_ids (gv, t)))
         return ret;
 
-      bool has_key_members = false;
-      for (const struct xt_type *t1 = t; t1; )
+      bool implicit_keys = in_key;
+      for (const struct xt_type *t1 = t; implicit_keys; )
       {
-        for (uint32_t n = 0; !has_key_members && n < t1->_u.structure.members.length; n++)
-          has_key_members = (t1->_u.structure.members.seq[n].flags & DDS_XTypes_IS_KEY);
+        for (uint32_t n = 0; implicit_keys && n < t1->_u.structure.members.length; n++)
+          implicit_keys = !(t1->_u.structure.members.seq[n].flags & DDS_XTypes_IS_KEY);
+        if (!t1->_u.structure.base_type)
+          break;
         if ((ret = xt_resolve_valid_struct_base_type (gv, t1, &t1)) != DDS_RETCODE_OK)
           return ret;
+        /* A missing base may supply an explicit key. Decide whether the
+           remaining members are implicit keys once the ancestry is known. */
+        if (!t1)
+          implicit_keys = false;
       }
 
       for (uint32_t n = 0; n < t->_u.structure.members.length; n++)
@@ -1831,7 +1839,7 @@ static dds_return_t xt_validate_impl (struct ddsi_domaingv *gv, struct xt_valida
            top-level type, but will still be rejected because of the key flag
            in B.
         */
-        bool key = (in_key && !has_key_members) || (flags & DDS_XTypes_IS_KEY);
+        bool key = implicit_keys || (flags & DDS_XTypes_IS_KEY);
         if ((ret = xt_valid_member_flags (gv, flags, MEMBER_FLAG_STRUCT_MEMBER, key)))
           return ret;
         if ((ret = xt_validate_impl (gv, context, &t->_u.structure.members.seq[n].type->xt, key,
@@ -1840,10 +1848,12 @@ static dds_return_t xt_validate_impl (struct ddsi_domaingv *gv, struct xt_valida
       }
       break;
     case DDS_XTypes_TK_UNION: {
-      if ((ret = xt_validate_impl (gv, context, &t->_u.union_type.disc_type->xt, in_key, XT_VALIDATE_EDGE_AGGREGATE, false, depth + 1))
-          || (ret = xt_valid_union_disc_type (gv, t))
+      if ((ret = xt_validate_impl (gv, context, &t->_u.union_type.disc_type->xt, in_key, XT_VALIDATE_EDGE_AGGREGATE, false, depth + 1)))
+        return ret;
+      const struct xt_type *disc_type = xt_validation_dependency (t->_u.union_type.disc_type);
+      if ((ret = xt_valid_union_disc_type (gv, disc_type))
           || (ret = xt_valid_union_member_ids (gv, t))
-          || (ret = xt_valid_union_case_labels (gv, t))
+          || (ret = xt_valid_union_case_labels (gv, t, disc_type))
           || (ret = xt_valid_type_flags (gv, t->_u.union_type.flags, t->_d))
           || (ret = xt_valid_member_flags (gv, t->_u.union_type.disc_flags, MEMBER_FLAG_UNION_DISC, in_key)))
         return ret;
@@ -1941,7 +1951,7 @@ static dds_return_t xt_validate_impl (struct ddsi_domaingv *gv, struct xt_valida
   return DDS_RETCODE_OK;
 }
 
-dds_return_t ddsi_xt_validate (struct ddsi_domaingv *gv, const struct ddsi_type *type)
+dds_return_t ddsi_xt_validate_for_resolution (struct ddsi_domaingv *gv, const struct ddsi_type *type, bool deps_resolved)
 {
   struct xt_validate_context context;
   dds_return_t ret;
@@ -1949,7 +1959,16 @@ dds_return_t ddsi_xt_validate (struct ddsi_domaingv *gv, const struct ddsi_type 
     return ret;
   ret = xt_validate_impl (gv, &context, &type->xt, false, XT_VALIDATE_EDGE_TOP, false, 0);
   xt_validate_context_fini (&context);
+  /* A provisional walk may exceed the path capacity before its independently
+     valid hash dependencies commit. The final walk can then skip them. */
+  if (ret == DDS_RETCODE_NOT_ENOUGH_SPACE)
+    return deps_resolved ? DDS_RETCODE_BAD_PARAMETER : DDS_RETCODE_OK;
   return ret;
+}
+
+dds_return_t ddsi_xt_validate (struct ddsi_domaingv *gv, const struct ddsi_type *type)
+{
+  return ddsi_xt_validate_for_resolution (gv, type, true);
 }
 
 static dds_return_t add_minimal_typeobj (struct ddsi_domaingv *gv, struct xt_type *xt, const struct DDS_XTypes_TypeObject *to)
@@ -3414,6 +3433,11 @@ static struct xt_type *xt_expand_basetype (struct ddsi_domaingv *gv, struct xt_a
     const struct xt_type * const b = ddsi_xt_unalias (&t->_u.structure.base_type->xt);
     if (!xt_is_assignable_check_has_definition (context, b, t, 0))
       return NULL;
+    if (b->_d != DDS_XTypes_TK_STRUCTURE)
+    {
+      xt_non_assignable (context, DDSI_NONASSIGN_INCOMPATIBLE_TYPE, t, b, 0);
+      return NULL;
+    }
     struct xt_type * const te = xt_expand_basetype (gv, context, b);
     if (!te)
       return NULL;

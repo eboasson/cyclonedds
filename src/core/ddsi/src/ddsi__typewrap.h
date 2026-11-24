@@ -139,6 +139,13 @@ bool ddsi_xt_is_assignable_from (struct ddsi_domaingv *gv, const struct xt_type 
 dds_return_t ddsi_xt_validate (struct ddsi_domaingv *gv, const struct ddsi_type *type)
   ddsrt_nonnull_all;
 
+/** @brief Revalidate a dependent before recording its resolution state.
+ * With outstanding dependencies, exceeding the validation path capacity
+ * defers the verdict until the final validation.
+ * @component xtypes_wrapper */
+dds_return_t ddsi_xt_validate_for_resolution (struct ddsi_domaingv *gv, const struct ddsi_type *type, bool deps_resolved)
+  ddsrt_nonnull_all;
+
 /** @component xtypes_wrapper */
 bool ddsi_xt_missing_definition (const struct xt_type *t)
   ddsrt_nonnull_all;
