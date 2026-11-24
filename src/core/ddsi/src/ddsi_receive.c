@@ -2076,7 +2076,7 @@ static struct ddsi_serdata *remote_make_sample (struct ddsi_tkmap_instance **tk,
       failmsg = "keyhash is protected";
     }
     else if ((get_serdata_result = ddsi_serdata_from_keyhash_err (&sample, type, &qos->keyhash)) != DDS_RETCODE_OK)
-      failmsg = "keyhash is MD5 and can't be converted to key value";
+      failmsg = "keyhash can't be converted to a key value";
     else
     {
       sample->statusinfo = statusinfo;

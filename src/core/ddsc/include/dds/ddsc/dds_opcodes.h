@@ -739,10 +739,8 @@ enum dds_stream_typecode_subtype {
 /**
  * @anchor DDS_TOPIC_FIXED_KEY
  * @ingroup topic_flags
- * @brief The XCDRV1 serialized key fits in 16 bytes.
- * If statically determined that a key always fits in 16 bytes
- * the spec specifies that the key of a sample is the resulting CDR.
- * If it is longer we must use MD5 to hash the resultant key CDR.
+ * @brief The XCDR1 key-only sample always fits in 16 bytes, excluding
+ * the encapsulation header.
  */
 #define DDS_TOPIC_FIXED_KEY                     (1u << 1)
 
@@ -769,13 +767,8 @@ enum dds_stream_typecode_subtype {
 /**
  * @anchor DDS_TOPIC_FIXED_KEY_XCDR2
  * @ingroup topic_flags
- * @brief The XCDRV2 serialized key fits in 16 bytes.
- * If statically determined that a key always fits in 16 bytes
- * the spec specifies that the key of a sample is the resulting CDR.
- * If it is longer we must use MD5 to hash the resultant key CDR.
- *
- * This is separate from the XCDRV1 version because it can differ due
- * to the change in alignment of 8byte types.
+ * @brief The XCDR2 key-only sample always fits in 16 bytes, excluding
+ * the encapsulation header.
  */
 #define DDS_TOPIC_FIXED_KEY_XCDR2               (1u << 5)
 
@@ -811,15 +804,10 @@ enum dds_stream_typecode_subtype {
 /**
  * @anchor DDS_TOPIC_FIXED_KEY_XCDR2_KEYHASH
  * @ingroup topic_flags
- * @brief The XCDRV2 serialized key with field in member-id order fits
- * in 16 bytes. If statically determined that a serialized key that is
- * used to get the keyhash always fits in 16 bytes, the spec specifies
- * that the keyhash of a sample is the resulting CDR. If it is longer
- * we must use MD5 to hash the resultant key CDR.
- *
- * The XCDRV1 key-hash is calculated from the serialized key with the
- * fields in definition order, so DDS_TOPIC_FIXED_KEY can also be used
- * for key-hash for XCDR1.
+ * @brief The key-holder serialized in member-ID order using big-endian
+ * PLAIN_CDR2 always fits in 16 bytes. Its zero-padded serialization
+ * serves as the key hash for either sample representation unless MD5
+ * is forced.
  */
 #define DDS_TOPIC_FIXED_KEY_XCDR2_KEYHASH       (1u << 10)
 

@@ -43,6 +43,21 @@ struct SerdataKeyOrderMutable {
     @id(1) @key uint64 c;
 };
 
+@nested @final
+union SerdataWideDiscriminator switch (@key uint64) {
+    case 1: string label;
+    default: uint8 number;
+};
+@nested @final
+struct SerdataExternalFields {
+    @id(2) @key uint8 tag;
+    @id(1) @key SerdataWideDiscriminator item;
+};
+@final
+struct SerdataKeyExternal {
+    @key @external SerdataExternalFields fields;
+};
+
 @final
 struct SerdataKeyString {
     @key uint8 a;

@@ -3655,13 +3655,21 @@ static const uint32_t *dds_stream_read_uni (dds_istream_t *is, char * restrict d
 }
 
 ddsrt_nonnull_all
-static void dds_stream_alloc_external (const uint32_t *ops, uint32_t insn, void ** addr, const struct dds_cdrstream_allocator *allocator, enum sample_data_state * sample_state)
+static void dds_stream_alloc_external (const uint32_t *ops, uint32_t insn, void ** addr, const struct dds_cdrstream_allocator *allocator, enum cdr_data_kind cdr_kind, enum sample_data_state * sample_state)
 {
   uint32_t sz = get_adr_type_size (insn, ops);
   if (*sample_state != SAMPLE_DATA_INITIALIZED || *((char **) *addr) == NULL)
   {
     *((char **) *addr) = allocator->malloc (sz);
-    *sample_state = SAMPLE_DATA_UNINITIALIZED;
+    if (cdr_kind != CDR_KIND_KEY)
+      *sample_state = SAMPLE_DATA_UNINITIALIZED;
+    else
+    {
+      /* A key-only read can skip fields within an external aggregate. Leave
+         their pointers in a state that is safe to reuse and free. */
+      memset (*((char **) *addr), 0, sz);
+      *sample_state = SAMPLE_DATA_INITIALIZED;
+    }
   }
   *addr = *((char **) *addr);
 }
@@ -3711,7 +3719,7 @@ static inline const uint32_t *dds_stream_read_adr (uint32_t insn, dds_istream_t 
   }
 
   if (op_type_external (insn))
-    dds_stream_alloc_external (ops, insn, &addr, allocator, &sample_state);
+    dds_stream_alloc_external (ops, insn, &addr, allocator, cdr_kind, &sample_state);
 
   switch (DDS_OP_TYPE (insn))
   {
@@ -3822,7 +3830,7 @@ static const uint32_t *dds_stream_skip_adr_insns_default (uint32_t insn, char * 
     return stream_skip_member_insns (insn, data, addr, allocator, ops, sample_state);
 
   if (op_type_external (insn))
-    dds_stream_alloc_external (ops, insn, &addr, allocator, &sample_state);
+    dds_stream_alloc_external (ops, insn, &addr, allocator, CDR_KIND_DATA, &sample_state);
 
   switch (DDS_OP_TYPE (insn))
   {
@@ -6587,7 +6595,7 @@ static const uint32_t *dds_stream_free_sample_arr (char * restrict addr, const s
 
 static const uint32_t *dds_stream_free_sample_uni (char * restrict discaddr, char * restrict baseaddr, const struct dds_cdrstream_allocator *allocator, const uint32_t *ops, uint32_t insn)
 {
-  uint32_t disc = 0;
+  uint64_t disc;
   switch (DDS_OP_SUBTYPE (insn))
   {
     case DDS_SOP_VAL_BLN: case DDS_SOP_VAL_1BY:
@@ -6599,6 +6607,9 @@ static const uint32_t *dds_stream_free_sample_uni (char * restrict discaddr, cha
     case DDS_SOP_VAL_4BY:
       disc = *((uint32_t *) discaddr);
       break;
+    case DDS_SOP_VAL_8BY:
+      disc = *((uint64_t *) discaddr);
+      break;
     case DDS_SOP_VAL_ENU:
       disc = dds_stream_enum_value_image (&insn, *((uint32_t *) discaddr));
       break;
@@ -6608,7 +6619,7 @@ static const uint32_t *dds_stream_free_sample_uni (char * restrict discaddr, cha
         case 1u: disc = *((uint8_t *) discaddr); break;
         case 2u: disc = *((uint16_t *) discaddr); break;
         case 4u: disc = *((uint32_t *) discaddr); break;
-        default: /* case 8u: */ disc = (uint32_t) *((uint64_t *) discaddr); break; // FIXME: 64-bit bitmask
+        default: /* case 8u: */ disc = *((uint64_t *) discaddr); break;
       }
       break;
     default: abort(); break;
@@ -7253,7 +7264,7 @@ static void dds_stream_read_key_impl (dds_istream_t *is, char *sample, const str
   assert (key_optimized_allowed (insn));
 
   if (op_type_external (insn))
-    dds_stream_alloc_external (ops, insn, &dst, allocator, &sample_state);
+    dds_stream_alloc_external (ops, insn, &dst, allocator, CDR_KIND_KEY, &sample_state);
 
   switch (DDS_OP_TYPE (insn))
   {
@@ -7368,6 +7379,87 @@ void dds_stream_read_key (dds_istream_t *is, char *sample, const struct dds_cdrs
       }
     }
   }
+}
+
+/* Follow a key-offset path to the containing C aggregate. Several key fields
+   can share an external aggregate, whose other members must remain zeroed. */
+static const uint32_t *keyhash_member (const struct dds_cdrstream_desc *desc, uint32_t i, char **base, const struct dds_cdrstream_allocator *allocator)
+{
+  const uint32_t *op = desc->ops.ops + desc->keys.keys[i].ops_offs;
+  if (DDS_OP (*op) == DDS_SOP_KOF)
+  {
+    const uint16_t n = DDS_OP_LENGTH (*op);
+    const uint32_t *offsets = op + 1;
+    assert (n > 0);
+    op = desc->ops.ops + offsets[0];
+    for (uint16_t j = 1; j < n; j++)
+    {
+      assert (DDS_OP (*op) == DDS_SOP_ADR && DDS_OP_TYPE (*op) == DDS_SOP_VAL_EXT);
+      *base += op[1];
+      if (op_type_external (*op))
+      {
+        /* The slot starts null. Reuse the aggregate if an earlier key field allocated it. */
+        enum sample_data_state state = SAMPLE_DATA_INITIALIZED;
+        void *addr = *base;
+        dds_stream_alloc_external (op, *op, &addr, allocator, CDR_KIND_KEY, &state);
+        *base = addr;
+      }
+      op = op + DDS_OP_ADR_JSR (op[2]) + offsets[j];
+    }
+  }
+  assert (DDS_OP (*op) == DDS_SOP_ADR && DDS_OP_TYPE (*op) != DDS_SOP_VAL_EXT);
+  return op;
+}
+
+bool dds_stream_read_keyhash (const unsigned char keyhash[DDS_FIXED_KEY_MAX_SIZE], void *sample, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc *desc, uint32_t flags)
+{
+  if (!(desc->flagset & DDS_TOPIC_FIXED_KEY_XCDR2_KEYHASH))
+    return false;
+
+  union { unsigned char data[DDS_FIXED_KEY_MAX_SIZE]; uint32_t align; } buf;
+  memcpy (buf.data, keyhash, sizeof (buf.data));
+  const struct normalize_state st = {
+    .data = buf.data,
+    .size = sizeof (buf.data),
+    .bswap = DDSRT_ENDIAN != DDSRT_BIG_ENDIAN,
+    .max_align_lg2 = 2,
+    .xcdr_version = DDSI_RTPS_CDR_ENC_VERSION_2,
+    .cdr_kind = CDR_KIND_KEY,
+    .normalize_flags = flags,
+    .mid_table = &desc->member_ids
+#ifndef NDEBUG
+    , .stack_witness = &st
+#endif
+  };
+  uint32_t off = 0;
+  for (uint32_t i = 0; i < desc->keys.nkeys; i++)
+  {
+    char *base = sample;
+    const uint32_t *op = keyhash_member (desc, i, &base, allocator);
+    const uint32_t start = off;
+    const uint32_t *next_op = op;
+    if (stream_normalize_adr_impl (&st, &off, &next_op) != DDS_STREAM_NORMALIZE_SUCCESS)
+      return false;
+
+    dds_istream_t is;
+    dds_istream_init_well_formed (&is, off, buf.data, DDSI_RTPS_CDR_ENC_VERSION_2);
+    is.m_index = start;
+    op = dds_stream_read_adr (*op, &is, base, allocator, &desc->member_ids, op, true, CDR_KIND_KEY, SAMPLE_DATA_INITIALIZED);
+    if (op != next_op || is.m_index != off)
+      return false;
+  }
+
+  /* Normalization can coerce a wire value (e.g. a boolean) or skip padding.
+     Accept the result only if it identifies precisely the supplied KeyHash. */
+  dds_ostreamBE_t os;
+  dds_ostreamBE_init (&os, allocator, sizeof (buf.data), DDSI_RTPS_CDR_ENC_VERSION_2);
+  if (os.x.m_buffer == NULL)
+    return false;
+  memset (os.x.m_buffer, 0, sizeof (buf.data));
+  const bool valid = dds_stream_write_keyBE (&os, DDS_CDR_KEY_SERIALIZATION_KEYHASH, allocator, sample, desc)
+                     && os.x.m_index == off && memcmp (keyhash, os.x.m_buffer, sizeof (buf.data)) == 0;
+  dds_ostreamBE_fini (&os, allocator);
+  return valid;
 }
 
 // Native endianness
@@ -8246,10 +8338,8 @@ static uint32_t add_to_key_size_impl (uint32_t keysize, uint32_t field_size, uin
     field_align = max_align;
   if (sz % field_align)
     sz += field_align - (sz % field_align);
-  sz += field_size * field_dims;
-  if (sz > DDS_FIXED_KEY_MAX_SIZE)
-    sz = DDS_FIXED_KEY_MAX_SIZE + 1;
-  return sz;
+  const uint64_t end = sz + (uint64_t) field_size * field_dims;
+  return end > DDS_FIXED_KEY_MAX_SIZE ? DDS_FIXED_KEY_MAX_SIZE + 1 : (uint32_t) end;
 }
 
 static void add_to_key_size_xcdrv1 (struct key_props *k, uint32_t field_size, uint32_t field_dims, uint32_t field_align)

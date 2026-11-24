@@ -250,28 +250,6 @@ enum gen_serdata_key_input_kind {
   GSKIK_CDRKEY
 };
 
-static inline bool is_topic_fixed_key_impl (uint32_t flagset, uint32_t xcdrv, bool key_hash)
-{
-  if (xcdrv == DDSI_RTPS_CDR_ENC_VERSION_1)
-    return flagset & DDS_TOPIC_FIXED_KEY;
-  else if (xcdrv == DDSI_RTPS_CDR_ENC_VERSION_2 && key_hash)
-    return flagset & DDS_TOPIC_FIXED_KEY_XCDR2_KEYHASH;
-  else if (xcdrv == DDSI_RTPS_CDR_ENC_VERSION_2)
-    return flagset & DDS_TOPIC_FIXED_KEY_XCDR2;
-  assert (0);
-  return false;
-}
-
-static inline bool is_topic_fixed_key (uint32_t flagset, uint32_t xcdrv)
-{
-  return is_topic_fixed_key_impl (flagset, xcdrv, false);
-}
-
-static inline bool is_topic_fixed_key_keyhash (uint32_t flagset, uint32_t xcdrv)
-{
-  return is_topic_fixed_key_impl (flagset, xcdrv, true);
-}
-
 static bool gen_serdata_key (const struct dds_sertype_default *type, struct dds_serdata_default_key *kh, enum gen_serdata_key_input_kind input_kind, void *input)
 {
   const struct dds_cdrstream_desc *desc = &type->type;
@@ -297,9 +275,10 @@ static bool gen_serdata_key (const struct dds_sertype_default *type, struct dds_
   if (kh->buftype == KEYBUFTYPE_UNSET)
   {
     // Force the key in the serdata object to be serialized in XCDR2 format
+    const bool use_static_buffer = (desc->flagset & DDS_TOPIC_FIXED_KEY_XCDR2) != 0;
     dds_ostream_t os;
     dds_ostream_init (&os, &dds_cdrstream_default_allocator, 0, DDSI_RTPS_CDR_ENC_VERSION_2);
-    if (is_topic_fixed_key(desc->flagset, DDSI_RTPS_CDR_ENC_VERSION_2))
+    if (use_static_buffer)
     {
       // FIXME: there are more cases where we don't have to allocate memory
       os.m_buffer = kh->u.stbuf;
@@ -323,7 +302,7 @@ static bool gen_serdata_key (const struct dds_sertype_default *type, struct dds_
     }
     assert (os.m_index < (1u << 30));
     kh->keysize = os.m_index & SERDATA_DEFAULT_KEYSIZE_MASK;
-    if (is_topic_fixed_key (desc->flagset, DDSI_RTPS_CDR_ENC_VERSION_2))
+    if (use_static_buffer)
       kh->buftype = KEYBUFTYPE_STATIC;
     else
     {
@@ -566,19 +545,22 @@ static struct ddsi_serdata *serdata_default_from_ser_iov_nokey (const struct dds
 static struct ddsi_serdata *serdata_default_from_keyhash_cdr (const struct ddsi_sertype *tpcmn, const ddsi_keyhash_t *keyhash)
 {
   const struct dds_sertype_default *tp = (const struct dds_sertype_default *)tpcmn;
-  if (!is_topic_fixed_key_keyhash (tp->type.flagset, DDSI_RTPS_CDR_ENC_VERSION_2))
+  if (!(tp->type.flagset & DDS_TOPIC_FIXED_KEY_XCDR2_KEYHASH))
   {
     /* keyhash is MD5 of a key value, so impossible to turn into a key value */
     return NULL;
   }
-  else
-  {
-    const ddsrt_iovec_t iovec[2] = {
-      { .iov_base = (unsigned char[]) { 0,0,0,0 }, .iov_len = 4}, // big-endian, unspecified padding
-      { .iov_base = (void *) keyhash->value, .iov_len = (ddsrt_iov_len_t) sizeof (*keyhash) }
-    };
-    return serdata_default_from_ser_iov (tpcmn, SDK_KEY, 2, iovec, 4 + sizeof (*keyhash));
-  }
+
+  /* Decode the canonical key-holder, then serialize an ordinary key-only
+     sample in the representation selected by the sertype. */
+  void *sample = ddsi_sertype_alloc_sample (tpcmn);
+  if (sample == NULL)
+    return NULL;
+  struct ddsi_serdata *sd = NULL;
+  if (dds_stream_read_keyhash (keyhash->value, sample, &dds_cdrstream_default_allocator, &tp->type, tp->normalize_flags))
+    sd = tpcmn->serdata_ops->from_sample (tpcmn, SDK_KEY, sample);
+  ddsi_sertype_free_sample (tpcmn, sample, DDS_FREE_ALL);
+  return sd;
 }
 
 static struct ddsi_serdata *serdata_default_from_keyhash_cdr_nokey (const struct ddsi_sertype *tpcmn, const ddsi_keyhash_t *keyhash)
@@ -870,31 +852,21 @@ static void serdata_default_get_keyhash (const struct ddsi_serdata *serdata_comm
   assert(buf);
   assert(d->key.buftype != KEYBUFTYPE_UNSET);
 
-  // Convert native representation to what keyhashes expect
-  // d->key could also be in big-endian, but that eliminates the possibility of aliasing d->data
-  // on little endian machines and forces a double copy of the key to be present for SDK_KEY
-  //
-  // As nobody should be using the DDSI keyhash, the price to pay for the conversion looks like
-  // a price worth paying
-
-  uint32_t xcdrv = ddsi_sertype_enc_id_xcdr_version (d->hdr.identifier);
-
-  /* serdata has a XCDR2 serialized key, so initializer the istream with this version
-     and with the size of that key (d->key.keysize) */
+  /* The stored key is a native-endian XCDR2 key-only sample and can alias
+     the serialized payload for SDK_KEY. */
   dds_istream_t is;
   dds_istream_init_well_formed (&is, d->key.keysize, serdata_default_keybuf(d), DDSI_RTPS_CDR_ENC_VERSION_2);
 
-  /* The output stream uses the XCDR version from the serdata, so that the keyhash in
-     ostream is calculated using this CDR representation (XTypes spec 7.6.8, RTPS spec 9.6.3.8) */
+  /* RTPS 2.5 9.6.4.8 specifies big-endian PLAIN_CDR2 for the key-holder
+     regardless of the data representation used for the sample. */
   dds_ostreamBE_t os;
-  dds_ostreamBE_init (&os, &dds_cdrstream_default_allocator, 0, xcdrv);
+  dds_ostreamBE_init (&os, &dds_cdrstream_default_allocator, 0, DDSI_RTPS_CDR_ENC_VERSION_2);
   dds_stream_extract_keyBE_from_key (&is, &os, DDS_CDR_KEY_SERIALIZATION_KEYHASH, &dds_cdrstream_default_allocator, &tp->type);
   assert (is.m_index == d->key.keysize);
 
-  /* Don't use the actual key size for checking if hashing is required,
-     but the worst-case key-size (see also XTypes spec 7.6.8 step 5.2) */
-  uint32_t actual_keysz = os.x.m_index;
-  if (force_md5 || !is_topic_fixed_key_keyhash (tp->type.flagset, xcdrv))
+  /* A type whose key-holder can exceed 16 bytes requires MD5 for every value. */
+  const uint32_t actual_keysz = os.x.m_index;
+  if (force_md5 || !(tp->type.flagset & DDS_TOPIC_FIXED_KEY_XCDR2_KEYHASH))
   {
     ddsrt_md5_state_t md5st;
     ddsrt_md5_init (&md5st);
@@ -903,7 +875,8 @@ static void serdata_default_get_keyhash (const struct ddsi_serdata *serdata_comm
   }
   else
   {
-    memset (buf->value, 0, DDS_FIXED_KEY_MAX_SIZE);
+    assert (actual_keysz <= sizeof (buf->value));
+    memset (buf->value, 0, sizeof (buf->value));
     if (actual_keysz > 0)
       memcpy (buf->value, os.x.m_buffer, actual_keysz);
   }

@@ -765,6 +765,28 @@ DDS_EXPORT void dds_stream_read_key (dds_istream_t *is, char *sample, const stru
   ddsrt_nonnull_all;
 
 /**
+ * @brief Validate a direct RTPS KeyHash and deserialize its key fields.
+ * @component cdr_serializer
+ *
+ * The caller supplies 16 readable bytes with arbitrary contents. The decoder
+ * checks that the type supports a direct KeyHash and that the bytes match its
+ * canonical big-endian PLAIN_CDR2 key-holder, padded with zeros to 16 bytes.
+ *
+ * On failure, @p sample may be partially populated. On either outcome the
+ * caller must free its contents with @ref dds_stream_free_sample using the
+ * same allocator and descriptor operations.
+ *
+ * @param keyhash    16-byte RTPS KeyHash to validate
+ * @param sample     zero-initialized, writable storage for a sample of the described type
+ * @param allocator  allocator for sample members and temporary storage
+ * @param desc       valid CDR stream descriptor for the sample type
+ * @param flags      normalization flags
+ * @returns          true if the key fields were decoded successfully, false otherwise
+ */
+bool dds_stream_read_keyhash (const unsigned char keyhash[DDS_FIXED_KEY_MAX_SIZE], void *sample, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc *desc, uint32_t flags)
+  ddsrt_attribute_warn_unused_result ddsrt_nonnull_all;
+
+/**
  * @brief Pretty-print serialized key data.
  * @component cdr_serializer
  *
