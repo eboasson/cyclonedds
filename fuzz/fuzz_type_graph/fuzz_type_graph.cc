@@ -63,6 +63,7 @@ constexpr int kActionImportTypeInfoTypeMap = fuzz_type_graph::ACTION_IMPORT_TYPE
 constexpr int kActionRoundtripGeneratedTypeInfoTypeMap = fuzz_type_graph::ACTION_ROUNDTRIP_GENERATED_TYPEINFO_TYPEMAP;
 constexpr int kActionAssignability = fuzz_type_graph::ACTION_ASSIGNABILITY;
 constexpr int kActionExerciseCollections = fuzz_type_graph::ACTION_EXERCISE_COLLECTIONS;
+constexpr int kActionInstallOrder = fuzz_type_graph::ACTION_INSTALL_ORDER;
 
 struct OwnedType {
   ddsi_type type;
@@ -2012,6 +2013,40 @@ static bool type_vector_contains(const std::vector<ddsi_type *> &types, const dd
   return std::find(types.begin(), types.end(), type) != types.end();
 }
 
+template<typename Visit>
+static void for_each_type_dependency(const ddsi_type *type, Visit visit)
+{
+  switch (type->xt._d)
+  {
+    case DDS_XTypes_TK_ALIAS:
+      visit(type->xt._u.alias.related_type);
+      break;
+    case DDS_XTypes_TK_STRUCTURE:
+      if (type->xt._u.structure.base_type != nullptr)
+        visit(type->xt._u.structure.base_type);
+      for (uint32_t n = 0; n < type->xt._u.structure.members.length; n++)
+        visit(type->xt._u.structure.members.seq[n].type);
+      break;
+    case DDS_XTypes_TK_UNION:
+      visit(type->xt._u.union_type.disc_type);
+      for (uint32_t n = 0; n < type->xt._u.union_type.members.length; n++)
+        visit(type->xt._u.union_type.members.seq[n].type);
+      break;
+    case DDS_XTypes_TK_SEQUENCE:
+      visit(type->xt._u.seq.c.element_type);
+      break;
+    case DDS_XTypes_TK_ARRAY:
+      visit(type->xt._u.array.c.element_type);
+      break;
+    case DDS_XTypes_TK_MAP:
+      visit(type->xt._u.map.key_type);
+      visit(type->xt._u.map.c.element_type);
+      break;
+    default:
+      break;
+  }
+}
+
 static void collect_hash_type_closure(ddsi_type *type, std::vector<ddsi_type *> &out)
 {
   if (type == nullptr)
@@ -2024,34 +2059,7 @@ static void collect_hash_type_closure(ddsi_type *type, std::vector<ddsi_type *> 
     out.push_back(type);
   }
 
-  switch (type->xt._d)
-  {
-    case DDS_XTypes_TK_ALIAS:
-      collect_hash_type_closure(type->xt._u.alias.related_type, out);
-      break;
-    case DDS_XTypes_TK_STRUCTURE:
-      collect_hash_type_closure(type->xt._u.structure.base_type, out);
-      for (uint32_t n = 0; n < type->xt._u.structure.members.length; n++)
-        collect_hash_type_closure(type->xt._u.structure.members.seq[n].type, out);
-      break;
-    case DDS_XTypes_TK_UNION:
-      collect_hash_type_closure(type->xt._u.union_type.disc_type, out);
-      for (uint32_t n = 0; n < type->xt._u.union_type.members.length; n++)
-        collect_hash_type_closure(type->xt._u.union_type.members.seq[n].type, out);
-      break;
-    case DDS_XTypes_TK_SEQUENCE:
-      collect_hash_type_closure(type->xt._u.seq.c.element_type, out);
-      break;
-    case DDS_XTypes_TK_ARRAY:
-      collect_hash_type_closure(type->xt._u.array.c.element_type, out);
-      break;
-    case DDS_XTypes_TK_MAP:
-      collect_hash_type_closure(type->xt._u.map.key_type, out);
-      collect_hash_type_closure(type->xt._u.map.c.element_type, out);
-      break;
-    default:
-      break;
-  }
+  for_each_type_dependency(type, [&](ddsi_type *child) { collect_hash_type_closure(child, out); });
 }
 
 static dds_return_t serialized_typeobject_size(const DDS_XTypes_TypeObject &type_object, uint32_t *size)
@@ -2817,6 +2825,163 @@ static bool export_typeinfo_typemap(const fuzz_type_graph::FuzzMsg &msg, Seriali
   return true;
 }
 
+static void check_install_order(bool condition, const char *property, uint32_t index)
+{
+  if (!condition)
+  {
+    std::fprintf(stderr, "type install order: %s (pair %u)\n", property, index);
+    std::abort();
+  }
+}
+
+static bool run_install_order(
+  bool allow_recursive_types,
+  const dds_sequence_DDS_XTypes_TypeIdentifierTypeObjectPair &pairs,
+  const std::vector<uint32_t> &order,
+  std::vector<ddsi_type_state> &states)
+{
+  Runtime receiver(allow_recursive_types);
+  ddsi_domaingv *gv = receiver.gv();
+  std::vector<ddsi_type *> held;
+  states.assign(pairs._length, DDSI_TYPE_UNRESOLVED);
+  ddsrt_mutex_lock(&gv->typelib_lock);
+  // Keep every ID observable even before its definition or any parent arrives.
+  bool comparable = true;
+  for (uint32_t i = 0; i < pairs._length; i++)
+  {
+    ddsi_type *type = nullptr;
+    const dds_return_t ret = ddsi_type_ref_id_locked_impl(gv, &type, &pairs._buffer[i].type_identifier);
+    if (ret == DDS_RETCODE_OUT_OF_RESOURCES)
+    {
+      comparable = false;
+      break;
+    }
+    check_install_order(ret == DDS_RETCODE_OK && type != nullptr, "could not retain exported ID", i);
+    held.push_back(type);
+  }
+  bool retry_pending = false;
+  for (uint32_t i : order)
+  {
+    if (!comparable)
+      break;
+    const DDS_XTypes_TypeIdentifierTypeObjectPair &pair = pairs._buffer[i];
+    dds_return_t ret;
+    if (pair.type_identifier._d == DDS_XTypes_TI_STRONGLY_CONNECTED_COMPONENT)
+    {
+      bool complete = false;
+      ret = ddsi_type_add_scc_typeobjs_locked(gv, &pairs, &pair.type_identifier, true, &complete);
+    }
+    else
+      ret = ddsi_type_add_typeobj(gv, held[i], &pair.type_object);
+    if (ret == DDS_RETCODE_OUT_OF_RESOURCES)
+    {
+      comparable = false;
+      break;
+    }
+
+    check_install_order(ret == DDS_RETCODE_OK, "receiver rejected an exported definition", i);
+    for (uint32_t n = 0; n < pairs._length; n++)
+    {
+      if (states[n] == DDSI_TYPE_RESOLVED || states[n] == DDSI_TYPE_INVALID)
+        check_install_order(held[n]->state == states[n], "terminal state changed", n);
+      states[n] = held[n]->state;
+    }
+
+    // Inspect the stored fields independently of the dependency index, including
+    // plain collection records whose element or key may be waiting on a definition.
+    retry_pending = false;
+    ddsrt_avl_iter_t iter;
+    for (void *node = ddsrt_avl_iter_first(ddsi_get_typelib_treedef(), &gv->typelib, &iter);
+         node != nullptr; node = ddsrt_avl_iter_next(&iter))
+    {
+      const auto *type = static_cast<const ddsi_type *>(node);
+      if (type->retry_validation)
+        retry_pending = true;
+      if (type->state == DDSI_TYPE_RESOLVED)
+      {
+        check_install_order(ddsi_xt_has_definition(&type->xt), "published type has no definition", i);
+        for_each_type_dependency(type, [i](const ddsi_type *child) {
+          check_install_order(child != nullptr && child->state == DDSI_TYPE_RESOLVED,
+                              "published type has an unresolved dependency", i);
+        });
+      }
+    }
+  }
+  for (ddsi_type *type : held)
+    ddsi_type_unref_locked(gv, type);
+  ddsrt_mutex_unlock(&gv->typelib_lock);
+  // Validation of a dependent can request a retry without changing the return
+  // code for the type just installed. Such a run has no final disposition yet.
+  return comparable && !retry_pending;
+}
+
+static void compare_install_orders(
+  bool allow_recursive_types,
+  const dds_sequence_DDS_XTypes_TypeIdentifierTypeObjectPair &exported,
+  uint32_t selector)
+{
+  if (exported._length == 0 || exported._length > kMaxTypes)
+    return;
+
+  // Distinct complete types can have the same minimal ID. Keep one pair per
+  // ID, and one installation step per verified strongly connected component.
+  std::vector<DDS_XTypes_TypeIdentifierTypeObjectPair> unique;
+  std::vector<uint32_t> order;
+  for (uint32_t i = 0; i < exported._length; i++)
+  {
+    const auto &pair = exported._buffer[i];
+    if (std::any_of(unique.begin(), unique.end(), [&](const DDS_XTypes_TypeIdentifierTypeObjectPair &p) {
+          return ddsi_typeid_compare_impl(&p.type_identifier, &pair.type_identifier) == 0;
+        }))
+      continue;
+    if (std::none_of(order.begin(), order.end(), [&](uint32_t n) {
+          return same_scc_component(unique[n].type_identifier, pair.type_identifier);
+        }))
+      order.push_back(static_cast<uint32_t>(unique.size()));
+    unique.push_back(pair);
+  }
+  dds_sequence_DDS_XTypes_TypeIdentifierTypeObjectPair pairs{};
+  pairs._length = pairs._maximum = static_cast<uint32_t>(unique.size());
+  pairs._buffer = unique.data(); // Borrowed TypeObjects live through both runs.
+
+  // Each digit selects one of the remaining units. For small graphs, successive
+  // selector values enumerate every permutation, starting with the exported order.
+  for (uint32_t i = 0; i + 1 < order.size(); i++)
+  {
+    const uint32_t remaining = static_cast<uint32_t>(order.size()) - i;
+    std::swap(order[i], order[i + selector % remaining]);
+    selector /= remaining;
+  }
+  std::vector<ddsi_type_state> forward, reverse;
+  if (!run_install_order(allow_recursive_types, pairs, order, forward))
+    return;
+  std::reverse(order.begin(), order.end());
+  if (!run_install_order(allow_recursive_types, pairs, order, reverse))
+    return;
+  for (uint32_t i = 0; i < pairs._length; i++)
+  {
+    check_install_order(forward[i] == reverse[i], "final state depends on installation order", i);
+    check_install_order(forward[i] == DDSI_TYPE_RESOLVED, "exported definition failed to resolve", i);
+  }
+}
+
+static void exercise_install_order(const fuzz_type_graph::FuzzMsg &msg, const fuzz_type_graph::ActionEntry &entry)
+{
+  // A resolved source supplies the complete, unmutated closure used by both receivers.
+  SerializedTypeInfoTypeMap serialized;
+  if (!export_typeinfo_typemap(msg, serialized))
+    return;
+  ddsi_typemap_t *map = ddsi_typemap_deser(serialized.typemap, serialized.typemap_size);
+  fini_serialized_typeinfo_typemap(serialized);
+  if (map != nullptr)
+  {
+    const auto &exported = (entry.flags() & 1u) ? map->x.identifier_object_pair_minimal : map->x.identifier_object_pair_complete;
+    compare_install_orders(msg.allow_recursive_types(), exported, entry.target());
+    ddsi_typemap_fini(map);
+    ddsrt_free(map);
+  }
+}
+
 static dds_type_consistency_enforcement_qospolicy_t type_consistency(uint32_t flags)
 {
   dds_type_consistency_enforcement_qospolicy_t tce;
@@ -3015,13 +3180,16 @@ DEFINE_PROTO_FUZZER(const fuzz_type_graph::FuzzMsg &message)
   bool run_regular_actions = false;
   for (uint32_t n = 0; n < n_actions; n++)
   {
-    const int action = static_cast<int>(message.actions(static_cast<int>(n)).action());
+    const fuzz_type_graph::ActionEntry &entry = message.actions(static_cast<int>(n));
+    const int action = static_cast<int>(entry.action());
     if (action == kActionRoundtripTypeInfoTypeMap)
       roundtrip_typeinfo_typemap(message);
     else if (action == kActionImportTypeInfoTypeMap)
       import_direct_typeinfo_typemap(message);
     else if (action == kActionRoundtripGeneratedTypeInfoTypeMap)
       roundtrip_generated_typeinfo_typemap(message);
+    else if (action == kActionInstallOrder)
+      exercise_install_order(message, entry);
     else
       run_regular_actions = true;
   }
@@ -3039,7 +3207,8 @@ DEFINE_PROTO_FUZZER(const fuzz_type_graph::FuzzMsg &message)
     const int action = static_cast<int>(entry.action());
     if (action != kActionRoundtripTypeInfoTypeMap &&
         action != kActionImportTypeInfoTypeMap &&
-        action != kActionRoundtripGeneratedTypeInfoTypeMap)
+        action != kActionRoundtripGeneratedTypeInfoTypeMap &&
+        action != kActionInstallOrder)
       run_action(runtime, graph, entry, message);
   }
 }

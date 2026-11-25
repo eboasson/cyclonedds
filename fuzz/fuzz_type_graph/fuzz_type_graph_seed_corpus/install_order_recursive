@@ -1,0 +1,13 @@
+allow_recursive_types: true
+root: 1
+types {
+  kind: TYPE_STRUCT
+  members { id: 1 }
+}
+types {
+  kind: TYPE_STRUCT
+  members { id: 2 type: 0 }
+  members { id: 3 type: 1 wrap: REF_SEQUENCE }
+}
+actions { action: ACTION_INSTALL_ORDER }
+actions { action: ACTION_INSTALL_ORDER flags: 1 }

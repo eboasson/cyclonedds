@@ -31,6 +31,9 @@ enum Action {
   ACTION_IMPORT_TYPEINFO_TYPEMAP = 5;
   ACTION_ROUNDTRIP_GENERATED_TYPEINFO_TYPEMAP = 6;
   ACTION_EXERCISE_COLLECTIONS = 7;
+  // Install the selected root's definitions in a permutation and its reverse.
+  // target selects the permutation, and bit 0 of flags selects minimal types.
+  ACTION_INSTALL_ORDER = 8;
 }
 
 enum MutationKind {

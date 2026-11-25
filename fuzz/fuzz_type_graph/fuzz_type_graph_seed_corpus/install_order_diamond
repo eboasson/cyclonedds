@@ -1,0 +1,20 @@
+root: 3
+types {
+  kind: TYPE_STRUCT
+  members { id: 1 }
+}
+types {
+  kind: TYPE_STRUCT
+  members { id: 2 type: 0 }
+}
+types {
+  kind: TYPE_STRUCT
+  members { id: 3 type: 0 }
+}
+types {
+  kind: TYPE_STRUCT
+  members { id: 4 type: 1 }
+  members { id: 5 type: 2 }
+}
+actions { action: ACTION_INSTALL_ORDER }
+actions { action: ACTION_INSTALL_ORDER flags: 1 target: 7 }
