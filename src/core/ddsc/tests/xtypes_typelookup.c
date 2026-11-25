@@ -1447,11 +1447,12 @@ CU_Test(ddsc_typelookup, scc_import_disabled, .init = typelookup_init, .fini = t
   gv->config.allow_recursive_types = allow_recursive_types;
 }
 
-CU_TheoryDataPoints (ddsc_typelookup, scc_late_external_base) = {
+CU_TheoryDataPoints (ddsc_typelookup, scc_external_base_install_order) = {
+  CU_DataPoints (bool, false, true),
   CU_DataPoints (bool, false, true)
 };
 
-CU_Theory ((bool duplicate_member_id), ddsc_typelookup, scc_late_external_base,
+CU_Theory ((bool duplicate_member_id, bool base_first), ddsc_typelookup, scc_external_base_install_order,
     .init = typelookup_init, .fini = typelookup_fini)
 {
   const uint32_t edges[] = { 2, 1 };
@@ -1473,12 +1474,26 @@ CU_Theory ((bool duplicate_member_id), ddsc_typelookup, scc_late_external_base,
   struct ddsi_domaingv *gv = get_domaingv (g_participant1);
   struct ddsi_type *types[2], *base;
   ref_scc_reply_types (gv, types, pairs, 2);
-  import_scc_reply_direct (gv, pairs, 2, DDS_RETCODE_OK, true);
   ddsrt_mutex_lock (&gv->typelib_lock);
-  CU_ASSERT_EQ (types[0]->state, DDSI_TYPE_PARTIAL_RESOLVED);
-  CU_ASSERT_EQ (types[1]->state, DDSI_TYPE_PARTIAL_RESOLVED);
   CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (gv, &base, &base_id), DDS_RETCODE_OK);
-  CU_ASSERT_EQ (ddsi_type_add_typeobj (gv, base, &base_obj), DDS_RETCODE_OK);
+  if (base_first)
+  {
+    CU_ASSERT_EQ (ddsi_type_add_typeobj (gv, base, &base_obj), DDS_RETCODE_OK);
+    CU_ASSERT_EQ (base->state, DDSI_TYPE_RESOLVED);
+    CU_ASSERT_EQ (types[0]->state, DDSI_TYPE_UNRESOLVED);
+    CU_ASSERT_EQ (types[1]->state, DDSI_TYPE_UNRESOLVED);
+  }
+  ddsrt_mutex_unlock (&gv->typelib_lock);
+
+  import_scc_reply_direct (gv, pairs, 2, (duplicate_member_id && base_first) ? DDS_RETCODE_BAD_PARAMETER : DDS_RETCODE_OK, true);
+  ddsrt_mutex_lock (&gv->typelib_lock);
+  if (!base_first)
+  {
+    CU_ASSERT_EQ (types[0]->state, DDSI_TYPE_PARTIAL_RESOLVED);
+    CU_ASSERT_EQ (types[1]->state, DDSI_TYPE_PARTIAL_RESOLVED);
+    CU_ASSERT_EQ (base->state, DDSI_TYPE_UNRESOLVED);
+    CU_ASSERT_EQ (ddsi_type_add_typeobj (gv, base, &base_obj), DDS_RETCODE_OK);
+  }
   CU_ASSERT_EQ (base->state, DDSI_TYPE_RESOLVED);
   const enum ddsi_type_state expected = duplicate_member_id ? DDSI_TYPE_INVALID : DDSI_TYPE_RESOLVED;
   CU_ASSERT_EQ (types[0]->state, expected);

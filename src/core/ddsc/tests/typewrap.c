@@ -1142,6 +1142,75 @@ CU_Theory ((bool base_first, bool member_pending), ddsc_typewrap, deferred_inher
     ddsi_type_unref (gv, types[n]);
 }
 
+CU_TheoryDataPoints (ddsc_typewrap, diamond_install_order) = {
+  CU_DataPoints (bool, false, true),
+  CU_DataPoints (uint32_t, 0, 1, 2, 3),
+  CU_DataPoints (uint32_t, 0, 1, 2),
+  CU_DataPoints (uint32_t, 0, 1)
+};
+
+CU_Theory ((bool duplicate, uint32_t first, uint32_t second, uint32_t third),
+    ddsc_typewrap, diamond_install_order, .init = typewrap_init, .fini = typewrap_fini)
+{
+  enum { BASE, LEFT, RIGHT, ROOT, NTYPES };
+  const ddsi_typeid_t integer = { .x = { ._d = DDS_XTypes_TK_INT32 } };
+  ddsi_typeid_t ids[NTYPES];
+  struct DDS_XTypes_TypeObject objects[NTYPES];
+  struct DDS_XTypes_CompleteStructMember members[NTYPES];
+  init_struct_dependency_typeobject (&objects[BASE], &members[BASE], "DiamondBase", "value", 1, &integer);
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&objects[BASE], &ids[BASE]), DDS_RETCODE_OK);
+  init_struct_dependency_typeobject (&objects[LEFT], &members[LEFT], "DiamondLeft", "left", duplicate ? 1 : 2, &integer);
+  init_struct_dependency_typeobject (&objects[RIGHT], &members[RIGHT], "DiamondRight", "right", 2, &integer);
+  for (uint32_t i = LEFT; i <= RIGHT; i++)
+  {
+    objects[i]._u.complete._u.struct_type.header.base_type = ids[BASE].x;
+    CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&objects[i], &ids[i]), DDS_RETCODE_OK);
+  }
+  /* Root inherits Right and has a field of type Left. Only Left can conflict
+     with Base, so detecting the conflict must leave Right usable. */
+  init_struct_dependency_typeobject (&objects[ROOT], &members[ROOT], "DiamondRoot", "child", 3, &ids[LEFT]);
+  objects[ROOT]._u.complete._u.struct_type.header.base_type = ids[RIGHT].x;
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&objects[ROOT], &ids[ROOT]), DDS_RETCODE_OK);
+
+  struct ddsi_domaingv *gv = get_domaingv (participant);
+  struct ddsi_type *types[NTYPES];
+  ddsrt_mutex_lock (&gv->typelib_lock);
+  for (uint32_t i = 0; i < NTYPES; i++)
+  {
+    CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (gv, &types[i], &ids[i]), DDS_RETCODE_OK);
+    CU_ASSERT_EQ (types[i]->state, DDSI_TYPE_UNRESOLVED);
+  }
+
+  /* Choosing among the remaining 4, 3, 2 and 1 objects covers all 24 orders. */
+  const uint32_t picks[NTYPES] = { first, second, third, 0 };
+  uint32_t remaining[NTYPES] = { BASE, LEFT, RIGHT, ROOT };
+  bool installed[NTYPES] = { false };
+  for (uint32_t step = 0; step < NTYPES; step++)
+  {
+    const uint32_t next = remaining[picks[step]];
+    remaining[picks[step]] = remaining[NTYPES - 1 - step];
+    installed[next] = true;
+    const bool conflict = duplicate && installed[BASE] && installed[LEFT];
+    const bool deps_present[NTYPES] = {
+      true, installed[BASE], installed[BASE], installed[BASE] && installed[LEFT] && installed[RIGHT]
+    };
+    const dds_return_t ret = ddsi_type_add_typeobj (gv, types[next], &objects[next]);
+    CU_ASSERT_EQ (ret, (conflict && (next == LEFT || next == ROOT)) ? DDS_RETCODE_BAD_PARAMETER : DDS_RETCODE_OK);
+    for (uint32_t i = 0; i < NTYPES; i++)
+    {
+      if (!installed[i])
+        CU_ASSERT_EQ (types[i]->state, DDSI_TYPE_UNRESOLVED);
+      else if (conflict && (i == LEFT || i == ROOT))
+        CU_ASSERT_EQ (types[i]->state, DDSI_TYPE_INVALID);
+      else
+        CU_ASSERT_EQ (types[i]->state, deps_present[i] ? DDSI_TYPE_RESOLVED : DDSI_TYPE_PARTIAL_RESOLVED);
+    }
+  }
+  for (uint32_t i = 0; i < NTYPES; i++)
+    ddsi_type_unref_locked (gv, types[i]);
+  ddsrt_mutex_unlock (&gv->typelib_lock);
+}
+
 static ddsrt_thread_local const struct ddsi_type *fail_after_type_resolved;
 
 static void *fail_inherited_member_ids_malloc (size_t size)
