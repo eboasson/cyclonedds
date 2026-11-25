@@ -150,109 +150,34 @@ bool dds_stream_write_keyBO (DDS_OSTREAM_T *os, enum dds_cdr_key_serialization_k
   return ret;
 }
 
-// If os = NULL, nothing is treated as a key and consequently no output is generated
-// This is used to skip fields marked as a key inside complex types not marked as keys
-ddsrt_attribute_warn_unused_result ddsrt_nonnull ((2, 4, 5, 6, 9))
-static const uint32_t *dds_stream_extract_keyBO_from_data_adr (uint32_t insn, dds_istream_t *is, RESTRICT_OSTREAM_T *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table, const uint32_t *ops, bool mutable_member, uint32_t n_keys, uint32_t * restrict keys_remaining)
+ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
+static const uint32_t *dds_stream_extract_keyBO_from_data_adr (uint32_t insn, dds_istream_t *is, RESTRICT_OSTREAM_T *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table, const uint32_t *ops, uint32_t * restrict keys_remaining)
 {
   assert (insn == *ops);
   assert (DDS_OP (insn) == DDS_OP_ADR);
-  const enum dds_stream_typecode type = DDS_OP_TYPE (insn);
-  const bool is_key = (insn & DDS_OP_FLAG_KEY) && (os != NULL);
+  if (!(insn & DDS_OP_FLAG_KEY))
+    return dds_stream_skip_member (is, ops, CDR_KIND_DATA);
 
-  uint32_t param_len = 0;
-  dds_istream_t is1 = *is;
-  if (op_type_optional (insn) && !mutable_member)
-  {
-    /* If optional not present, or present and XCDR1, skip the member (this avoids the
-       need to skip an appendable in XCDR1, which is not possible because it has no dheader */
-    if (!stream_is_member_present (&is1, &param_len) || is->m_xcdr_version == DDSI_RTPS_CDR_ENC_VERSION_1)
-    {
-      assert (!is_key);
-      is->m_index = is1.m_index + param_len; // param_len is 0 for XCDR2
-      return dds_stream_skip_adr_insns (insn, ops);
-    }
-  }
-
-  if (type == DDS_SOP_VAL_EXT)
+  // Key members cannot be optional.
+  assert (!op_type_optional (insn));
+  if (DDS_OP_TYPE (insn) == DDS_SOP_VAL_EXT)
   {
     const uint32_t *jsr_ops = ops + DDS_OP_ADR_JSR (ops[2]);
-    const uint32_t jmp = DDS_OP_ADR_JMP (ops[2]);
-
-    /* skip DLC instruction for base type, handle as if it is final because the base type's
-        members follow the derived types members without an extra DHEADER */
+    /* The base type's members have no separate DHEADER. */
     if (op_type_base (insn) && op_is_dlc (jsr_ops[0]))
       jsr_ops++;
-
-    /* only in case the ADR|EXT has the key flag set, pass the actual ostream, otherwise skip the EXT type by passing NULL for ostream */
-    (void) dds_stream_extract_keyBO_from_data1 (&is1, is_key ? os : NULL, allocator, mid_table, jsr_ops, false, n_keys, keys_remaining);
-    ops += jmp ? jmp : 3;
+    dds_stream_extract_keyBO_from_data1 (is, os, allocator, mid_table, jsr_ops, keys_remaining);
   }
   else
   {
-    if (is_key)
-    {
-      assert (*keys_remaining > 0);
-      assert (os != NULL);
-      dds_stream_extract_keyBO_from_key_prim_op (&is1, os, allocator, mid_table, ops, 0, NULL);
-      ops = dds_stream_skip_adr_insns (insn, ops);
-      (*keys_remaining)--;
-    }
-    else
-      ops = dds_stream_extract_key_from_data_skip_adr (&is1, ops, type, false);
+    assert (*keys_remaining > 0);
+    dds_stream_extract_keyBO_from_key_prim_op (is, os, allocator, mid_table, ops, 0, NULL);
+    (*keys_remaining)--;
   }
-
-  if (is->m_xcdr_version == DDSI_RTPS_CDR_ENC_VERSION_1 && op_type_optional (insn) && !mutable_member)
-    is->m_index += param_len;
-  else
-    is->m_index = is1.m_index;
-
-  return ops;
+  return dds_stream_skip_adr_insns (insn, ops);
 }
 
-ddsrt_attribute_warn_unused_result ddsrt_nonnull ((1, 3, 4, 5))
-static const uint32_t *dds_stream_extract_keyBO_from_data_skip_delimited (dds_istream_t *is, RESTRICT_OSTREAM_T *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table, const uint32_t *ops, uint32_t n_keys, uint32_t * restrict keys_remaining)
-{
-  /* skip DLC op */
-  ops++;
-
-  /* shouldn't be here if there is a key in this appendable struct, the non-optimized
-  path should be used in that case. */
-  assert (os == NULL);
-
-  /* can't skip appendable in XCDR1, and an appendable should be in an the optional or mutable member
-     and is already skipped there */
-  assert (is->m_xcdr_version == DDSI_RTPS_CDR_ENC_VERSION_2);
-
-  /* read DHEADER and skip bytes in input */
-  uint32_t delimited_sz = dds_is_get4 (is);
-  is->m_index += delimited_sz;
-
-  uint32_t insn;
-  while ((insn = *ops) != DDS_OP_RTS)
-  {
-    switch (DDS_OP (insn))
-    {
-      case DDS_SOP_ADR:
-        /* skip fields that are not in serialized data for appendable type */
-        ops = dds_stream_skip_adr_insns (insn, ops);
-        break;
-      case DDS_SOP_JSR:
-        // FIXME: seems to be unused
-        (void) dds_stream_extract_keyBO_from_data1 (is, os, allocator, mid_table, ops + DDS_OP_JUMP (insn), false, n_keys, keys_remaining);
-        ops++;
-        break;
-      case DDS_SOP_RTS: case DDS_SOP_JEQ: case DDS_SOP_JEQ4: case DDS_SOP_KOF: case DDS_SOP_DLC: case DDS_SOP_PLC: case DDS_SOP_PLM: case DDS_SOP_MID:
-        abort ();
-        break;
-    }
-  }
-
-  return ops;
-}
-
-ddsrt_nonnull ((1, 3, 4, 5, 8))
-static const uint32_t *dds_stream_extract_keyBO_from_data1 (dds_istream_t *is, RESTRICT_OSTREAM_T *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table, const uint32_t *ops, bool mutable_member, uint32_t n_keys, uint32_t * restrict keys_remaining)
+static void dds_stream_extract_keyBO_from_data1 (dds_istream_t *is, RESTRICT_OSTREAM_T *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table, const uint32_t *ops, uint32_t * restrict keys_remaining)
 {
   uint32_t insn;
   while ((insn = *ops) != DDS_OP_RTS)
@@ -260,27 +185,20 @@ static const uint32_t *dds_stream_extract_keyBO_from_data1 (dds_istream_t *is, R
     switch (DDS_OP (insn))
     {
       case DDS_SOP_ADR:
-        ops = dds_stream_extract_keyBO_from_data_adr (insn, is, os, allocator, mid_table, ops, mutable_member, n_keys, keys_remaining);
+        ops = dds_stream_extract_keyBO_from_data_adr (insn, is, os, allocator, mid_table, ops, keys_remaining);
         break;
       case DDS_SOP_JSR:
-        (void) dds_stream_extract_keyBO_from_data1 (is, os, allocator, mid_table, ops + DDS_OP_JUMP (insn), mutable_member, n_keys, keys_remaining);
+        dds_stream_extract_keyBO_from_data1 (is, os, allocator, mid_table, ops + DDS_OP_JUMP (insn), keys_remaining);
         ops++;
         break;
+      case DDS_SOP_DLC: case DDS_SOP_PLC:
+        // Keys inside appendable and mutable types use regular key extraction.
+        dds_stream_skip_data (is, ops, CDR_KIND_DATA);
+        return;
       case DDS_SOP_RTS: case DDS_SOP_JEQ: case DDS_SOP_JEQ4: case DDS_SOP_KOF: case DDS_SOP_PLM: case DDS_SOP_MID:
         abort ();
-        break;
-      case DDS_SOP_DLC:
-        ops = dds_stream_extract_keyBO_from_data_skip_delimited (is, os, allocator, mid_table, ops, n_keys, keys_remaining);
-        break;
-      case DDS_SOP_PLC:
-        /* Shouldn't be here if there is a key in this appendable struct, the non-optimized
-        path should be used in that case. */
-        assert (os == NULL);
-        ops = dds_stream_extract_key_from_data_skip_plc (is, ops + 1);
-        break;
     }
   }
-  return ops;
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull ((1, 3, 4))
@@ -313,7 +231,7 @@ static bool dds_stream_extract_keyBO_from_data_restrict (dds_istream_t *is, REST
   else
   {
     /* optimized solution for keys in type with final extensibility */
-    (void) dds_stream_extract_keyBO_from_data1 (is, os, allocator, &desc->member_ids, desc->ops.ops, false, desc->keys.nkeys, &keys_remaining);
+    dds_stream_extract_keyBO_from_data1 (is, os, allocator, &desc->member_ids, desc->ops.ops, &keys_remaining);
 
     /* FIXME: stream_normalize should check for missing keys by implementing the
         must_understand annotation, so the check keys_remaining > 0 can become an assert. */

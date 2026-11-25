@@ -144,7 +144,6 @@ typedef struct restrict_ostreamLE {
 #define dds_stream_extract_keyBO_from_data1                 NAME2_BYTE_ORDER(dds_stream_extract_key, _from_data1)
 #define dds_stream_extract_keyBO_from_data_adr              NAME2_BYTE_ORDER(dds_stream_extract_key, _from_data_adr)
 #define dds_stream_extract_keyBO_from_key_prim_op           NAME2_BYTE_ORDER(dds_stream_extract_key, _from_key_prim_op)
-#define dds_stream_extract_keyBO_from_data_skip_delimited   NAME2_BYTE_ORDER(dds_stream_extract_key, _from_data_skip_delimited)
 #define dds_stream_extract_keyBO_from_key_impl              NAME2_BYTE_ORDER(dds_stream_extract_key, _from_key_impl)
 #define dds_stream_extract_keyBO_from_key_optimized         NAME2_BYTE_ORDER(dds_stream_extract_key, _from_key_optimized)
 #define dds_stream_extract_keyBO_from_key                   NAME2_BYTE_ORDER(dds_stream_extract_key, _from_key)
@@ -233,18 +232,15 @@ static const uint32_t *dds_stream_skip_adr_insns (uint32_t insn, const uint32_t 
 static const uint32_t *dds_stream_skip_insns_default (char * restrict data, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table, const uint32_t *ops, enum sample_data_state sample_state)
   ddsrt_nonnull_all;
 
-static const uint32_t *dds_stream_extract_key_from_data1 (dds_istream_t *is, restrict_ostream_t *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table,
-  const uint32_t *ops, bool mutable_member, uint32_t n_keys, uint32_t * restrict keys_remaining)
-  ddsrt_nonnull ((1, 3, 4, 5, 8));
+static void dds_stream_extract_key_from_data1 (dds_istream_t *is, restrict_ostream_t *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table,
+  const uint32_t *ops, uint32_t * restrict keys_remaining)
+  ddsrt_nonnull_all;
 
 #if DDSRT_ENDIAN == DDSRT_LITTLE_ENDIAN
-static const uint32_t *dds_stream_extract_keyBE_from_data1 (dds_istream_t *is, restrict_ostreamBE_t *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table,
-  const uint32_t *ops, bool mutable_member, uint32_t n_keys, uint32_t * restrict keys_remaining)
-  ddsrt_nonnull ((1, 3, 4, 5, 8));
+static void dds_stream_extract_keyBE_from_data1 (dds_istream_t *is, restrict_ostreamBE_t *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table,
+  const uint32_t *ops, uint32_t * restrict keys_remaining)
+  ddsrt_nonnull_all;
 #endif
-
-static enum dds_stream_normalize_result stream_normalize_adr_impl (struct normalize_state const * const st, uint32_t * restrict const off, uint32_t const * * const ops)
-  ddsrt_attribute_warn_unused_result ddsrt_nonnull_all;
 
 static enum dds_stream_normalize_result stream_normalize_data_impl (struct normalize_state const * restrict const st, uint32_t * restrict const off, const uint32_t **ops, bool is_mutable_member)
   ddsrt_attribute_warn_unused_result ddsrt_nonnull_all;
@@ -3232,26 +3228,11 @@ static const uint32_t *initialize_and_skip_sequence_insns (dds_sequence_t *seq, 
   return skip_sequence_insns (ops);
 }
 
-ddsrt_nonnull_all
-static const uint32_t *dds_stream_read_skip_adr (dds_istream_t *is, const uint32_t *ops, enum cdr_data_kind cdr_kind)
-{
-  // dds_stream_read input must have been normalized, so calling normalize again skips the input without changing anything
-  const struct normalize_state st = {
-    .data = (unsigned char * restrict) is->m_buffer,
-    .size = is->m_size,
-    .bswap = false,
-    .max_align_lg2 = (is->m_xcdr_version == DDSI_RTPS_CDR_ENC_VERSION_1) ? 3 : 2,
-    .xcdr_version = is->m_xcdr_version,
-    .cdr_kind = cdr_kind,
-    .mid_table = &static_empty_mid_table
-  };
-  uint32_t skip_off = is->m_index;
-  const enum dds_stream_normalize_result nres = stream_normalize_adr_impl (&st, &skip_off, &ops);
-  assert (nres == DDS_STREAM_NORMALIZE_SUCCESS);
-  (void) nres;
-  is->m_index = skip_off;
-  return ops;
-}
+static const uint32_t *dds_stream_skip_sequence (dds_istream_t *is, const uint32_t *ops, enum cdr_data_kind cdr_kind)
+  ddsrt_attribute_warn_unused_result ddsrt_nonnull_all;
+
+static void dds_stream_skip_data (dds_istream_t *is, const uint32_t *ops, enum cdr_data_kind cdr_kind)
+  ddsrt_nonnull_all;
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
 static const uint32_t *dds_stream_read_seq (dds_istream_t *is, char * restrict addr, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table, const uint32_t *ops, uint32_t insn, enum cdr_data_kind cdr_kind, enum sample_data_state sample_state)
@@ -3261,10 +3242,11 @@ static const uint32_t *dds_stream_read_seq (dds_istream_t *is, char * restrict a
   const uint32_t bound_op = seq_is_bounded (DDS_OP_TYPE (insn)) ? 1 : 0;
   const uint32_t bound = bound_op ? ops[2] : UINT32_MAX;
   assert (bound > 0);
+  uint32_t collection_end = 0;
   if (is_dheader_needed (subtype, is->m_xcdr_version))
   {
-    /* skip DHEADER */
-    dds_is_get4 (is);
+    const uint32_t size = dds_is_get4 (is);
+    collection_end = is->m_index + size;
   }
 
   const uint32_t num_cdr = dds_is_get4 (is);
@@ -3286,7 +3268,7 @@ static const uint32_t *dds_stream_read_seq (dds_istream_t *is, char * restrict a
       case TC_USE_DEFAULT:
         initialize_sequence (seq, sample_state);
         is->m_index -= (is_dheader_needed (subtype, is->m_xcdr_version) ? 8 : 4);
-        return dds_stream_read_skip_adr (is, ops, cdr_kind);
+        return dds_stream_skip_sequence (is, ops, cdr_kind);
     }
   }
   assert (num > 0);
@@ -3393,10 +3375,17 @@ static const uint32_t *dds_stream_read_seq (dds_istream_t *is, char * restrict a
       adjust_sequence_buffer_initialize (seq, allocator, num, elem_size, &sample_state);
       seq->_length = (num <= seq->_maximum) ? num : seq->_maximum;
       char *ptr = (char *) seq->_buffer;
-      for (uint32_t i = 0; i < num; i++)
+      for (uint32_t i = 0; i < seq->_length; i++)
         (void) dds_stream_read_impl (is, ptr + i * elem_size, allocator, mid_table, jsr_ops, false, cdr_kind, sample_state);
-      for (uint32_t i = num; i < num_cdr; i++)
-        (void) dds_stream_read_skip_adr (is, jsr_ops, cdr_kind);
+      if (seq->_length < num_cdr)
+      {
+        // XCDR2 delimits the entire collection. XCDR1 requires walking each remaining element.
+        if (is->m_xcdr_version == DDSI_RTPS_CDR_ENC_VERSION_2)
+          is->m_index = collection_end;
+        else
+          for (uint32_t i = seq->_length; i < num_cdr; i++)
+            dds_stream_skip_data (is, jsr_ops, cdr_kind);
+      }
       return ops + (jmp ? jmp : (4 + bound_op)); /* FIXME: why would jmp be 0? */
     }
     case DDS_SOP_VAL_EXT: {
@@ -7050,9 +7039,8 @@ static void dds_stream_extract_keyBE_from_key_prim_op (dds_istream_t *is, restri
 #endif
 
 ddsrt_nonnull ((1))
-static void dds_stream_extract_key_from_data_skip_subtype (dds_istream_t *is, uint32_t num, uint32_t insn, enum dds_stream_typecode subtype, const uint32_t *subops)
+static void dds_stream_skip_subtype (dds_istream_t *is, uint32_t num, uint32_t insn, enum dds_stream_typecode subtype, const uint32_t *subops, enum cdr_data_kind cdr_kind)
 {
-  assert (subops != NULL || DDS_OP (insn) == DDS_OP_ADR);
   switch (subtype)
   {
     case DDS_SOP_VAL_BLN: case DDS_SOP_VAL_1BY: case DDS_SOP_VAL_2BY: case DDS_SOP_VAL_4BY: case DDS_SOP_VAL_8BY: case DDS_SOP_VAL_WCHAR: case DDS_SOP_VAL_16BY: {
@@ -7062,11 +7050,7 @@ static void dds_stream_extract_key_from_data_skip_subtype (dds_istream_t *is, ui
       break;
     }
     case DDS_SOP_VAL_ENU: case DDS_SOP_VAL_BMK: {
-      /* Get size of enumerated type: bitmask in union (JEQ4) is a special case, because the
-         bitmask definition is in the serializer instructions after the union case instructions,
-         so we need to get the size from subops[0] for a bitmask. Enums are defined inline in
-         the union case instructions, so we'll use insn to get the size of an enum type. */
-      const uint32_t elem_size = DDS_OP_TYPE_SZ (DDS_OP (insn) == DDS_OP_JEQ4 && subtype == DDS_SOP_VAL_BMK ? subops[0] : insn);
+      const uint32_t elem_size = DDS_OP_TYPE_SZ (insn);
       dds_cdr_alignto (is, dds_cdr_get_align (is->m_xcdr_version, elem_size));
       is->m_index += num * elem_size;
       break;
@@ -7081,9 +7065,8 @@ static void dds_stream_extract_key_from_data_skip_subtype (dds_istream_t *is, ui
       break;
     }
     case DDS_SOP_VAL_SEQ: case DDS_SOP_VAL_BSQ: case DDS_SOP_VAL_ARR: case DDS_SOP_VAL_UNI: case DDS_SOP_VAL_STU: {
-      uint32_t remain = UINT32_MAX;
       for (uint32_t i = 0; i < num; i++)
-        dds_stream_extract_key_from_data1 (is, NULL, &dds_cdrstream_default_allocator, &static_empty_mid_table, subops, false, remain, &remain);
+        dds_stream_skip_data (is, subops, cdr_kind);
       break;
     }
     case DDS_SOP_VAL_EXT: {
@@ -7094,7 +7077,7 @@ static void dds_stream_extract_key_from_data_skip_subtype (dds_istream_t *is, ui
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
-static const uint32_t *dds_stream_extract_key_from_data_skip_array (dds_istream_t *is, const uint32_t *ops)
+static const uint32_t *dds_stream_skip_array (dds_istream_t *is, const uint32_t *ops, enum cdr_data_kind cdr_kind)
 {
   const uint32_t insn = *ops;
   assert (DDS_OP_TYPE (insn) == DDS_SOP_VAL_ARR);
@@ -7108,14 +7091,14 @@ static const uint32_t *dds_stream_extract_key_from_data_skip_array (dds_istream_
     is->m_index += sz;
   }
   else if (type_has_subtype_or_members (subtype))
-    dds_stream_extract_key_from_data_skip_subtype (is, num, insn, subtype, ops + DDS_OP_ADR_JSR (ops[3]));
+    dds_stream_skip_subtype (is, num, insn, subtype, ops + DDS_OP_ADR_JSR (ops[3]), cdr_kind);
   else
-    dds_stream_extract_key_from_data_skip_subtype (is, num, insn, subtype, NULL);
+    dds_stream_skip_subtype (is, num, insn, subtype, NULL, cdr_kind);
   return skip_array_insns (ops);
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
-static const uint32_t *dds_stream_extract_key_from_data_skip_sequence (dds_istream_t *is, const uint32_t *ops)
+static const uint32_t *dds_stream_skip_sequence (dds_istream_t *is, const uint32_t *ops, enum cdr_data_kind cdr_kind)
 {
   const uint32_t insn = *ops;
   uint32_t bound_op = seq_is_bounded (DDS_OP_TYPE (insn)) ? 1 : 0;
@@ -7133,110 +7116,115 @@ static const uint32_t *dds_stream_extract_key_from_data_skip_sequence (dds_istre
     if (num > 0)
     {
       if (type_has_subtype_or_members (subtype))
-        dds_stream_extract_key_from_data_skip_subtype (is, num, insn, subtype, ops + DDS_OP_ADR_JSR (ops[3 + bound_op]));
+        dds_stream_skip_subtype (is, num, insn, subtype, ops + DDS_OP_ADR_JSR (ops[3 + bound_op]), cdr_kind);
       else
-        dds_stream_extract_key_from_data_skip_subtype (is, num, insn, subtype, NULL);
+        dds_stream_skip_subtype (is, num, insn, subtype, NULL, cdr_kind);
     }
   }
   return skip_sequence_insns (ops);
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
-static const uint32_t *dds_stream_extract_key_from_data_skip_union (dds_istream_t *is, const uint32_t *ops, bool mutable_union)
+static const uint32_t *dds_stream_skip_union (dds_istream_t *is, const uint32_t *ops, enum cdr_data_kind cdr_kind)
 {
   const uint32_t insn = *ops;
   assert (DDS_OP_TYPE (insn) == DDS_SOP_VAL_UNI);
-  if (mutable_union)
-  {
-    if (is->m_xcdr_version == DDSI_RTPS_CDR_ENC_VERSION_2)
-    {
-      const uint32_t pl_sz = dds_is_get4 (is);
-      is->m_index += pl_sz;
-    }
-    else
-    {
-      uint32_t param_mid, param_len;
-      while (stream_read_xcdr1_paramheader (is, &param_mid, &param_len))
-        is->m_index += param_len;
-    }
-    return ops + DDS_OP_ADR_JMP (ops[3]);
-  }
   const uint64_t disc = read_union_discriminant (is, insn);
-  uint32_t const * const jeq_op = find_union_case (ops, disc);
-  if (jeq_op)
-    dds_stream_extract_key_from_data_skip_subtype (is, 1, jeq_op[0], DDS_JEQ_TYPE (jeq_op[0]), jeq_op + DDS_OP_ADR_JSR (jeq_op[0]));
+  if (cdr_kind == CDR_KIND_DATA)
+  {
+    const uint32_t *jeq_op = find_union_case (ops, disc);
+    if (jeq_op)
+    {
+      const enum dds_stream_typecode type = DDS_JEQ_TYPE (jeq_op[0]);
+      // Bitmask arms also carry their wire size in a separate instruction.
+      if (type_has_subtype_or_members (type) || type == DDS_SOP_VAL_BMK)
+        dds_stream_skip_data (is, jeq_op + DDS_OP_ADR_JSR (jeq_op[0]), cdr_kind);
+      else
+        dds_stream_skip_subtype (is, 1, jeq_op[0], type, NULL, cdr_kind);
+    }
+  }
   return ops + DDS_OP_ADR_JMP (ops[3]);
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
-static const uint32_t *dds_stream_extract_key_from_data_skip_pl (dds_istream_t *is, const uint32_t *ops)
+static const uint32_t *dds_stream_skip_member (dds_istream_t *is, const uint32_t *ops, enum cdr_data_kind cdr_kind)
 {
-  if (is->m_xcdr_version == DDSI_RTPS_CDR_ENC_VERSION_1)
+  const uint32_t insn = *ops;
+  if (cdr_kind == CDR_KIND_KEY && !(insn & DDS_OP_FLAG_KEY))
+    return dds_stream_skip_adr_insns (insn, ops);
+  if (op_type_optional (insn))
   {
-    uint32_t param_mid, param_len;
-    while (stream_read_xcdr1_paramheader (is, &param_mid, &param_len))
+    uint32_t param_len;
+    if (!stream_is_member_present (is, &param_len) || is->m_xcdr_version == DDSI_RTPS_CDR_ENC_VERSION_1)
     {
-      // forward index in CDR by param_len
       is->m_index += param_len;
+      return dds_stream_skip_adr_insns (insn, ops);
     }
   }
-  else
-  {
-    /* read DHEADER and skip bytes in input */
-    uint32_t pl_sz = dds_is_get4 (is);
-    is->m_index += pl_sz;
-  }
 
-  /* skip all PLM-memberid pairs */
-  while (ops[0] != DDS_OP_RTS)
-    ops += 2;
-
-  return ops;
-}
-
-ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
-static const uint32_t *dds_stream_extract_key_from_data_skip_plc (dds_istream_t *is, const uint32_t *ops)
-{
-  if (op_is_union_adr (*ops))
-    return dds_stream_extract_key_from_data_skip_union (is, ops, true);
-  else
-    return dds_stream_extract_key_from_data_skip_pl (is, ops);
-}
-
-ddsrt_attribute_warn_unused_result ddsrt_nonnull ((1, 2))
-static const uint32_t *dds_stream_extract_key_from_data_skip_adr (dds_istream_t *is, const uint32_t *ops, enum dds_stream_typecode type, bool mutable_union)
-{
+  const enum dds_stream_typecode type = DDS_OP_TYPE (insn);
   switch (type)
   {
     case DDS_SOP_VAL_BLN: case DDS_SOP_VAL_1BY: case DDS_SOP_VAL_2BY: case DDS_SOP_VAL_4BY: case DDS_SOP_VAL_8BY: case DDS_SOP_VAL_WCHAR: case DDS_SOP_VAL_16BY:
-    case DDS_SOP_VAL_STR: case DDS_SOP_VAL_BST:
-    case DDS_SOP_VAL_WSTR: case DDS_SOP_VAL_BWSTR:
+    case DDS_SOP_VAL_STR: case DDS_SOP_VAL_BST: case DDS_SOP_VAL_WSTR: case DDS_SOP_VAL_BWSTR:
     case DDS_SOP_VAL_ENU: case DDS_SOP_VAL_BMK:
-      dds_stream_extract_key_from_data_skip_subtype (is, 1, ops[0], type, NULL);
-      if (type == DDS_SOP_VAL_BST || type == DDS_SOP_VAL_BWSTR || type == DDS_SOP_VAL_ARR || type == DDS_SOP_VAL_ENU)
-        ops += 3;
-      else if (type == DDS_SOP_VAL_BMK)
-        ops += 4;
-      else
-        ops += 2;
+      dds_stream_skip_subtype (is, 1, insn, type, NULL, cdr_kind);
       break;
     case DDS_SOP_VAL_SEQ: case DDS_SOP_VAL_BSQ:
-      ops = dds_stream_extract_key_from_data_skip_sequence (is, ops);
-      break;
+      return dds_stream_skip_sequence (is, ops, cdr_kind);
     case DDS_SOP_VAL_ARR:
-      ops = dds_stream_extract_key_from_data_skip_array (is, ops);
-      break;
+      return dds_stream_skip_array (is, ops, cdr_kind);
     case DDS_SOP_VAL_UNI:
-      ops = dds_stream_extract_key_from_data_skip_union (is, ops, mutable_union);
+      return dds_stream_skip_union (is, ops, cdr_kind);
+    case DDS_SOP_VAL_EXT: {
+      const uint32_t *jsr_ops = ops + DDS_OP_ADR_JSR (ops[2]);
+      if (op_type_base (insn) && op_is_dlc (jsr_ops[0]))
+        jsr_ops++;
+      dds_stream_skip_data (is, jsr_ops, cdr_kind);
       break;
+    }
     case DDS_SOP_VAL_STU:
       abort (); /* op type STU only supported as subtype */
-      break;
-    case DDS_SOP_VAL_EXT:
-      abort (); /* handled by caller */
-      break;
   }
-  return ops;
+  return dds_stream_skip_adr_insns (insn, ops);
+}
+
+static void dds_stream_skip_data (dds_istream_t *is, const uint32_t *ops, enum cdr_data_kind cdr_kind)
+{
+  uint32_t insn;
+  while ((insn = *ops) != DDS_OP_RTS)
+  {
+    switch (DDS_OP (insn))
+    {
+      case DDS_SOP_ADR:
+        ops = dds_stream_skip_member (is, ops, cdr_kind);
+        break;
+      case DDS_SOP_JSR:
+        dds_stream_skip_data (is, ops + DDS_OP_JUMP (insn), cdr_kind);
+        ops++;
+        break;
+      case DDS_SOP_DLC: case DDS_SOP_PLC:
+        if (is->m_xcdr_version == DDSI_RTPS_CDR_ENC_VERSION_2)
+        {
+          const uint32_t size = dds_is_get4 (is);
+          is->m_index += size;
+        }
+        else if (DDS_OP (insn) == DDS_SOP_PLC)
+        {
+          uint32_t param_len;
+          while (stream_read_xcdr1_paramheader (is, NULL, &param_len))
+            is->m_index += param_len;
+        }
+        else
+        {
+          // An XCDR1 appendable value occupies the rest of its enclosing stream.
+          is->m_index = is->m_size;
+        }
+        return;
+      case DDS_SOP_RTS: case DDS_SOP_JEQ: case DDS_SOP_JEQ4: case DDS_SOP_KOF: case DDS_SOP_PLM: case DDS_SOP_MID:
+        abort ();
+    }
+  }
 }
 
 /*******************************************************************************************

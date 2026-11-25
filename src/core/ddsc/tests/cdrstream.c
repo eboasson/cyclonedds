@@ -3297,6 +3297,87 @@ CU_Test (ddsc_cdrstream, sequence_allocation_size_does_not_wrap)
 }
 
 
+CU_Test (ddsc_cdrstream, truncate_complex_sequence_to_buffer_capacity)
+{
+  struct dds_cdrstream_desc desc;
+  CU_ASSERT_EQ_FATAL (dds_cdrstream_desc_from_topic_desc (&desc, &TestIdl_MsgRecursive_desc), DDS_RETCODE_OK);
+  TestIdl_SubMsgRecursive children[] = {
+    { .submsg_field1 = 1, .submsg_field3 = 2 }, { .submsg_field1 = 9, .submsg_field3 = 10 }
+  };
+  TestIdl_SubMsgRecursive elements[] = {
+    { .submsg_field1 = 3, .submsg_field2 = { ._maximum = 1, ._length = 1, ._buffer = children }, .submsg_field3 = 4 },
+    { .submsg_field1 = 5, .submsg_field2 = { ._maximum = 2, ._length = 2, ._buffer = children }, .submsg_field3 = 6 }
+  };
+  const TestIdl_MsgRecursive sample = {
+    .msg_field2 = { .submsg_field2 = { ._maximum = 2, ._length = 2, ._buffer = elements }, .submsg_field3 = 7 },
+    .msg_field3 = 8
+  };
+
+  for (uint32_t version = XCDR1; version <= XCDR2; version++)
+  {
+    dds_ostream_t os;
+    dds_ostream_init (&os, &dds_cdrstream_default_allocator, 0, version);
+    CU_ASSERT_FATAL (dds_stream_write_sample (&os, &dds_cdrstream_default_allocator, &sample, &desc));
+
+    // Only the first slot is offered to the reader. The second is a guard.
+    TestIdl_SubMsgRecursive slots[2] = { 0 };
+    TestIdl_MsgRecursive result = {
+      .msg_field2.submsg_field2 = { ._maximum = 1, ._buffer = slots, ._release = false }
+    };
+    dds_istream_t is;
+    dds_istream_init_well_formed (&is, os.m_index, os.m_buffer, version);
+    dds_stream_read_sample (&is, &result, &dds_cdrstream_default_allocator, &desc);
+
+    CU_ASSERT_EQ_FATAL (result.msg_field2.submsg_field2._buffer, &slots[0]);
+    CU_ASSERT_EQ_FATAL (result.msg_field2.submsg_field2._maximum, 1);
+    CU_ASSERT_EQ_FATAL (result.msg_field2.submsg_field2._length, 1);
+    CU_ASSERT_FATAL (!result.msg_field2.submsg_field2._release);
+    CU_ASSERT_FATAL (sample_equal_recursive_field2 (&slots[0], &elements[0]));
+    CU_ASSERT_EQ_FATAL (slots[1].submsg_field1, 0);
+    CU_ASSERT_EQ_FATAL (slots[1].submsg_field3, 0);
+    CU_ASSERT_EQ_FATAL (result.msg_field2.submsg_field3, sample.msg_field2.submsg_field3);
+    CU_ASSERT_EQ_FATAL (result.msg_field3, sample.msg_field3);
+    CU_ASSERT_EQ_FATAL (is.m_index, is.m_size);
+
+    dds_stream_free_sample (&result, &dds_cdrstream_default_allocator, desc.ops.ops);
+    dds_ostream_fini (&os, &dds_cdrstream_default_allocator);
+  }
+  dds_cdrstream_desc_fini (&desc, &dds_cdrstream_default_allocator);
+}
+
+
+CU_Test (ddsc_cdrstream, truncate_key_sequence_to_buffer_capacity)
+{
+  struct dds_cdrstream_desc desc;
+  CU_ASSERT_EQ_FATAL (dds_cdrstream_desc_from_topic_desc (&desc, &CdrStreamKeySize_t33_desc), DDS_RETCODE_OK);
+  // Only member a of each element is present in the serialized key.
+  CdrStreamKeySize_nested33 elements[] = { { .a = 1, .b = 2 }, { .a = 3, .b = 4 } };
+  const CdrStreamKeySize_t33 sample = { .a = { ._maximum = 2, ._length = 2, ._buffer = elements } };
+
+  for (uint32_t version = XCDR1; version <= XCDR2; version++)
+  {
+    dds_ostream_t os;
+    dds_ostream_init (&os, &dds_cdrstream_default_allocator, 0, version);
+    CU_ASSERT_FATAL (dds_stream_write_key (&os, DDS_CDR_KEY_SERIALIZATION_SAMPLE,
+      &dds_cdrstream_default_allocator, (const char *) &sample, &desc));
+
+    CdrStreamKeySize_nested33 slots[2] = { 0 };
+    CdrStreamKeySize_t33 result = { .a = { ._maximum = 1, ._buffer = slots, ._release = false } };
+    dds_istream_t is;
+    dds_istream_init_well_formed (&is, os.m_index, os.m_buffer, version);
+    dds_stream_read_key (&is, (char *) &result, &dds_cdrstream_default_allocator, &desc);
+    CU_ASSERT_EQ_FATAL (result.a._buffer, &slots[0]);
+    CU_ASSERT_EQ_FATAL (result.a._length, 1);
+    CU_ASSERT_EQ_FATAL (slots[0].a, elements[0].a);
+    CU_ASSERT_EQ_FATAL (slots[0].b, 0);
+    CU_ASSERT_EQ_FATAL (slots[1].a, 0);
+    CU_ASSERT_EQ_FATAL (is.m_index, is.m_size);
+    dds_ostream_fini (&os, &dds_cdrstream_default_allocator);
+  }
+  dds_cdrstream_desc_fini (&desc, &dds_cdrstream_default_allocator);
+}
+
+
 struct test_cdr_params {
   const dds_topic_descriptor_t *desc;
   bool (*eq) (const void *a, const void *b);
