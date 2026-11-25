@@ -4870,6 +4870,50 @@ static bool eq_CdrStreamTryconstruct_t3 (const void *va, const void *vb)
   return wcscmp (a->f1, b->f1) == 0 && wcscmp (a->f2, b->f2) == 0 && wcscmp (a->f3, b->f3) == 0 && wcscmp (a->f4, b->f4) == 0;
 }
 
+CU_Test (ddsc_cdrstream, wstring_byte_order)
+{
+  // Three bounded strings followed by an unbounded string. U+1F680 uses
+  // the UTF-16 surrogate pair D83D DE80 on the wire.
+  const CdrStreamTryconstruct_t3 sample = { L"\u03a9", L"\U0001f680", L"", L"\u03a9\U0001f680" };
+  static const uint8_t expected[2][30] = {
+    { 2,0,0,0, 0xa9,0x03, 0,0, 4,0,0,0, 0x3d,0xd8,0x80,0xde, 0,0,0,0,
+      6,0,0,0, 0xa9,0x03,0x3d,0xd8,0x80,0xde },
+    { 0,0,0,2, 0x03,0xa9, 0,0, 0,0,0,4, 0xd8,0x3d,0xde,0x80, 0,0,0,0,
+      0,0,0,6, 0x03,0xa9,0xd8,0x3d,0xde,0x80 }
+  };
+  struct dds_cdrstream_desc desc;
+  CU_ASSERT_EQ_FATAL (dds_cdrstream_desc_from_topic_desc (&desc, &CdrStreamTryconstruct_t3_desc), DDS_RETCODE_OK);
+  const enum dds_cdr_enc_version versions[] = { XCDR1, XCDR2 };
+  for (size_t v = 0; v < sizeof (versions) / sizeof (versions[0]); v++)
+  {
+    dds_ostreamLE_t le;
+    dds_ostreamBE_t be;
+    dds_ostreamLE_init (&le, &dds_cdrstream_default_allocator, 0, versions[v]);
+    dds_ostreamBE_init (&be, &dds_cdrstream_default_allocator, 0, versions[v]);
+    CU_ASSERT_FATAL (dds_stream_write_sampleLE (&le, &dds_cdrstream_default_allocator, &sample, &desc));
+    CU_ASSERT_FATAL (dds_stream_write_sampleBE (&be, &dds_cdrstream_default_allocator, &sample, &desc));
+    dds_ostream_t * const streams[] = { &le.x, &be.x };
+    for (size_t i = 0; i < sizeof (streams) / sizeof (streams[0]); i++)
+    {
+      dds_ostream_t *os = streams[i];
+      CU_ASSERT_MEMEQ (os->m_buffer, os->m_index, expected[i], sizeof (expected[i]));
+      const bool swap = i == 0 ? DDSRT_ENDIAN == DDSRT_BIG_ENDIAN : DDSRT_ENDIAN == DDSRT_LITTLE_ENDIAN;
+      dds_istream_t is;
+      uint32_t actual_size;
+      CU_ASSERT_EQ_FATAL (dds_stream_normalize_to_istream (&is, os->m_buffer, os->m_index, swap,
+        versions[v], &desc, false, &actual_size), DDS_STREAM_NORMALIZE_SUCCESS);
+      CU_ASSERT_EQ_FATAL (actual_size, os->m_index);
+      CdrStreamTryconstruct_t3 decoded = { 0 };
+      dds_stream_read_sample (&is, &decoded, &dds_cdrstream_default_allocator, &desc);
+      CU_ASSERT (eq_CdrStreamTryconstruct_t3 (&sample, &decoded));
+      dds_stream_free_sample (&decoded, &dds_cdrstream_default_allocator, desc.ops.ops);
+    }
+    dds_ostreamBE_fini (&be, &dds_cdrstream_default_allocator);
+    dds_ostreamLE_fini (&le, &dds_cdrstream_default_allocator);
+  }
+  dds_cdrstream_desc_fini (&desc, &dds_cdrstream_default_allocator);
+}
+
 static bool eq_CdrStreamTryconstruct_t456 (const void *va, const void *vb)
 {
   // t4, t5, t6 are the same except for try construct

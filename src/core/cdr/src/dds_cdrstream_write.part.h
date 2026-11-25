@@ -112,15 +112,15 @@ static bool dds_stream_write_bwstringBO (RESTRICT_OSTREAM_T *os, const struct dd
   {
     assert (di < n);
     if ((uint32_t) val[i] < 0x10000)
-      dst[di++] = (uint16_t) val[i];
+      dst[di++] = to_BO2u ((uint16_t) val[i]);
     else
     {
       const uint32_t u = (uint32_t) val[i] - 0x10000;
       const uint16_t w1 = (uint16_t) (0xd800 + ((u >> 10) & 0x3ff));
       const uint16_t w2 = (uint16_t) (0xdc00 + (u & 0x3ff));
-      dst[di++] = w1;
+      dst[di++] = to_BO2u (w1);
       assert (di < n);
-      dst[di++] = w2;
+      dst[di++] = to_BO2u (w2);
     }
   }
   os->x.m_index += 2 * n;

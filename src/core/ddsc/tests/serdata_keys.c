@@ -12,6 +12,7 @@
 #include <limits.h>
 
 #include "dds/dds.h"
+#include "dds/cdr/dds_cdrstream.h"
 #include "dds/ddsrt/environ.h"
 #include "dds/ddsrt/string.h"
 #include "dds/ddsrt/md5.h"
@@ -200,6 +201,46 @@ CU_Test(ddsc_serdata, key_write_xcdrv)
         do_test_key_write_xcdrv (tests[i].desc, tests[i].sample_sz, data_repr[dr]);
 }
 #undef D
+
+CU_Test(ddsc_serdata, keys_wstring_fixed_endian)
+{
+  // Native-endian XCDR1/2 data: the key-only sample starts after the non-key tag.
+  static const union { uint32_t align; unsigned char data[18]; } input = {
+    .data = { SER32(42), SER32(4), SER16(0xd83d), SER16(0xde80), SER32(2), SER16(0x03a9) }
+  };
+  static const unsigned char key_be[] = {
+    SER32BE(4), SER16BE(0xd83d), SER16BE(0xde80), SER32BE(2), SER16BE(0x03a9)
+  };
+  // The KeyHash input follows member-ID order, so the bounded string comes first.
+  static const unsigned char keyhash_be[] = {
+    SER32BE(2), SER16BE(0x03a9), 0, 0, SER32BE(4), SER16BE(0xd83d), SER16BE(0xde80)
+  };
+  const enum dds_cdr_enc_version versions[] = { DDSI_RTPS_CDR_ENC_VERSION_1, DDSI_RTPS_CDR_ENC_VERSION_2 };
+  const struct dds_cdrstream_allocator * const allocator = &dds_cdrstream_default_allocator;
+  struct dds_cdrstream_desc desc;
+  CU_ASSERT_EQ_FATAL (dds_cdrstream_desc_from_topic_desc (&desc, &SerdataWideStringKeys_desc), DDS_RETCODE_OK);
+  for (size_t i = 0; i < sizeof (versions) / sizeof (versions[0]); i++)
+  {
+    dds_ostreamBE_t os;
+    dds_istream_t is;
+    dds_ostreamBE_init (&os, allocator, 0, DDSI_RTPS_CDR_ENC_VERSION_2);
+    dds_istream_init_well_formed (&is, sizeof (input.data), input.data, versions[i]);
+    CU_ASSERT (dds_stream_extract_keyBE_from_data (&is, &os, allocator, &desc));
+    CU_ASSERT_MEMEQ (os.x.m_buffer, os.x.m_index, key_be, sizeof (key_be));
+
+    os.x.m_index = 0;
+    dds_istream_init_well_formed (&is, sizeof (input.data) - 4, input.data + 4, versions[i]);
+    dds_stream_extract_keyBE_from_key (&is, &os, DDS_CDR_KEY_SERIALIZATION_SAMPLE, allocator, &desc);
+    CU_ASSERT_MEMEQ (os.x.m_buffer, os.x.m_index, key_be, sizeof (key_be));
+
+    os.x.m_index = 0;
+    is.m_index = 0;
+    dds_stream_extract_keyBE_from_key (&is, &os, DDS_CDR_KEY_SERIALIZATION_KEYHASH, allocator, &desc);
+    CU_ASSERT_MEMEQ (os.x.m_buffer, os.x.m_index, keyhash_be, sizeof (keyhash_be));
+    dds_ostreamBE_fini (&os, allocator);
+  }
+  dds_cdrstream_desc_fini (&desc, allocator);
+}
 
 #define T_INIT_SIMPLE(t) static void *init_ ## t (void) { \
   t *sample = ddsrt_malloc (sizeof (*sample)); \

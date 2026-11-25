@@ -22,6 +22,13 @@ struct SerdataKeyOrderId {
     @id(1) @key uint64 c;
 };
 
+@final
+struct SerdataWideStringKeys {
+    @id(0) uint32 tag;
+    @id(2) @key wstring first;
+    @id(1) @key wstring<2> second;
+};
+
 @final @autoid(HASH)
 struct SerdataKeyOrderHashId {
     @key uint8 a;       // 158712076

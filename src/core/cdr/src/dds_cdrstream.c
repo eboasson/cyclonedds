@@ -90,6 +90,7 @@ typedef struct restrict_ostreamLE {
 #define ddsrt_to2u(n) (n)
 #define ddsrt_to4u(n) (n)
 #define ddsrt_to8u(n) (n)
+#define to_BO2u NAME2_BYTE_ORDER(ddsrt_to, 2u)
 #define to_BO4u NAME2_BYTE_ORDER(ddsrt_to, 4u)
 
 #define dds_os_put1BO                                       NAME_BYTE_ORDER(dds_os_put1)
@@ -6968,7 +6969,7 @@ static void dds_stream_extract_keyBE_from_key_prim_op (dds_istream_t *is, restri
         default: abort ();
       }
       break;
-    case DDS_SOP_VAL_STR: case DDS_SOP_VAL_WSTR: {
+    case DDS_SOP_VAL_STR: {
       uint32_t sz = dds_is_get4 (is);
       dds_os_put4BE (os, allocator, sz);
       dds_os_put_bytes_base (&os->x, allocator, is->m_buffer + is->m_index, sz);
@@ -6984,12 +6985,15 @@ static void dds_stream_extract_keyBE_from_key_prim_op (dds_istream_t *is, restri
       is->m_index += srcsz;
       break;
     }
-    case DDS_SOP_VAL_BWSTR: {
-      const uint32_t maxsz = 2 * (ops[2] - 1); // maxsz includes L'\0', CDR excludes it
+    case DDS_SOP_VAL_WSTR: case DDS_SOP_VAL_BWSTR: {
+      // The bound includes the in-memory terminator. CDR carries a byte count without it.
+      const uint32_t maxsz = DDS_OP_TYPE (insn) == DDS_SOP_VAL_BWSTR ? 2 * (ops[2] - 1) : UINT32_MAX;
       const uint32_t srcsz = dds_is_get4 (is); // string length remains unpatched
       const uint32_t dstsz = (srcsz <= maxsz) ? srcsz : (tryconstruct_mode (insn, false) == TC_TRIM) ? maxsz : 0;
       dds_os_put4BE (os, allocator, dstsz);
-      dds_os_put_bytes_base (&os->x, allocator, is->m_buffer + is->m_index, dstsz);
+      dds_cdr_resize (&os->x, allocator, dstsz);
+      dds_stream_swap_copy (os->x.m_buffer + os->x.m_index, is->m_buffer + is->m_index, 2, dstsz / 2);
+      os->x.m_index += dstsz;
       is->m_index += srcsz;
       break;
     }
