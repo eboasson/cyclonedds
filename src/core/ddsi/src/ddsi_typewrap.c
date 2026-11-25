@@ -1882,21 +1882,29 @@ static dds_return_t xt_validate_impl (struct ddsi_domaingv *gv, struct xt_valida
       }
       break;
     case DDS_XTypes_TK_UNION: {
-      if ((ret = xt_validate_impl (gv, context, &t->_u.union_type.disc_type->xt, in_key, XT_VALIDATE_EDGE_AGGREGATE, false, depth + 1)))
+      /* Cyclone serializes only the discriminator of a union in a topic key.
+         An unkeyed union would require the active case to be included as well. */
+      const bool disc_is_key = (t->_u.union_type.disc_flags & DDS_XTypes_IS_KEY) != 0;
+      if (in_key && !disc_is_key)
+      {
+        GVTRACE ("union used in a topic key must have a key discriminator\n");
+        return DDS_RETCODE_BAD_PARAMETER;
+      }
+      if ((ret = xt_validate_impl (gv, context, &t->_u.union_type.disc_type->xt, disc_is_key, XT_VALIDATE_EDGE_AGGREGATE, false, depth + 1)))
         return ret;
       const struct xt_type *disc_type = xt_validation_dependency (t->_u.union_type.disc_type);
       if ((ret = xt_valid_union_disc_type (gv, disc_type))
           || (ret = xt_valid_union_member_ids (gv, t))
           || (ret = xt_valid_union_case_labels (gv, t, disc_type))
           || (ret = xt_valid_type_flags (gv, t->_u.union_type.flags, t->_d))
-          || (ret = xt_valid_member_flags (gv, t->_u.union_type.disc_flags, MEMBER_FLAG_UNION_DISC, in_key)))
+          || (ret = xt_valid_member_flags (gv, t->_u.union_type.disc_flags, MEMBER_FLAG_UNION_DISC, disc_is_key)))
         return ret;
       for (uint32_t n = 0; n < t->_u.union_type.members.length; n++)
       {
         DDS_XTypes_UnionMemberFlag flags = t->_u.union_type.members.seq[n].flags;
-        if ((ret = xt_valid_member_flags (gv, flags, MEMBER_FLAG_UNION_MEMBER, in_key)))
+        if ((ret = xt_valid_member_flags (gv, flags, MEMBER_FLAG_UNION_MEMBER, false)))
           return ret;
-        if ((ret = xt_validate_impl (gv, context, &t->_u.union_type.members.seq[n].type->xt, in_key,
+        if ((ret = xt_validate_impl (gv, context, &t->_u.union_type.members.seq[n].type->xt, false,
             XT_VALIDATE_EDGE_AGGREGATE, xt_validate_is_indirect_edge (flags), depth + 1)))
           return ret;
       }
@@ -1952,6 +1960,11 @@ static dds_return_t xt_validate_impl (struct ddsi_domaingv *gv, struct xt_valida
         return ret;
       break;
     case DDS_XTypes_TK_MAP:
+      if (in_key)
+      {
+        GVTRACE ("map used in a topic key\n");
+        return DDS_RETCODE_BAD_PARAMETER;
+      }
       if ((ret = xt_valid_type_flags (gv, t->_u.map.c.flags, t->_d))
           || (ret = xt_valid_member_flags (gv, t->_u.map.c.element_flags, MEMBER_FLAG_COLLECTION_ELEMENT, in_key))
           || (ret = xt_valid_member_flags (gv, t->_u.map.key_flags, MEMBER_FLAG_COLLECTION_ELEMENT, in_key))

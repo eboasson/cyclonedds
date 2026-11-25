@@ -1142,6 +1142,82 @@ CU_Theory ((bool base_first, bool member_pending), ddsc_typewrap, deferred_inher
     ddsi_type_unref (gv, types[n]);
 }
 
+CU_TheoryDataPoints (ddsc_typewrap, deferred_topic_key) = {
+  CU_DataPoints (bool, false, true),
+  CU_DataPoints (bool, false, true)
+};
+
+CU_Theory ((bool disc_is_key, bool dependencies_first), ddsc_typewrap, deferred_topic_key,
+    .init = typewrap_init, .fini = typewrap_fini)
+{
+  enum { MAP, UNION, KEY_MAP, KEY_UNION, OUTER, NTYPES };
+  struct DDS_XTypes_TypeObject objects[NTYPES];
+  ddsi_typeid_t ids[NTYPES];
+  objects[MAP] = (struct DDS_XTypes_TypeObject) {
+    ._d = DDS_XTypes_EK_COMPLETE,
+    ._u.complete = { ._d = DDS_XTypes_TK_MAP, ._u.map_type = {
+      .key.common = { .element_flags = DDS_XTypes_TRY_CONSTRUCT1, .type._d = DDS_XTypes_TK_INT32 },
+      .element.common = { .element_flags = DDS_XTypes_TRY_CONSTRUCT1, .type._d = DDS_XTypes_TK_BYTE }
+    } }
+  };
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&objects[MAP], &ids[MAP]), DDS_RETCODE_OK);
+
+  /* The same map is ordinary data in the union arm and illegal in a struct key. */
+  struct DDS_XTypes_CompleteUnionMember arm = {
+    .common = { .member_id = 1, .member_flags = DDS_XTypes_TRY_CONSTRUCT1 | DDS_XTypes_IS_DEFAULT,
+        .type_id = ids[MAP].x }, .detail.name = "payload"
+  };
+  objects[UNION] = (struct DDS_XTypes_TypeObject) {
+    ._d = DDS_XTypes_EK_COMPLETE,
+    ._u.complete = { ._d = DDS_XTypes_TK_UNION, ._u.union_type = {
+      .union_flags = DDS_XTypes_IS_FINAL, .header.detail.type_name = "Choice",
+      .discriminator.common = { .member_flags = DDS_XTypes_TRY_CONSTRUCT1 | (disc_is_key ? DDS_XTypes_IS_KEY : 0),
+          .type_id._d = DDS_XTypes_TK_BOOLEAN },
+      .member_seq = { ._length = 1, ._buffer = &arm }
+    } }
+  };
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&objects[UNION], &ids[UNION]), DDS_RETCODE_OK);
+  struct DDS_XTypes_CompleteStructMember map_key, union_key, outer_member;
+  init_struct_dependency_typeobject (&objects[KEY_MAP], &map_key, "MapKey", "k", 1, &ids[MAP]);
+  map_key.common.member_flags |= DDS_XTypes_IS_KEY;
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&objects[KEY_MAP], &ids[KEY_MAP]), DDS_RETCODE_OK);
+  init_struct_dependency_typeobject (&objects[KEY_UNION], &union_key, "UnionKey", "k", 1, &ids[UNION]);
+  union_key.common.member_flags |= DDS_XTypes_IS_KEY;
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&objects[KEY_UNION], &ids[KEY_UNION]), DDS_RETCODE_OK);
+  init_struct_dependency_typeobject (&objects[OUTER], &outer_member, "Outer", "child", 1, &ids[KEY_UNION]);
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&objects[OUTER], &ids[OUTER]), DDS_RETCODE_OK);
+
+  struct ddsi_domaingv *gv = get_domaingv (participant);
+  struct ddsi_type *types[NTYPES];
+  ddsrt_mutex_lock (&gv->typelib_lock);
+  for (size_t i = 0; i < NTYPES; i++)
+    CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (gv, &types[i], &ids[i]), DDS_RETCODE_OK);
+  bool installed[NTYPES] = { false };
+  for (size_t step = 0; step < NTYPES; step++)
+  {
+    const size_t next = dependencies_first ? step : NTYPES - 1 - step;
+    installed[next] = true;
+    const bool illegal_union_key = !disc_is_key && installed[UNION] && installed[KEY_UNION];
+    const bool invalid[NTYPES] = { false, false, installed[MAP], illegal_union_key, illegal_union_key };
+    const bool ready[NTYPES] = { true, installed[MAP], installed[MAP], installed[MAP] && installed[UNION],
+      installed[MAP] && installed[UNION] && installed[KEY_UNION] };
+    CU_ASSERT_EQ (ddsi_type_add_typeobj (gv, types[next], &objects[next]),
+        invalid[next] ? DDS_RETCODE_BAD_PARAMETER : DDS_RETCODE_OK);
+    for (size_t i = 0; i < NTYPES; i++)
+    {
+      if (!installed[i])
+        CU_ASSERT_EQ (types[i]->state, DDSI_TYPE_UNRESOLVED);
+      else if (invalid[i])
+        CU_ASSERT_EQ (types[i]->state, DDSI_TYPE_INVALID);
+      else
+        CU_ASSERT_EQ (types[i]->state, ready[i] ? DDSI_TYPE_RESOLVED : DDSI_TYPE_PARTIAL_RESOLVED);
+    }
+  }
+  for (size_t i = 0; i < NTYPES; i++)
+    ddsi_type_unref_locked (gv, types[i]);
+  ddsrt_mutex_unlock (&gv->typelib_lock);
+}
+
 CU_TheoryDataPoints (ddsc_typewrap, diamond_install_order) = {
   CU_DataPoints (bool, false, true),
   CU_DataPoints (uint32_t, 0, 1, 2, 3),

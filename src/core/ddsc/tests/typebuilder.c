@@ -942,11 +942,16 @@ CU_Test(ddsc_typebuilder, nested_mutable_union_descriptor, .init = typebuilder_i
   dds_dynamic_type_unref (&dstruct);
 }
 
-CU_Test(ddsc_typebuilder, union_member_key_uses_discriminator, .init = typebuilder_init, .fini = typebuilder_fini)
+CU_TheoryDataPoints (ddsc_typebuilder, union_member_key_uses_discriminator) = {
+  CU_DataPoints (bool, false, true)
+};
+
+CU_Theory ((bool disc_is_key), ddsc_typebuilder, union_member_key_uses_discriminator,
+    .init = typebuilder_init, .fini = typebuilder_fini)
 {
   dds_dynamic_type_t dunion = dds_dynamic_type_create (g_participant, (dds_dynamic_type_descriptor_t) {
     .kind = DDS_DYNAMIC_UNION,
-    .name = "implicit_disc_key_union",
+    .name = "disc_key_union",
     .discriminator_type = DDS_DYNAMIC_TYPE_SPEC_PRIM (DDS_DYNAMIC_INT32)
   });
   CU_ASSERT_EQ_FATAL (dunion.ret, DDS_RETCODE_OK);
@@ -954,10 +959,12 @@ CU_Test(ddsc_typebuilder, union_member_key_uses_discriminator, .init = typebuild
   dds_return_t ret = dds_dynamic_type_add_member (&dunion,
       DDS_DYNAMIC_UNION_MEMBER_PRIM (DDS_DYNAMIC_INT32, "u1", 1, ((int32_t[]) { 1 })));
   CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
+  if (disc_is_key)
+    CU_ASSERT_EQ_FATAL (dds_dynamic_member_set_key (&dunion, DDS_DYNAMIC_MEMBER_ID_DISCRIMINATOR, true), DDS_RETCODE_OK);
 
   dds_dynamic_type_t dstruct = dds_dynamic_type_create (g_participant, (dds_dynamic_type_descriptor_t) {
     .kind = DDS_DYNAMIC_STRUCTURE,
-    .name = "implicit_disc_key_struct"
+    .name = "disc_key_struct"
   });
   CU_ASSERT_EQ_FATAL (dstruct.ret, DDS_RETCODE_OK);
 
@@ -968,6 +975,12 @@ CU_Test(ddsc_typebuilder, union_member_key_uses_discriminator, .init = typebuild
 
   dds_typeinfo_t *type_info;
   ret = dds_dynamic_type_register (&dstruct, &type_info);
+  if (!disc_is_key)
+  {
+    CU_ASSERT_EQ (ret, DDS_RETCODE_BAD_PARAMETER);
+    dds_dynamic_type_unref (&dstruct);
+    return;
+  }
   CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
 
   dds_topic_descriptor_t *desc;

@@ -4069,7 +4069,6 @@ bool idl_is_keyless(const void *node, bool keylist)
 
 idl_keytype_t idl_is_topic_key(const void *node, bool keylist, const idl_path_t *path, uint32_t *order)
 {
-  bool all_keys = false;
   idl_keytype_t key = IDL_KEYTYPE_NONE;
   uint32_t id = 0;
 
@@ -4080,7 +4079,7 @@ idl_keytype_t idl_is_topic_key(const void *node, bool keylist, const idl_path_t 
 
   /* constructed types, sequences, aliases and declarators carry the key */
   static const idl_mask_t mask =
-    IDL_CONSTR_TYPE | IDL_MEMBER | IDL_SWITCH_TYPE_SPEC | IDL_CASE |
+    IDL_CONSTR_TYPE | IDL_MEMBER | IDL_SWITCH_TYPE_SPEC |
     IDL_SEQUENCE | IDL_DECLARATOR;
 
   /* start from level 1, the members of the topic node */
@@ -4095,59 +4094,27 @@ idl_keytype_t idl_is_topic_key(const void *node, bool keylist, const idl_path_t 
         return IDL_KEYTYPE_NONE;
 
       if (member->key.value)
-      {
         key = IDL_KEYTYPE_EXPLICIT;
-        all_keys = false;
-      }
-      /* possibly implicit @key, but only if no other members are explicitly
-        annotated, an intermediate aggregate type has no explicitly annotated
-        fields and node is not on the first level */
-      else if (all_keys)
-      {
-        if (no_specific_key(idl_parent(member)))
-          key = IDL_KEYTYPE_IMPLICIT;
-        else
-        {
-          key = IDL_KEYTYPE_NONE;
-          all_keys = false;
-        }
-      }
-      else if (no_specific_key(idl_parent(member)) && i > 1)
-      {
+      /* All fields of a keyless struct nested in a key are implicit keys. */
+      else if (i > 1 && no_specific_key(idl_parent(member)))
         key = IDL_KEYTYPE_IMPLICIT;
-        all_keys = true;
-      }
       else
-      {
         key = IDL_KEYTYPE_NONE;
-        all_keys = false;
-      }
 
       /* if key member found, get the id from the declarator node which
          should be next in the path (can be overwritten by the id of a key
          field further down in the path in a next iteration) */
       if (key != IDL_KEYTYPE_NONE) {
-        if (!idl_is_declarator(path->nodes[i + 1]))
+        if (i + 1 == path->length || !idl_is_declarator(path->nodes[i + 1]))
           return IDL_KEYTYPE_NONE;
         const idl_declarator_t *declarator = (const idl_declarator_t *)path->nodes[i + 1];
         id = declarator->id.value;
       }
 
-    /* union cases cannot be explicitly annotated */
     } else if (idl_is_case(path->nodes[i])) {
-      const idl_case_t *_case = (const idl_case_t *)path->nodes[i];
-      /* path cannot be valid if not preceeded by union */
-      if (i > 0 && !idl_is_union(path->nodes[i - 1]))
-        return IDL_KEYTYPE_NONE;
-
-      /* union cases cannot be annotated, but can be part of the key if an
-        intermediate aggregate type has no explicitly annotated fields or if
-        the switch type specifier is not annotated */
-      if (all_keys || no_specific_key(idl_parent(_case)))
-      {
-        all_keys = (i > 1);
-        key = (i > 1) ? IDL_KEYTYPE_IMPLICIT : IDL_KEYTYPE_NONE;
-      }
+      /* A union used as a key must have a keyed discriminator. Its payload
+         is always ordinary data, even inside an implicitly keyed field. */
+      key = IDL_KEYTYPE_NONE;
 
     /* switch type specifiers can be explicitly annotated */
     } else if (idl_is_switch_type_spec(path->nodes[i])) {
@@ -4156,11 +4123,7 @@ idl_keytype_t idl_is_topic_key(const void *node, bool keylist, const idl_path_t 
       if (i != 0 && !idl_is_union(path->nodes[i - 1]))
         return IDL_KEYTYPE_NONE;
 
-      /* possibly (implicit) @key, but only if last in path and not first */
-      if (switch_type_spec->key.value)
-        key = (i == path->length - 1) ? IDL_KEYTYPE_EXPLICIT : IDL_KEYTYPE_NONE;
-      else
-        key = ((i == path->length - 1) ? (i > 1) : 0) ? IDL_KEYTYPE_IMPLICIT : IDL_KEYTYPE_NONE;
+      key = (switch_type_spec->key.value && i == path->length - 1) ? IDL_KEYTYPE_EXPLICIT : IDL_KEYTYPE_NONE;
     } else if (!(idl_mask(node) & mask)) {
       key = IDL_KEYTYPE_NONE;
     }

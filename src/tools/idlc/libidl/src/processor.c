@@ -20,6 +20,7 @@
 #include "idl/heap.h"
 #include "idl/processor.h"
 #include "idl/string.h"
+#include "idl/vector.h"
 #include "annotation.h"
 #include "directive.h"
 #include "scanner.h"
@@ -449,6 +450,65 @@ static idl_retcode_t validate_bitbound(idl_pstate_t *pstate)
   return idl_visit(pstate, pstate->root, &visitor, NULL);
 }
 
+static idl_retcode_t check_key_member_type(
+  const idl_pstate_t *pstate, const idl_member_t *member, idl_boxed_vector_t *work)
+{
+  idl_type_spec_t *type = idl_strip(member->type_spec, 0);
+  while (idl_is_sequence(type))
+    type = idl_strip(idl_type_spec(type), 0);
+
+  if (idl_is_union(type) && idl_is_keyless(type, false)) {
+    idl_error(pstate, idl_location(member),
+      "Union '%s' used in key member '%s' must have an explicitly keyed discriminator",
+      idl_identifier(type), idl_identifier(member->declarators));
+    return IDL_RETCODE_SEMANTIC_ERROR;
+  }
+
+  /* Explicit keys are checked by the visitor. Only a keyless struct makes
+     its ordinary members part of the enclosing key. Keep each such struct
+     on the worklist once, including when a sequence leads back to it. */
+  if (idl_is_struct(type) && idl_is_keyless(type, false)) {
+    for (size_t i = 0; i < work->n; i++)
+      if (work->xs[i] == type)
+        return IDL_RETCODE_OK;
+    if (!idl_boxed_vector_append(work, type))
+      return IDL_RETCODE_NO_MEMORY;
+  }
+  return IDL_RETCODE_OK;
+}
+
+static idl_retcode_t check_explicit_key(
+  const idl_pstate_t *pstate, bool revisit, const idl_path_t *path, const void *node, void *user_data)
+{
+  (void)revisit;
+  (void)path;
+  const idl_member_t *member = node;
+  return member->key.value ? check_key_member_type(pstate, member, user_data) : IDL_RETCODE_OK;
+}
+
+static idl_retcode_t validate_key_member_types(idl_pstate_t *pstate)
+{
+  const idl_visitor_t visitor = {
+    .visit = IDL_MEMBER, .accept = { [IDL_ACCEPT_MEMBER] = check_explicit_key }
+  };
+  idl_boxed_vector_t work;
+  if (!idl_boxed_vector_init(&work))
+    return IDL_RETCODE_NO_MEMORY;
+  idl_retcode_t ret = idl_visit(pstate, pstate->root, &visitor, &work);
+  for (size_t i = 0; ret == IDL_RETCODE_OK && i < work.n; i++) {
+    for (const idl_struct_t *s = work.xs[i]; s; s = s->inherit_spec ? s->inherit_spec->base : NULL) {
+      const idl_member_t *member;
+      IDL_FOREACH(member, s->members) {
+        if ((ret = check_key_member_type(pstate, member, &work)) != IDL_RETCODE_OK)
+          goto done;
+      }
+    }
+  }
+done:
+  idl_boxed_vector_fini(&work, NULL);
+  return ret;
+}
+
 static void
 set_nestedness(
   const idl_pstate_t* pstate,
@@ -534,6 +594,7 @@ idl_retcode_t idl_parse(idl_pstate_t *pstate)
       goto err;
     idl_set_keylist_key_flags(pstate, pstate->root);
   }
+  ret = validate_key_member_types(pstate);
 
 err:
   return ret;

@@ -26,6 +26,7 @@ typedef struct idl_boxed_vector_iter {
 
 bool idl_boxed_vector_init (struct idl_boxed_vector *v);
 bool idl_boxed_vector_append (struct idl_boxed_vector *v, void *x);
+/* Pass NULL for f if the vector borrows its elements. */
 void idl_boxed_vector_fini (struct idl_boxed_vector *c, void (*f) (void *x));
 void *idl_boxed_vector_next (struct idl_boxed_vector_iter *it);
 void *idl_boxed_vector_first (struct idl_boxed_vector *v, struct idl_boxed_vector_iter *it);

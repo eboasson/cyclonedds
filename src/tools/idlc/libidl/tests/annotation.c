@@ -337,6 +337,66 @@ CU_Test(idl_annotation, key)
   }
 }
 
+CU_Test(idl_annotation, union_in_struct_key)
+{
+#define UNKEYED_UNION "union U switch(long) { case 1: long payload; }; "
+#define KEYED_UNION "union U switch(@key long) { case 1: long payload; }; "
+  static const struct {
+    const char *idl;
+    idl_retcode_t expected;
+  } tests[] = {
+    { UNKEYED_UNION "struct S { U data; };", IDL_RETCODE_OK },
+    { UNKEYED_UNION "struct S { @key U data; };", IDL_RETCODE_SEMANTIC_ERROR },
+    { KEYED_UNION "struct S { @key U data; };", IDL_RETCODE_OK },
+    { "union U switch(@key(false) long) { case 1: long payload; }; "
+      "struct S { @key U data; };", IDL_RETCODE_SEMANTIC_ERROR },
+    { UNKEYED_UNION "typedef U A[2]; struct S { @key sequence<A> data; };", IDL_RETCODE_SEMANTIC_ERROR },
+    { UNKEYED_UNION "struct Base { U data; }; struct Inner : Base { long extra; }; "
+      "struct S { @key Inner value; };", IDL_RETCODE_SEMANTIC_ERROR },
+    { UNKEYED_UNION "struct Base { @key long id; }; struct Inner : Base { U data; }; "
+      "struct S { @key Inner value; };", IDL_RETCODE_OK },
+    { UNKEYED_UNION "union V switch(@key long) { case 1: U data; }; "
+      "struct S { @key V value; };", IDL_RETCODE_OK },
+    { "union U; struct S { @key sequence<U> data; }; " UNKEYED_UNION, IDL_RETCODE_SEMANTIC_ERROR },
+    { "union U; struct S { @key sequence<U> data; }; " KEYED_UNION, IDL_RETCODE_OK },
+    { UNKEYED_UNION "struct R; struct R { sequence<R> children; U data; }; "
+      "struct S { @key R value; };", IDL_RETCODE_SEMANTIC_ERROR },
+    { KEYED_UNION "struct R; struct R { sequence<R> children; U data; }; "
+      "struct S { @key R value; };", IDL_RETCODE_OK }
+  };
+#undef KEYED_UNION
+#undef UNKEYED_UNION
+  const uint32_t flags = IDL_FLAG_ANNOTATIONS | IDL_FLAG_ANONYMOUS_TYPES;
+  for (size_t i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
+    idl_pstate_t *pstate = NULL;
+    CU_ASSERT_EQ(parse_string(flags, tests[i].idl, &pstate), tests[i].expected);
+    idl_delete_pstate(pstate);
+  }
+}
+
+CU_Test(idl_annotation, union_case_key_path)
+{
+  idl_pstate_t *pstate = NULL;
+  const char *idl = "union U switch(@key long) { case 1: long payload; }; "
+                    "struct Inner { U choice; }; struct S { @key Inner value; };";
+  CU_ASSERT_EQ_FATAL(parse_string(IDL_FLAG_ANNOTATIONS, idl, &pstate), IDL_RETCODE_OK);
+  const idl_union_t *u = (const idl_union_t *)pstate->root;
+  const idl_struct_t *inner = idl_next(u);
+  const idl_struct_t *s = idl_next(inner);
+  const idl_node_t *nodes[] = {
+    &s->node, &s->members->node, &s->members->declarators->node,
+    &inner->node, &inner->members->node, &inner->members->declarators->node,
+    &u->node, &u->cases->node, &u->cases->declarator->node
+  };
+  idl_path_t path = { .length = sizeof(nodes) / sizeof(nodes[0]), .nodes = nodes };
+  uint32_t order = 0;
+  CU_ASSERT_EQ(idl_is_topic_key(s, false, &path, &order), IDL_KEYTYPE_NONE);
+  path.length--;
+  nodes[path.length - 1] = &u->switch_type_spec->node;
+  CU_ASSERT_EQ(idl_is_topic_key(s, false, &path, &order), IDL_KEYTYPE_EXPLICIT);
+  idl_delete_pstate(pstate);
+}
+
 CU_Test(idl_annotation, nested)
 {
   idl_retcode_t ret;

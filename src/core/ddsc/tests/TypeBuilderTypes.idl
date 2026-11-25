@@ -790,7 +790,7 @@ module TypeBuilderTypes {
   };
 
   @nested @final
-  union t64_u switch (long) {
+  union t64_u switch (@key long) {
     case 1: long u1;
     case 2: short u2;
   };
@@ -801,7 +801,7 @@ module TypeBuilderTypes {
   };
 
   @nested @final
-  union t65_u switch (long) {
+  union t65_u switch (@key long) {
     case 1: octet u1;
   };
 
@@ -816,7 +816,7 @@ module TypeBuilderTypes {
   };
 
   @nested @final
-  union t66_u switch (long) {
+  union t66_u switch (@key long) {
     case 1: octet u1;
   };
 

@@ -41,8 +41,9 @@ bool idl_boxed_vector_append (struct idl_boxed_vector *v, void *x)
 
 void idl_boxed_vector_fini (struct idl_boxed_vector *c, void (*f) (void *x))
 {
-  for (size_t i = 0; i < c->n; i++)
-    f (c->xs[i]);
+  if (f)
+    for (size_t i = 0; i < c->n; i++)
+      f (c->xs[i]);
   idl_free (c->xs);
 }
 
