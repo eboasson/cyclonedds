@@ -79,7 +79,7 @@ static void print_one_flag (bool *need_sep, const char *name)
   printf ("%s", name);
 }
 
-static void print_common_flags (uint32_t insn, bool union_default_flag)
+static void print_common_flags (uint32_t insn, bool is_union_adr)
 {
   bool need_sep = false;
   const uint32_t flags = DDS_OP_FLAGS (insn);
@@ -95,9 +95,9 @@ static void print_common_flags (uint32_t insn, bool union_default_flag)
   if (insn & DDS_OP_FLAG_SUBTYPE_TC_TRIM)
     print_one_flag (&need_sep, "SUBTYPE_TC_TRIM");
   if (flags & DDS_OP_FLAG_KEY)
-    print_one_flag (&need_sep, "KEY");
+    print_one_flag (&need_sep, is_union_adr ? "KEY(discriminator)" : "KEY");
   if (flags & DDS_OP_FLAG_FP)
-    print_one_flag (&need_sep, union_default_flag ? "DEF" : "FP");
+    print_one_flag (&need_sep, is_union_adr ? "DEF" : "FP");
   if (flags & DDS_OP_FLAG_SGN)
     print_one_flag (&need_sep, "SGN");
   if (flags & DDS_OP_FLAG_MU)
@@ -472,11 +472,15 @@ static void print_decoded_op (const uint32_t *ops, uint32_t nops, uint32_t idx, 
     case DDS_SOP_JEQ:
     case DDS_SOP_JEQ4: {
       const enum dds_stream_typecode type = DDS_JEQ_TYPE (insn);
+      /* These case types use the low 16 bits for a signed jump. */
+      const bool has_case_insn = type == DDS_SOP_VAL_STU || type == DDS_SOP_VAL_UNI ||
+        type == DDS_SOP_VAL_ARR || type == DDS_SOP_VAL_SEQ || type == DDS_SOP_VAL_BSQ ||
+        type == DDS_SOP_VAL_BST || type == DDS_SOP_VAL_BWSTR || type == DDS_SOP_VAL_BMK;
       printf ("/%s", typecode_name (type));
       if (is_default_case)
         printf (" default");
-      print_common_flags (insn, false);
-      if (DDS_OP_JUMP (insn) != 0)
+      print_common_flags (has_case_insn ? insn & ~((uint32_t) DDS_OP_JMP_MASK) : insn, false);
+      if (has_case_insn && DDS_OP_JUMP (insn) != 0)
       {
         printf (" case-insn=");
         print_rel_offset (DDS_OP_JUMP (insn));
