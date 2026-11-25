@@ -526,6 +526,7 @@ CU_Test(idl_union, default_discriminator_large_domains)
     idl_pstate_t *pstate = NULL;
     const idl_retcode_t ret = parse_string(tests[i].idl, &pstate);
     CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
+    CU_ASSERT_NEQ_FATAL (pstate, NULL);
     const idl_union_t *u = (const idl_union_t *)pstate->root;
     CU_ASSERT_EQ (u->unused_labels, tests[i].unused);
     idl_delete_pstate(pstate);
