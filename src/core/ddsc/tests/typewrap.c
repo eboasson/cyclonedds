@@ -3356,3 +3356,109 @@ CU_Test (ddsc_typewrap, strong_assignability_hash_identified_sequence, .init = t
   CU_ASSERT (ddsi_xt_is_assignable_from (gv, &outer[0].xt, &outer[1].xt, &tce, &reason, 0));
   CU_ASSERT (ddsi_xt_is_assignable_from (gv, &outer[1].xt, &outer[0].xt, &tce, &reason, 0));
 }
+
+CU_TheoryDataPoints (ddsc_typewrap, union_default_discriminator_alias) = {
+  CU_DataPoints (bool, false, true),
+  CU_DataPoints (bool, false, true)
+};
+
+CU_Theory ((bool alias_first, bool label_on_default), ddsc_typewrap, union_default_discriminator_alias,
+    .init = typewrap_init, .fini = typewrap_fini)
+{
+  struct DDS_XTypes_TypeObject alias_obj = { ._d = DDS_XTypes_EK_COMPLETE, ._u.complete = {
+    ._d = DDS_XTypes_TK_ALIAS, ._u.alias_type = {
+      .header.detail.type_name = "BoolAlias", .body.common.related_type._d = DDS_XTypes_TK_BOOLEAN
+    } } };
+  ddsi_typeid_t alias_id, union_id;
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&alias_obj, &alias_id), DDS_RETCODE_OK);
+
+  /* The two labels cover Boolean. The default is reachable precisely when
+     one of them belongs to the default member itself. */
+  int32_t labels[] = { 0, 1 };
+  struct DDS_XTypes_CompleteUnionMember members[] = {
+    { .common = { .member_id = 1, .member_flags = DDS_XTypes_TRY_CONSTRUCT1, .type_id._d = DDS_XTypes_TK_INT32,
+                  .label_seq = { ._length = label_on_default ? 1u : 2u, ._buffer = labels } }, .detail.name = "a" },
+    { .common = { .member_id = 2, .member_flags = DDS_XTypes_TRY_CONSTRUCT1 | DDS_XTypes_IS_DEFAULT,
+                  .type_id._d = DDS_XTypes_TK_INT32,
+                  .label_seq = { ._length = label_on_default ? 1u : 0u, ._buffer = &labels[1] } }, .detail.name = "b" }
+  };
+  struct DDS_XTypes_TypeObject union_obj = { ._d = DDS_XTypes_EK_COMPLETE, ._u.complete = {
+    ._d = DDS_XTypes_TK_UNION, ._u.union_type = {
+      .union_flags = DDS_XTypes_IS_FINAL, .header.detail.type_name = "BoolUnion",
+      .discriminator.common = { .member_flags = DDS_XTypes_TRY_CONSTRUCT1, .type_id = alias_id.x },
+      .member_seq = { ._length = 2, ._buffer = members }
+    } } };
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&union_obj, &union_id), DDS_RETCODE_OK);
+
+  struct ddsi_domaingv *gv = get_domaingv (participant);
+  struct ddsi_type *alias, *un;
+  ddsrt_mutex_lock (&gv->typelib_lock);
+  CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (gv, &alias, &alias_id), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (gv, &un, &union_id), DDS_RETCODE_OK);
+  if (alias_first)
+  {
+    CU_ASSERT_EQ (ddsi_type_add_typeobj (gv, alias, &alias_obj), DDS_RETCODE_OK);
+    CU_ASSERT_EQ (alias->state, DDSI_TYPE_RESOLVED);
+    CU_ASSERT_EQ (un->state, DDSI_TYPE_UNRESOLVED);
+    CU_ASSERT_EQ (ddsi_type_add_typeobj (gv, un, &union_obj), label_on_default ? DDS_RETCODE_OK : DDS_RETCODE_BAD_PARAMETER);
+  }
+  else
+  {
+    CU_ASSERT_EQ (ddsi_type_add_typeobj (gv, un, &union_obj), DDS_RETCODE_OK);
+    CU_ASSERT_EQ (un->state, DDSI_TYPE_PARTIAL_RESOLVED);
+    CU_ASSERT_EQ (alias->state, DDSI_TYPE_UNRESOLVED);
+    CU_ASSERT_EQ (ddsi_type_add_typeobj (gv, alias, &alias_obj), DDS_RETCODE_OK);
+  }
+  CU_ASSERT_EQ (alias->state, DDSI_TYPE_RESOLVED);
+  CU_ASSERT_EQ (un->state, label_on_default ? DDSI_TYPE_RESOLVED : DDSI_TYPE_INVALID);
+  ddsi_type_unref_locked (gv, un);
+  ddsi_type_unref_locked (gv, alias);
+  ddsrt_mutex_unlock (&gv->typelib_lock);
+}
+
+CU_Test (ddsc_typewrap, union_default_domain, .init = typewrap_init, .fini = typewrap_fini)
+{
+  struct ddsi_domaingv *gv = get_domaingv (participant);
+  struct ddsi_type integer = { .xt._d = DDS_XTypes_TK_INT32 };
+  struct ddsi_type disc = { .xt._d = DDS_XTypes_TK_INT8 };
+  int32_t labels[256];
+  for (uint32_t i = 0; i < 256; i++)
+    labels[i] = INT8_MIN + (int32_t) i;
+  struct xt_union_member members[] = {
+    { .id = 1, .flags = DDS_XTypes_TRY_CONSTRUCT1, .type = &integer, .label_seq = { ._length = 256, ._buffer = labels } },
+    { .id = 2, .flags = DDS_XTypes_TRY_CONSTRUCT1 | DDS_XTypes_IS_DEFAULT, .type = &integer }
+  };
+  struct ddsi_type un = { .xt = { .kind = DDSI_TYPEID_KIND_COMPLETE, ._d = DDS_XTypes_TK_UNION, ._u.union_type = {
+    .flags = DDS_XTypes_IS_FINAL, .disc_type = &disc, .disc_flags = DDS_XTypes_TRY_CONSTRUCT1,
+    .members = { .length = 1, .seq = members } } } };
+  CU_ASSERT_EQ (ddsi_xt_validate (gv, &un), DDS_RETCODE_OK); /* full coverage without default */
+  un.xt._u.union_type.members.length = 2;
+  CU_ASSERT_EQ (ddsi_xt_validate (gv, &un), DDS_RETCODE_BAD_PARAMETER);
+  members[0].label_seq._length--;
+  CU_ASSERT_EQ (ddsi_xt_validate (gv, &un), DDS_RETCODE_OK);
+  disc.xt._d = DDS_XTypes_TK_INT64;
+  CU_ASSERT_EQ (ddsi_xt_validate (gv, &un), DDS_RETCODE_OK);
+
+  /* Only the two enumerators and the four combinations of the two declared
+     flags matter, regardless of the storage width or gaps in their values. */
+  struct xt_enum_literal literals[] = { { .value = 0 }, { .value = 4, .detail.name_hash = { 1 } } };
+  disc.xt.kind = DDSI_TYPEID_KIND_COMPLETE;
+  disc.xt._d = DDS_XTypes_TK_ENUM;
+  disc.xt._u.enum_type = (struct xt_enum) { .flags = DDS_XTypes_IS_FINAL, .bit_bound = 8,
+    .literals = { .length = 2, .seq = literals } };
+  labels[0] = 0; labels[1] = 4;
+  members[0].label_seq._length = 2;
+  CU_ASSERT_EQ (ddsi_xt_validate (gv, &un), DDS_RETCODE_BAD_PARAMETER);
+  members[0].label_seq._length--;
+  CU_ASSERT_EQ (ddsi_xt_validate (gv, &un), DDS_RETCODE_OK);
+
+  struct xt_bitflag flags[] = { { .position = 0 }, { .position = 2, .detail.name_hash = { 1 } } };
+  disc.xt._d = DDS_XTypes_TK_BITMASK;
+  disc.xt._u.bitmask = (struct xt_bitmask) { .flags = DDS_XTypes_IS_FINAL, .bit_bound = 64,
+    .bitflags = { .length = 2, .seq = flags } };
+  labels[2] = 1; labels[3] = 5;
+  members[0].label_seq._length = 4;
+  CU_ASSERT_EQ (ddsi_xt_validate (gv, &un), DDS_RETCODE_BAD_PARAMETER);
+  members[0].label_seq._length--;
+  CU_ASSERT_EQ (ddsi_xt_validate (gv, &un), DDS_RETCODE_OK);
+}

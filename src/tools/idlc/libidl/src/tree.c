@@ -14,6 +14,7 @@
 #include <string.h>
 #include <math.h>
 #include <inttypes.h>
+#include <limits.h>
 
 #include "idl/heap.h"
 #include "idl/string.h"
@@ -2184,52 +2185,62 @@ static const char *describe_union(const void *ptr)
   return "union";
 }
 
-static uint64_t maximum_labels(const idl_type_spec_t *type_spec)
+/* Store the largest zero-based index, so even a 64-bit discriminator's
+   complete domain can be represented. */
+static idl_retcode_t union_label_domain(
+  idl_pstate_t *pstate, const idl_type_spec_t *type_spec,
+  uint64_t *last_index, uint64_t *allowed_bits)
 {
-  idl_type_t type;
-
-  assert(type_spec);
-
-  switch ((type = idl_type(type_spec))) {
+  *allowed_bits = 0;
+  switch (idl_type(type_spec)) {
     case IDL_BOOL:
-      return 2u;
+      *last_index = 1;
+      break;
     case IDL_CHAR:
     case IDL_OCTET:
     case IDL_INT8:
     case IDL_UINT8:
-      return UINT8_MAX;
+      *last_index = UINT8_MAX;
+      break;
     case IDL_WCHAR:
     case IDL_SHORT:
     case IDL_USHORT:
     case IDL_INT16:
     case IDL_UINT16:
-      return UINT16_MAX;
+      *last_index = UINT16_MAX;
+      break;
     case IDL_LONG:
     case IDL_ULONG:
     case IDL_INT32:
     case IDL_UINT32:
-      return UINT32_MAX;
+      *last_index = UINT32_MAX;
+      break;
     case IDL_LLONG:
     case IDL_ULLONG:
     case IDL_INT64:
     case IDL_UINT64:
-      return UINT64_MAX;
+      *last_index = UINT64_MAX;
+      break;
     case IDL_BITMASK: {
-      // FIXME: imprecise, should check actual bits
-      const idl_bitmask_t *btype = (const idl_bitmask_t *) type_spec;
-      if (btype->bit_bound.value <= 8)
-        return UINT8_MAX;
-      else if (btype->bit_bound.value <= 16)
-        return UINT16_MAX;
-      else if (btype->bit_bound.value <= 32)
-        return UINT32_MAX;
-      else
-        return UINT64_MAX;
+      const idl_bitmask_t *mask = type_spec;
+      *last_index = 0;
+      for (const idl_bit_value_t *bit = mask->bit_values; bit; bit = idl_next(bit)) {
+        if (bit->position.value >= mask->bit_bound.value || bit->position.value >= 64) {
+          idl_error(pstate, idl_location(bit), "Bit position outside the discriminator's bit bound");
+          return IDL_RETCODE_OUT_OF_RANGE;
+        }
+        *allowed_bits |= UINT64_C(1) << bit->position.value;
+        /* Each declared flag doubles the number of possible values. */
+        *last_index = (*last_index << 1) | 1;
+      }
+      break;
     }
     default:
-      assert(type == IDL_ENUM);
-      return idl_degree(((const idl_enum_t *)type_spec)->enumerators);
+      assert(idl_type(type_spec) == IDL_ENUM);
+      *last_index = idl_degree(((const idl_enum_t *)type_spec)->enumerators) - 1;
+      break;
   }
+  return IDL_RETCODE_OK;
 }
 
 static int compare_label(const void *lhs, const void *rhs)
@@ -2246,17 +2257,17 @@ static int compare_label(const void *lhs, const void *rhs)
   }
 }
 
-static void increment_literal(idl_literal_t *literal)
+static void increment_union_label(idl_literal_t *literal, uint64_t allowed_bits)
 {
   switch (idl_type(literal)) {
     case IDL_BOOL:
       literal->value.bln = !literal->value.bln;
       break;
     case IDL_CHAR:
-      literal->value.chr++;
+      literal->value.chr = (literal->value.chr == CHAR_MAX) ? CHAR_MIN : (char)(literal->value.chr + 1);
       break;
     case IDL_INT8:
-      literal->value.int8++;
+      literal->value.int8 = (literal->value.int8 == INT8_MAX) ? INT8_MIN : (int8_t)(literal->value.int8 + 1);
       break;
     case IDL_OCTET:
     case IDL_UINT8:
@@ -2264,7 +2275,7 @@ static void increment_literal(idl_literal_t *literal)
       break;
     case IDL_SHORT:
     case IDL_INT16:
-      literal->value.int16++;
+      literal->value.int16 = (literal->value.int16 == INT16_MAX) ? INT16_MIN : (int16_t)(literal->value.int16 + 1);
       break;
     case IDL_USHORT:
     case IDL_UINT16:
@@ -2272,7 +2283,7 @@ static void increment_literal(idl_literal_t *literal)
       break;
     case IDL_LONG:
     case IDL_INT32:
-      literal->value.int32++;
+      literal->value.int32 = (literal->value.int32 == INT32_MAX) ? INT32_MIN : (int32_t)(literal->value.int32 + 1);
       break;
     case IDL_ULONG:
     case IDL_UINT32:
@@ -2280,14 +2291,15 @@ static void increment_literal(idl_literal_t *literal)
       break;
     case IDL_LLONG:
     case IDL_INT64:
-      literal->value.int64++;
+      literal->value.int64 = (literal->value.int64 == INT64_MAX) ? INT64_MIN : (int64_t)(literal->value.int64 + 1);
       break;
     case IDL_ULLONG:
     case IDL_UINT64:
       literal->value.uint64++;
       break;
     case IDL_BITMASK:
-      literal->value.uint64++;
+      /* Carry past any undeclared positions, then retain only declared bits. */
+      literal->value.uint64 = ((literal->value.uint64 | ~allowed_bits) + 1) & allowed_bits;
       break;
     default:
       abort();
@@ -2305,7 +2317,8 @@ idl_finalize_union(
   const idl_type_spec_t *type_spec;
   idl_case_label_t *default_case = NULL;
   idl_type_t type;
-  uint64_t used = 0, maximum;
+  size_t used = 0;
+  uint64_t last_index, allowed_bits;
   idl_case_label_t **labels = NULL;
 
   assert(node);
@@ -2313,7 +2326,8 @@ idl_finalize_union(
   assert(cases);
   type_spec = idl_unalias(node->switch_type_spec->type_spec);
   type = idl_type(type_spec);
-  maximum = maximum_labels(type_spec);
+  if ((ret = union_label_domain(pstate, type_spec, &last_index, &allowed_bits)))
+    return ret;
 
   for (idl_case_t *c = cases; c; c = idl_next(c)) {
     assert(c->labels);
@@ -2338,6 +2352,10 @@ idl_finalize_union(
         } else {
           assert(!((const idl_node_t *)const_expr)->parent);
           ((idl_node_t *)const_expr)->parent = (idl_node_t *)cl;
+          if (type == IDL_BITMASK && (((const idl_literal_t *)const_expr)->value.uint64 & ~allowed_bits)) {
+            idl_error(pstate, idl_location(cl), "Case label uses undeclared bits of the discriminator");
+            return IDL_RETCODE_SEMANTIC_ERROR;
+          }
         }
       } else {
         assert(idl_mask(cl) == IDL_DEFAULT_CASE_LABEL);
@@ -2360,20 +2378,10 @@ idl_finalize_union(
     }
   }
 
-  /* a union type can contain a default label only where the values given to
-     the non-default labels do not cover the entire range of the union's
-     discriminant type */
-  if (used == maximum && default_case) {
-    idl_error(pstate, idl_location(default_case),
-      "Invalid default label in switch statement, non-default labels cover "
-      "entire range of switch type");
-    return IDL_RETCODE_SEMANTIC_ERROR;
-  }
-
   if (used != 0) { /* sort labels to detect duplicates and determine default */
     size_t count;
 
-    if (!(labels = idl_malloc((size_t)used * sizeof(*labels))))
+    if (used > SIZE_MAX / sizeof(*labels) || !(labels = idl_malloc(used * sizeof(*labels))))
       return IDL_RETCODE_NO_MEMORY;
 
     count = 0;
@@ -2387,11 +2395,8 @@ idl_finalize_union(
     }
 
     assert(count == used);
-    qsort(labels, (size_t)used, sizeof(*labels), &compare_label);
+    qsort(labels, used, sizeof(*labels), &compare_label);
 
-    /* if a member corresponds to the default case label, its simple modifier
-       shall set the discriminant to the first available default value
-       starting from a 0 index of the discriminant type */
     count = 1;
     for (; count < used; count++) {
       if (compare_label(&labels[count - 1], &labels[count]) != IDL_EQUAL)
@@ -2412,14 +2417,21 @@ idl_finalize_union(
      initialized to that case. in all other cases it is initialized to the
      first discriminant value specified in IDL. */
 
-  if (used == maximum) {
-    node->unused_labels = 0;
+  /* The only unrepresentable unused count is 2^64 when there are no
+     explicit labels. Saturate in that case. */
+  if (used)
+    node->unused_labels = last_index - (used - 1);
+  else
+    node->unused_labels = (last_index == UINT64_MAX) ? UINT64_MAX : last_index + 1;
+  if (node->unused_labels == 0) {
+    if (default_case) {
+      idl_error(pstate, idl_location(default_case),
+        "Invalid default label in switch statement, non-default labels cover entire range of switch type");
+      idl_free(labels);
+      return IDL_RETCODE_SEMANTIC_ERROR;
+    }
     node->default_case = idl_reference_node(cases->labels);
   } else {
-    size_t count;
-    idl_const_expr_t *const_expr = NULL;
-
-    node->unused_labels = maximum - used;
     if (default_case) {
       node->default_case = idl_reference_node(default_case);
     } else {
@@ -2434,38 +2446,25 @@ idl_finalize_union(
        shall set the discriminant to the first available default value
        starting from a 0 index of the discriminant type */
     if (type == IDL_ENUM) {
-      idl_equality_t eq;
-      /* enumerators are referenced, logic is slightly different */
-      const_expr = ((const idl_enum_t *)type_spec)->enumerators;
-      for (count=0; const_expr && count < used; count++) {
-        assert(labels);
-        eq = idl_compare(const_expr, labels[count]->const_expr);
-        if (eq == IDL_LESS)
-          break;
-        if (eq == IDL_EQUAL)
-          const_expr = idl_next(const_expr);
-      }
-      assert(const_expr);
-      default_case->const_expr = idl_reference_node(const_expr);
+      default_case->const_expr = ((const idl_enum_t *)type_spec)->enumerators;
     } else {
-      idl_equality_t eq;
       idl_literal_t *literal = NULL;
       if (idl_create_literal(pstate, location, type, &literal))
         goto err_const_expr;
       memset(&literal->value, 0, sizeof(literal->value));
-      default_case->const_expr = literal;
       literal->node.parent = (idl_node_t *)default_case;
-      const_expr = literal;
-      for (count = 0; count < used; count++) {
-        assert(labels);
-        eq = idl_compare(const_expr, labels[count]->const_expr);
-        if (eq == IDL_LESS)
-          break;
-        if (eq == IDL_EQUAL)
-          increment_literal(const_expr);
-      }
-      assert(count <= used);
+      default_case->const_expr = literal;
     }
+    /* Enumerators may be declared out of numerical order, and signed
+       candidates wrap from the largest positive value to the minimum. */
+    while (used && bsearch(&default_case, labels, used, sizeof(*labels), compare_label)) {
+      if (type == IDL_ENUM)
+        default_case->const_expr = idl_next(default_case->const_expr);
+      else
+        increment_union_label(default_case->const_expr, allowed_bits);
+    }
+    if (type == IDL_ENUM)
+      idl_reference_node(default_case->const_expr);
   }
 
   node->node.symbol.location.last = location->last;
@@ -2856,7 +2855,7 @@ int64_t idl_case_label_intvalue(const void *ptr)
     return val.value.llng;
   } else if (type == IDL_CHAR) {
     idl_literal_t *literal = node->const_expr;
-    return literal->value.chr;
+    return (uint8_t)literal->value.chr;
   } else if (type == IDL_BOOL) {
     idl_literal_t *literal = node->const_expr;
     return literal->value.bln;

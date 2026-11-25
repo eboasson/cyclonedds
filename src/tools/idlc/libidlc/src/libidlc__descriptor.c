@@ -11,7 +11,6 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
@@ -457,10 +456,7 @@ stash_case_label32(
         }
         break;
       case IDL_CHAR:
-        if (isprint ((unsigned char) literal->value.chr))
-          cnt = idl_asprintf(strp, "'%c'", literal->value.chr);
-        else
-          cnt = idl_asprintf(strp, "'\\%03o'", literal->value.chr);
+        cnt = idl_asprintf(strp, "%" PRIu8, (uint8_t) literal->value.chr);
         break;
       case IDL_BOOL:
         cnt = idl_asprintf(strp, "%s", literal->value.bln ? "true" : "false");

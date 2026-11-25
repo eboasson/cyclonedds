@@ -1245,31 +1245,60 @@ failed:
   return ret;
 }
 
+static bool xt_union_labels_cover_domain (const struct xt_type *disc_type, const struct xt_union_label_range *range, size_t nlabels)
+{
+  assert (nlabels > 0);
+  switch (disc_type->_d)
+  {
+    case DDS_XTypes_TK_ENUM:
+      return nlabels == disc_type->_u.enum_type.literals.length;
+    case DDS_XTypes_TK_BITMASK: {
+      const uint32_t bits = disc_type->_u.bitmask.bitflags.length;
+      return bits < 64 && nlabels == (UINT64_C (1) << bits);
+    }
+    default:
+      /* Compare cardinality minus one, which fits even for a 64-bit
+         discriminator. Unsigned subtraction also covers signed ranges. */
+      return nlabels - 1 == range->max - (uint64_t) range->min;
+  }
+}
+
 static dds_return_t xt_valid_union_case_labels (struct ddsi_domaingv *gv, const struct xt_type *t, const struct xt_type *disc_type)
 {
   assert (ddsi_xt_has_definition (t) && t->_d == DDS_XTypes_TK_UNION);
   dds_return_t ret = DDS_RETCODE_OK;
 
-  uint32_t cnt = 0;
+  const struct xt_union_member *default_member = NULL;
+  size_t cnt = 0;
   for (uint32_t n = 0; n < t->_u.union_type.members.length; n++)
   {
     const struct xt_union_member *member = &t->_u.union_type.members.seq[n];
-    if (member->label_seq._length == 0 && !(member->flags & DDS_XTypes_IS_DEFAULT))
+    if (member->flags & DDS_XTypes_IS_DEFAULT)
+    {
+      if (default_member)
+      {
+        GVTRACE ("multiple default flags in union members (index %"PRIu32")\n", n);
+        return DDS_RETCODE_BAD_PARAMETER;
+      }
+      default_member = member;
+    }
+    else if (member->label_seq._length == 0)
     {
       GVTRACE ("union member without case labels or default\n");
       return DDS_RETCODE_BAD_PARAMETER;
     }
-    cnt += t->_u.union_type.members.seq[n].label_seq._length;
+    if (member->label_seq._length > SIZE_MAX / sizeof (int32_t) - cnt)
+      return DDS_RETCODE_OUT_OF_RESOURCES;
+    cnt += member->label_seq._length;
   }
   if (cnt == 0)
-    goto empty;
+    return DDS_RETCODE_OK;
 
   int32_t *labels = ddsrt_malloc_s (cnt * sizeof (*labels));
   if (labels == NULL)
   {
     GVTRACE ("out-of-memory while checking union case labels\n");
-    ret = DDS_RETCODE_OUT_OF_RESOURCES;
-    goto failed;
+    return DDS_RETCODE_OUT_OF_RESOURCES;
   }
 
   struct xt_union_label_range range = { 0, 0 };
@@ -1279,7 +1308,7 @@ static dds_return_t xt_valid_union_case_labels (struct ddsi_domaingv *gv, const 
   if (disc_type && disc_type->_d == DDS_XTypes_TK_BITMASK)
     bitmask_allowed_mask = xt_union_label_bitmask_allowed_mask (disc_type);
 
-  uint32_t cnt1 = 0;
+  size_t cnt1 = 0;
   for (uint32_t n = 0; n < t->_u.union_type.members.length; n++)
   {
     const DDS_XTypes_UnionCaseLabelSeq *labels1 = &t->_u.union_type.members.seq[n].label_seq;
@@ -1308,21 +1337,26 @@ static dds_return_t xt_valid_union_case_labels (struct ddsi_domaingv *gv, const 
     }
   }
   qsort (labels, cnt, sizeof (*labels), xt_union_label_cmp);
-  for (uint32_t n = 1; n < cnt; n++)
+  for (size_t n = 1; n < cnt; n++)
   {
     if (labels[n] == labels[n - 1])
     {
       GVTRACE ("duplicate union case label %"PRId32"\n", labels[n]);
       ret = DDS_RETCODE_BAD_PARAMETER;
-      goto failed_duplicate;
+      goto failed_labels;
     }
   }
+  /* A default member with its own explicit label is reachable by that label
+     (XTypes 1.3, 7.5.2.7.2). Otherwise it needs a value left by the other
+     members. Recheck when the discriminator definition becomes available. */
+  if (default_member && !default_member->label_seq._length && disc_type && xt_union_labels_cover_domain (disc_type, &range, cnt))
+  {
+    GVTRACE ("union default member has no remaining discriminator value\n");
+    ret = DDS_RETCODE_BAD_PARAMETER;
+  }
 
-failed_duplicate:
 failed_labels:
   ddsrt_free (labels);
-failed:
-empty:
   return ret;
 }
 
@@ -1857,7 +1891,6 @@ static dds_return_t xt_validate_impl (struct ddsi_domaingv *gv, struct xt_valida
           || (ret = xt_valid_type_flags (gv, t->_u.union_type.flags, t->_d))
           || (ret = xt_valid_member_flags (gv, t->_u.union_type.disc_flags, MEMBER_FLAG_UNION_DISC, in_key)))
         return ret;
-      bool has_default = false;
       for (uint32_t n = 0; n < t->_u.union_type.members.length; n++)
       {
         DDS_XTypes_UnionMemberFlag flags = t->_u.union_type.members.seq[n].flags;
@@ -1866,15 +1899,6 @@ static dds_return_t xt_validate_impl (struct ddsi_domaingv *gv, struct xt_valida
         if ((ret = xt_validate_impl (gv, context, &t->_u.union_type.members.seq[n].type->xt, in_key,
             XT_VALIDATE_EDGE_AGGREGATE, xt_validate_is_indirect_edge (flags), depth + 1)))
           return ret;
-        if (flags & DDS_XTypes_IS_DEFAULT)
-        {
-          if (has_default)
-          {
-            GVTRACE ("multiple default flags in union members (index %"PRIu32")\n", n);
-            return DDS_RETCODE_BAD_PARAMETER;
-          }
-          has_default = true;
-        }
       }
       break;
     }

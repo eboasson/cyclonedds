@@ -396,6 +396,14 @@ static void assert_union_case_labels (const char *idl, uint32_t nlabels, const c
   idl_delete_pstate (pstate);
 }
 
+CU_Test(idlc_descriptor, union_char8_case_labels)
+{
+  static const char * const labels[] = { "128", "255" };
+  assert_union_case_labels (
+      "@topic union test switch(char) { case '\\200': long a; case '\\377': long b; };",
+      2, labels);
+}
+
 CU_Test(idlc_descriptor, union_default_case_last)
 {
   static const char * const default_first[] = { "1", "2", NULL };

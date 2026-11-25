@@ -253,7 +253,7 @@ static idl_retcode_t parse_string(const char *str, idl_pstate_t **pstatep)
   idl_retcode_t ret;
   idl_pstate_t *pstate = NULL;
 
-  if ((ret = idl_create_pstate(IDL_FLAG_EXTENDED_DATA_TYPES, NULL, &pstate)))
+  if ((ret = idl_create_pstate(IDL_FLAG_EXTENDED_DATA_TYPES | IDL_FLAG_ANNOTATIONS, NULL, &pstate)))
     return ret;
   if ((ret = idl_parse_string(pstate, str)))
     idl_delete_pstate(pstate);
@@ -288,6 +288,8 @@ CU_Test(idl_union, default_discriminator_bool)
     { "case TRUE:  char x; case FALSE: char y;",
       IDL_RETCODE_OK, FIRST_DISCRIMINANT, true },
     { "case FALSE: char x; case TRUE:  char y; default: char z;",
+      IDL_RETCODE_SEMANTIC_ERROR, DEFAULT_CASE, false },
+    { "case FALSE: char x; case TRUE: default: char y;",
       IDL_RETCODE_SEMANTIC_ERROR, DEFAULT_CASE, false }
   };
 
@@ -401,8 +403,6 @@ CU_Test(idl_union, default_discriminator_signed_int)
     idl_delete_pstate(pstate);
   }
 
-  // x. test if first discriminant is used if entire range is covered
-
 #undef EXPLICIT
 #undef IMPLICIT
 }
@@ -468,10 +468,68 @@ CU_Test(idl_union, default_discriminator_unsigned_int)
     idl_delete_pstate(pstate);
   }
 
-  // x. test if first discriminant is used if entire range is covered
-
 #undef EXPLICIT
 #undef IMPLICIT
+}
+
+CU_Test(idl_union, default_discriminator_8bit_domain)
+{
+  static const struct {
+    const char *type;
+    int min, max, omit;
+    bool has_default;
+    idl_retcode_t result;
+  } tests[] = {
+    { "uint8", 0, 255, 255, true, IDL_RETCODE_OK },
+    { "uint8", 0, 255, -1, true, IDL_RETCODE_SEMANTIC_ERROR },
+    { "uint8", 0, 255, -1, false, IDL_RETCODE_OK },
+    { "int8", -128, 127, -5, true, IDL_RETCODE_OK }
+  };
+  for (size_t i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
+    char idl[4096];
+    size_t len = (size_t)idl_snprintf(idl, sizeof(idl), "union u switch(%s) { ", tests[i].type);
+    for (int n = tests[i].min; n <= tests[i].max; n++) {
+      if (n != tests[i].omit)
+        len += (size_t)idl_snprintf(idl + len, sizeof(idl) - len, "case %d: ", n);
+    }
+    idl_snprintf(idl + len, sizeof(idl) - len, "char x; %s };", tests[i].has_default ? "default: char y;" : "");
+    idl_pstate_t *pstate = NULL;
+    const idl_retcode_t ret = parse_string(idl, &pstate);
+    CU_ASSERT_EQ (ret, tests[i].result);
+    if (ret == IDL_RETCODE_OK) {
+      const idl_union_t *u = (const idl_union_t *)pstate->root;
+      if (tests[i].has_default) {
+        const idl_literal_t *label = u->default_case->const_expr;
+        CU_ASSERT_EQ (u->unused_labels, 1);
+        CU_ASSERT_EQ ((idl_type(label) == IDL_INT8) ? label->value.int8 : label->value.uint8, tests[i].omit);
+      } else {
+        CU_ASSERT_EQ (u->unused_labels, 0);
+        CU_ASSERT_EQ (u->default_case, u->cases->labels);
+      }
+      idl_delete_pstate(pstate);
+    }
+  }
+}
+
+CU_Test(idl_union, default_discriminator_large_domains)
+{
+  static const struct {
+    const char *idl;
+    uint64_t unused;
+  } tests[] = {
+    { "union u switch(uint64) { default: char x; };", UINT64_MAX },
+    { "union u switch(uint64) { case 0: char x; default: char y; };", UINT64_MAX },
+    { "union u switch(uint64) { case 0: case 1: char x; };", UINT64_MAX - 1 },
+    { "union u switch(wchar) { default: char x; };", UINT64_C(65536) }
+  };
+  for (size_t i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
+    idl_pstate_t *pstate = NULL;
+    const idl_retcode_t ret = parse_string(tests[i].idl, &pstate);
+    CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
+    const idl_union_t *u = (const idl_union_t *)pstate->root;
+    CU_ASSERT_EQ (u->unused_labels, tests[i].unused);
+    idl_delete_pstate(pstate);
+  }
 }
 
 CU_Test(idl_union, default_discriminator_enum)
@@ -611,6 +669,37 @@ CU_Test(idl_union, default_discriminator_bitmask)
   CU_ASSERT_EQ_FATAL (idl_type(literal), IDL_BITMASK);
   CU_ASSERT_EQ (literal->value.uint64, 2u);
   idl_delete_pstate(pstate);
+}
+
+CU_Test(idl_union, default_discriminator_sparse_domains)
+{
+  static const struct {
+    const char *type;
+    const char *cases;
+    idl_retcode_t result;
+    int expected;
+  } tests[] = {
+    { "bitmask d { @position(2) A, @position(5) B };", "case 0: case A: char x; default: char y;", IDL_RETCODE_OK, 32 },
+    { "bitmask d { @position(2) A, @position(5) B };", "case 0: case A: case B: case A|B: char x; default: char y;", IDL_RETCODE_SEMANTIC_ERROR, 0 },
+    { "bitmask d { @position(2) A, @position(5) B };", "case 2: char x; default: char y;", IDL_RETCODE_SEMANTIC_ERROR, 0 },
+    { "enum d { @value(5) A, @value(1) B, @value(3) C };", "case A: case B: char x; default: char y;", IDL_RETCODE_OK, 3 }
+  };
+  for (size_t i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
+    char idl[256];
+    idl_snprintf(idl, sizeof(idl), "%s union u switch(d) { %s };", tests[i].type, tests[i].cases);
+    idl_pstate_t *pstate = NULL;
+    const idl_retcode_t ret = parse_string(idl, &pstate);
+    CU_ASSERT_EQ (ret, tests[i].result);
+    if (ret == IDL_RETCODE_OK) {
+      const idl_union_t *u = idl_next(pstate->root);
+      const void *label = u->default_case->const_expr;
+      if (idl_is_enumerator(label))
+        CU_ASSERT_EQ (((const idl_enumerator_t *)label)->value.value, tests[i].expected);
+      else
+        CU_ASSERT_EQ (((const idl_literal_t *)label)->value.uint64, (uint64_t)tests[i].expected);
+      idl_delete_pstate(pstate);
+    }
+  }
 }
 
 CU_Test(idl_union, two_unions_one_enum)
