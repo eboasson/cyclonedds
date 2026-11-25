@@ -2936,6 +2936,12 @@ static const char *describe_enum(const void *ptr)
   return "enum";
 }
 
+static idl_extensibility_t default_enumerated_extensibility(const idl_pstate_t *pstate)
+{
+  /* Enums and bitmasks can only be final or appendable. */
+  return (pstate->config.default_extensibility == IDL_APPENDABLE) ? IDL_APPENDABLE : IDL_FINAL;
+}
+
 idl_retcode_t
 idl_create_enum(
   idl_pstate_t *pstate,
@@ -2957,7 +2963,7 @@ idl_create_enum(
     goto err_alloc;
   node->name = name;
   node->bit_bound.value = 32; /* default value, can be overwritten with @bit_bound */
-  node->extensibility.value = pstate->config.default_extensibility == IDL_APPENDABLE ? (idl_extensibility_t)pstate->config.default_extensibility : IDL_FINAL;
+  node->extensibility.value = default_enumerated_extensibility(pstate);
 
   assert(enumerators);
   node->enumerators = enumerators;
@@ -3162,6 +3168,7 @@ idl_create_bitmask(
     goto err_alloc;
   node->name = name;
   node->bit_bound.value = 32; /* default value, can be overwritten with @bit_bound */
+  node->extensibility.value = default_enumerated_extensibility(pstate);
 
   assert(bit_values);
   node->bit_values = bit_values;

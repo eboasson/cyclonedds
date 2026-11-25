@@ -99,6 +99,48 @@ CU_Test(idlc_type_meta, union_max_label_value)
   }
 }
 
+CU_Test(idlc_type_meta, bitmask_default_extensibility)
+{
+#define BITMASK(annot) annot " bitmask B { bit0 }; @final struct S { B bits; };"
+  static const struct {
+    const char *idl;
+    int default_extensibility;
+    DDS_XTypes_BitmaskTypeFlag expected;
+  } tests[] = {
+    { BITMASK(""), IDL_DEFAULT_EXTENSIBILITY_UNDEFINED, DDS_XTypes_IS_FINAL },
+    { BITMASK(""), IDL_FINAL, DDS_XTypes_IS_FINAL },
+    { BITMASK(""), IDL_APPENDABLE, DDS_XTypes_IS_APPENDABLE },
+    { BITMASK(""), IDL_MUTABLE, DDS_XTypes_IS_FINAL },
+    { BITMASK("@final"), IDL_APPENDABLE, DDS_XTypes_IS_FINAL },
+    { BITMASK("@appendable"), IDL_FINAL, DDS_XTypes_IS_APPENDABLE }
+  };
+#undef BITMASK
+
+  for (size_t i = 0; i < sizeof (tests) / sizeof (tests[0]); i++) {
+    idl_pstate_t *pstate;
+    struct descriptor descriptor = { 0 };
+    struct descriptor_type_meta dtm;
+    idl_retcode_t ret = idl_create_pstate (IDL_FLAG_ANNOTATIONS | IDL_FLAG_EXTENDED_DATA_TYPES, NULL, &pstate);
+    CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
+    pstate->config.default_extensibility = tests[i].default_extensibility;
+    ret = generate_test_descriptor (pstate, tests[i].idl, &descriptor);
+    CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
+    ret = generate_descriptor_type_meta (pstate, descriptor.topic, &dtm);
+    CU_ASSERT_EQ_FATAL (ret, IDL_RETCODE_OK);
+
+    CU_ASSERT_EQ_FATAL (dtm.admin->n_deps, 1);
+    const struct type_meta *bitmask = dtm.admin->deps[0];
+    CU_ASSERT_EQ_FATAL (bitmask->to_minimal->_u.minimal._d, DDS_XTypes_TK_BITMASK);
+    CU_ASSERT_EQ_FATAL (bitmask->to_complete->_u.complete._d, DDS_XTypes_TK_BITMASK);
+    CU_ASSERT_EQ (bitmask->to_minimal->_u.minimal._u.bitmask_type.bitmask_flags, tests[i].expected);
+    CU_ASSERT_EQ (bitmask->to_complete->_u.complete._u.bitmask_type.bitmask_flags, tests[i].expected);
+
+    descriptor_type_meta_fini (&dtm);
+    descriptor_fini (&descriptor);
+    idl_delete_pstate (pstate);
+  }
+}
+
 static void check_scc_type_id (
   const DDS_XTypes_TypeIdentifier *ti,
   DDS_XTypes_EquivalenceKind kind,
