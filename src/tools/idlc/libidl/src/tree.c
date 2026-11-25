@@ -4079,7 +4079,7 @@ idl_keytype_t idl_is_topic_key(const void *node, bool keylist, const idl_path_t 
 
   /* constructed types, sequences, aliases and declarators carry the key */
   static const idl_mask_t mask =
-    IDL_CONSTR_TYPE | IDL_MEMBER | IDL_SWITCH_TYPE_SPEC |
+    IDL_CONSTR_TYPE | IDL_MEMBER | IDL_SWITCH_TYPE_SPEC | IDL_CASE |
     IDL_SEQUENCE | IDL_DECLARATOR;
 
   /* start from level 1, the members of the topic node */
@@ -4112,18 +4112,22 @@ idl_keytype_t idl_is_topic_key(const void *node, bool keylist, const idl_path_t 
       }
 
     } else if (idl_is_case(path->nodes[i])) {
-      /* A union used as a key must have a keyed discriminator. Its payload
-         is always ordinary data, even inside an implicitly keyed field. */
-      key = IDL_KEYTYPE_NONE;
+      /* A nested union with no key of its own contributes its selected case. */
+      if (!idl_is_union(path->nodes[i - 1]))
+        return IDL_KEYTYPE_NONE;
+      key = (i > 1 && no_specific_key(path->nodes[i - 1])) ? IDL_KEYTYPE_IMPLICIT : IDL_KEYTYPE_NONE;
 
     /* switch type specifiers can be explicitly annotated */
     } else if (idl_is_switch_type_spec(path->nodes[i])) {
       const idl_switch_type_spec_t *switch_type_spec = (const idl_switch_type_spec_t *)path->nodes[i];
       /* path cannot be valid if not preceeded by union */
-      if (i != 0 && !idl_is_union(path->nodes[i - 1]))
+      if (!idl_is_union(path->nodes[i - 1]) || i != path->length - 1)
         return IDL_KEYTYPE_NONE;
 
-      key = (switch_type_spec->key.value && i == path->length - 1) ? IDL_KEYTYPE_EXPLICIT : IDL_KEYTYPE_NONE;
+      if (switch_type_spec->key.value)
+        key = IDL_KEYTYPE_EXPLICIT;
+      else
+        key = (i > 1) ? IDL_KEYTYPE_IMPLICIT : IDL_KEYTYPE_NONE;
     } else if (!(idl_mask(node) & mask)) {
       key = IDL_KEYTYPE_NONE;
     }

@@ -365,7 +365,7 @@ enum dds_stream_opcode {
      [JEQ4, e | STR, 0] [disc] [offset] 0
      [JEQ4, e | ENU, f] [disc] [offset] [max]
      [JEQ4, EXT, 0] *** not supported, use STU/UNI for external defined types
-     [JEQ4, e | s, i] [disc] [offset] [elem-size iff "external" flag e is set, else 0]
+     [JEQ4, e | s, i] [disc] [offset] [elem-size for external data or an aggregate arm of a whole-union key, else 0]
    where
      e  = external: stored as external data (pointer) (DDS_OP_FLAG_EXT)
      s  = subtype other than {nBY,STR} for JEQ and {nBY,STR,ENU,EXT} for JEQ4 (note
@@ -429,9 +429,8 @@ enum dds_stream_opcode {
 
   /**
    * [MID, 0, op-index] [member id]
-       For members of aggregated final and appendable types. Currently only for optional members
-       the member ID is included, to facilitate adding the parameter header in XCDR1 data
-       representation.
+       Supplies member IDs for XCDR1 optional member headers, mutable union cases
+       and canonical ordering of struct key members in whole-union keys.
        where
          [op-index] = (unsigned 16 bits) index of the member instruction, from start of descriptor
          [member id] = id for this member
@@ -627,9 +626,11 @@ enum dds_stream_typecode_subtype {
  * @anchor DDS_OP_FLAG_KEY
  * @ingroup serialization
  * @brief mark field as key
- * applicable to {1,2,4,8}BY, STR, BST, ARR-of-{1,2,4,8}BY.
  * Note that when defining keys in nested types, the key flag should be set
  * on both the field(s) in the subtype and on the enclosing STU/EXT field.
+ * On ADR | UNI this flag designates the discriminator as the union's key.
+ * When an enclosing key selects a union with this flag clear, both the
+ * discriminator and the selected arm contribute to the key.
  */
 #define DDS_OP_FLAG_KEY  (1u << 0)
 

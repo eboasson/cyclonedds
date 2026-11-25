@@ -9,7 +9,7 @@
 // SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull ((1, 2, 3, 4, 5))
-static bool dds_stream_write_keyBO_impl (RESTRICT_OSTREAM_T *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table, const uint32_t *ops, const void *src, uint16_t key_offset_count, const uint32_t * key_offset_insn)
+static bool dds_stream_write_keyBO_impl (RESTRICT_OSTREAM_T *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table, const uint32_t *ops, const void *src, enum cdr_data_kind cdr_kind, uint16_t key_offset_count, const uint32_t * key_offset_insn)
 {
   uint32_t insn = *ops;
   assert (DDS_OP (insn) == DDS_OP_ADR);
@@ -59,24 +59,23 @@ static bool dds_stream_write_keyBO_impl (RESTRICT_OSTREAM_T *os, const struct dd
         return false;
       break;
     case DDS_SOP_VAL_ARR:
-      if (!dds_stream_write_arrBO (os, allocator, mid_table, addr, ops, insn, CDR_KIND_KEY))
+      if (!dds_stream_write_arrBO (os, allocator, mid_table, addr, ops, insn, cdr_kind))
         return false;
       break;
     case DDS_SOP_VAL_EXT: {
       assert (key_offset_count > 0);
       const uint32_t *jsr_ops = ops + DDS_OP_ADR_JSR (ops[2]) + *key_offset_insn;
-      if (!dds_stream_write_keyBO_impl (os, allocator, mid_table, jsr_ops, addr, --key_offset_count, ++key_offset_insn))
+      if (!dds_stream_write_keyBO_impl (os, allocator, mid_table, jsr_ops, addr, cdr_kind, --key_offset_count, ++key_offset_insn))
         return false;
       break;
     }
     case DDS_SOP_VAL_SEQ: case DDS_SOP_VAL_BSQ: {
-      if (!dds_stream_write_seqBO (os, allocator, mid_table, addr, ops, insn, CDR_KIND_KEY))
+      if (!dds_stream_write_seqBO (os, allocator, mid_table, addr, ops, insn, cdr_kind))
         return false;
       break;
     }
     case DDS_SOP_VAL_UNI: {
-      uint64_t disc;
-      if (!dds_stream_write_union_discriminantBO (os, allocator, mid_table, ops, insn, addr, &disc))
+      if (!dds_stream_write_uniBO (os, allocator, mid_table, addr, src, ops, insn, false, cdr_kind))
         return false;
       break;
     }
@@ -91,6 +90,8 @@ static bool dds_stream_write_keyBO_impl (RESTRICT_OSTREAM_T *os, const struct dd
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
 static bool dds_stream_write_keyBO_restrict (RESTRICT_OSTREAM_T *os, enum dds_cdr_key_serialization_kind ser_kind, const struct dds_cdrstream_allocator *allocator, const char *sample, const struct dds_cdrstream_desc *desc)
 {
+  if (desc->keys.nkeys == 0)
+    return true;
   const bool use_regular_sample_key_writer =
     (desc->flagset & DDS_TOPIC_KEY_USE_REGULAR) ||
     desc->member_ids.enum_value_sets != NULL;
@@ -98,7 +99,7 @@ static bool dds_stream_write_keyBO_restrict (RESTRICT_OSTREAM_T *os, enum dds_cd
   {
     /* For key fields that need key-mode traversal, or with enum value tables,
        write the key CDR using the regular write functions. */
-    if (dds_stream_write_implBO (os, allocator, &desc->member_ids, sample, desc->ops.ops, false, CDR_KIND_KEY) == NULL)
+    if (dds_stream_write_implBO (os, allocator, &desc->member_ids, sample, desc->ops.ops, CDR_FIELDS, CDR_KIND_KEY) == NULL)
       return false;
   }
   else
@@ -112,6 +113,7 @@ static bool dds_stream_write_keyBO_restrict (RESTRICT_OSTREAM_T *os, enum dds_cd
        the members are not ordered by their member ID, but included in definition order. As a result,
        the CDR used for calculating the key-hash may be incorrect. */
     bool use_memberid_order = (ser_kind == DDS_CDR_KEY_SERIALIZATION_KEYHASH);
+    const enum cdr_data_kind cdr_kind = use_memberid_order && desc->member_ids.keyhash_needs_projection ? CDR_KIND_KEYHASH : CDR_KIND_KEY;
     struct dds_cdrstream_desc_key *keylist = use_memberid_order ? desc->keys.keys : desc->keys.keys_definition_order;
     for (uint32_t i = 0; i < desc->keys.nkeys; i++)
     {
@@ -121,12 +123,12 @@ static bool dds_stream_write_keyBO_restrict (RESTRICT_OSTREAM_T *os, enum dds_cd
         case DDS_SOP_KOF: {
           uint16_t n_offs = DDS_OP_LENGTH (*insnp);
           assert (n_offs > 0);
-          if (!dds_stream_write_keyBO_impl (os, allocator, &desc->member_ids, desc->ops.ops + insnp[1], sample, --n_offs, insnp + 2))
+          if (!dds_stream_write_keyBO_impl (os, allocator, &desc->member_ids, desc->ops.ops + insnp[1], sample, cdr_kind, --n_offs, insnp + 2))
             return false;
           break;
         }
         case DDS_SOP_ADR: {
-          if (!dds_stream_write_keyBO_impl (os, allocator, &desc->member_ids, insnp, sample, 0, NULL))
+          if (!dds_stream_write_keyBO_impl (os, allocator, &desc->member_ids, insnp, sample, cdr_kind, 0, NULL))
             return false;
           break;
         }
@@ -156,7 +158,7 @@ static const uint32_t *dds_stream_extract_keyBO_from_data_adr (uint32_t insn, dd
   assert (insn == *ops);
   assert (DDS_OP (insn) == DDS_OP_ADR);
   if (!(insn & DDS_OP_FLAG_KEY))
-    return dds_stream_skip_member (is, ops, CDR_KIND_DATA);
+    return dds_stream_skip_member (is, ops, CDR_KIND_DATA, CDR_FIELDS);
 
   // Key members cannot be optional.
   assert (!op_type_optional (insn));
@@ -193,7 +195,7 @@ static void dds_stream_extract_keyBO_from_data1 (dds_istream_t *is, RESTRICT_OST
         break;
       case DDS_SOP_DLC: case DDS_SOP_PLC:
         // Keys inside appendable and mutable types use regular key extraction.
-        dds_stream_skip_data (is, ops, CDR_KIND_DATA);
+        dds_stream_skip_data (is, ops, CDR_KIND_DATA, CDR_FIELDS);
         return;
       case DDS_SOP_RTS: case DDS_SOP_JEQ: case DDS_SOP_JEQ4: case DDS_SOP_KOF: case DDS_SOP_PLM: case DDS_SOP_MID:
         abort ();
@@ -219,7 +221,7 @@ static bool dds_stream_extract_keyBO_from_data_restrict (dds_istream_t *is, REST
        sample. */
     void *sample = allocator->malloc (desc->size);
     memset (sample, 0, desc->size);
-    (void) dds_stream_read_impl (is, sample, allocator, &desc->member_ids, desc->ops.ops, false, CDR_KIND_DATA, SAMPLE_DATA_INITIALIZED);
+    (void) dds_stream_read_impl (is, sample, allocator, &desc->member_ids, desc->ops.ops, CDR_FIELDS, CDR_KIND_DATA, SAMPLE_DATA_INITIALIZED);
     if (!dds_stream_write_keyBO_restrict (os, DDS_CDR_KEY_SERIALIZATION_SAMPLE, allocator, sample, desc))
     {
       // can't happen given normalized input (and it has to be normalized, else dds_stream_read may not be used)
@@ -257,7 +259,7 @@ static void dds_stream_extract_keyBO_from_key_impl (dds_istream_t *is, RESTRICT_
   /* Read a key sample and write the key-only CDR for this sample. */
   void *sample = allocator->malloc (desc->size);
   memset (sample, 0, desc->size);
-  (void) dds_stream_read_impl (is, sample, allocator, &desc->member_ids, desc->ops.ops, false, CDR_KIND_KEY, SAMPLE_DATA_INITIALIZED);
+  (void) dds_stream_read_impl (is, sample, allocator, &desc->member_ids, desc->ops.ops, CDR_FIELDS, CDR_KIND_KEY, SAMPLE_DATA_INITIALIZED);
   if (!dds_stream_write_keyBO_restrict (os, ser_kind, allocator, sample, desc))
   {
     // input must have been proven correct (using normalize), so write can't run into invalid data
@@ -299,6 +301,8 @@ static void dds_stream_extract_keyBO_from_key_optimized (dds_istream_t *is, REST
 void dds_stream_extract_keyBO_from_key (dds_istream_t *is, DDS_OSTREAM_T *os, enum dds_cdr_key_serialization_kind ser_kind, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc *desc)
 {
   assert (ser_kind == DDS_CDR_KEY_SERIALIZATION_SAMPLE || ser_kind == DDS_CDR_KEY_SERIALIZATION_KEYHASH);
+  if (desc->keys.nkeys == 0)
+    return;
 
   /* This assumes that the key fields in the input CDR are in definition order.
      In case any key field needs key-mode traversal, or in case a serialized key

@@ -1162,7 +1162,7 @@ CU_Theory ((bool disc_is_key, bool dependencies_first), ddsc_typewrap, deferred_
   };
   CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&objects[MAP], &ids[MAP]), DDS_RETCODE_OK);
 
-  /* The same map is ordinary data in the union arm and illegal in a struct key. */
+  /* The map is an ordinary union arm until its unkeyed union is used in a key. */
   struct DDS_XTypes_CompleteUnionMember arm = {
     .common = { .member_id = 1, .member_flags = DDS_XTypes_TRY_CONSTRUCT1 | DDS_XTypes_IS_DEFAULT,
         .type_id = ids[MAP].x }, .detail.name = "payload"
@@ -1197,7 +1197,7 @@ CU_Theory ((bool disc_is_key, bool dependencies_first), ddsc_typewrap, deferred_
   {
     const size_t next = dependencies_first ? step : NTYPES - 1 - step;
     installed[next] = true;
-    const bool illegal_union_key = !disc_is_key && installed[UNION] && installed[KEY_UNION];
+    const bool illegal_union_key = !disc_is_key && installed[UNION] && installed[MAP] && installed[KEY_UNION];
     const bool invalid[NTYPES] = { false, false, installed[MAP], illegal_union_key, illegal_union_key };
     const bool ready[NTYPES] = { true, installed[MAP], installed[MAP], installed[MAP] && installed[UNION],
       installed[MAP] && installed[UNION] && installed[KEY_UNION] };

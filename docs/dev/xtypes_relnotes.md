@@ -23,10 +23,7 @@ TypeIdentifiers in IDL and XML with the default settings.
   a map or bitset to a C sample. The IDLC C backend also rejects IDL
   `long double`. IDLC does not accept `const wchar` or `const wstring`
   declarations.
-- Union inheritance is unsupported. If a struct key includes a union, Cyclone
-  requires its discriminator to be explicitly marked `@key`. This applies
-  through typedefs, collections, and nested structs. When a struct used as a
-  key has no key members of its own, the check includes all its members.
+- Union inheritance is unsupported.
 - IDLC ignores `@external` on collection elements such as
   `sequence<@external T>`. Its C backend ignores explicit member `@default`
   values.

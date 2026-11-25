@@ -181,8 +181,8 @@ static void assert_key_names (const dds_topic_descriptor_t *desc, uint32_t nkeys
 CU_Test(ddsc_typebuilder, union_key_rule_matrix)
 {
   static const char * const t63_keys[] = { "_d" };
-  static const char * const t64_keys[] = { "u._d" };
-  static const char * const t65_keys[] = { "t1.s1._d" };
+  static const char * const t64_keys[] = { "u" };
+  static const char * const t65_keys[] = { "t1.s1" };
   static const char * const t67_keys[] = { "t1.s1._d" };
   static const char * const t68_keys[] = { "t1.s1._d", "t1.s2" };
   static const char * const t69_keys[] = { "t1.s2" };
@@ -942,11 +942,11 @@ CU_Test(ddsc_typebuilder, nested_mutable_union_descriptor, .init = typebuilder_i
   dds_dynamic_type_unref (&dstruct);
 }
 
-CU_TheoryDataPoints (ddsc_typebuilder, union_member_key_uses_discriminator) = {
+CU_TheoryDataPoints (ddsc_typebuilder, union_member_key) = {
   CU_DataPoints (bool, false, true)
 };
 
-CU_Theory ((bool disc_is_key), ddsc_typebuilder, union_member_key_uses_discriminator,
+CU_Theory ((bool disc_is_key), ddsc_typebuilder, union_member_key,
     .init = typebuilder_init, .fini = typebuilder_fini)
 {
   dds_dynamic_type_t dunion = dds_dynamic_type_create (g_participant, (dds_dynamic_type_descriptor_t) {
@@ -975,12 +975,6 @@ CU_Theory ((bool disc_is_key), ddsc_typebuilder, union_member_key_uses_discrimin
 
   dds_typeinfo_t *type_info;
   ret = dds_dynamic_type_register (&dstruct, &type_info);
-  if (!disc_is_key)
-  {
-    CU_ASSERT_EQ (ret, DDS_RETCODE_BAD_PARAMETER);
-    dds_dynamic_type_unref (&dstruct);
-    return;
-  }
   CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
 
   dds_topic_descriptor_t *desc;
@@ -988,7 +982,7 @@ CU_Theory ((bool disc_is_key), ddsc_typebuilder, union_member_key_uses_discrimin
   CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
 
   CU_ASSERT_EQ_FATAL (desc->m_nkeys, 1u);
-  CU_ASSERT_STREQ_FATAL (desc->m_keys[0].m_name, "u._d");
+  CU_ASSERT_STREQ_FATAL (desc->m_keys[0].m_name, disc_is_key ? "u._d" : "u");
   const uint32_t kof_offs = desc->m_keys[0].m_offset;
   CU_ASSERT_EQ_FATAL (DDS_OP (desc->m_ops[kof_offs]), DDS_OP_KOF);
   CU_ASSERT_EQ_FATAL (DDS_OP_LENGTH (desc->m_ops[kof_offs]), 2u);
@@ -1004,7 +998,9 @@ CU_Theory ((bool disc_is_key), ddsc_typebuilder, union_member_key_uses_discrimin
   const uint32_t disc_offs = member_offs + member_jsr_offs + desc->m_ops[kof_offs + 2];
   CU_ASSERT_EQ_FATAL (DDS_OP (desc->m_ops[disc_offs]), DDS_OP_ADR);
   CU_ASSERT_EQ_FATAL (DDS_OP_TYPE (desc->m_ops[disc_offs]), DDS_OP_VAL_UNI);
-  CU_ASSERT_FATAL (desc->m_ops[disc_offs] & DDS_OP_FLAG_KEY);
+  CU_ASSERT_EQ (!!(desc->m_ops[disc_offs] & DDS_OP_FLAG_KEY), disc_is_key);
+  /* A scalar arm needs no member-ID table after the two-part key path. */
+  CU_ASSERT_EQ (desc->m_nops, kof_offs + 3);
 
   dds_delete_topic_descriptor (desc);
   dds_free_typeinfo (type_info);

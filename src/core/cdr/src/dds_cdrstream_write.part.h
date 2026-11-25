@@ -8,7 +8,7 @@
 //
 // SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 
-static const uint32_t *dds_stream_write_implBO (RESTRICT_OSTREAM_T *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table, const char *data, const uint32_t *ops, bool is_mutable_member, enum cdr_data_kind cdr_kind);
+static const uint32_t *dds_stream_write_implBO (RESTRICT_OSTREAM_T *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table, const char *data, const uint32_t *ops, enum cdr_member_scope scope, enum cdr_data_kind cdr_kind);
 static void dds_stream_write_xcdr1_paramheaderBO (RESTRICT_OSTREAM_T *os, const struct dds_cdrstream_allocator *allocator, bool flag_mu, uint32_t member_id, uint32_t *param_length_offset, bool *alignment_offset_by_4);
 static void dds_stream_write_xcdr1_param_list_endBO (RESTRICT_OSTREAM_T *os, const struct dds_cdrstream_allocator *allocator);
 static void dds_stream_write_xcdr1_paramheader_closeBO (RESTRICT_OSTREAM_T *os, uint32_t param_length_offs, uint32_t len, bool alignment_offset_by_4);
@@ -382,7 +382,7 @@ static const uint32_t *dds_stream_write_seqBO (RESTRICT_OSTREAM_T *os, const str
         uint32_t const * const jsr_ops = ops + DDS_OP_ADR_JSR (ops[3 + bound_op]);
         const char *ptr = (const char *) seq->_buffer;
         for (uint32_t i = 0; i < num; i++)
-          if (!dds_stream_write_implBO (os, allocator, mid_table, ptr + i * elem_size, jsr_ops, false, cdr_kind))
+          if (!dds_stream_write_implBO (os, allocator, mid_table, ptr + i * elem_size, jsr_ops, key_scope_for_type (subtype), cdr_kind))
             return NULL;
         ops += (jmp ? jmp : (4 + bound_op)); /* FIXME: why would jmp be 0? */
         break;
@@ -485,7 +485,7 @@ static const uint32_t *dds_stream_write_arrBO (RESTRICT_OSTREAM_T *os, const str
       const uint32_t jmp = DDS_OP_ADR_JMP (ops[3]);
       const uint32_t elem_size = ops[4];
       for (uint32_t i = 0; i < num; i++)
-        if (!dds_stream_write_implBO (os, allocator, mid_table, addr + i * elem_size, jsr_ops, false, cdr_kind))
+        if (!dds_stream_write_implBO (os, allocator, mid_table, addr + i * elem_size, jsr_ops, key_scope_for_type (subtype), cdr_kind))
           return NULL;
       ops += (jmp ? jmp : 5);
       break;
@@ -603,7 +603,7 @@ static bool dds_stream_write_union_case_valueBO (RESTRICT_OSTREAM_T *os, const s
       break;
     case DDS_SOP_VAL_SEQ: case DDS_SOP_VAL_BSQ: case DDS_SOP_VAL_ARR: case DDS_SOP_VAL_UNI: case DDS_SOP_VAL_STU: case DDS_SOP_VAL_BMK:
     case DDS_SOP_VAL_BST: case DDS_SOP_VAL_BWSTR:
-      if (!dds_stream_write_implBO (os, allocator, mid_table, valaddr, jeq_op + DDS_OP_ADR_JSR (jeq_op[0]), false, cdr_kind))
+      if (!dds_stream_write_implBO (os, allocator, mid_table, valaddr, jeq_op + DDS_OP_ADR_JSR (jeq_op[0]), key_scope_for_type (valtype), cdr_kind))
         return false;
       break;
     case DDS_SOP_VAL_EXT:
@@ -666,7 +666,7 @@ static const uint32_t *dds_stream_write_mutable_uniBO (RESTRICT_OSTREAM_T *os, c
     dds_stream_write_xcdr1_paramheader_closeBO (os, param_length_offs, os->x.m_index - param_length_offs, alignment_offset_by_4);
   }
 
-  if (cdr_kind != CDR_KIND_KEY)
+  if (union_has_serialized_case (insn, cdr_kind))
   {
     uint32_t const * const jeq_op = find_union_case (ops, disc);
     if (jeq_op)
@@ -706,7 +706,7 @@ static const uint32_t *dds_stream_write_uniBO (RESTRICT_OSTREAM_T *os, const str
   uint64_t disc;
   if (!dds_stream_write_union_discriminantBO (os, allocator, mid_table, ops, insn, discaddr, &disc))
     return NULL;
-  if (cdr_kind == CDR_KIND_KEY)
+  if (!union_has_serialized_case (insn, cdr_kind))
     return ops + DDS_OP_ADR_JMP (ops[3]);
   uint32_t const * const jeq_op = find_union_case (ops, disc);
   ops += DDS_OP_ADR_JMP (ops[3]);
@@ -762,12 +762,11 @@ static void dds_stream_write_xcdr1_paramheader_closeBO (RESTRICT_OSTREAM_T *os, 
   }
 }
 
-static const uint32_t *dds_stream_write_adrBO (uint32_t insn, RESTRICT_OSTREAM_T *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table, const char *data, const uint32_t *ops, bool is_mutable_member, enum cdr_data_kind cdr_kind)
+static const uint32_t *dds_stream_write_adrBO (uint32_t insn, RESTRICT_OSTREAM_T *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table, const char *data, const uint32_t *ops, enum cdr_member_scope scope, enum cdr_data_kind cdr_kind)
 {
   // When writing key CDR, don't require an external member to be malloc'ed
   // and initialized (see also comment in dds_stream_read_adr)
-  const bool is_key = (insn & DDS_OP_FLAG_KEY);
-  if (cdr_kind == CDR_KIND_KEY && !is_key)
+  if (cdr_kind != CDR_KIND_DATA && !member_is_selected_key (insn, scope))
     return dds_stream_skip_adr_insns (insn, ops);
 
   const void *addr = data + ops[1];
@@ -780,7 +779,7 @@ static const uint32_t *dds_stream_write_adrBO (uint32_t insn, RESTRICT_OSTREAM_T
 
   uint32_t param_length_offs = 0;
   bool alignment_offset_by_4 = false; // for XCDR1 alignment rules
-  if (op_type_optional (insn) && !is_mutable_member)
+  if (op_type_optional (insn) && scope != CDR_PL_MEMBER)
   {
     bool present = (addr != NULL);
     if (os->x.m_xcdr_version == DDSI_RTPS_CDR_ENC_VERSION_1)
@@ -864,8 +863,8 @@ static const uint32_t *dds_stream_write_adrBO (uint32_t insn, RESTRICT_OSTREAM_T
       if (op_type_base (insn) && op_is_dlc (jsr_ops[0]))
         jsr_ops++;
 
-      /* don't forward is_mutable_member, subtype can have other extensibility */
-      if (!dds_stream_write_implBO (os, allocator, mid_table, addr, jsr_ops, false, cdr_kind))
+      /* The referenced value has its own extensibility and key projection. */
+      if (!dds_stream_write_implBO (os, allocator, mid_table, addr, jsr_ops, key_scope_for_value (cdr_kind, jsr_ops), cdr_kind))
         return NULL;
       ops += jmp ? jmp : 3;
       break;
@@ -874,15 +873,15 @@ static const uint32_t *dds_stream_write_adrBO (uint32_t insn, RESTRICT_OSTREAM_T
   }
 
   // In case XCDR1, optional member of a non-mutable type: set the parameter length in the (extended) parameter header
-  if (os->x.m_xcdr_version == DDSI_RTPS_CDR_ENC_VERSION_1 && op_type_optional (insn) && !is_mutable_member)
+  if (os->x.m_xcdr_version == DDSI_RTPS_CDR_ENC_VERSION_1 && op_type_optional (insn) && scope != CDR_PL_MEMBER)
     dds_stream_write_xcdr1_paramheader_closeBO (os, param_length_offs, os->x.m_index - param_length_offs, alignment_offset_by_4);
   return ops;
 }
 
-static const uint32_t *dds_stream_write_delimitedBO (RESTRICT_OSTREAM_T *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table, const char *data, const uint32_t *ops, enum cdr_data_kind cdr_kind)
+static const uint32_t *dds_stream_write_delimitedBO (RESTRICT_OSTREAM_T *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table, const char *data, const uint32_t *ops, enum cdr_data_kind cdr_kind, enum cdr_member_scope scope)
 {
   uint32_t offs = dds_os_reserve4BO (os, allocator);
-  if (!(ops = dds_stream_write_implBO (os, allocator, mid_table, data, ops + 1, false, cdr_kind)))
+  if (!(ops = dds_stream_write_implBO (os, allocator, mid_table, data, ops + 1, scope, cdr_kind)))
     return NULL;
 
   /* add dheader, which is the serialized size of the data */
@@ -902,14 +901,14 @@ static bool dds_stream_write_xcdr1_pl_memberBO (RESTRICT_OSTREAM_T *os, const st
   // when type discovery isn't available
   bool must_understand = flags & DDS_OP_FLAG_MU;
 
-  if (cdr_kind == CDR_KIND_KEY && !is_key)
+  if (cdr_kind != CDR_KIND_DATA && !is_key)
     return true;
 
   uint32_t param_length_offs = 0;
   bool alignment_offset_by_4 = false; // for XCDR1 alignment rules
   dds_stream_write_xcdr1_paramheaderBO (os, allocator, must_understand, mid, &param_length_offs, &alignment_offset_by_4);
 
-  if (!(dds_stream_write_implBO (os, allocator, mid_table, data, ops, true, cdr_kind)))
+  if (!(dds_stream_write_implBO (os, allocator, mid_table, data, ops, CDR_PL_MEMBER, cdr_kind)))
     return false;
 
   // XTypes 1.3 says the parameter length in the header must be the exact length
@@ -935,13 +934,13 @@ static bool dds_stream_write_xcdr2_pl_memberBO (RESTRICT_OSTREAM_T *os, const st
   // setting must_understand if FLAG_MU, rather than if (FLAG_MU | FLAG_KEY)
   bool must_understand = flags & DDS_OP_FLAG_MU;
 
-  if (cdr_kind == CDR_KIND_KEY && !is_key)
+  if (cdr_kind != CDR_KIND_DATA && !is_key)
     return true;
 
   uint32_t lc = get_length_code (ops);
   assert (lc <= LENGTH_CODE_ALSO_NEXTINT8);
   uint32_t data_offs = (lc != LENGTH_CODE_NEXTINT) ? dds_os_reserve4BO (os, allocator) : dds_os_reserve8BO (os, allocator);
-  if (!(dds_stream_write_implBO (os, allocator, mid_table, data, ops, true, cdr_kind)))
+  if (!(dds_stream_write_implBO (os, allocator, mid_table, data, ops, CDR_PL_MEMBER, cdr_kind)))
     return false;
 
   /* add emheader with data length code and flags and optionally the serialized size of the data */
@@ -1025,29 +1024,48 @@ static const uint32_t *dds_stream_write_xcdr2_plBO (RESTRICT_OSTREAM_T *os, cons
   return ops;
 }
 
-static const uint32_t *dds_stream_write_plcBO (RESTRICT_OSTREAM_T *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table, const char *data, const uint32_t *ops, enum cdr_data_kind cdr_kind)
+static const uint32_t *dds_stream_write_plcBO (RESTRICT_OSTREAM_T *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table, const char *data, const uint32_t *ops, enum cdr_data_kind cdr_kind, enum cdr_member_scope scope)
 {
   if (op_is_union_adr (*ops))
+  {
+    if (cdr_kind != CDR_KIND_DATA && !member_is_selected_key (*ops, scope))
+      return dds_stream_skip_adr_insns (*ops, ops);
     return dds_stream_write_uniBO (os, allocator, mid_table, data + ops[1], data, ops, *ops, true, cdr_kind);
+  }
   else if (os->x.m_xcdr_version == DDSI_RTPS_CDR_ENC_VERSION_2)
     return dds_stream_write_xcdr2_plBO (os, allocator, mid_table, data, ops, cdr_kind);
   else
     return dds_stream_write_xcdr1_plBO (os, allocator, mid_table, data, ops, cdr_kind);
 }
 
-static const uint32_t *dds_stream_write_implBO (RESTRICT_OSTREAM_T *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table, const char *data, const uint32_t *ops0, bool is_mutable_member, enum cdr_data_kind cdr_kind)
+static const uint32_t *dds_stream_write_implBO (RESTRICT_OSTREAM_T *os, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc_mid_table *mid_table, const char *data, const uint32_t *ops0, enum cdr_member_scope scope, enum cdr_data_kind cdr_kind)
 {
   const uint32_t *ops = ops0; // clang warns about testing a non-null pointer otherwise
+  if (cdr_kind == CDR_KIND_KEYHASH)
+  {
+    ops = keyhash_union_body (ops);
+    const struct dds_cdrstream_keyholder_layout *layout = keyholder_layout (mid_table, ops);
+    if (layout != NULL)
+    {
+      for (uint32_t i = 0; i < layout->n; i++)
+      {
+        const struct keyholder_member *m = &layout->members[i];
+        if (!dds_stream_write_adrBO (*m->op, os, allocator, mid_table, data + m->base_offset, m->op, CDR_FIELDS, cdr_kind))
+          return NULL;
+      }
+      return layout->end;
+    }
+  }
   uint32_t insn;
   while (ops && (insn = *ops) != DDS_OP_RTS)
   {
     switch (DDS_OP (insn))
     {
       case DDS_SOP_ADR:
-        ops = dds_stream_write_adrBO (insn, os, allocator, mid_table, data, ops, is_mutable_member, cdr_kind);
+        ops = dds_stream_write_adrBO (insn, os, allocator, mid_table, data, ops, scope, cdr_kind);
         break;
       case DDS_SOP_JSR:
-        if (!dds_stream_write_implBO (os, allocator, mid_table, data, ops + DDS_OP_JUMP (insn), is_mutable_member, cdr_kind))
+        if (!dds_stream_write_implBO (os, allocator, mid_table, data, ops + DDS_OP_JUMP (insn), scope, cdr_kind))
           return NULL;
         ops++;
         break;
@@ -1056,12 +1074,12 @@ static const uint32_t *dds_stream_write_implBO (RESTRICT_OSTREAM_T *os, const st
         break;
       case DDS_SOP_DLC:
         if (os->x.m_xcdr_version == DDSI_RTPS_CDR_ENC_VERSION_2)
-          ops = dds_stream_write_delimitedBO (os, allocator, mid_table, data, ops, cdr_kind);
+          ops = dds_stream_write_delimitedBO (os, allocator, mid_table, data, ops, cdr_kind, delimited_scope (scope));
         else
-          ops = dds_stream_write_implBO (os, allocator, mid_table, data, ops + 1, false, cdr_kind);
+          ops = dds_stream_write_implBO (os, allocator, mid_table, data, ops + 1, delimited_scope (scope), cdr_kind);
         break;
       case DDS_SOP_PLC:
-        ops = dds_stream_write_plcBO (os, allocator, mid_table, data, ops + 1, cdr_kind);
+        ops = dds_stream_write_plcBO (os, allocator, mid_table, data, ops + 1, cdr_kind, scope);
         break;
     }
   }
@@ -1074,7 +1092,7 @@ const uint32_t *dds_stream_write_with_midBO (DDS_OSTREAM_T *os, const struct dds
   RESTRICT_OSTREAM_T ros;
   memcpy (&ros, os, sizeof (*os));
   ros.x.m_align_off = 0;
-  const uint32_t *ret = dds_stream_write_implBO (&ros, allocator, mid_table ? mid_table : &empty_mid_table, data, ops, false, CDR_KIND_DATA);
+  const uint32_t *ret = dds_stream_write_implBO (&ros, allocator, mid_table ? mid_table : &empty_mid_table, data, ops, CDR_FIELDS, CDR_KIND_DATA);
   memcpy (os, &ros, sizeof (*os));
   return ret;
 }

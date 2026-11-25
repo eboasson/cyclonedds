@@ -1467,11 +1467,8 @@ emit_switch_type_spec(
 
   // XTypes spec 7.2.2.4.4.4.6: In a union type, the discriminator member shall always have the 'must understand' attribute set to true.
   opcode |= DDS_OP_FLAG_MU;
-  if (idl_is_topic_key(descriptor->topic, (pstate->config.flags & IDL_FLAG_KEYLIST) != 0, path, &order) != IDL_KEYTYPE_NONE) {
-    opcode |= DDS_OP_FLAG_KEY;
-    ctype->has_key_member = true;
-  }
-  else if (((idl_switch_type_spec_t *)node)->key.value)
+  if (idl_is_topic_key(descriptor->topic, (pstate->config.flags & IDL_FLAG_KEYLIST) != 0, path, &order) == IDL_KEYTYPE_EXPLICIT ||
+      ((idl_switch_type_spec_t *)node)->key.value)
   {
     opcode |= DDS_OP_FLAG_KEY;
     ctype->has_key_member = true;
@@ -2717,15 +2714,16 @@ static void free_ctype_keys(struct constructed_type_key *key)
   }
 }
 
-static idl_retcode_t get_ctype_keys(const idl_pstate_t *pstate, struct descriptor *descriptor, struct constructed_type *ctype, struct constructed_type_key **keys, uint32_t *n_keys, bool parent_is_key, uint32_t base_type_ops_offs, bool in_collection);
+static idl_retcode_t get_ctype_keys(const idl_pstate_t *pstate, struct descriptor *descriptor, struct constructed_type *ctype, struct constructed_type_key **keys, uint32_t *n_keys, bool parent_is_key, uint32_t base_type_ops_offs, enum key_scope scope);
 
 
-static idl_retcode_t get_ctype_keys_adr(const idl_pstate_t *pstate, struct descriptor *descriptor, uint32_t offs, uint32_t base_type_ops_offs, struct instruction *inst, struct constructed_type *ctype, uint32_t *n_keys, struct constructed_type_key **ctype_keys, bool in_collection)
+static idl_retcode_t get_ctype_keys_adr(const idl_pstate_t *pstate, struct descriptor *descriptor, uint32_t offs, uint32_t base_type_ops_offs, struct instruction *inst, struct constructed_type *ctype, uint32_t *n_keys, struct constructed_type_key **ctype_keys, enum key_scope scope)
 {
   idl_retcode_t ret;
+  const bool collect_offsets = scope == KEY_OFFSETS;
 
-  assert(n_keys != NULL || in_collection);
-  assert(ctype_keys != NULL || in_collection);
+  assert(n_keys != NULL || !collect_offsets);
+  assert(ctype_keys != NULL || !collect_offsets);
   assert(DDS_OP(inst->data.opcode.code) == DDS_OP_ADR);
 
   /* get the name of the field from the offset instruction, which is the first after the ADR */
@@ -2736,7 +2734,7 @@ static idl_retcode_t get_ctype_keys_adr(const idl_pstate_t *pstate, struct descr
   assert((!type && !member) || (type && member));
   (void) member;
 
-  if (!in_collection && type == NULL)
+  if (collect_offsets && type == NULL)
   {
     /* Additional ADR for nested list-types (e.g. seq of seqs, seq of arrays, etc) are processed with their main ADR entry,
        but because get_ctype_keys iterates over all instructions, it will also hit the additional ADRs and we need to skip
@@ -2745,14 +2743,15 @@ static idl_retcode_t get_ctype_keys_adr(const idl_pstate_t *pstate, struct descr
     return IDL_RETCODE_OK;
   }
 
-  /* ADR entries must have the KEY flag set at this point, as a result of a key annotation or set because the ADR is
-     implicitly a key field. For nested list-types, the KEY flag is set before the current function is called recursively. */
-  assert((DDS_OP_FLAGS(inst->data.opcode.code) & DDS_OP_FLAG_KEY));
+  /* A selected union with an unkeyed discriminator contributes its active arm.
+     The enclosing member carries KEY, while UNI describes the discriminator. */
+  const bool whole_union = DDS_OP_TYPE(inst->data.opcode.code) == DDS_OP_VAL_UNI &&
+    !(inst->data.opcode.code & DDS_OP_FLAG_KEY);
+  assert(whole_union || (inst->data.opcode.code & DDS_OP_FLAG_KEY));
 
-  /* Members of aggregated types that are wrapped in a collection are not added as separate key entries
-     in the top-level type, so when inside a collection, no key meta-data is collected */
+  /* Struct members inside a collection or a union arm have no unconditional key offset. */
   struct constructed_type_key *key = NULL;
-  if (!in_collection)
+  if (collect_offsets)
   {
     key = idl_calloc (1, sizeof(*key));
     if (!key)
@@ -2770,14 +2769,16 @@ static idl_retcode_t get_ctype_keys_adr(const idl_pstate_t *pstate, struct descr
     key->ctype = ctype;
     key->offset = offs + base_type_ops_offs;
     key->order = inst->data.opcode.order;
-    if (!(key->name = idl_strdup(inst_offs->data.offset.member)))
+    /* A whole-union key's KOF still ends at UNI, but its public name is
+       the enclosing field. Only a discriminator-only key ends in ._d. */
+    if (!whole_union && !(key->name = idl_strdup(inst_offs->data.offset.member)))
       return IDL_RETCODE_NO_MEMORY;
   }
 
   switch (DDS_OP_TYPE(inst->data.opcode.code)) {
     case DDS_OP_VAL_BLN: case DDS_OP_VAL_1BY: case DDS_OP_VAL_WCHAR: case DDS_OP_VAL_2BY: case DDS_OP_VAL_4BY: case DDS_OP_VAL_8BY:
     case DDS_OP_VAL_ENU: case DDS_OP_VAL_BMK: case DDS_OP_VAL_BST: case DDS_OP_VAL_STR: case DDS_OP_VAL_BWSTR: case DDS_OP_VAL_WSTR: case DDS_OP_VAL_16BY:
-      if (!in_collection)
+      if (collect_offsets)
         (*n_keys)++;
       break;
 
@@ -2786,13 +2787,14 @@ static idl_retcode_t get_ctype_keys_adr(const idl_pstate_t *pstate, struct descr
       const idl_node_t *node = ctype->instructions.table[offs + 2].data.inst_offset.node;
       struct constructed_type *csubtype = find_ctype(descriptor, node);
       assert(csubtype);
-      if ((ret = get_ctype_keys(pstate, descriptor, csubtype, in_collection ? NULL : &key->sub, n_keys, true, 0, in_collection)))
+      if ((ret = get_ctype_keys(pstate, descriptor, csubtype, collect_offsets ? &key->sub : NULL, n_keys, true, 0, scope)))
         return ret;
       break;
     }
 
     case DDS_OP_VAL_ARR: case DDS_OP_VAL_SEQ: case DDS_OP_VAL_BSQ: {
       const enum dds_stream_typecode subtype = DDS_OP_SUBTYPE(inst->data.opcode.code);
+      const enum key_scope element_scope = scope == KEY_UNION_ARM ? KEY_UNION_ARM : KEY_COLLECTION;
       switch (subtype) {
         case DDS_OP_VAL_BLN: case DDS_OP_VAL_1BY: case DDS_OP_VAL_WCHAR: case DDS_OP_VAL_2BY: case DDS_OP_VAL_4BY: case DDS_OP_VAL_8BY:
         case DDS_OP_VAL_ENU: case DDS_OP_VAL_BMK: case DDS_OP_VAL_BST: case DDS_OP_VAL_STR: case DDS_OP_VAL_BWSTR: case DDS_OP_VAL_WSTR: case DDS_OP_VAL_16BY:
@@ -2808,7 +2810,7 @@ static idl_retcode_t get_ctype_keys_adr(const idl_pstate_t *pstate, struct descr
           if (!(DDS_OP_FLAGS(elem_insn->data.opcode.code) & DDS_OP_FLAG_KEY))
             elem_insn->data.opcode.code |= DDS_OP_FLAG_KEY;
 
-          if ((ret = get_ctype_keys_adr(pstate, descriptor, offs + elem_insn_offs, base_type_ops_offs, elem_insn, ctype, NULL, NULL, true)))
+          if ((ret = get_ctype_keys_adr(pstate, descriptor, offs + elem_insn_offs, base_type_ops_offs, elem_insn, ctype, NULL, NULL, element_scope)))
             return ret;
           break;
         }
@@ -2820,7 +2822,7 @@ static idl_retcode_t get_ctype_keys_adr(const idl_pstate_t *pstate, struct descr
           const idl_node_t *node = ctype->instructions.table[elem_offs].data.inst_offset.node;
           struct constructed_type *csubtype = find_ctype(descriptor, node);
           assert(csubtype);
-          if ((ret = get_ctype_keys(pstate, descriptor, csubtype, NULL, NULL, true, 0, true)))
+          if ((ret = get_ctype_keys(pstate, descriptor, csubtype, NULL, NULL, true, 0, element_scope)))
             return ret;
           break;
         }
@@ -2829,14 +2831,13 @@ static idl_retcode_t get_ctype_keys_adr(const idl_pstate_t *pstate, struct descr
           return IDL_RETCODE_BAD_PARAMETER;
       }
 
-      // Only when not handling a type wrapped in a collection, increase the key count
-      if (!in_collection)
+      if (collect_offsets)
         (*n_keys)++;
       break;
     }
 
     case DDS_OP_VAL_UNI:
-      if (!in_collection)
+      if (collect_offsets)
         (*n_keys)++;
       break;
 
@@ -2848,12 +2849,23 @@ static idl_retcode_t get_ctype_keys_adr(const idl_pstate_t *pstate, struct descr
   return IDL_RETCODE_OK;
 }
 
-static idl_retcode_t get_ctype_keys(const idl_pstate_t *pstate, struct descriptor *descriptor, struct constructed_type *ctype, struct constructed_type_key **keys, uint32_t *n_keys, bool parent_is_key, uint32_t base_type_ops_offs, bool in_collection)
+static idl_retcode_t get_ctype_keys(const idl_pstate_t *pstate, struct descriptor *descriptor, struct constructed_type *ctype, struct constructed_type_key **keys, uint32_t *n_keys, bool parent_is_key, uint32_t base_type_ops_offs, enum key_scope scope)
 {
   idl_retcode_t ret;
-  assert(n_keys != NULL || in_collection);
-  assert(keys != NULL || in_collection);
+  const bool collect_offsets = scope == KEY_OFFSETS;
+  assert(n_keys != NULL || !collect_offsets);
+  assert(keys != NULL || !collect_offsets);
   struct constructed_type_key *ctype_keys = NULL;
+  const bool is_union = idl_is_union(ctype->node);
+  const bool union_cases = is_union && parent_is_key && !((const idl_union_t *)ctype->node)->switch_type_spec->key.value;
+  const bool implicit_struct = parent_is_key && !is_union &&
+    ((pstate->config.flags & IDL_FLAG_KEYLIST) ? !ctype->has_key_member : idl_is_keyless(ctype->node, false));
+  /* Revisit a collection element if a union arm also needs its member IDs. */
+  if (!collect_offsets && parent_is_key) {
+    if (ctype->projected_key >= scope)
+      return IDL_RETCODE_OK;
+    ctype->projected_key = scope;
+  }
 
   for (uint32_t offs = 0; offs < ctype->instructions.count; offs++) {
     struct instruction *inst = &ctype->instructions.table[offs];
@@ -2866,27 +2878,57 @@ static idl_retcode_t get_ctype_keys(const idl_pstate_t *pstate, struct descripto
            (not allowed in IDL) and therefore is not in the offset list, the offset in this list is the offset
            of the key field in the base type. */
         uint32_t ops_offs = (uint32_t) base_type_ops_offs + (uint32_t) inst->data.inst_offset.addr_offs + (uint32_t) inst->data.inst_offset.elem_offs;
-        if ((ret = get_ctype_keys(pstate, descriptor, cbasetype, &ctype_keys, n_keys, false, ops_offs, in_collection)) != IDL_RETCODE_OK)
+        if ((ret = get_ctype_keys(pstate, descriptor, cbasetype, &ctype_keys, n_keys, implicit_struct || (parent_is_key && cbasetype->has_key_member), ops_offs, scope)) != IDL_RETCODE_OK)
           goto err;
         break;
       }
 
+      case JEQ_OFFSET:
+        if (union_cases) {
+          const idl_node_t *node = inst->data.inst_offset.node;
+          struct instruction *size = &ctype->instructions.table[offs + 3];
+          if (size->type == SINGLE && !idl_is_empty(node)) {
+            /* A key-only read may skip fields of the selected aggregate.
+               Its size lets the reader initialize a newly selected arm. */
+            assert(size->data.single == 0);
+            size->type = MEMBER_SIZE;
+            if (IDL_PRINT(&size->data.size.type, print_type, node) < 0) {
+              ret = IDL_RETCODE_NO_MEMORY;
+              goto err;
+            }
+          }
+          struct constructed_type *arm = find_ctype(descriptor, node);
+          assert(arm);
+          if ((ret = get_ctype_keys(pstate, descriptor, arm, NULL, NULL, true, 0, KEY_UNION_ARM)))
+            goto err;
+        }
+        break;
+
       case OPCODE:
         if (DDS_OP(inst->data.opcode.code) == DDS_OP_ADR) {
+          if (is_union && DDS_OP_TYPE(inst->data.opcode.code) != DDS_OP_VAL_UNI) {
+            /* Inlined case instructions execute only for the selected arm;
+               they never add independent top-level key offsets. */
+            if (union_cases) {
+              inst->data.opcode.code |= DDS_OP_FLAG_KEY;
+              if ((ret = get_ctype_keys_adr(pstate, descriptor, offs, 0, inst, ctype, NULL, NULL, KEY_UNION_ARM)))
+                goto err;
+            }
+            break;
+          }
           /* If the parent is a @key member and there are no specific key members in this ctype,
             add the key flag to all members in this type. The serializer will only use these
             key flags in case the top-level member (which is referring to this member)
             also has the key flag set. */
-          if (parent_is_key && !ctype->has_key_member
-              && (!idl_is_union(ctype->node) || DDS_OP_TYPE(inst->data.opcode.code) == DDS_OP_VAL_UNI))
+          if (implicit_struct)
             inst->data.opcode.code |= DDS_OP_FLAG_KEY;
-          if (inst->data.opcode.code & DDS_OP_FLAG_KEY) {
+          if (union_cases || (inst->data.opcode.code & DDS_OP_FLAG_KEY)) {
             if (inst->data.opcode.code & DDS_OP_FLAG_OPT) {
               idl_error (pstate, ctype->node, "A member that is part of a key (possibly nested inside a struct) cannot be optional");
               ret = IDL_RETCODE_SYNTAX_ERROR;
               goto err;
             }
-            if ((ret = get_ctype_keys_adr(pstate, descriptor, offs, base_type_ops_offs, inst, ctype, n_keys, &ctype_keys, in_collection)) != IDL_RETCODE_OK)
+            if ((ret = get_ctype_keys_adr(pstate, descriptor, offs, base_type_ops_offs, inst, ctype, n_keys, &ctype_keys, scope)) != IDL_RETCODE_OK)
               goto err;
           }
         }
@@ -2898,7 +2940,7 @@ static idl_retcode_t get_ctype_keys(const idl_pstate_t *pstate, struct descripto
 
   } /* end for loop through all the ctype's instructions */
 
-  if (!in_collection)
+  if (collect_offsets)
     *keys = ctype_keys;
   return IDL_RETCODE_OK;
 
@@ -2915,7 +2957,7 @@ static idl_retcode_t descriptor_add_key_recursive(const idl_pstate_t *pstate, st
 
   char *name1;
   while (key) {
-    if (idl_asprintf(&name1, "%s%s%s", name ? name : "", name ? "." : "", key->name) == -1) {
+    if (idl_asprintf(&name1, "%s%s%s", name ? name : "", name && key->name ? "." : "", key->name ? key->name : "") == -1) {
       ret = IDL_RETCODE_NO_MEMORY;
       goto err;
     }
@@ -3131,7 +3173,9 @@ static idl_retcode_t get_ctype_memberids_adr(const idl_pstate_t *pstate, struct 
 
   /* Mutable encoding does not need a MID table, because
      it uses PLM ops as part of the type's ops */
-  if ((inst->data.opcode.code & DDS_OP_FLAG_OPT) && !is_mutable_member)
+  const bool ordered_key_member = ctype->projected_key == KEY_UNION_ARM && idl_is_struct(ctype->node) &&
+    inst_offs->data.offset.member && (inst->data.opcode.code & DDS_OP_FLAG_KEY) && !(inst->data.opcode.code & DDS_OP_FLAG_BASE);
+  if (((inst->data.opcode.code & DDS_OP_FLAG_OPT) || ordered_key_member) && !is_mutable_member)
   {
     assert(offs <= INT16_MAX);
     if ((ret = add_ctype_memberid(ctype, ctype_mids, (int16_t) offs, inst_offs->data.offset.member_id, inst_offs->data.offset.type, inst_offs->data.offset.member)) != IDL_RETCODE_OK)
@@ -3205,7 +3249,15 @@ static idl_retcode_t get_ctype_memberids_adr(const idl_pstate_t *pstate, struct 
         }
         if (ctype->instructions.table[jeq_offs].type == OPCODE)
         {
-          // FIXME: SEQ/BSQ/ARR
+          const uint32_t jeq = ctype->instructions.table[jeq_offs].data.opcode.code;
+          const enum dds_stream_typecode armtype = DDS_JEQ_TYPE(jeq);
+          if (armtype == DDS_OP_VAL_SEQ || armtype == DDS_OP_VAL_BSQ || armtype == DDS_OP_VAL_ARR)
+          {
+            const uint32_t arm_offs = jeq_offs + (uint16_t) DDS_OP_JUMP(jeq);
+            struct instruction *arm = &ctype->instructions.table[arm_offs];
+            if ((ret = get_ctype_memberids_adr(pstate, descriptor, arm_offs, arm, ctype, ctype_mids, visited_ctypes, false)))
+              return ret;
+          }
         }
         else if (ctype->instructions.table[jeq_offs].type == JEQ_OFFSET)
         {
@@ -3563,18 +3615,17 @@ generate_descriptor_impl(
   }
   if ((ret = resolve_offsets(descriptor)) < 0)
     goto err;
-  if ((ret = set_dlc_required_prefixes(descriptor)) < 0)
-    goto err;
-
   struct constructed_type_key *ctype_keys;
   struct constructed_type *ctype = find_ctype(descriptor, descriptor->topic);
   assert(ctype);
   uint32_t n_keys = 0;
-  if ((ret = get_ctype_keys(pstate, descriptor, ctype, &ctype_keys, &n_keys, false, 0, false)) != IDL_RETCODE_OK)
+  if ((ret = get_ctype_keys(pstate, descriptor, ctype, &ctype_keys, &n_keys, false, 0, KEY_OFFSETS)) != IDL_RETCODE_OK)
     goto err;
   if ((ret = descriptor_init_keys(pstate, ctype, ctype_keys, descriptor, n_keys, (pstate->config.flags & IDL_FLAG_KEYLIST) != 0)) < 0)
     goto err;
   free_ctype_keys(ctype_keys);
+  if ((ret = set_dlc_required_prefixes(descriptor)) < 0)
+    goto err;
 
   struct visited_ctype visited_ctypes = { NULL, NULL };
   struct constructed_type_memberid *ctype_mids = NULL;

@@ -167,6 +167,8 @@ struct dds_cdrstream_desc_mid_table {
   struct ddsrt_hh *enum_value_sets;
   const uint32_t * op0;
   bool has_special_defaults;
+  bool keyhash_needs_projection; /* strip nested union headers or use canonical struct layouts */
+  bool has_keyholder_layouts;    /* at least one struct needs a separate member traversal */
 };
 
 struct dds_cdrstream_desc_enum_value_set {
@@ -181,6 +183,8 @@ struct dds_cdrstream_desc_mid {
   uint32_t adr_offs;
   uint32_t mid;
   const struct dds_cdrstream_desc_enum_value_set *enum_value_set;
+  struct dds_cdrstream_keyholder_layout *keyholder;
+  bool keyholder_checked;
 };
 
 struct dds_cdrstream_desc {
@@ -928,6 +932,9 @@ DDS_EXPORT dds_return_t dds_cdrstream_desc_init_with_nops (struct dds_cdrstream_
  * derived from the operations rather than supplied as a word count. That means
  * some descriptor features are unavailable; in particular, appendable types in
  * XCDR1 mode are not supported for descriptors constructed with this function.
+ * If a union key selects a struct arm whose canonical ordering requires the
+ * member-ID table, use @ref dds_cdrstream_desc_init_with_nops with the full
+ * operation word count.
  *
  * @param desc       descriptor to initialize
  * @param allocator  allocator used for descriptor storage

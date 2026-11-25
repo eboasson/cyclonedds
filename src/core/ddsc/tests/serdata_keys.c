@@ -202,6 +202,70 @@ CU_Test(ddsc_serdata, key_write_xcdrv)
 }
 #undef D
 
+static void check_direct_union_keyhash (const dds_topic_descriptor_t *topic, const void *sample, void *decoded,
+    const unsigned char expected[DDS_FIXED_KEY_MAX_SIZE], size_t key_size)
+{
+  const struct dds_cdrstream_allocator *allocator = &dds_cdrstream_default_allocator;
+  struct dds_cdrstream_desc desc;
+  CU_ASSERT_EQ_FATAL (dds_cdrstream_desc_from_topic_desc (&desc, topic), DDS_RETCODE_OK);
+  dds_ostreamBE_t os;
+  dds_ostreamBE_init (&os, allocator, 0, DDSI_RTPS_CDR_ENC_VERSION_2);
+  CU_ASSERT (dds_stream_write_keyBE (&os, DDS_CDR_KEY_SERIALIZATION_KEYHASH, allocator, sample, &desc));
+  CU_ASSERT_MEMEQ (os.x.m_buffer, os.x.m_index, expected, key_size);
+  CU_ASSERT (dds_stream_read_keyhash (expected, decoded, allocator, &desc, DDS_STREAM_NORMALIZE_FLAG_NONE));
+  dds_ostreamBE_fini (&os, allocator);
+  dds_cdrstream_desc_fini (&desc, allocator);
+}
+
+CU_Test(ddsc_serdata, keyhash_projection)
+{
+  static const struct {
+    const dds_topic_descriptor_t *topic;
+    bool needs_projection;
+    bool has_layouts;
+  } tests[] = {
+    { &SerdataKeyOrder_desc, false, false },
+    { &SerdataKeyCharDiscriminator_desc, false, false },
+    { &SerdataKeyCharChoice_desc, false, false },
+    { &SerdataKeyOrderedChoice_desc, false, false },
+    { &SerdataKeyMutableChoice_desc, false, false },
+    { &SerdataKeyMutableChoices_desc, true, false },
+    { &SerdataKeyAggregateChoice_desc, true, true }
+  };
+  for (size_t i = 0; i < sizeof (tests) / sizeof (tests[0]); i++)
+  {
+    struct dds_cdrstream_desc desc;
+    CU_ASSERT_EQ_FATAL (dds_cdrstream_desc_from_topic_desc (&desc, tests[i].topic), DDS_RETCODE_OK);
+    CU_ASSERT_EQ (desc.member_ids.keyhash_needs_projection, tests[i].needs_projection);
+    CU_ASSERT_EQ (desc.member_ids.has_keyholder_layouts, tests[i].has_layouts);
+    dds_cdrstream_desc_fini (&desc, &dds_cdrstream_default_allocator);
+  }
+
+  const SerdataKeyOrderedChoice ordered = {
+    .u = { ._d = 's', ._u.fields = { .a = 1, .b = 2, .c = UINT64_C(0x1122334455667788) } }
+  };
+  const unsigned char ordered_key[DDS_FIXED_KEY_MAX_SIZE] = { 's',1,0,0,SER64BE(UINT64_C(0x1122334455667788)) };
+  SerdataKeyOrderedChoice ordered_out = { 0 };
+  check_direct_union_keyhash (&SerdataKeyOrderedChoice_desc, &ordered, &ordered_out, ordered_key, 12);
+  CU_ASSERT_EQ (ordered_out.u._d, 's');
+  CU_ASSERT_EQ (ordered_out.u._u.fields.a, ordered.u._u.fields.a);
+  CU_ASSERT_EQ (ordered_out.u._u.fields.b, 0);
+  CU_ASSERT_EQ (ordered_out.u._u.fields.c, ordered.u._u.fields.c);
+
+  const SerdataKeyMutableChoices choices = {
+    .choices = { { ._d = 'a', ._u.value = 'x' }, { ._d = 'a', ._u.value = 'y' } }
+  };
+  // The array's DHEADER remains. Each mutable union is represented by its discriminator and selected arm.
+  const unsigned char choices_key[DDS_FIXED_KEY_MAX_SIZE] = { SER_DHEADERBE(4),'a','x','a','y' };
+  SerdataKeyMutableChoices choices_out = { 0 };
+  check_direct_union_keyhash (&SerdataKeyMutableChoices_desc, &choices, &choices_out, choices_key, 8);
+  for (size_t i = 0; i < 2; i++)
+  {
+    CU_ASSERT_EQ (choices_out.choices[i]._d, choices.choices[i]._d);
+    CU_ASSERT_EQ (choices_out.choices[i]._u.value, choices.choices[i]._u.value);
+  }
+}
+
 CU_Test(ddsc_serdata, keys_wstring_fixed_endian)
 {
   // Native-endian XCDR1/2 data: the key-only sample starts after the non-key tag.
@@ -256,6 +320,46 @@ T_INIT_SIMPLE(SerdataKeyOrderId)
 T_INIT_SIMPLE(SerdataKeyOrderHashId)
 T_INIT_SIMPLE(SerdataKeyOrderAppendable)
 T_INIT_SIMPLE(SerdataKeyOrderMutable)
+
+static void *init_SerdataKeyCharChoice (void)
+{
+  SerdataKeyCharChoice *sample = ddsrt_malloc (sizeof (*sample));
+  *sample = (SerdataKeyCharChoice) {
+    .ordinary = { ._d = 'a', ._u.value = 'x' }, .u = { ._d = 'a', ._u.value = 'b' }
+  };
+  return sample;
+}
+
+static void *init_SerdataKeyCharChoiceNoCase (void)
+{
+  SerdataKeyCharChoice *sample = ddsrt_malloc (sizeof (*sample));
+  *sample = (SerdataKeyCharChoice) { .ordinary = { ._d = 'a', ._u.value = 'x' }, .u._d = 'n' };
+  return sample;
+}
+
+static void *init_SerdataKeyCharDiscriminator (void)
+{
+  SerdataKeyCharDiscriminator *sample = ddsrt_malloc (sizeof (*sample));
+  *sample = (SerdataKeyCharDiscriminator) { .u = { ._d = 'a', ._u.value = 'b' } };
+  return sample;
+}
+
+static void *init_SerdataKeyAggregateChoice (void)
+{
+  SerdataKeyAggregateChoice *sample = ddsrt_malloc (sizeof (*sample));
+  *sample = (SerdataKeyAggregateChoice) { .u = { ._d = 's', ._u.fields = { .a = 1, .b = 2, .c = 3 } } };
+  return sample;
+}
+
+static void *init_SerdataKeyAggregateChoiceSequence (void)
+{
+  static SerdataUnionElement items[] = { { 1, 2, 3 }, { 4, 5, 6 } };
+  SerdataKeyAggregateChoice *sample = ddsrt_malloc (sizeof (*sample));
+  *sample = (SerdataKeyAggregateChoice) {
+    .u = { ._d = 'q', ._u.items = { ._maximum = 2, ._length = 2, ._buffer = items } }
+  };
+  return sample;
+}
 
 static void *init_SerdataKeyExternal (void)
 {
@@ -940,6 +1044,48 @@ CU_Test(ddsc_serdata, key_serialization)
         (raw){ SER32(4),'a','b','c',0,SER64(3) }, 16
       } },
       KEYHASH(16, SER32BE(4),'a','b','c',0,SER64BE(3))
+    },
+    // The 'w' case makes the maximum key 17 bytes even when no case is active.
+    { &SerdataKeyCharChoice_desc, init_SerdataKeyCharChoice,
+      { { MAKE_ENCHDR(CDR),  (raw){ 'a','x','a','b' }, 4, (raw){ 'a','b',0,0 }, 2 },
+        { MAKE_ENCHDR(CDR2), (raw){ 'a','x','a','b' }, 4, (raw){ 'a','b',0,0 }, 2 } },
+      KEYHASH(17, 'a','b')
+    },
+    { &SerdataKeyCharChoice_desc, init_SerdataKeyCharChoiceNoCase,
+      { { MAKE_ENCHDR(CDR),  (raw){ 'a','x','n',0 }, 3, (raw){ 'n',0,0,0 }, 1 },
+        { MAKE_ENCHDR(CDR2), (raw){ 'a','x','n',0 }, 3, (raw){ 'n',0,0,0 }, 1 } },
+      KEYHASH(17, 'n')
+    },
+    { &SerdataKeyCharDiscriminator_desc, init_SerdataKeyCharDiscriminator,
+      { { MAKE_ENCHDR(CDR),  (raw){ 'a','b',0,0 }, 2, (raw){ 'a',0,0,0 }, 1 },
+        { MAKE_ENCHDR(CDR2), (raw){ 'a','b',0,0 }, 2, (raw){ 'a',0,0,0 }, 1 } },
+      KEYHASH(1, 'a')
+    },
+    { &SerdataKeyAggregateChoice_desc, init_SerdataKeyAggregateChoice,
+      { {
+        MAKE_ENCHDR(CDR),
+        (raw){ 's',1,2,0,0,0,0,0,SER64(3) }, 16,
+        (raw){ 's',1,0,0,0,0,0,0,SER64(3) }, 16
+      }, {
+        MAKE_ENCHDR(CDR2),
+        (raw){ 's',0,0,0,SER_DHEADER(12),1,2,0,0,SER64(3) }, 20,
+        (raw){ 's',0,0,0,SER_DHEADER(12),1,0,0,0,SER64(3) }, 20
+      } },
+      // PLAIN_CDR2 omits the appendable header and serializes c (id 1) before a (id 3).
+      KEYHASH(16, 's',0,0,0,SER64BE(3),1)
+    },
+    { &SerdataKeyAggregateChoice_desc, init_SerdataKeyAggregateChoiceSequence,
+      { {
+        MAKE_ENCHDR(CDR),
+        (raw){ 'q',0,0,0,SER32(2),1,2,3,4,5,6,0,0 }, 14,
+        (raw){ 'q',0,0,0,SER32(2),1,3,4,6 }, 12
+      }, {
+        MAKE_ENCHDR(CDR2),
+        (raw){ 'q',0,0,0,SER_DHEADER(10),SER32(2),1,2,3,4,5,6,0,0 }, 18,
+        (raw){ 'q',0,0,0,SER_DHEADER(8),SER32(2),1,3,4,6 }, 16
+      } },
+      // Each element contributes last (id 1) and first (id 3) to the direct KeyHash.
+      KEYHASH(16, 'q',0,0,0,SER_DHEADERBE(8),SER32BE(2),3,1,6,4)
     },
     { &SerdataKeyExternal_desc, init_SerdataKeyExternal,
       { {

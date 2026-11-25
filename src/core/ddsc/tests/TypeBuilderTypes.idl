@@ -789,10 +789,24 @@ module TypeBuilderTypes {
     case 2: short u2;
   };
 
+  @nested @appendable struct t64_base {
+    @id(4) long a;
+  };
+  @nested @appendable struct t64_arm : t64_base {
+    @id(2) long b;
+  };
+  @nested @final struct t64_element {
+    @id(7) @key long a;
+    @id(1) @key long b;
+  };
+  typedef t64_element t64_elements[2];
+
   @nested @final
-  union t64_u switch (@key long) {
+  union t64_u switch (long) {
     case 1: long u1;
     case 2: short u2;
+    case 3: sequence<t64_elements, 3> u3;
+    case 4: t64_arm u4;
   };
 
   @final
@@ -801,7 +815,7 @@ module TypeBuilderTypes {
   };
 
   @nested @final
-  union t65_u switch (@key long) {
+  union t65_u switch (long) {
     case 1: octet u1;
   };
 
@@ -816,7 +830,7 @@ module TypeBuilderTypes {
   };
 
   @nested @final
-  union t66_u switch (@key long) {
+  union t66_u switch (long) {
     case 1: octet u1;
   };
 

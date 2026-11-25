@@ -24,6 +24,11 @@ Limitations on backwards compatibility:
 * The C binding now accounts for collections whose element keys serialize
   to zero bytes. If the complete serialized key fits in 16 bytes, the
   inline RTPS key hash can now contain the key directly.
+* When a struct uses an unkeyed union as a key field, the C binding now
+  includes the discriminator and the selected arm in the instance key.
+  Regenerate C topic descriptors for affected types. Previously generated
+  descriptors use only the discriminator and can identify instances
+  differently from regenerated descriptors.
 * The C binding now computes the RTPS key hash using big-endian XCDR2
   for both XCDR1 and XCDR2 samples. For XCDR1 samples this can change
   the serialized key bytes used to compute the hash and the decision to

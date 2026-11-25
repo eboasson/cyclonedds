@@ -96,12 +96,19 @@ struct instructions {
   struct instruction *table;
 };
 
+enum key_scope {
+  KEY_OFFSETS,    /**< generate offsets for keys with an unconditional path */
+  KEY_COLLECTION, /**< project a collection element */
+  KEY_UNION_ARM   /**< project a selected arm and retain its struct member IDs */
+};
+
 struct constructed_type {
   struct constructed_type *next;
   const void *node;
   const idl_name_t *name;
   const idl_scope_t *scope;
   bool has_key_member;
+  enum key_scope projected_key;
   uint32_t offset;        /**< offset for the instructions of this type in the topic descriptor instruction array */
   uint32_t pl_offset;     /**< current offset in parameter list for mutable types */
   struct instructions instructions;

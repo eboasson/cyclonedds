@@ -51,6 +51,65 @@ struct SerdataKeyOrderMutable {
 };
 
 @nested @final
+union SerdataCharChoice switch (char) {
+    case 'a': char value;
+    case 'w': char wide[16];
+};
+@final
+struct SerdataKeyCharChoice {
+    SerdataCharChoice ordinary;
+    @key SerdataCharChoice u;
+};
+
+@nested @final
+union SerdataKeyedCharChoice switch (@key char) {
+    case 'a': char value;
+    case 'w': char wide[16];
+};
+@final
+struct SerdataKeyCharDiscriminator {
+    @key SerdataKeyedCharChoice u;
+};
+
+@nested @final
+union SerdataOrderedChoice switch (char) {
+    case 's': SerdataKeyOrder fields;
+};
+@final
+struct SerdataKeyOrderedChoice {
+    @key SerdataOrderedChoice u;
+};
+
+@nested @mutable
+union SerdataMutableChoice switch (char) {
+    case 'a': char value;
+};
+@final
+struct SerdataKeyMutableChoice {
+    @key SerdataMutableChoice u;
+};
+@final
+struct SerdataKeyMutableChoices {
+    @key SerdataMutableChoice choices[2];
+};
+
+@nested @final
+struct SerdataUnionElement {
+    @key @id(3) uint8 first;
+    @id(2) uint8 ignored;
+    @key @id(1) uint8 last;
+};
+@nested @final
+union SerdataAggregateChoice switch (char) {
+    case 's': SerdataKeyOrderAppendable fields;
+    case 'q': sequence<SerdataUnionElement, 2> items;
+};
+@final
+struct SerdataKeyAggregateChoice {
+    @key SerdataAggregateChoice u;
+};
+
+@nested @final
 union SerdataWideDiscriminator switch (@key uint64) {
     case 1: string label;
     default: uint8 number;
