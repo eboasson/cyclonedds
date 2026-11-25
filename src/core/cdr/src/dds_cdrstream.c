@@ -2083,7 +2083,7 @@ static inline void dds_stream_to_BE_insitu (void *vbuf, uint32_t size, uint32_t 
 ddsrt_nonnull_all
 static inline void dds_stream_to_LE_insitu (void *vbuf, uint32_t size, uint32_t num)
 {
-  dds_stream_swap (vbuf, size, num);
+  dds_stream_swap_impl (vbuf, size, num);
 }
 #define dds_stream_to__insitu dds_stream_to_BE_insitu
 #endif /* if DDSRT_ENDIAN == DDSRT_LITTLE_ENDIAN */
