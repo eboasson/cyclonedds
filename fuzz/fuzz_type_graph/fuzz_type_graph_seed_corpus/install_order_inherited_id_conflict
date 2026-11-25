@@ -1,0 +1,15 @@
+root: 2
+types { kind: TYPE_PRIMITIVE }
+types {
+  kind: TYPE_STRUCT
+  flags: 1
+  members { id: 7 type: 0 }
+}
+types {
+  kind: TYPE_STRUCT
+  flags: 64
+  base_type: 1
+  members { id: 7 type: 0 }
+}
+actions { action: ACTION_INSTALL_ORDER target: 1 }
+actions { action: ACTION_INSTALL_ORDER flags: 1 }

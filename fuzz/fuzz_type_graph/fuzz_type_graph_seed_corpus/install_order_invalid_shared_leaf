@@ -1,0 +1,18 @@
+root: 5
+types { kind: TYPE_PRIMITIVE }
+types {
+  kind: TYPE_STRUCT
+  members { id: 1 type: 0 }
+  members { id: 1 type: 0 }
+}
+types { kind: TYPE_STRUCT members { id: 2 type: 1 } }
+types { kind: TYPE_ALIAS related_type: 1 }
+types { kind: TYPE_STRUCT members { id: 3 type: 0 } }
+types {
+  kind: TYPE_STRUCT
+  members { id: 4 type: 2 }
+  members { id: 5 type: 3 }
+  members { id: 6 type: 4 }
+}
+actions { action: ACTION_INSTALL_ORDER target: 118 }
+actions { action: ACTION_INSTALL_ORDER target: 118 flags: 1 }

@@ -31,7 +31,10 @@ enum Action {
   ACTION_IMPORT_TYPEINFO_TYPEMAP = 5;
   ACTION_ROUNDTRIP_GENERATED_TYPEINFO_TYPEMAP = 6;
   ACTION_EXERCISE_COLLECTIONS = 7;
-  // Install the selected root's definitions in a permutation and its reverse.
+  // Install definitions in a permutation and its reverse. When the selected
+  // root is eligible for the acyclic model, check every modelled declaration
+  // after each install, including other users of shared types and unrelated types.
+  // Otherwise use the resolved root's exported definitions.
   // target selects the permutation, and bit 0 of flags selects minimal types.
   ACTION_INSTALL_ORDER = 8;
 }

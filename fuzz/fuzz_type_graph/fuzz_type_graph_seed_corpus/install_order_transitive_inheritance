@@ -1,0 +1,17 @@
+root: 6
+types { kind: TYPE_PRIMITIVE }
+types { kind: TYPE_STRUCT flags: 1 members { id: 7 type: 0 } }
+types { kind: TYPE_STRUCT flags: 64 base_type: 1 members { id: 7 type: 0 } }
+types { kind: TYPE_ALIAS related_type: 2 }
+types { kind: TYPE_STRUCT members { id: 8 type: 3 } }
+types { kind: TYPE_STRUCT members { id: 9 type: 0 } }
+types {
+  kind: TYPE_STRUCT
+  members { id: 10 type: 4 }
+  members { id: 11 type: 5 }
+}
+actions { action: ACTION_INSTALL_ORDER target: 418 }
+actions { action: ACTION_INSTALL_ORDER target: 418 flags: 1 }
+# Install the base before the unrelated field type, or before the intervening alias.
+actions { action: ACTION_INSTALL_ORDER target: 377 }
+actions { action: ACTION_INSTALL_ORDER target: 298 }

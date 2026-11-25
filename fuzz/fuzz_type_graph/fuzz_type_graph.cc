@@ -22,6 +22,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 extern "C" {
@@ -1786,9 +1787,9 @@ static void apply_scc_mutations(SccPairSet &pairs, const fuzz_type_graph::FuzzMs
   }
 }
 
-static void fini_scc_pairs(SccPairSet &pairs)
+static void fini_typeobject_pairs(std::vector<DDS_XTypes_TypeIdentifierTypeObjectPair> &pairs)
 {
-  for (DDS_XTypes_TypeIdentifierTypeObjectPair &pair : pairs.pairs)
+  for (DDS_XTypes_TypeIdentifierTypeObjectPair &pair : pairs)
   {
     ddsi_typeid_fini_impl(&pair.type_identifier);
     ddsi_typeobj_fini_impl(&pair.type_object);
@@ -2725,7 +2726,7 @@ static void import_typeobject(
         ddsi_type_unref(runtime.gv(), type);
       }
     }
-    fini_scc_pairs(pairs);
+    fini_typeobject_pairs(pairs.pairs);
   }
   else
   {
@@ -2767,11 +2768,9 @@ static bool can_export_typeinfo(const ddsi_type *type)
   return type != nullptr && type->xt.kind == DDSI_TYPEID_KIND_COMPLETE && is_hash_type(type->xt._d);
 }
 
-static bool export_typeinfo_typemap(const fuzz_type_graph::FuzzMsg &msg, SerializedTypeInfoTypeMap &serialized)
+static bool export_typeinfo_typemap(Runtime &source, TypeGraph &graph, ddsi_type *selected_root,
+                                    const fuzz_type_graph::FuzzMsg &msg, SerializedTypeInfoTypeMap &serialized)
 {
-  Runtime source(msg.allow_recursive_types());
-  TypeGraph graph(source.gv(), msg);
-  ddsi_type *selected_root = graph.typeinfo_root(msg.root());
   if (!can_export_typeinfo(selected_root) || graph.validate(selected_root) != DDS_RETCODE_OK)
     return false;
 
@@ -2797,7 +2796,7 @@ static bool export_typeinfo_typemap(const fuzz_type_graph::FuzzMsg &msg, Seriali
     root = nullptr;
 
     GeneratedTypeInfoTypeMap generated;
-    if (!build_direct_typeinfo_typemap(graph, generated, msg.root()))
+    if (!build_direct_typeinfo_typemap(graph, selected_root, generated))
       return false;
 
     ret = add_typeinfo_typemap_retaining_complete(source.gv(), &generated.type_info, &generated.type_map, &root);
@@ -2834,15 +2833,63 @@ static void check_install_order(bool condition, const char *property, uint32_t i
   }
 }
 
+struct InstallNode {
+  std::vector<uint32_t> dependencies;
+  std::vector<DDS_XTypes_MemberId> member_ids;
+  // A struct inherits its base's IDs; an alias exposes its target's IDs.
+  uint32_t inherited_from = UINT32_MAX;
+  bool invalid_leaf = false;
+};
+
+static std::vector<ddsi_type_state> expected_install_states(const std::vector<InstallNode> &nodes,
+                                                           const std::vector<bool> &installed)
+{
+  std::vector<ddsi_type_state> states(nodes.size(), DDSI_TYPE_UNRESOLVED);
+  std::vector<std::vector<DDS_XTypes_MemberId>> visible_ids(nodes.size());
+  // Dependencies precede their dependents in this model. Recompute from the
+  // installed declarations so a missed notification in the receiver is visible.
+  for (size_t i = 0; i < nodes.size(); i++)
+  {
+    if (!installed[i])
+      continue;
+    const InstallNode &node = nodes[i];
+    bool invalid = node.invalid_leaf;
+    bool ready = true;
+    for (uint32_t dep : node.dependencies)
+    {
+      assert(dep < i);
+      invalid |= states[dep] == DDSI_TYPE_INVALID;
+      ready &= states[dep] == DDSI_TYPE_RESOLVED;
+    }
+
+    // A missing base (or intervening alias) ends the visible ancestry. A
+    // missing field type does not hide a conflict in the IDs already visible.
+    auto &ids = visible_ids[i];
+    if (node.inherited_from != UINT32_MAX)
+      ids = visible_ids[node.inherited_from];
+    ids.insert(ids.end(), node.member_ids.begin(), node.member_ids.end());
+    std::sort(ids.begin(), ids.end());
+    invalid |= std::adjacent_find(ids.begin(), ids.end()) != ids.end();
+    if (invalid)
+      states[i] = DDSI_TYPE_INVALID;
+    else
+      states[i] = ready ? DDSI_TYPE_RESOLVED : DDSI_TYPE_PARTIAL_RESOLVED;
+  }
+  return states;
+}
+
 static bool run_install_order(
   bool allow_recursive_types,
   const dds_sequence_DDS_XTypes_TypeIdentifierTypeObjectPair &pairs,
   const std::vector<uint32_t> &order,
-  std::vector<ddsi_type_state> &states)
+  std::vector<ddsi_type_state> &states,
+  const std::vector<InstallNode> &model)
 {
   Runtime receiver(allow_recursive_types);
   ddsi_domaingv *gv = receiver.gv();
   std::vector<ddsi_type *> held;
+  assert(model.empty() || model.size() == pairs._length);
+  std::vector<bool> installed(model.size());
   states.assign(pairs._length, DDSI_TYPE_UNRESOLVED);
   ddsrt_mutex_lock(&gv->typelib_lock);
   // Keep every ID observable even before its definition or any parent arrives.
@@ -2856,14 +2903,13 @@ static bool run_install_order(
       comparable = false;
       break;
     }
-    check_install_order(ret == DDS_RETCODE_OK && type != nullptr, "could not retain exported ID", i);
+    check_install_order(ret == DDS_RETCODE_OK && type != nullptr, "could not retain type ID", i);
     held.push_back(type);
   }
   bool retry_pending = false;
-  for (uint32_t i : order)
+  for (size_t step = 0; comparable && step < order.size(); step++)
   {
-    if (!comparable)
-      break;
+    const uint32_t i = order[step];
     const DDS_XTypes_TypeIdentifierTypeObjectPair &pair = pairs._buffer[i];
     dds_return_t ret;
     if (pair.type_identifier._d == DDS_XTypes_TI_STRONGLY_CONNECTED_COMPONENT)
@@ -2879,7 +2925,6 @@ static bool run_install_order(
       break;
     }
 
-    check_install_order(ret == DDS_RETCODE_OK, "receiver rejected an exported definition", i);
     for (uint32_t n = 0; n < pairs._length; n++)
     {
       if (states[n] == DDSI_TYPE_RESOLVED || states[n] == DDSI_TYPE_INVALID)
@@ -2906,6 +2951,32 @@ static bool run_install_order(
         });
       }
     }
+    if (model.empty())
+      check_install_order(ret == DDS_RETCODE_OK, "receiver rejected an exported definition", i);
+    else
+    {
+      if (retry_pending)
+        break;
+      installed[i] = true;
+      const auto expected = expected_install_states(model, installed);
+      // An error is returned for an invalid definition being installed. A valid
+      // dependency that reveals an error in an earlier dependent still succeeds.
+      const auto expected_ret = (expected[i] == DDSI_TYPE_INVALID) ? DDS_RETCODE_BAD_PARAMETER : DDS_RETCODE_OK;
+      if (ret != expected_ret)
+      {
+        std::fprintf(stderr, "step %zu: installing pair %u returned %d, expected %d\n", step + 1, i, ret, expected_ret);
+        std::abort();
+      }
+      for (uint32_t n = 0; n < pairs._length; n++)
+      {
+        if (states[n] != expected[n])
+        {
+          std::fprintf(stderr, "step %zu: after installing pair %u, pair %u has state %d, expected %d\n",
+                       step + 1, i, n, states[n], expected[n]);
+          std::abort();
+        }
+      }
+    }
   }
   for (ddsi_type *type : held)
     ddsi_type_unref_locked(gv, type);
@@ -2918,7 +2989,7 @@ static bool run_install_order(
 static void compare_install_orders(
   bool allow_recursive_types,
   const dds_sequence_DDS_XTypes_TypeIdentifierTypeObjectPair &exported,
-  uint32_t selector)
+  uint32_t selector, const std::vector<InstallNode> &model = {})
 {
   if (exported._length == 0 || exported._length > kMaxTypes)
     return;
@@ -2953,29 +3024,163 @@ static void compare_install_orders(
     selector /= remaining;
   }
   std::vector<ddsi_type_state> forward, reverse;
-  if (!run_install_order(allow_recursive_types, pairs, order, forward))
+  if (!run_install_order(allow_recursive_types, pairs, order, forward, model))
     return;
   std::reverse(order.begin(), order.end());
-  if (!run_install_order(allow_recursive_types, pairs, order, reverse))
+  if (!run_install_order(allow_recursive_types, pairs, order, reverse, model))
     return;
   for (uint32_t i = 0; i < pairs._length; i++)
   {
     check_install_order(forward[i] == reverse[i], "final state depends on installation order", i);
-    check_install_order(forward[i] == DDSI_TYPE_RESOLVED, "exported definition failed to resolve", i);
+    if (model.empty())
+      check_install_order(forward[i] == DDSI_TYPE_RESOLVED, "exported definition failed to resolve", i);
   }
+}
+
+struct InstallGraph {
+  std::vector<InstallNode> nodes;
+  std::vector<DDS_XTypes_TypeIdentifierTypeObjectPair> pairs;
+
+  InstallGraph() = default;
+  ~InstallGraph() { fini_typeobject_pairs(pairs); }
+  InstallGraph(const InstallGraph &) = delete;
+  InstallGraph &operator=(const InstallGraph &) = delete;
+};
+
+static bool make_install_node(TypeGraph &graph, const OwnedType &slot,
+                              const std::unordered_map<const ddsi_type *, uint32_t> &indices, InstallNode &node)
+{
+  if (slot.annotations_initialized)
+    return false;
+  const ddsi_type *type = &slot.type;
+  const ddsi_type *inherited_from = nullptr;
+  switch (type->xt._d)
+  {
+    case DDS_XTypes_TK_STRUCTURE:
+    {
+      const auto &structure = type->xt._u.structure;
+      inherited_from = structure.base_type;
+      if (inherited_from != nullptr)
+      {
+        const ddsi_type *base = inherited_from;
+        while (base->xt._d == DDS_XTypes_TK_ALIAS)
+          base = base->xt._u.alias.related_type;
+        if (base->xt._d != DDS_XTypes_TK_STRUCTURE || base->xt._u.structure.flags != structure.flags)
+          return false;
+      }
+      for (uint32_t n = 0; n < structure.members.length; n++)
+      {
+        const auto &member = structure.members.seq[n];
+        if (member.flags != DDS_XTypes_TRY_CONSTRUCT1)
+          return false;
+        node.member_ids.push_back(member.id);
+      }
+      break;
+    }
+    case DDS_XTypes_TK_ALIAS:
+      inherited_from = type->xt._u.alias.related_type;
+      break;
+    case DDS_XTypes_TK_ENUM:
+    case DDS_XTypes_TK_BITMASK:
+    case DDS_XTypes_TK_BITSET:
+    {
+      // These declarations have no type dependencies. Classify them in
+      // isolation, before either receiver exists.
+      const dds_return_t ret = graph.validate(type);
+      if (ret != DDS_RETCODE_OK && ret != DDS_RETCODE_BAD_PARAMETER)
+        return false;
+      node.invalid_leaf = ret == DDS_RETCODE_BAD_PARAMETER;
+      break;
+    }
+    default:
+      return false;
+  }
+
+  // A wrapped or otherwise unmodelled reference excludes its owner as well.
+  bool supported = true;
+  for_each_type_dependency(type, [&](const ddsi_type *child) {
+    if (child->xt.kind != DDSI_TYPEID_KIND_FULLY_DESCRIPTIVE)
+    {
+      const auto dep = indices.find(child);
+      if (dep == indices.end())
+        supported = false;
+      else
+      {
+        node.dependencies.push_back(dep->second);
+        if (child == inherited_from)
+          node.inherited_from = dep->second;
+      }
+    }
+  });
+  return supported;
+}
+
+static bool build_install_graph(TypeGraph &graph, const ddsi_type *root, ddsi_typeid_kind_t kind, InstallGraph &model)
+{
+  if (root == nullptr)
+    return false;
+  // TypeGraph's direct member, base and alias references always point to
+  // earlier declarations. Include other users of a shared dependency and
+  // unrelated controls, even when the selected root does not reach them.
+  std::unordered_map<const ddsi_type *, uint32_t> indices;
+  for (const OwnedType &slot : graph.types())
+  {
+    InstallNode node;
+    if (!make_install_node(graph, slot, indices, node))
+    {
+      if (&slot.type == root)
+        return false;
+      continue;
+    }
+    const ddsi_type *type = &slot.type;
+    // In particular, two aliases of the same target may share one minimal
+    // identifier. Both source references then denote one receiver record.
+    DDS_XTypes_TypeIdentifier id{};
+    ddsi_xt_get_typeid_impl(&type->xt, &id, kind);
+    const auto found = std::find_if(model.pairs.begin(), model.pairs.end(), [&](const DDS_XTypes_TypeIdentifierTypeObjectPair &pair) {
+      return ddsi_typeid_compare_impl(&pair.type_identifier, &id) == 0;
+    });
+    indices.emplace(type, static_cast<uint32_t>(found - model.pairs.begin()));
+    if (found != model.pairs.end())
+    {
+      ddsi_typeid_fini_impl(&id);
+      continue;
+    }
+    model.nodes.push_back(std::move(node));
+    model.pairs.emplace_back();
+    model.pairs.back().type_identifier = id;
+    ddsi_xt_get_typeobject_kind_impl(&type->xt, &model.pairs.back().type_object, kind);
+  }
+  return indices.find(root) != indices.end();
 }
 
 static void exercise_install_order(const fuzz_type_graph::FuzzMsg &msg, const fuzz_type_graph::ActionEntry &entry)
 {
-  // A resolved source supplies the complete, unmutated closure used by both receivers.
+  const auto kind = (entry.flags() & 1u) ? DDSI_TYPEID_KIND_MINIMAL : DDSI_TYPEID_KIND_COMPLETE;
   SerializedTypeInfoTypeMap serialized;
-  if (!export_typeinfo_typemap(msg, serialized))
+  InstallGraph model;
+  bool modelled;
+  {
+    Runtime source(msg.allow_recursive_types());
+    TypeGraph graph(source.gv(), msg);
+    ddsi_type *root = graph.typeinfo_root(msg.root());
+    modelled = build_install_graph(graph, root, kind, model);
+    if (!modelled && !export_typeinfo_typemap(source, graph, root, msg, serialized))
+      return;
+  }
+  if (modelled)
+  {
+    dds_sequence_DDS_XTypes_TypeIdentifierTypeObjectPair pairs{};
+    pairs._length = pairs._maximum = static_cast<uint32_t>(model.pairs.size());
+    pairs._buffer = model.pairs.data();
+    compare_install_orders(msg.allow_recursive_types(), pairs, entry.target(), model.nodes);
     return;
+  }
   ddsi_typemap_t *map = ddsi_typemap_deser(serialized.typemap, serialized.typemap_size);
   fini_serialized_typeinfo_typemap(serialized);
   if (map != nullptr)
   {
-    const auto &exported = (entry.flags() & 1u) ? map->x.identifier_object_pair_minimal : map->x.identifier_object_pair_complete;
+    const auto &exported = (kind == DDSI_TYPEID_KIND_MINIMAL) ? map->x.identifier_object_pair_minimal : map->x.identifier_object_pair_complete;
     compare_install_orders(msg.allow_recursive_types(), exported, entry.target());
     ddsi_typemap_fini(map);
     ddsrt_free(map);
@@ -3041,8 +3246,12 @@ static void run_assignability(Runtime &runtime, TypeGraph &graph, uint32_t root,
 static void roundtrip_typeinfo_typemap(const fuzz_type_graph::FuzzMsg &msg)
 {
   SerializedTypeInfoTypeMap serialized;
-  if (!export_typeinfo_typemap(msg, serialized))
-    return;
+  {
+    Runtime source(msg.allow_recursive_types());
+    TypeGraph graph(source.gv(), msg);
+    if (!export_typeinfo_typemap(source, graph, graph.typeinfo_root(msg.root()), msg, serialized))
+      return;
+  }
 
   ddsi_typeinfo_t *type_info = ddsi_typeinfo_deser(serialized.typeinfo, serialized.typeinfo_size);
   ddsi_typemap_t *type_map = ddsi_typemap_deser(serialized.typemap, serialized.typemap_size);

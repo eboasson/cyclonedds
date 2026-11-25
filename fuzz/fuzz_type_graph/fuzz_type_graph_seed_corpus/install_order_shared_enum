@@ -1,0 +1,11 @@
+root: 0
+types { kind: TYPE_ENUM bit_bound: 31 values { value: 4 } values { value: 4 } }
+types { kind: TYPE_ALIAS related_type: 0 }
+types { kind: TYPE_ALIAS related_type: 0 }
+types { kind: TYPE_STRUCT members { id: 1 type: 1 } }
+types { kind: TYPE_STRUCT members { id: 2 type: 2 } }
+types { kind: TYPE_BITMASK bit_bound: 7 values { value: 2 } }
+types { kind: TYPE_BITSET values { value: 0 } }
+# Both aliases have the same minimal ID. The bitmask and bitset are independent.
+actions { action: ACTION_INSTALL_ORDER }
+actions { action: ACTION_INSTALL_ORDER flags: 1 }
