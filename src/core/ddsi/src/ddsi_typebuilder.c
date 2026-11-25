@@ -747,9 +747,10 @@ static dds_return_t typebuilder_get_type_layout (struct typebuilder_layout_cache
     {
       if (entry->state == TYPEBUILDER_LAYOUT_VISITING)
         return DDS_RETCODE_BAD_PARAMETER;
-      if (entry->result == DDS_RETCODE_OK)
-        *layout = entry->layout;
-      return entry->result;
+      if (entry->result != DDS_RETCODE_OK)
+        return entry->result;
+      *layout = entry->layout;
+      return DDS_RETCODE_OK;
     }
   }
   struct typebuilder_layout_cache_entry *entry = ddsrt_calloc (1, sizeof (*entry));
@@ -759,11 +760,12 @@ static dds_return_t typebuilder_get_type_layout (struct typebuilder_layout_cache
   entry->type = type;
   entry->next = cache->entries;
   cache->entries = entry;
-  entry->result = typebuilder_get_type_layout_impl (cache, type, &entry->layout);
+  const dds_return_t ret = typebuilder_get_type_layout_impl (cache, type, layout);
+  entry->result = ret;
   entry->state = TYPEBUILDER_LAYOUT_COMPLETE;
-  if (entry->result == DDS_RETCODE_OK)
-    *layout = entry->layout;
-  return entry->result;
+  if (ret == DDS_RETCODE_OK)
+    entry->layout = *layout;
+  return ret;
 }
 
 static enum typebuilder_try_construct get_tc (uint16_t flags)
