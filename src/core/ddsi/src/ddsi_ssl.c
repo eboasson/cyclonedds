@@ -232,10 +232,17 @@ static void dds_report_tls_version (const struct ddsi_domaingv *gv, const SSL *s
 {
   if (ssl)
   {
+    X509 *cert = SSL_get_peer_certificate (ssl);
+    if (cert == NULL)
+    {
+      GVTRACE ("tcp/ssl %s peer without certificate [%s]\n", oper, SSL_get_version (ssl));
+      return;
+    }
     char issuer[256], subject[256];
-    X509_NAME_oneline (X509_get_issuer_name (SSL_get_peer_certificate (ssl)), issuer, sizeof (issuer));
-    X509_NAME_oneline (X509_get_subject_name (SSL_get_peer_certificate (ssl)), subject, sizeof (subject));
+    X509_NAME_oneline (X509_get_issuer_name (cert), issuer, sizeof (issuer));
+    X509_NAME_oneline (X509_get_subject_name (cert), subject, sizeof (subject));
     GVTRACE ("tcp/ssl %s %s issued by %s [%s]\n", oper, subject, issuer, SSL_get_version (ssl));
+    X509_free (cert);
   }
 }
 
