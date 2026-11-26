@@ -119,10 +119,6 @@ struct ddsi_xmsg;
 
 #endif /* DDS_HAS_SECURITY */
 
-
-typedef uint32_t ddsi_ipv4address_t;
-typedef uint32_t ddsi_port_t;
-
 typedef struct ddsi_plist_src {
   ddsi_protocol_version_t protocol_version; /**< input protocol version */
   ddsi_vendorid_t vendorid;                 /**< vendor code for input */

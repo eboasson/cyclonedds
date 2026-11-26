@@ -52,17 +52,10 @@
 #define PID_VENDORID                            0x16u
 #define PID_UNICAST_LOCATOR                     0x2fu
 #define PID_MULTICAST_LOCATOR                   0x30u
-#define PID_MULTICAST_IPADDRESS                 0x11u
 #define PID_DEFAULT_UNICAST_LOCATOR             0x31u
 #define PID_DEFAULT_MULTICAST_LOCATOR           0x48u
 #define PID_METATRAFFIC_UNICAST_LOCATOR         0x32u
 #define PID_METATRAFFIC_MULTICAST_LOCATOR       0x33u
-#define PID_DEFAULT_UNICAST_IPADDRESS           0xcu
-#define PID_DEFAULT_UNICAST_PORT                0xeu
-#define PID_METATRAFFIC_UNICAST_IPADDRESS       0x45u
-#define PID_METATRAFFIC_UNICAST_PORT            0xdu
-#define PID_METATRAFFIC_MULTICAST_IPADDRESS     0xbu
-#define PID_METATRAFFIC_MULTICAST_PORT          0x46u
 #define PID_EXPECTS_INLINE_QOS                  0x43u
 #define PID_PARTICIPANT_MANUAL_LIVELINESS_COUNT 0x34u
 #define PID_PARTICIPANT_BUILTIN_ENDPOINTS       0x44u

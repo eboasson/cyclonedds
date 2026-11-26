@@ -62,32 +62,6 @@ DDSRT_STATIC_ASSERT(DDS_LENGTH_UNLIMITED == -1);
    disappears if we use this alternative form. */
 #define plist_alignof(ty_) (offsetof(struct {char c_; ty_ t;}, t))
 
-/* These are internal to the parameter list processing. We never
-   generate them, and we never want to do see them anywhere outside
-   the actual parsing of an incoming parameter list. (There are
-   entries in ddsi_plist, but they are never to be inspected and
-   the bits corresponding to them must be 0 except while processing an
-   incoming parameter list.) */
-#define PPTMP_MULTICAST_IPADDRESS               (1 << 0)
-#define PPTMP_DEFAULT_UNICAST_IPADDRESS         (1 << 1)
-#define PPTMP_DEFAULT_UNICAST_PORT              (1 << 2)
-#define PPTMP_METATRAFFIC_UNICAST_IPADDRESS     (1 << 3)
-#define PPTMP_METATRAFFIC_UNICAST_PORT          (1 << 4)
-#define PPTMP_METATRAFFIC_MULTICAST_IPADDRESS   (1 << 5)
-#define PPTMP_METATRAFFIC_MULTICAST_PORT        (1 << 6)
-
-typedef struct ddsi_ipaddress_params_tmp {
-  uint32_t present;
-
-  ddsi_ipv4address_t multicast_ipaddress;
-  ddsi_ipv4address_t default_unicast_ipaddress;
-  ddsi_port_t default_unicast_port;
-  ddsi_ipv4address_t metatraffic_unicast_ipaddress;
-  ddsi_port_t metatraffic_unicast_port;
-  ddsi_ipv4address_t metatraffic_multicast_ipaddress;
-  ddsi_port_t metatraffic_multicast_port;
-} ddsi_ipaddress_params_tmp_t;
-
 struct dd {
   const unsigned char *buf;
   size_t bufsz;
@@ -2935,133 +2909,6 @@ static enum do_locator_result do_locator (ddsi_locators_t *ls, uint64_t present,
   return DOLOC_ACCEPTED;
 }
 
-static void locator_from_ipv4address_port (ddsi_locator_t *loc, const ddsi_ipv4address_t *a, const ddsi_port_t *p)
-{
-  loc->kind = DDSI_LOCATOR_KIND_UDPv4;
-  loc->port = *p;
-  memset (loc->address, 0, 12);
-  memcpy (loc->address + 12, a, 4);
-}
-
-static dds_return_t do_ipv4address (ddsi_plist_t *dest, ddsi_ipaddress_params_tmp_t *dest_tmp, uint64_t wanted, uint32_t fl_tmp, const struct dd *dd)
-{
-  ddsi_ipv4address_t *a;
-  ddsi_port_t *p;
-  ddsi_locators_t *ls;
-  uint32_t fl1_tmp;
-  uint64_t fldest;
-  if (dd->bufsz < sizeof (*a))
-    return DDS_RETCODE_BAD_PARAMETER;
-  switch (fl_tmp)
-  {
-    case PPTMP_MULTICAST_IPADDRESS:
-      a = &dest_tmp->multicast_ipaddress;
-      p = NULL; /* don't know which port to use ... */
-      fl1_tmp = 0;
-      fldest = PP_MULTICAST_LOCATOR;
-      ls = &dest->multicast_locators;
-      break;
-    case PPTMP_DEFAULT_UNICAST_IPADDRESS:
-      a = &dest_tmp->default_unicast_ipaddress;
-      p = &dest_tmp->default_unicast_port;
-      fl1_tmp = PPTMP_DEFAULT_UNICAST_PORT;
-      fldest = PP_DEFAULT_UNICAST_LOCATOR;
-      ls = &dest->unicast_locators;
-      break;
-    case PPTMP_METATRAFFIC_UNICAST_IPADDRESS:
-      a = &dest_tmp->metatraffic_unicast_ipaddress;
-      p = &dest_tmp->metatraffic_unicast_port;
-      fl1_tmp = PPTMP_METATRAFFIC_UNICAST_PORT;
-      fldest = PP_METATRAFFIC_UNICAST_LOCATOR;
-      ls = &dest->metatraffic_unicast_locators;
-      break;
-    case PPTMP_METATRAFFIC_MULTICAST_IPADDRESS:
-      a = &dest_tmp->metatraffic_multicast_ipaddress;
-      p = &dest_tmp->metatraffic_multicast_port;
-      fl1_tmp = PPTMP_METATRAFFIC_MULTICAST_PORT;
-      fldest = PP_METATRAFFIC_MULTICAST_LOCATOR;
-      ls = &dest->metatraffic_multicast_locators;
-      break;
-    default:
-      return DDS_RETCODE_BAD_PARAMETER;
-  }
-  memcpy (a, dd->buf, sizeof (*a));
-  dest_tmp->present |= fl_tmp;
-
-  /* PPTMP_MULTICAST_IPADDRESS must fail because we don't have a port.
-     (There are of course other ways of failing ...)  Option 1: set
-     fl1 to a value to bit that's never set; option 2: explicit check.
-     Since this code hardly ever gets executed, use option 2. */
-
-  if (fl1_tmp && ((dest_tmp->present & (fl_tmp | fl1_tmp)) == (fl_tmp | fl1_tmp)))
-  {
-    /* If port already known, add corresponding locator and discard
-       both address & port from the set of present plist: this
-       allows adding another pair. */
-    ddsi_locator_t loc;
-    locator_from_ipv4address_port (&loc, a, p);
-    add_locator (ls, dest->present, wanted, fldest, &loc);
-    dest_tmp->present &= ~(fl_tmp | fl1_tmp);
-    dest->present |= fldest;
-  }
-  return 0;
-}
-
-static dds_return_t do_port (ddsi_plist_t *dest, ddsi_ipaddress_params_tmp_t *dest_tmp, uint64_t wanted, uint32_t fl_tmp, const struct dd *dd)
-{
-  ddsi_ipv4address_t *a;
-  ddsi_port_t *p;
-  ddsi_locators_t *ls;
-  uint64_t fldest;
-  uint32_t fl1_tmp;
-  if (dd->bufsz < sizeof (*p))
-    return DDS_RETCODE_BAD_PARAMETER;
-  switch (fl_tmp)
-  {
-    case PPTMP_DEFAULT_UNICAST_PORT:
-      a = &dest_tmp->default_unicast_ipaddress;
-      p = &dest_tmp->default_unicast_port;
-      fl1_tmp = PPTMP_DEFAULT_UNICAST_IPADDRESS;
-      fldest = PP_DEFAULT_UNICAST_LOCATOR;
-      ls = &dest->unicast_locators;
-      break;
-    case PPTMP_METATRAFFIC_UNICAST_PORT:
-      a = &dest_tmp->metatraffic_unicast_ipaddress;
-      p = &dest_tmp->metatraffic_unicast_port;
-      fl1_tmp = PPTMP_METATRAFFIC_UNICAST_IPADDRESS;
-      fldest = PP_METATRAFFIC_UNICAST_LOCATOR;
-      ls = &dest->metatraffic_unicast_locators;
-      break;
-    case PPTMP_METATRAFFIC_MULTICAST_PORT:
-      a = &dest_tmp->metatraffic_multicast_ipaddress;
-      p = &dest_tmp->metatraffic_multicast_port;
-      fl1_tmp = PPTMP_METATRAFFIC_MULTICAST_IPADDRESS;
-      fldest = PP_METATRAFFIC_MULTICAST_LOCATOR;
-      ls = &dest->metatraffic_multicast_locators;
-      break;
-    default:
-      return DDS_RETCODE_BAD_PARAMETER;
-  }
-  memcpy (p, dd->buf, sizeof (*p));
-  if (dd->bswap)
-    *p = ddsrt_bswap4u (*p);
-  if (*p <= 0 || *p > 65535)
-    return DDS_RETCODE_BAD_PARAMETER;
-  dest_tmp->present |= fl_tmp;
-  if ((dest_tmp->present & (fl_tmp | fl1_tmp)) == (fl_tmp | fl1_tmp))
-  {
-    /* If port already known, add corresponding locator and discard
-       both address & port from the set of present plist: this
-       allows adding another pair. */
-    ddsi_locator_t loc;
-    locator_from_ipv4address_port (&loc, a, p);
-    add_locator (ls, dest->present, wanted, fldest, &loc);
-    dest_tmp->present &= ~(fl_tmp | fl1_tmp);
-    dest->present |= fldest;
-  }
-  return 0;
-}
-
 static dds_return_t return_unrecognized_pid (ddsi_plist_t *plist, ddsi_parameterid_t pid)
 {
   if (!(pid & DDSI_PID_UNRECOGNIZED_INCOMPATIBLE_FLAG))
@@ -3073,7 +2920,7 @@ static dds_return_t return_unrecognized_pid (ddsi_plist_t *plist, ddsi_parameter
   }
 }
 
-static dds_return_t init_one_parameter (ddsi_plist_t *plist, ddsi_ipaddress_params_tmp_t *dest_tmp, uint64_t pwanted, uint64_t qwanted, uint16_t pid, const struct dd *dd, struct ddsi_domaingv const * const gv)
+static dds_return_t init_one_parameter (ddsi_plist_t *plist, uint64_t pwanted, uint64_t qwanted, uint16_t pid, const struct dd *dd, struct ddsi_domaingv const * const gv)
 {
   /* PID_LIVELINESS and PID_PARTICIPANT_LEASE_DURATION need some preprocessing because
      they are both considered "liveliness" by Cyclone, but the spec has the former not
@@ -3094,23 +2941,6 @@ static dds_return_t init_one_parameter (ddsi_plist_t *plist, ddsi_ipaddress_para
       break;
     case DDSI_PLIST_CONTEXT_QOS_DISALLOWED:
       return DDS_RETCODE_BAD_PARAMETER;
-  }
-
-  /* special-cased ipv4address and port, because they have state beyond that what gets
-     passed into the generic code */
-  switch (pid)
-  {
-#define XA(NAME_) case DDSI_PID_##NAME_##_IPADDRESS: return do_ipv4address (plist, dest_tmp, pwanted, PPTMP_##NAME_##_IPADDRESS, dd)
-#define XP(NAME_) case DDSI_PID_##NAME_##_PORT: return do_port (plist, dest_tmp, pwanted, PPTMP_##NAME_##_PORT, dd)
-    XA (MULTICAST);
-    XA (DEFAULT_UNICAST);
-    XP (DEFAULT_UNICAST);
-    XA (METATRAFFIC_UNICAST);
-    XP (METATRAFFIC_UNICAST);
-    XA (METATRAFFIC_MULTICAST);
-    XP (METATRAFFIC_MULTICAST);
-#undef XP
-#undef XA
   }
 
   const struct piddesc_index *index;
@@ -3314,7 +3144,6 @@ dds_return_t ddsi_plist_init_frommsg (ddsi_plist_t *dest, char **nextafterplist,
 {
   const unsigned char *pl;
   struct dd dd;
-  ddsi_ipaddress_params_tmp_t dest_tmp;
 
 #ifndef NDEBUG
   memset (dest, 0, sizeof (*dest));
@@ -3347,7 +3176,6 @@ dds_return_t ddsi_plist_init_frommsg (ddsi_plist_t *dest, char **nextafterplist,
       return DDS_RETCODE_BAD_PARAMETER;
   }
   ddsi_plist_init_empty (dest);
-  dest_tmp.present = 0;
 
   GVLOG (DDS_LC_PLIST, "DDSI_PLIST_INIT (bswap %d)\n", dd.bswap);
 
@@ -3431,7 +3259,7 @@ dds_return_t ddsi_plist_init_frommsg (ddsi_plist_t *dest, char **nextafterplist,
 
     dd.buf = (const unsigned char *) (par + 1);
     dd.bufsz = length;
-    if ((res = init_one_parameter (dest, &dest_tmp, pwanted, qwanted, pid, &dd, gv)) < 0)
+    if ((res = init_one_parameter (dest, pwanted, qwanted, pid, &dd, gv)) < 0)
     {
       /* make sure we print a trace message on error */
       GVTRACE ("plist(vendor %u.%u): failed at pid=%"PRIx16"\n", src->vendorid.id[0], src->vendorid.id[1], pid);

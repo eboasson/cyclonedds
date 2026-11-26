@@ -471,6 +471,44 @@ CU_Test (ddsi_plist, locator_lists_reject)
   SER32BE(0),SER32BE(0),SER32BE(0), \
   (a),(b),(c),(d)
 
+CU_Test (ddsi_plist, ignore_deprecated_locator_parameters, .init = ddsi_plist_init_tables)
+{
+  const unsigned char data[] = {
+    HDR (DDSI_PID_MULTICAST_IPADDRESS, 4), 239,255,0,1,
+    HDR (DDSI_PID_DEFAULT_UNICAST_IPADDRESS, 4), 192,0,2,1,
+    HDR (DDSI_PID_DEFAULT_UNICAST_PORT, 4), SER32BE (7401),
+    HDR (DDSI_PID_METATRAFFIC_UNICAST_IPADDRESS, 4), 192,0,2,2,
+    HDR (DDSI_PID_METATRAFFIC_UNICAST_PORT, 4), SER32BE (7410),
+    HDR (DDSI_PID_METATRAFFIC_MULTICAST_IPADDRESS, 4), 239,255,0,2,
+    HDR (DDSI_PID_METATRAFFIC_MULTICAST_PORT, 4), SER32BE (7400),
+    HDR (DDSI_PID_DEFAULT_UNICAST_LOCATOR, 24), UDPLOCATOR (192,0,2,3,7411),
+    HDR (DDSI_PID_SENTINEL, 0)
+  };
+  const ddsi_plist_src_t src = {
+    .protocol_version = { 2, 5 },
+    .vendorid = DDSI_VENDORID_ECLIPSE,
+    .encoding = DDSI_RTPS_PL_CDR_BE,
+    .buf = data,
+    .bufsz = sizeof (data)
+  };
+  struct ddsi_domaingv gv;
+  setup (&gv, DDSI_LOCATOR_KIND_UDPv4);
+  ddsi_plist_t plist;
+  const dds_return_t rc = ddsi_plist_init_frommsg (&plist, NULL, ~(uint64_t)0, ~(uint64_t)0, &src, &gv, DDSI_PLIST_CONTEXT_PARTICIPANT);
+  CU_ASSERT_EQ_FATAL (rc, DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (plist.present, PP_DEFAULT_UNICAST_LOCATOR);
+  CU_ASSERT_EQ_FATAL (plist.default_unicast_locators.n, 1);
+  const struct ddsi_locators_one *node = plist.default_unicast_locators.first;
+  const unsigned char address[16] = { [12] = 192, 0, 2, 3 };
+  CU_ASSERT_NEQ_FATAL (node, NULL);
+  CU_ASSERT_EQ (node->loc.kind, DDSI_LOCATOR_KIND_UDPv4);
+  CU_ASSERT_EQ (node->loc.port, 7411);
+  CU_ASSERT_MEMEQ (node->loc.address, sizeof (node->loc.address), address, sizeof (address));
+  CU_ASSERT_EQ (node->next, NULL);
+  ddsi_plist_fini (&plist);
+  teardown (&gv);
+}
+
 CU_Test (ddsi_plist, locator_lists_accept)
 {
   static const uint32_t enabled_kinds[] = {
