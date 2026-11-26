@@ -1028,4 +1028,28 @@ module TypeBuilderTypes {
     t81 choice;
     unsigned short after;
   };
+
+  /* Both derived types embed the complete, padded BaseSample (#2510). */
+  @mutable @data_representation(XCDR2)
+  struct BaseBaseSample {
+    int32 deepBase;
+  };
+
+  @mutable @data_representation(XCDR2)
+  struct BaseSample : BaseBaseSample {
+    int64 valueA;
+    int32 valueB;
+  };
+
+  @mutable @data_representation(XCDR2)
+  struct AnotherInheritanceSample : BaseSample {
+    int8 valueD;
+  };
+
+  @mutable @data_representation(XCDR2)
+  struct InheritanceSample : BaseSample {
+    int64 valueC;
+    AnotherInheritanceSample sub;
+    uint16 valueE;
+  };
 };

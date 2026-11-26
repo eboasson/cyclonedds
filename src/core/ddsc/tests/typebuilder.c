@@ -523,6 +523,17 @@ CU_Test (ddsc_typebuilder, invalid_layout, .init = typebuilder_init, .fini = typ
   CU_ASSERT_EQ (dds_delete (topic), DDS_RETCODE_OK);
 }
 
+CU_Test (ddsc_typebuilder, mutable_inheritance_layout, .init = typebuilder_init, .fini = typebuilder_fini)
+{
+  const TypeBuilderTypes_InheritanceSample sample = {
+    .parent = { .parent = { .deepBase = 1 }, .valueA = 2, .valueB = 3 },
+    .valueC = 4,
+    .sub = { .parent = { .parent = { .deepBase = 5 }, .valueA = 6, .valueB = 7 }, .valueD = 8 },
+    .valueE = 9
+  };
+  check_layout_sample (&TypeBuilderTypes_InheritanceSample_desc, &sample, sizeof (sample), dds_alignof (TypeBuilderTypes_InheritanceSample));
+}
+
 CU_Test (ddsc_typebuilder, recursive_layout, .init = typebuilder_init, .fini = typebuilder_fini)
 {
   TypeBuilderTypes_t76 children[2] = {
