@@ -38,6 +38,8 @@ CU_Test(idlc_descriptor, keys_nested)
       1, 2, false, { { 2 } }, { "a" }, { 0 } },
     { "struct test { @key long a; @key short b; }; ",
       2, 4, false, { { 0 }, { 1 } }, { "a", "b" }, { 0, 1 } },
+    { "@nested struct empty {}; struct test { @key empty e; @key short b; };",
+      1, 2, false, { { 1 } }, { "b" }, { 0 } },
     { "@nested struct inner { @id(3) long i1; @id(1) short i2; }; struct outer { @key inner o1; }; ",
       2, 6, false, { { 0, 1 }, { 0, 3 } }, { "o1.i2", "o1.i1" }, { 1, 0 } },
     { "@nested struct inner { long i1; @key short i2; }; struct outer { @key inner o1; }; ",

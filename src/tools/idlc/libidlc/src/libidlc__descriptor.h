@@ -52,6 +52,7 @@ struct instruction {
       char *type;
       char *member;
       uint32_t member_id;
+      bool empty; /**< field omitted from the C layout; output offset 0 */
     } offset; /**< name of type and member to generate offsetofm and the member ID */
     struct {
       char *type;

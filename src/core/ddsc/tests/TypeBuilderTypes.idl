@@ -1046,6 +1046,18 @@ module TypeBuilderTypes {
     @key t83_choice choice;
   };
 
+  @nested @final struct t84_empty {};
+  @nested @final struct t84_fields {
+    @id(7) t84_empty empty_value;
+    @id(1) long value;
+  };
+  @nested @final union t84_choice switch (long) {
+    case 1: t84_fields fields;
+  };
+  @final struct t84 {
+    @key t84_choice choice;
+  };
+
   /* Both derived types embed the complete, padded BaseSample (#2510). */
   @mutable @data_representation(XCDR2)
   struct BaseBaseSample {

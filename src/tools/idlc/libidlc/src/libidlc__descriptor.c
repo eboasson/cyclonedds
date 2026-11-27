@@ -155,12 +155,12 @@ stash_opcode(
 
 static idl_retcode_t
 stash_offset(
-  const idl_pstate_t *pstate, struct instructions *instructions, uint32_t index, const struct field *field)
+  const idl_pstate_t *pstate, struct instructions *instructions, uint32_t index, const struct field *field, bool empty)
 {
   size_t cnt, pos, len, levels;
   const char *ident;
   const struct field *fld;
-  struct instruction inst = { OFFSET, { .offset = { NULL, NULL, 0 } } };
+  struct instruction inst = { OFFSET, { .offset = { .empty = empty } } };
 
   if (!field)
     return stash_instruction(pstate, instructions, index, &inst);
@@ -1397,7 +1397,7 @@ emit_case(
          as these members are not generated and no offset can be calculated */
       const uint32_t case_member_off = off;
       shift_enum_metadata_for_insert(descriptor, ctype, &ctype->instructions, off);
-      if ((ret = stash_offset(pstate, &ctype->instructions, off++, idl_is_empty(type_spec) ? NULL : stype->fields)))
+      if ((ret = stash_offset(pstate, &ctype->instructions, off++, stype->fields, idl_is_empty(type_spec))))
         return ret;
       ctype->instructions.table[case_member_off].data.offset.member_id = _case->declarator->id.value;
       /* For @external union members include the size of the member to allow the
@@ -1478,7 +1478,7 @@ emit_switch_type_spec(
   const uint32_t disc_op_off = ctype->instructions.count;
   if ((ret = stash_opcode(pstate, &ctype->instructions, nop, opcode, order)))
     return ret;
-  if ((ret = stash_offset(pstate, &ctype->instructions, nop, field)))
+  if ((ret = stash_offset(pstate, &ctype->instructions, nop, field, false)))
     return ret;
   if (idl_is_enum(type_spec)) {
     if ((ret = stash_enum_max(pstate, descriptor, ctype, &ctype->instructions, nop, disc_op_off, type_spec)))
@@ -1630,7 +1630,7 @@ emit_inherit_spec(
       struct field *field = NULL;
       if ((ret = push_field(descriptor, node, &field)))
         return ret;
-      if ((ret = stash_offset(pstate, &ctype->instructions, nop, field)))
+      if ((ret = stash_offset(pstate, &ctype->instructions, nop, field, false)))
         return ret;
       pop_field(descriptor);
 
@@ -1848,7 +1848,7 @@ emit_sequence(
     off = ctype->instructions.count;
     if ((ret = stash_opcode(pstate, &ctype->instructions, nop, opcode, order)))
       return ret;
-    if ((ret = stash_offset(pstate, &ctype->instructions, nop, field)))
+    if ((ret = stash_offset(pstate, &ctype->instructions, nop, field, false)))
       return ret;
     if (idl_is_bounded(node)) {
       if ((ret = stash_single(pstate, &ctype->instructions, nop, idl_bound(node))))
@@ -2016,7 +2016,7 @@ emit_array(
     if ((ret = stash_opcode(pstate, &ctype->instructions, nop, opcode, order)))
       return ret;
     /* generate data field offset */
-    if ((ret = stash_offset(pstate, &ctype->instructions, nop, field)))
+    if ((ret = stash_offset(pstate, &ctype->instructions, nop, field, false)))
       return ret;
     /* generate data field alen */
     if ((ret = stash_single(pstate, &ctype->instructions, nop, dims)))
@@ -2226,7 +2226,7 @@ emit_declarator(
       return ret;
     /* generate data field offset; for empty types the offset cannot be used
        because the member is commented-out, so set to 0 in that case */
-    if ((ret = stash_offset(pstate, &ctype->instructions, nop, idl_is_empty(type_spec) ? NULL : field)))
+    if ((ret = stash_offset(pstate, &ctype->instructions, nop, field, idl_is_empty(type_spec))))
       return ret;
     /* generate data field bound */
     if (idl_is_bounded_xstring(type_spec)) {
@@ -2437,7 +2437,7 @@ static int print_offset(FILE *fp, const struct instruction *inst)
   type = inst->data.offset.type;
   member = inst->data.offset.member;
   assert((!type && !member) || (type && member));
-  if (!type)
+  if (!type || inst->data.offset.empty)
     return fputs("0u", fp);
   else
     return idl_fprintf(fp, "offsetof (%s, %s)", type, member);
@@ -2734,11 +2734,12 @@ static idl_retcode_t get_ctype_keys_adr(const idl_pstate_t *pstate, struct descr
   assert((!type && !member) || (type && member));
   (void) member;
 
+  /* Empty structs contribute no bytes or leaf offsets to the key. */
+  if (collect_offsets && inst_offs->data.offset.empty)
+    return IDL_RETCODE_OK;
   if (collect_offsets && type == NULL)
   {
-    /* Additional ADR for nested list-types (e.g. seq of seqs, seq of arrays, etc) are processed with their main ADR entry,
-       but because get_ctype_keys iterates over all instructions, it will also hit the additional ADRs and we need to skip
-       them here. */
+    /* The enclosing collection already processed this inline element instruction. */
     assert (DDS_OP_TYPE(inst->data.opcode.code) == DDS_OP_VAL_ARR || DDS_OP_TYPE(inst->data.opcode.code) == DDS_OP_VAL_SEQ || DDS_OP_TYPE(inst->data.opcode.code) == DDS_OP_VAL_BSQ);
     return IDL_RETCODE_OK;
   }
