@@ -6070,8 +6070,9 @@ static enum dds_stream_normalize_result stream_normalize_delimited_impl (struct 
   const uint32_t *required_end = dlc_ops + required_prefix;
   (*ops)++; /* skip DLC op */
   uint32_t insn;
-  /* A keyless struct used as a key contributes all its members. Its
-     implicit keys extend the declared prefix only on the selected path. */
+  /* Matching checks the declared types. The shared prefix allows ordinary data
+     to omit trailing fields, so stopping there on the key path would accept an
+     incomplete key. Check that the payload contains its implicit key fields. */
   while ((insn = **ops) != DDS_OP_RTS && (*off < st1.size || *ops < required_end ||
          (!st->outside_key && DDS_OP (insn) == DDS_OP_ADR && (insn & DDS_OP_FLAG_KEY))))
   {
