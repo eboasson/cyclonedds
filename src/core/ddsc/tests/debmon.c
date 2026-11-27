@@ -9,6 +9,7 @@
 // SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 
 #include <ctype.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "dds/dds.h"
@@ -63,7 +64,7 @@ static socklen_t sockaddr_len (const struct sockaddr_storage *addr)
   }
 }
 
-static void read_debmon_response (const ddsi_locator_t *loc, struct bytebuf *response)
+static ddsrt_socket_t read_debmon_response (const ddsi_locator_t *loc, struct bytebuf *response)
 {
   struct sockaddr_storage addr;
   ddsi_ipaddr_from_loc (&addr, loc);
@@ -84,8 +85,7 @@ static void read_debmon_response (const ddsi_locator_t *loc, struct bytebuf *res
       bytebuf_append (response, chunk, n);
   } while (rc == DDS_RETCODE_OK && n > 0);
 
-  rc = ddsrt_close (sock);
-  CU_ASSERT_EQ_FATAL (rc, DDS_RETCODE_OK);
+  return sock;
 }
 
 static unsigned hexval (char c)
@@ -338,7 +338,8 @@ CU_Test (ddsc_debmon, smell)
   {
     struct bytebuf response = { 0 };
     struct bytebuf body = { 0 };
-    read_debmon_response (&locs[i], &response);
+    const ddsrt_socket_t sock = read_debmon_response (&locs[i], &response);
+    CU_ASSERT_EQ_FATAL (ddsrt_close (sock), DDS_RETCODE_OK);
 
     CU_ASSERT_NEQ_FATAL (response.data, NULL);
 
@@ -359,4 +360,44 @@ CU_Test (ddsc_debmon, smell)
   CU_ASSERT_EQ_FATAL (rc, DDS_RETCODE_OK);
   rc = dds_delete (dom0);
   CU_ASSERT_EQ_FATAL (rc, DDS_RETCODE_OK);
+}
+
+static void check_shutdown_with_open_client (const char *transport, const char *address, int32_t kind)
+{
+  char config[256];
+  (void) snprintf (config, sizeof (config),
+    "<General><Transport>%s</Transport><Interfaces><NetworkInterface address=\"%s\"/>"
+    "</Interfaces><AllowMulticast>false</AllowMulticast></General>"
+    "<Internal><MonitorPort>0</MonitorPort></Internal>", transport, address);
+  const dds_entity_t dom = dds_create_domain (0, config);
+  CU_ASSERT_GT_FATAL (dom, 0);
+  ddsi_locator_t loc;
+  CU_ASSERT_FATAL (ddsi_get_debug_monitor_locator (get_domaingv (dom)->debmon, &loc));
+  CU_ASSERT_EQ_FATAL (loc.kind, kind);
+
+  /* The server has sent EOF, but this client keeps its write side open
+     while the domain stops. The monitor must finish its drain or cancel it. */
+  struct bytebuf response = { 0 };
+  const ddsrt_socket_t sock = read_debmon_response (&loc, &response);
+  CU_ASSERT_GT (response.size, 0);
+  bytebuf_fini (&response);
+  CU_ASSERT_EQ (dds_delete (dom), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (ddsrt_close (sock), DDS_RETCODE_OK);
+}
+
+CU_Test (ddsc_debmon, shutdown_with_open_client, .timeout = 10)
+{
+  check_shutdown_with_open_client ("udp", "127.0.0.1", DDSI_LOCATOR_KIND_TCPv4);
+#if DDSRT_HAVE_IPV6
+  /* Some hosts enable IPv6 at build time without configuring ::1. */
+  struct sockaddr_in6 addr = { .sin6_family = AF_INET6, .sin6_addr = ddsrt_in6addr_loopback };
+  ddsrt_socket_t sock;
+  if (ddsrt_socket (&sock, AF_INET6, SOCK_STREAM, 0) == DDS_RETCODE_OK)
+  {
+    const dds_return_t rc = ddsrt_bind (sock, (const struct sockaddr *) &addr, sizeof (addr));
+    CU_ASSERT_EQ_FATAL (ddsrt_close (sock), DDS_RETCODE_OK);
+    if (rc == DDS_RETCODE_OK)
+      check_shutdown_with_open_client ("udp6", "::1", DDSI_LOCATOR_KIND_TCPv6);
+  }
+#endif
 }

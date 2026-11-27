@@ -46,14 +46,13 @@ struct ddsi_debug_monitor {
   struct ddsi_tran_factory * tran_factory;
   struct ddsi_tran_listener * servsock;
   ddsi_locator_t servlocator;
-  ddsrt_mutex_t lock;
-  ddsrt_cond_t cond;
   struct ddsi_domaingv *gv;
-  int stop;
+  ddsrt_atomic_uint32_t stop;
 };
 
 struct st {
   struct ddsi_tran_conn * conn;
+  struct ddsi_tran_listener *listener;
   struct ddsi_domaingv *gv;
   struct ddsi_thread_state *thrst;
   bool error;
@@ -64,7 +63,7 @@ struct st {
   uint16_t pos;
 };
 
-static void cpemitchunk(struct st *st, ddsi_locator_t loc)
+static void cpemitchunk (struct st *st)
 {
   // HTTP chunk delimiter (pos-8 == chunk_size)
   // 'chunk header' 2* '\r\n' + 4 hex digits = 8 bytes
@@ -73,9 +72,7 @@ static void cpemitchunk(struct st *st, ddsi_locator_t loc)
   snprintf(header, sizeof (header), "\r\n%04"PRIX16"\r\n\r\n", (uint16_t)(st->pos - 8));
   memcpy(st->chunkbuf, header, (st->pos > 8) ? 8 : 10);
 
-  DDSI_DECL_CONST_TRAN_WRITE_MSGFRAGS_PTR (msgfrags,
-    ((ddsrt_iovec_t){ .iov_base = st->chunkbuf, .iov_len = (ddsrt_iov_len_t) ((st->pos > 8) ? st->pos : 10) }));
-  if (ddsi_conn_write (st->conn, &loc, msgfrags, 0, NULL) != DDS_RETCODE_OK)
+  if (ddsi_tcp_write_stream (st->listener, st->conn, st->chunkbuf, (st->pos > 8) ? st->pos : 10) != DDS_RETCODE_OK)
     st->error = true;
   st->pos = 8;
 }
@@ -84,28 +81,19 @@ static void cpf (struct st *st, const char *fmt, ...) ddsrt_attribute_format_pri
 
 static void cpf (struct st *st, const char *fmt, ...)
 {
-  ddsi_locator_t loc;
-  if (st->error)
-  {
-    // do nothing
-  }
-  else if (!ddsi_conn_peer_locator (st->conn, &loc))
-  {
-    st->error = true;
-  }
-  else
+  if (!st->error)
   {
     va_list ap;
     va_start (ap, fmt);
     const int cnt = vsnprintf (st->chunkbuf + st->pos, sizeof (st->chunkbuf) - st->pos, fmt, ap);
-    if (cnt < 0 || cnt > UINT16_MAX - st->pos)
+    if (cnt < 0 || (size_t) cnt >= sizeof (st->chunkbuf) - st->pos)
       st->error = true;
     else
       st->pos = (uint16_t) (st->pos + cnt);
     va_end (ap);
 
     if (st->pos > sizeof (st->chunkbuf) / 2)
-      cpemitchunk(st, loc);
+      cpemitchunk (st);
   }
 }
 
@@ -646,12 +634,12 @@ static void print_domain (struct st *st, void *varg)
 
 static void debmon_write_response (struct ddsi_debug_monitor *dm, struct ddsi_tran_conn * conn)
 {
-  ddsi_locator_t loc;
-  const char *http_header = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n";
+  static const char http_header[] = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n";
 
   struct ddsi_thread_state * const thrst = ddsi_lookup_thread_state ();
   struct st st = {
     .conn = conn,
+    .listener = dm->servsock,
     .gv = dm->gv,
     .thrst = thrst,
     .error = false,
@@ -659,91 +647,33 @@ static void debmon_write_response (struct ddsi_debug_monitor *dm, struct ddsi_tr
     .pos = 8
   };
 
-  if (!ddsi_conn_peer_locator(st.conn, &loc)) {
+  if (ddsi_tcp_write_stream (dm->servsock, conn, http_header, sizeof (http_header) - 1) != DDS_RETCODE_OK)
     return;
-  }
-
-  DDSI_DECL_CONST_TRAN_WRITE_MSGFRAGS_PTR(msgfrags, ((ddsrt_iovec_t){
-    .iov_base = (void *) http_header,
-    .iov_len = (ddsrt_iov_len_t) strlen (http_header)
-  }));
-  if (ddsi_conn_write (st.conn, &loc, msgfrags, 0, NULL) != DDS_RETCODE_OK) {
-    // If we cant even send headers dont bother with encoding the rest
-    return;
-  }
 
   // Encode data
   cpfobj (&st, print_domain, NULL);
 
   // Last content chunk
-  if (st.pos > 8)
-    cpemitchunk(&st, loc);
+  if (!st.error && st.pos > 8)
+    cpemitchunk (&st);
 
   // Terminating chunk
-  cpemitchunk(&st, loc);
-}
-
-static void debmon_handle_connection (struct ddsi_debug_monitor *dm, struct ddsi_tran_conn * conn)
-{
-  if (dm->stop)
-    return;
-
-  ddsrt_mutex_unlock (&dm->lock);
-
-  ddsrt_socket_t const sock = ddsi_tran_handle (&conn->m_base);
-  const struct linger lingeropt = { .l_onoff = 1, .l_linger = 2 };
-  const dds_return_t lingerret = ddsrt_setsockopt (sock, SOL_SOCKET, SO_LINGER, &lingeropt, sizeof (lingeropt));
-  if (lingerret != DDS_RETCODE_OK)
-    DDS_CLOG (DDS_LC_ERROR, &dm->gv->logconfig, "failed to set SO_LINGER {on_off=1,linger=2}\n");
-
-  debmon_write_response (dm, conn);
-
-  // shutdown on write side (we've sent all data) so peer gets EOF
-  // then read until EOF before closing the socket altogether
-  //
-  // section 4.2.2.13 of RFC 1122 tells us that a close() with any
-  // pending readable data could lead to an immediate reset being sent.
-  //
-  //   “A host MAY implement a ‘half-duplex’ TCP close sequence, so that
-  //   an application that has called CLOSE cannot continue to read data
-  //   from the connection. If such a host issues a CLOSE call while
-  //   received data is still pending in TCP, or if new data is received
-  //   after CLOSE is called, its TCP SHOULD send a RST to show that data
-  //   was lost.”
-  //
-  // not sure if "shutdown(read & write)" is the same as "close" in this,
-  // but only setting LINGER is not sufficient, but this seems to work.
-  ddsrt_shutdown (sock, DDSRT_SHUTDOWN_WRITE);
-  char buffer[100];
-  dds_return_t ret;
-  size_t bytes_read;
-  do {
-    fd_set fds;
-    FD_ZERO (&fds);
-    FD_SET (sock, &fds);
-    (void) ddsrt_select (sock + 1, &fds, NULL, NULL, DDS_SECS (1));
-    ret = ddsrt_recv (sock, buffer, sizeof (buffer), 0, &bytes_read);
-  } while ((ret == DDS_RETCODE_OK && bytes_read > 0) || ret == DDS_RETCODE_TRY_AGAIN);
-
-  ddsrt_mutex_lock (&dm->lock);
+  if (!st.error)
+    cpemitchunk (&st);
 }
 
 static uint32_t debmon_main (void *vdm)
 {
   struct ddsi_debug_monitor *dm = vdm;
-  ddsrt_mutex_lock (&dm->lock);
-  while (!dm->stop)
+  while (!ddsrt_atomic_ld32 (&dm->stop))
   {
-    ddsrt_mutex_unlock (&dm->lock);
-    struct ddsi_tran_conn * conn = ddsi_listener_accept (dm->servsock);
-    ddsrt_mutex_lock (&dm->lock);
+    struct ddsi_tran_conn *conn = ddsi_tcp_accept_stream (dm->servsock);
     if (conn != NULL)
     {
-      debmon_handle_connection (dm, conn);
-      ddsi_conn_free (conn);
+      debmon_write_response (dm, conn);
+      ddsi_tcp_close_stream (dm->servsock, conn);
     }
   }
-  ddsrt_mutex_unlock (&dm->lock);
   return 0;
 }
 
@@ -755,14 +685,10 @@ struct ddsi_debug_monitor *ddsi_new_debug_monitor (struct ddsi_domaingv *gv, int
   if (gv->config.monitor_port < 0)
     return NULL;
 
-  if (ddsi_tcp_init (gv) < 0)
-    return NULL;
-
   dm = ddsrt_malloc (sizeof (*dm));
-
   dm->gv = gv;
-  if ((dm->tran_factory = ddsi_factory_find (gv, "tcp")) == NULL)
-    dm->tran_factory = ddsi_factory_find (gv, "tcp6");
+  if ((dm->tran_factory = ddsi_tcp_new_factory (gv)) == NULL)
+    goto err_factory;
 
   if (port != DDSI_TRAN_RANDOM_PORT_NUMBER && !ddsi_is_valid_port (dm->tran_factory, (uint32_t) port))
   {
@@ -782,27 +708,25 @@ struct ddsi_debug_monitor *ddsi_new_debug_monitor (struct ddsi_domaingv *gv, int
     GVLOG (DDS_LC_CONFIG, "debmon at %s\n", ddsi_locator_to_string (buf, sizeof(buf), &dm->servlocator));
   }
 
-  ddsrt_mutex_init (&dm->lock);
-  ddsrt_cond_init (&dm->cond);
   if (ddsi_listener_listen (dm->servsock) < 0)
     goto err_listen;
-  dm->stop = 0;
+  ddsrt_atomic_st32 (&dm->stop, 0);
   if (ddsi_create_thread (&dm->servts, gv, "debmon", debmon_main, dm) != DDS_RETCODE_OK)
     goto err_listen;
   return dm;
 
 err_listen:
-  ddsrt_cond_destroy(&dm->cond);
-  ddsrt_mutex_destroy(&dm->lock);
   ddsi_listener_free(dm->servsock);
 err_servsock:
 err_invalid_port:
+  ddsi_factory_free (dm->tran_factory);
+err_factory:
   ddsrt_free(dm);
   return NULL;
 }
 
 bool ddsi_get_debug_monitor_locator (struct ddsi_debug_monitor *dm, ddsi_locator_t *locator) {
-  if (!dm || dm->stop) return false;
+  if (!dm || ddsrt_atomic_ld32 (&dm->stop)) return false;
   memcpy(locator, &dm->servlocator, sizeof(ddsi_locator_t));
   return true;
 }
@@ -812,15 +736,11 @@ void ddsi_free_debug_monitor (struct ddsi_debug_monitor *dm)
   if (dm == NULL)
     return;
 
-  ddsrt_mutex_lock (&dm->lock);
-  dm->stop = 1;
-  ddsrt_cond_broadcast (&dm->cond);
-  ddsrt_mutex_unlock (&dm->lock);
+  ddsrt_atomic_st32 (&dm->stop, 1);
   ddsi_listener_unblock (dm->servsock);
   ddsi_join_thread (dm->servts);
   ddsi_listener_free (dm->servsock);
-  ddsrt_cond_destroy (&dm->cond);
-  ddsrt_mutex_destroy (&dm->lock);
+  ddsi_factory_free (dm->tran_factory);
   ddsrt_free (dm);
 }
 

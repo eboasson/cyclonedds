@@ -22,6 +22,20 @@ struct ddsi_domaingv;
 /** @component tcp_transport */
 int ddsi_tcp_init (struct ddsi_domaingv *gv);
 
+/** @component tcp_transport */
+struct ddsi_tran_factory *ddsi_tcp_new_factory (struct ddsi_domaingv *gv);
+
+/** @component tcp_transport
+    Accept a private stream without publishing it to RTPS. The caller owns
+    the stream until ddsi_tcp_close_stream and must keep the listener alive. */
+struct ddsi_tran_conn *ddsi_tcp_accept_stream (struct ddsi_tran_listener *listener);
+
+/** @component tcp_transport */
+dds_return_t ddsi_tcp_write_stream (struct ddsi_tran_listener *listener, struct ddsi_tran_conn *conn, const void *data, size_t size);
+
+/** @component tcp_transport */
+void ddsi_tcp_close_stream (struct ddsi_tran_listener *listener, struct ddsi_tran_conn *conn);
+
 #if defined (__cplusplus)
 }
 #endif
