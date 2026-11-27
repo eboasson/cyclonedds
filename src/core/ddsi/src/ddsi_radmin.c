@@ -2558,6 +2558,18 @@ static enum dqueue_elem_kind dqueue_elem_kind (const struct ddsi_rsample_chain_e
     return DQEK_BUBBLE;
 }
 
+static void dqueue_sample_dequeued (struct ddsi_dqueue *q)
+{
+  if (ddsrt_atomic_dec32_ov (&q->nof_samples) == 1)
+  {
+    /* Keep the notification from racing a receiver between its count
+       check and its condition wait. */
+    ddsrt_mutex_lock (&q->lock);
+    ddsrt_cond_broadcast (&q->cond);
+    ddsrt_mutex_unlock (&q->lock);
+  }
+}
+
 bool ddsi_dqueue_step_deaf (struct ddsi_dqueue *q)
 {
   struct ddsi_thread_state * const thrst = ddsi_lookup_thread_state ();
@@ -2573,6 +2585,7 @@ bool ddsi_dqueue_step_deaf (struct ddsi_dqueue *q)
     {
       struct ddsi_rsample_chain_elem *e = sc.first;
       sc.first = e->next;
+      dqueue_sample_dequeued (q);
       ddsi_thread_state_awake_to_awake_no_nest (thrst);
       switch (dqueue_elem_kind (e))
       {
@@ -2636,9 +2649,7 @@ static uint32_t dqueue_thread (void *vq)
       struct ddsi_rsample_chain_elem *e = sc.first;
       int ret;
       sc.first = e->next;
-      if (ddsrt_atomic_dec32_ov (&q->nof_samples) == 1) {
-        ddsrt_cond_broadcast (&q->cond);
-      }
+      dqueue_sample_dequeued (q);
       ddsi_thread_state_awake_to_awake_no_nest (thrst);
       switch (dqueue_elem_kind (e))
       {

@@ -68,6 +68,56 @@ static void teardown (void)
   ddsi_iid_fini ();
 }
 
+struct drain_callback {
+  ddsrt_mutex_t lock;
+  bool called;
+};
+
+static void finish_drain (void *arg)
+{
+  struct drain_callback *cb = arg;
+  ddsrt_mutex_lock (&cb->lock);
+  cb->called = true;
+  ddsrt_mutex_unlock (&cb->lock);
+}
+
+static uint32_t step_deaf (void *arg)
+{
+  (void) ddsi_dqueue_step_deaf (arg);
+  return 0;
+}
+
+CU_TheoryDataPoints (ddsi_radmin, full_queue_drain) = {
+  CU_DataPoints (bool, false, true)
+};
+CU_Theory ((bool threaded), ddsi_radmin, full_queue_drain, .init = setup, .fini = teardown, .timeout = 10)
+{
+  struct ddsi_dqueue *q = ddsi_dqueue_new ("drain", &gv, 1, NULL, NULL);
+  CU_ASSERT_NEQ_FATAL (q, NULL);
+  struct drain_callback cb = { .called = false };
+  ddsrt_mutex_init (&cb.lock);
+  ddsrt_mutex_lock (&cb.lock);
+  ddsi_dqueue_enqueue_callback (q, finish_drain, &cb);
+  CU_ASSERT (ddsi_dqueue_is_full (q));
+
+  struct ddsi_thread_state *stepper = NULL;
+  if (threaded)
+    CU_ASSERT_FATAL (ddsi_dqueue_start (q));
+  else
+    CU_ASSERT_EQ_FATAL (ddsi_create_thread (&stepper, &gv, "dq.step", step_deaf, q), DDS_RETCODE_OK);
+
+  /* Dequeuing the last item must release backpressure even while its
+     callback is blocked on this mutex. */
+  ddsi_dqueue_wait_until_empty_if_full (q);
+  CU_ASSERT (!ddsi_dqueue_is_full (q));
+  ddsrt_mutex_unlock (&cb.lock);
+  if (stepper)
+    ddsi_join_thread (stepper);
+  ddsi_dqueue_free (q);
+  CU_ASSERT (cb.called);
+  ddsrt_mutex_destroy (&cb.lock);
+}
+
 static void insert_gap (struct ddsi_reorder *reorder, struct ddsi_rmsg *rmsg, ddsi_seqno_t seq)
 {
   struct ddsi_rdata *gap = ddsi_rdata_newgap (rmsg);
