@@ -28,6 +28,13 @@ recovered via the standard DDSI reliability. This also means that the Heartbeats
 AckNacks still need to be sent over a TCP connection, and consequently that DDSI
 flow-control occurs on top of TCP flow-control.
 
-Connection establishment potentially takes a long time, and giving up on a transmission 
-to a failed, or no longer reachable host, can also take a long time. These long delays 
-can be visible at the application level.
+TCP connection setup and TLS handshakes run asynchronously. The first transmission
+to a peer starts a connection attempt. While setup is pending, |var-project| drops
+outgoing packets for that peer. When the connection is ready, each local participant
+sends its current SPDP announcement. DDSI reliability can recover missed reliable
+samples once the endpoints are matched.
+
+``TCP/ConnectTimeout`` covers time spent waiting for a connection slot and the TLS
+handshake. Incoming handshakes and outgoing attempts have separate limits so both
+can make progress. If a queue is full, a later connection attempt can retry.
+TLS over TCP requires OpenSSL 1.1.1 or later.

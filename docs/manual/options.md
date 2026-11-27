@@ -1868,7 +1868,7 @@ The default value is: `1 MiB`
 
 
 ### //CycloneDDS/Domain/TCP
-Children: [AlwaysUsePeeraddrForUnicast](#cycloneddsdomaintcpalwaysusepeeraddrforunicast), [Enable](#cycloneddsdomaintcpenable), [NoDelay](#cycloneddsdomaintcpnodelay), [Port](#cycloneddsdomaintcpport), [ReadTimeout](#cycloneddsdomaintcpreadtimeout), [WriteTimeout](#cycloneddsdomaintcpwritetimeout)
+Children: [AlwaysUsePeeraddrForUnicast](#cycloneddsdomaintcpalwaysusepeeraddrforunicast), [ConnectTimeout](#cycloneddsdomaintcpconnecttimeout), [Enable](#cycloneddsdomaintcpenable), [NoDelay](#cycloneddsdomaintcpnodelay), [Port](#cycloneddsdomaintcpport), [ReadTimeout](#cycloneddsdomaintcpreadtimeout), [WriteTimeout](#cycloneddsdomaintcpwritetimeout)
 
 The TCP element allows you to specify various parameters related to running DDSI over TCP.
 
@@ -1879,6 +1879,18 @@ Boolean
 Setting this to true means the unicast addresses in SPDP packets will be ignored, and the peer address from the TCP connection will be used instead. This may help work around incorrectly advertised addresses when using TCP.
 
 The default value is: `false`
+
+
+#### //CycloneDDS/Domain/TCP/ConnectTimeout
+Number-with-unit
+
+Maximum time for an outgoing TCP connection attempt, including time waiting for a connection slot and its TLS handshake when enabled. The same limit applies to an incoming TLS handshake from the time of accept.
+
+Outgoing connections are established asynchronously. Cyclone DDS drops outgoing DDSI messages for that peer during setup, including the message that starts the connection. Once connected, Cyclone DDS sends the current SPDP announcement for each local participant to the peer.
+
+The unit must be specified explicitly. Recognised units: ns, us, ms, s, min, hr, day.
+
+The default value is: `2 s`
 
 
 #### //CycloneDDS/Domain/TCP/Enable
@@ -1952,6 +1964,10 @@ The Name of the thread for which properties are being set. The following threads
  * lease: DDSI liveliness monitoring;
 
  * tev: general timed-event handling, retransmits and discovery;
+
+ * sendq transmits packets for asynchronous writers.
+
+ * tcp.connect establishes outgoing TCP connections and handles incoming and outgoing TLS handshakes.
 
  * fsm: finite state machine thread for handling security handshake;
 
@@ -2121,9 +2137,9 @@ While none prevents any message from being written to a DDSI2 log file.
 The categorisation of tracing output is incomplete and hence most of the verbosity levels and categories are not of much use in the current release. This is an ongoing process and here we describe the target situation rather than the current situation. Currently, the most useful verbosity levels are config, fine and finest.
 
 The default value is: `none`
-<!--- generated from ddsi_config.h[92e18ce8199f533aafe79cb167fde8a805c73501] -->
+<!--- generated from ddsi_config.h[2be6c27baf0289e9dd0c70633f01a21953851d4b] -->
 <!--- generated from ddsi_config.c[7966a1299fb24d205f99f242ee09bf48824daadb] -->
-<!--- generated from ddsi__cfgelems.h[13f7bea9d284e064ab8e2765a9c44d09e1f205c0] -->
+<!--- generated from ddsi__cfgelems.h[8a9ae60f6db161bffb8f327d50ee5749d2b77b03] -->
 <!--- generated from cfgunits.h[05f093223fce107d24dd157ebaafa351dc9df752] -->
 <!--- generated from _confgen.h[e0b7a072621df43c0e7419d52359ddf4b98b202f] -->
 <!--- generated from _confgen.c[c08a605e3ac6161fd675369a295e7637e6d653ac] -->

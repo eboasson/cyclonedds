@@ -96,6 +96,7 @@ void ddsi_config_init_default (struct ddsi_config *cfg)
   cfg->max_frags_in_rexmit_of_sample = UINT32_C (1);
   cfg->tcp_nodelay = INT32_C (1);
   cfg->tcp_port = INT32_C (-1);
+  cfg->tcp_connect_timeout = INT64_C (2000000000);
   cfg->tcp_read_timeout = INT64_C (2000000000);
   cfg->tcp_write_timeout = INT64_C (2000000000);
 #ifdef DDS_HAS_TCP_TLS
@@ -110,9 +111,9 @@ void ddsi_config_init_default (struct ddsi_config *cfg)
   cfg->ssl_min_version.minor = 3;
 #endif /* DDS_HAS_TCP_TLS */
 }
-/* generated from ddsi_config.h[92e18ce8199f533aafe79cb167fde8a805c73501] */
+/* generated from ddsi_config.h[2be6c27baf0289e9dd0c70633f01a21953851d4b] */
 /* generated from ddsi_config.c[7966a1299fb24d205f99f242ee09bf48824daadb] */
-/* generated from ddsi__cfgelems.h[13f7bea9d284e064ab8e2765a9c44d09e1f205c0] */
+/* generated from ddsi__cfgelems.h[8a9ae60f6db161bffb8f327d50ee5749d2b77b03] */
 /* generated from cfgunits.h[05f093223fce107d24dd157ebaafa351dc9df752] */
 /* generated from _confgen.h[e0b7a072621df43c0e7419d52359ddf4b98b202f] */
 /* generated from _confgen.c[c08a605e3ac6161fd675369a295e7637e6d653ac] */

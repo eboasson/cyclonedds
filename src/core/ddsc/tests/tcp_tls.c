@@ -15,6 +15,7 @@
 #include "dds/ddsrt/heap.h"
 #include "dds/ddsrt/io.h"
 #include "dds/ddsi/ddsi_proxy_participant.h"
+#include "dds__guid.h"
 #include "ddsi__tran.h"
 #include "test_common.h"
 #include "tcp_test.h"
@@ -89,4 +90,101 @@ CU_Test (ddsc_tcp, tls_domain_policies, .timeout = 25)
   CU_ASSERT_EQ (dds_delete (compatible), DDS_RETCODE_OK);
   CU_ASSERT_EQ (dds_delete (incompatible), DDS_RETCODE_OK);
   CU_ASSERT_EQ (dds_delete (server), DDS_RETCODE_OK);
+}
+
+CU_Test (ddsc_tcp, tls_connect_timeout, .timeout = 10)
+{
+  ddsrt_socket_t listener;
+  uint32_t port;
+  tcp_test_bind_loopback_socket (&listener, &port);
+  CU_ASSERT_EQ_FATAL (ddsrt_listen (listener, 1), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (ddsrt_setsocknonblocking (listener, true), DDS_RETCODE_OK);
+  const dds_entity_t domain = tcp_test_create_isolated_domain (0, -1, "500 ms", TLS_TEST_OPTIONS);
+  CU_ASSERT_GT_FATAL (domain, 0);
+  struct ddsi_domaingv * const gv = get_domaingv (domain);
+  ddsi_locator_t peer = gv->interfaces[0].loc;
+  peer.port = port;
+
+  /* Withhold the TLS response and observe expiry on the peer socket. Repeat
+     on the same locator to check that a timed out attempt can be retried. */
+  for (int i = 0; i < 2; i++)
+  {
+    const ddsrt_mtime_t start = ddsrt_time_monotonic ();
+    size_t n = SIZE_MAX;
+    ddsrt_socket_t stream;
+    for (;;)
+    {
+      const dds_return_t wr = tcp_test_write_byte (gv, &peer, 'A', 0, &n);
+      CU_ASSERT_FATAL (wr == DDS_RETCODE_TRY_AGAIN || wr == DDS_RETCODE_NO_CONNECTION);
+      CU_ASSERT_EQ (n, 0);
+      const dds_return_t rc = ddsrt_accept (listener, NULL, NULL, &stream);
+      if (rc == DDS_RETCODE_OK)
+        break;
+      CU_ASSERT_EQ_FATAL (rc, DDS_RETCODE_TRY_AGAIN);
+      dds_sleepfor (DDS_MSECS (10));
+    }
+    CU_ASSERT_EQ_FATAL (ddsrt_setsocknonblocking (stream, false), DDS_RETCODE_OK);
+    char buf[1024];
+    size_t received = 0;
+    do {
+      CU_ASSERT_EQ_FATAL (ddsrt_recv (stream, buf, sizeof (buf), 0, &n), DDS_RETCODE_OK);
+      received += n;
+    } while (n != 0);
+    CU_ASSERT_GT (received, 0);
+    CU_ASSERT_GEQ (ddsrt_time_monotonic ().v - start.v, DDS_MSECS (500));
+    CU_ASSERT_EQ (ddsrt_close (stream), DDS_RETCODE_OK);
+  }
+  CU_ASSERT_EQ (dds_delete (domain), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (ddsrt_close (listener), DDS_RETCODE_OK);
+}
+
+CU_Test (ddsc_tcp, tls_parallel_connect_spdp, .timeout = 20)
+{
+  ddsrt_socket_t listener, stream;
+  uint32_t port;
+  tcp_test_bind_loopback_socket (&listener, &port);
+  CU_ASSERT_EQ_FATAL (ddsrt_listen (listener, 1), DDS_RETCODE_OK);
+  const dds_entity_t server = tcp_test_create_isolated_domain (0, 0, "30 s", TLS_TEST_OPTIONS);
+  CU_ASSERT_GT_FATAL (server, 0);
+  const dds_entity_t client = tcp_test_create_isolated_domain (1, -1, "30 s", TLS_TEST_OPTIONS);
+  CU_ASSERT_GT_FATAL (client, 0);
+  CU_ASSERT_GT_FATAL (dds_create_participant (0, NULL, NULL), 0);
+  dds_guid_t guid[2];
+  for (size_t i = 0; i < 2; i++)
+  {
+    const dds_entity_t pp = dds_create_participant (1, NULL, NULL);
+    CU_ASSERT_GT_FATAL (pp, 0);
+    CU_ASSERT_EQ_FATAL (dds_get_guid (pp, &guid[i]), DDS_RETCODE_OK);
+  }
+
+  struct ddsi_domaingv * const gvc = get_domaingv (client);
+  struct ddsi_domaingv * const gvs = get_domaingv (server);
+  /* Both directions have an unrelated handshake outstanding during discovery. */
+  ddsrt_socket_t stalled_in;
+  tcp_test_connect_to_listener (&stalled_in, &gvs->loc_meta_uc);
+  ddsi_locator_t stalled = gvc->interfaces[0].loc;
+  stalled.port = port;
+  size_t written = SIZE_MAX;
+  CU_ASSERT_EQ_FATAL (tcp_test_write_byte (gvc, &stalled, 'A', 0, &written), DDS_RETCODE_TRY_AGAIN);
+  CU_ASSERT_EQ (written, 0);
+  CU_ASSERT_EQ_FATAL (ddsrt_accept (listener, NULL, NULL, &stream), DDS_RETCODE_OK);
+  /* Withhold the TLS response to keep this peer pending throughout the test. */
+  CU_ASSERT_EQ_FATAL (tcp_test_write_byte (gvc, &stalled, 'B', 0, &written), DDS_RETCODE_TRY_AGAIN);
+  CU_ASSERT_EQ (written, 0);
+
+  /* Neither domain has configured discovery peers. The first write to the
+     real server starts setup; readiness must then announce both participants. */
+  CU_ASSERT_EQ_FATAL (tcp_test_write_byte (gvc, &gvs->loc_meta_uc, 'C', 0, &written), DDS_RETCODE_TRY_AGAIN);
+  CU_ASSERT_EQ (written, 0);
+  for (size_t i = 0; i < 2; i++)
+  {
+    const ddsi_guid_t pp_guid = dds_guid_to_ddsi_guid (guid[i]);
+    CU_ASSERT_FATAL (tcp_test_wait_for_proxy (gvs, &pp_guid, true));
+  }
+  /* Shutdown must interrupt both pending handshakes before their 30 s timeouts. */
+  CU_ASSERT_EQ (dds_delete (client), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (dds_delete (server), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (ddsrt_close (stalled_in), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (ddsrt_close (stream), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (ddsrt_close (listener), DDS_RETCODE_OK);
 }

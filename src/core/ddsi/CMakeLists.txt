@@ -14,6 +14,7 @@ set(srcs_ddsi
   ddsi_eth.c
   ddsi_ssl.c
   ddsi_tcp.c
+  ddsi_tcp_connect.c
   ddsi_tran.c
   ddsi_udp.c
   ddsi_raweth.c
@@ -179,6 +180,7 @@ set(hdrs_private_ddsi
   ddsi__ssl.h
   ddsi__sysdeps.h
   ddsi__tcp.h
+  ddsi__tcp_connect.h
   ddsi__protocol.h
   ddsi__time.h
   ddsi__topic.h

@@ -248,7 +248,7 @@ CU_Test (ddsc_tcp, inject_oversize_length)
   do_tcp (do_inject, &arg);
 }
 
-static bool tcp_test_wait_for_proxy (struct ddsi_domaingv *gv, const ddsi_guid_t *guid, bool present)
+bool tcp_test_wait_for_proxy (struct ddsi_domaingv *gv, const ddsi_guid_t *guid, bool present)
 {
   struct ddsi_thread_state * const thrst = ddsi_lookup_thread_state ();
   const dds_time_t deadline = dds_time () + DDS_SECS (5);

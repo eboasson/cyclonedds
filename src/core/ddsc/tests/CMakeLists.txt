@@ -134,8 +134,12 @@ set(ddsc_test_sources
 
 # CUnit discovers tests from source without evaluating preprocessor guards.
 if(ENABLE_TCP)
+  list(APPEND ddsc_test_sources "tcp_transport.c")
   if(ENABLE_TCP_TLS)
     list(APPEND ddsc_test_sources "tcp_tls.c")
+  endif()
+  if(ENABLE_NETWORK_PARTITIONS)
+    list(APPEND ddsc_test_sources "tcp_nwpart.c")
   endif()
 endif()
 

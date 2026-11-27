@@ -95,6 +95,11 @@ static bool transport_selector_is_udp_like (enum ddsi_transport_selector transpo
     ;
 }
 
+static bool transport_selector_is_tcp (enum ddsi_transport_selector transport_selector)
+{
+  return transport_selector == DDSI_TRANS_TCP || transport_selector == DDSI_TRANS_TCP6;
+}
+
 static enum make_uc_sockets_ret make_uc_sockets (struct ddsi_domaingv *gv, uint32_t * pdisc, uint32_t * pdata, int ppid)
 {
   dds_return_t rc;
@@ -462,7 +467,7 @@ static int set_ext_address_and_mask (struct ddsi_domaingv *gv)
 
 static int check_thread_properties (const struct ddsi_domaingv *gv)
 {
-  static const char *fixed[] = { "recv", "recvUC", "recvMC", "tev", "gc", "lease", "dq.builtins", "xmit.user", "dq.user", "debmon", "fsm", "sendq", NULL };
+  static const char *fixed[] = { "recv", "recvUC", "recvMC", "tev", "gc", "lease", "dq.builtins", "xmit.user", "dq.user", "debmon", "fsm", "sendq", "tcp.connect", NULL };
   const struct ddsi_config_thread_properties_listelem *e;
   int ok = 1, i;
   for (e = gv->config.thread_properties; e; e = e->next)
@@ -1861,6 +1866,11 @@ int ddsi_start (struct ddsi_domaingv *gv)
 
   if (gv->config.transport_selector != DDSI_TRANS_NONE && setup_and_start_recv_threads (gv) < 0)
     goto fail;
+  if (transport_selector_is_tcp (gv->config.transport_selector) && !ddsi_tcp_start_connector (gv->m_factory))
+  {
+    GVERROR ("failed to start TCP connector\n");
+    goto fail;
+  }
   if (gv->listener)
   {
     if (ddsi_create_thread (&gv->listen_ts, gv, "listen", ddsi_listen_thread, gv->listener) != DDS_RETCODE_OK)
@@ -1921,6 +1931,8 @@ void ddsi_stop (struct ddsi_domaingv *gv)
 
   /* Stop all I/O */
   ddsi_term_prep (gv);
+  if (transport_selector_is_tcp (gv->config.transport_selector))
+    ddsi_tcp_stop_connector (gv->m_factory);
   /* An accept finishing during shutdown can still register a socket or clean
      up a failed registration using the receive threads' waitsets. */
   if (gv->listen_ts)

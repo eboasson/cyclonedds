@@ -76,6 +76,7 @@ struct ddsi_xevent_nt
     struct {
       /* xmsg is self-contained / relies on reference counts */
       struct ddsi_xmsg *msg;
+      uint32_t flags;
     } msg;
     struct {
       /* xmsg is self-contained / relies on reference counts */
@@ -560,7 +561,7 @@ static void handle_nontimed_xevent (struct ddsi_xeventq *evq, struct ddsi_xevent
   {
     case XEVK_MSG:
       assert (!nontimed_xevent_in_queue (evq, xev));
-      ddsi_xpack_addmsg (xp, xev->u.msg.msg, 0);
+      ddsi_xpack_addmsg (xp, xev->u.msg.msg, xev->u.msg.flags);
       break;
     case XEVK_MSG_REXMIT:
     case XEVK_MSG_REXMIT_NOMERGE:
@@ -693,12 +694,18 @@ static uint32_t xevent_thread (void *vevq)
 
 void ddsi_qxev_msg (struct ddsi_xeventq *evq, struct ddsi_xmsg *msg)
 {
+  ddsi_qxev_msg_with_flags (evq, msg, 0);
+}
+
+void ddsi_qxev_msg_with_flags (struct ddsi_xeventq *evq, struct ddsi_xmsg *msg, uint32_t flags)
+{
   struct ddsi_xevent_nt *ev;
   assert (evq);
   assert (ddsi_xmsg_kind (msg) != DDSI_XMSG_KIND_DATA_REXMIT);
   ddsrt_mutex_lock (&evq->lock);
   ev = qxev_common_nt (evq, XEVK_MSG);
   ev->u.msg.msg = msg;
+  ev->u.msg.flags = flags;
   qxev_insert_nt (ev, ddsrt_time_monotonic ());
   ddsrt_mutex_unlock (&evq->lock);
 }

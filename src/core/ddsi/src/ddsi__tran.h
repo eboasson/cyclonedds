@@ -35,6 +35,7 @@ struct ddsi_domaingv;
 
 /* Flags */
 #define DDSI_TRAN_ON_CONNECT 0x0001
+#define DDSI_TRAN_NO_CONNECT 0x0002u /* Use an established connection only. */
 
 /* Magic value for port number argument in create_conn and create_listener to indicate
    that a random port number is requested.  Note that 0 also happens to be illegal in UDP

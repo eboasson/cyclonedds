@@ -1034,6 +1034,9 @@ static struct cfgelem thread_properties_cfgattrs[] = {
       "DDSI liveliness monitoring;</li>\n"
       "<li><i>tev</i>: "
       "general timed-event handling, retransmits and discovery;</li>\n"
+      "<li><i>sendq</i> transmits packets for asynchronous writers.</li>\n"
+      "<li><i>tcp.connect</i> establishes outgoing TCP connections and handles "
+      "incoming and outgoing TLS handshakes.</li>\n"
       "<li><i>fsm</i>: "
       "finite state machine thread for handling security handshake;</li>\n"
       "<li><i>xmit.CHAN</i>: "
@@ -1921,6 +1924,18 @@ static struct cfgelem tcp_cfgelems[] = {
       "able to establish connections with the service, the service can only "
       "communicate by establishing connections to other services.</p>"),
     RANGE("-1;65535")),
+  STRING("ConnectTimeout", NULL, 1, "2 s",
+    MEMBER(tcp_connect_timeout),
+    FUNCTIONS(0, uf_duration_ms_1hr, 0, pf_duration),
+    DESCRIPTION(
+      "<p>Maximum time for an outgoing TCP connection attempt, including time "
+      "waiting for a connection slot and its TLS handshake when enabled. The "
+      "same limit applies to an incoming TLS handshake from the time of accept.</p>\n"
+      "<p>Outgoing connections are established asynchronously. Cyclone DDS drops "
+      "outgoing DDSI messages for that peer during setup, including the message "
+      "that starts the connection. Once connected, Cyclone DDS sends the current "
+      "SPDP announcement for each local participant to the peer.</p>"),
+    UNIT("duration")),
   STRING("ReadTimeout", NULL, 1, "2 s",
     MEMBER(tcp_read_timeout),
     FUNCTIONS(0, uf_duration_ms_1hr, 0, pf_duration),

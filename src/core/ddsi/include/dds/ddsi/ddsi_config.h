@@ -378,6 +378,7 @@ struct ddsi_config
   /* TCP transport configuration */
   int tcp_nodelay;
   int tcp_port;
+  int64_t tcp_connect_timeout;
   int64_t tcp_read_timeout;
   int64_t tcp_write_timeout;
   int tcp_use_peeraddr_for_unicast;

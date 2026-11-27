@@ -1310,6 +1310,14 @@ MIIEpAIBAAKCAQEA3HIh...AOBaaqSV37XBUJg==<br>
           xsd:boolean
         }?
         & [ a:documentation [ xml:lang="en" """
+<p>Maximum time for an outgoing TCP connection attempt, including time waiting for a connection slot and its TLS handshake when enabled. The same limit applies to an incoming TLS handshake from the time of accept.</p>
+<p>Outgoing connections are established asynchronously. Cyclone DDS drops outgoing DDSI messages for that peer during setup, including the message that starts the connection. Once connected, Cyclone DDS sends the current SPDP announcement for each local participant to the peer.</p>
+<p>The unit must be specified explicitly. Recognised units: ns, us, ms, s, min, hr, day.</p>
+<p>The default value is: <code>2 s</code></p>""" ] ]
+        element ConnectTimeout {
+          duration
+        }?
+        & [ a:documentation [ xml:lang="en" """
 <p>This element enables the optional TCP transport - deprecated, use General/Transport instead.</p>
 <p>The default value is: <code>default</code></p>""" ] ]
         element Enable {
@@ -1356,6 +1364,8 @@ MIIEpAIBAAKCAQEA3HIh...AOBaaqSV37XBUJg==<br>
 <li><i>dq.builtins</i>: delivery thread for DDSI-builtin data, primarily for discovery;</li>
 <li><i>lease</i>: DDSI liveliness monitoring;</li>
 <li><i>tev</i>: general timed-event handling, retransmits and discovery;</li>
+<li><i>sendq</i> transmits packets for asynchronous writers.</li>
+<li><i>tcp.connect</i> establishes outgoing TCP connections and handles incoming and outgoing TLS handshakes.</li>
 <li><i>fsm</i>: finite state machine thread for handling security handshake;</li>
 <li><i>xmit.CHAN</i>: transmit thread for channel CHAN;</li>
 <li><i>dq.CHAN</i>: delivery thread for channel CHAN;</li>
@@ -1476,9 +1486,9 @@ MIIEpAIBAAKCAQEA3HIh...AOBaaqSV37XBUJg==<br>
   memsize = xsd:token { pattern = "0|(\d+(\.\d*)?([Ee][\-+]?\d+)?|\.\d+([Ee][\-+]?\d+)?) *([kMG]i?)?B" }
   maybe_memsize = xsd:token { pattern = "default|0|(\d+(\.\d*)?([Ee][\-+]?\d+)?|\.\d+([Ee][\-+]?\d+)?) *([kMG]i?)?B" }
 }
-# generated from ddsi_config.h[92e18ce8199f533aafe79cb167fde8a805c73501]
+# generated from ddsi_config.h[2be6c27baf0289e9dd0c70633f01a21953851d4b]
 # generated from ddsi_config.c[7966a1299fb24d205f99f242ee09bf48824daadb]
-# generated from ddsi__cfgelems.h[13f7bea9d284e064ab8e2765a9c44d09e1f205c0]
+# generated from ddsi__cfgelems.h[8a9ae60f6db161bffb8f327d50ee5749d2b77b03]
 # generated from cfgunits.h[05f093223fce107d24dd157ebaafa351dc9df752]
 # generated from _confgen.h[e0b7a072621df43c0e7419d52359ddf4b98b202f]
 # generated from _confgen.c[c08a605e3ac6161fd675369a295e7637e6d653ac]

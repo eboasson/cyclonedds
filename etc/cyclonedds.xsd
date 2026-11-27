@@ -1879,6 +1879,7 @@ MIIEpAIBAAKCAQEA3HIh...AOBaaqSV37XBUJg==&lt;br&gt;
     <xs:complexType>
       <xs:all>
         <xs:element minOccurs="0" ref="config:AlwaysUsePeeraddrForUnicast"/>
+        <xs:element minOccurs="0" ref="config:ConnectTimeout"/>
         <xs:element minOccurs="0" name="Enable">
           <xs:annotation>
             <xs:documentation>
@@ -1905,6 +1906,15 @@ MIIEpAIBAAKCAQEA3HIh...AOBaaqSV37XBUJg==&lt;br&gt;
       <xs:documentation>
 &lt;p&gt;Setting this to true means the unicast addresses in SPDP packets will be ignored, and the peer address from the TCP connection will be used instead. This may help work around incorrectly advertised addresses when using TCP.&lt;/p&gt;
 &lt;p&gt;The default value is: &lt;code&gt;false&lt;/code&gt;&lt;/p&gt;</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+  <xs:element name="ConnectTimeout" type="config:duration">
+    <xs:annotation>
+      <xs:documentation>
+&lt;p&gt;Maximum time for an outgoing TCP connection attempt, including time waiting for a connection slot and its TLS handshake when enabled. The same limit applies to an incoming TLS handshake from the time of accept.&lt;/p&gt;
+&lt;p&gt;Outgoing connections are established asynchronously. Cyclone DDS drops outgoing DDSI messages for that peer during setup, including the message that starts the connection. Once connected, Cyclone DDS sends the current SPDP announcement for each local participant to the peer.&lt;/p&gt;
+&lt;p&gt;The unit must be specified explicitly. Recognised units: ns, us, ms, s, min, hr, day.&lt;/p&gt;
+&lt;p&gt;The default value is: &lt;code&gt;2 s&lt;/code&gt;&lt;/p&gt;</xs:documentation>
     </xs:annotation>
   </xs:element>
   <xs:element name="NoDelay" type="xs:boolean">
@@ -1968,6 +1978,8 @@ MIIEpAIBAAKCAQEA3HIh...AOBaaqSV37XBUJg==&lt;br&gt;
 &lt;li&gt;&lt;i&gt;dq.builtins&lt;/i&gt;: delivery thread for DDSI-builtin data, primarily for discovery;&lt;/li&gt;
 &lt;li&gt;&lt;i&gt;lease&lt;/i&gt;: DDSI liveliness monitoring;&lt;/li&gt;
 &lt;li&gt;&lt;i&gt;tev&lt;/i&gt;: general timed-event handling, retransmits and discovery;&lt;/li&gt;
+&lt;li&gt;&lt;i&gt;sendq&lt;/i&gt; transmits packets for asynchronous writers.&lt;/li&gt;
+&lt;li&gt;&lt;i&gt;tcp.connect&lt;/i&gt; establishes outgoing TCP connections and handles incoming and outgoing TLS handshakes.&lt;/li&gt;
 &lt;li&gt;&lt;i&gt;fsm&lt;/i&gt;: finite state machine thread for handling security handshake;&lt;/li&gt;
 &lt;li&gt;&lt;i&gt;xmit.CHAN&lt;/i&gt;: transmit thread for channel CHAN;&lt;/li&gt;
 &lt;li&gt;&lt;i&gt;dq.CHAN&lt;/i&gt;: delivery thread for channel CHAN;&lt;/li&gt;
@@ -2166,9 +2178,9 @@ MIIEpAIBAAKCAQEA3HIh...AOBaaqSV37XBUJg==&lt;br&gt;
     </xs:restriction>
   </xs:simpleType>
 </xs:schema>
-<!--- generated from ddsi_config.h[92e18ce8199f533aafe79cb167fde8a805c73501] -->
+<!--- generated from ddsi_config.h[2be6c27baf0289e9dd0c70633f01a21953851d4b] -->
 <!--- generated from ddsi_config.c[7966a1299fb24d205f99f242ee09bf48824daadb] -->
-<!--- generated from ddsi__cfgelems.h[13f7bea9d284e064ab8e2765a9c44d09e1f205c0] -->
+<!--- generated from ddsi__cfgelems.h[8a9ae60f6db161bffb8f327d50ee5749d2b77b03] -->
 <!--- generated from cfgunits.h[05f093223fce107d24dd157ebaafa351dc9df752] -->
 <!--- generated from _confgen.h[e0b7a072621df43c0e7419d52359ddf4b98b202f] -->
 <!--- generated from _confgen.c[c08a605e3ac6161fd675369a295e7637e6d653ac] -->

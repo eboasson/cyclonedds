@@ -33,6 +33,7 @@
 #include "ddsi__topic.h"
 #include "ddsi__vendor.h"
 #include "ddsi__xevent.h"
+#include "ddsi__tran.h"
 #include "ddsi__transmit.h"
 #include "ddsi__lease.h"
 #include "ddsi__xqos.h"
@@ -452,8 +453,6 @@ dds_return_t ddsi_spdp_register_participant (struct spdp_admin *adm, const struc
   assert (pp->spdp_serdata->statusinfo == 0);
   ddsrt_mutex_unlock ((ddsrt_mutex_t *) &pp->e.lock);
 #endif
-  ddsi_spdp_force_republish (adm, pp, NULL);
-
   // FIXME: what about the secure writer? It overwrites its as with as_disc on creation, but it is reliable and therefore the matching code will recompute it, so I don't think there is any need to do anything for that one (except possibly making sure it does get updated on a QoS change)
 
   ddsrt_mutex_lock (&adm->lock);
@@ -475,6 +474,9 @@ dds_return_t ddsi_spdp_register_participant (struct spdp_admin *adm, const struc
     ppn->tsched = tsched;
     ddsrt_avl_insert_ipath (&spdp_pp_td, &adm->pp, ppn, &ip);
     ddsrt_mutex_unlock (&adm->lock);
+    // The initial announcement may start a connection. Its completion must
+    // already be able to find this participant when republishing to the peer.
+    ddsi_spdp_force_republish (adm, pp, NULL);
     ddsi_resched_xevent_if_earlier (adm->live_xev, tsched);
     return DDS_RETCODE_OK;
   }
@@ -616,6 +618,7 @@ enum resend_spdp_dst_kind {
 
 struct resend_spdp_dst {
   enum resend_spdp_dst_kind kind;
+  uint32_t flags;
   union {
     const ddsi_xlocator_t *xloc;
     const struct ddsi_proxy_reader *prd;
@@ -671,12 +674,27 @@ static void resend_spdp (struct ddsi_xpack *xp, const struct ddsi_participant *p
         ddsi_xmsg_setdst1_generic (pp->e.gv, msg, &nullguidprefix, xloc);
       
       if (xp)
-        ddsi_xpack_addmsg (xp, msg, 0);
+        ddsi_xpack_addmsg (xp, msg, dst->flags);
       else
-        ddsi_qxev_msg (pp->e.gv->xevents, msg);
+        ddsi_qxev_msg_with_flags (pp->e.gv->xevents, msg, dst->flags);
     }
     ddsi_serdata_unref (serdata);
   }
+}
+
+static void resend_spdp_to_locator_locked (struct spdp_admin *adm, struct ddsi_xpack *xp, const ddsi_xlocator_t *xloc, uint32_t flags)
+{
+  const struct resend_spdp_dst dst = { .kind = RSDK_LOCATOR, .flags = flags, .u = { .xloc = xloc }};
+  ddsrt_avl_iter_t it;
+  for (struct spdp_pp *ppn = ddsrt_avl_iter_first (&spdp_pp_td, &adm->pp, &it); ppn; ppn = ddsrt_avl_iter_next (&it))
+    resend_spdp (xp, ppn->pp, &dst);
+}
+
+void ddsi_spdp_republish_to_locator (struct spdp_admin *adm, const ddsi_xlocator_t *xloc)
+{
+  ddsrt_mutex_lock (&adm->lock);
+  resend_spdp_to_locator_locked (adm, NULL, xloc, DDSI_TRAN_NO_CONNECT);
+  ddsrt_mutex_unlock (&adm->lock);
 }
 
 ddsrt_nonnull_all
@@ -702,9 +720,7 @@ static ddsrt_mtime_t spdp_do_aging_locators (struct spdp_admin *adm, struct ddsi
     {
       if (n->tsched.v <= t_cutoff.v)
       {
-        ddsrt_avl_iter_t it;
-        for (struct spdp_pp *ppn = ddsrt_avl_iter_first (&spdp_pp_td, &adm->pp, &it); ppn; ppn = ddsrt_avl_iter_next (&it))
-          resend_spdp (xp, ppn->pp, &(struct resend_spdp_dst){ .kind = RSDK_LOCATOR, .u = { .xloc = &n->c.xloc }});
+        resend_spdp_to_locator_locked (adm, xp, &n->c.xloc, 0);
         // Why do we keep trying an address where there used to be one if there's no one anymore? Well,
         // there might be someone else in the same situation with the cable cut ...
         //

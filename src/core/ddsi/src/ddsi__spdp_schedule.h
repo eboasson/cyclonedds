@@ -42,6 +42,11 @@ dds_return_t ddsi_spdp_ref_locator (struct spdp_admin *adm, const ddsi_xlocator_
 void ddsi_spdp_unref_locator (struct spdp_admin *adm, const ddsi_xlocator_t *xloc, bool on_lease_expiry)
   ddsrt_nonnull_all;
 
+// Queue the current SPDP sample of each registered participant to a connected
+// locator. If the connection closes before transmission, drop the announcement.
+void ddsi_spdp_republish_to_locator (struct spdp_admin *adm, const ddsi_xlocator_t *xloc)
+  ddsrt_nonnull_all;
+
 // Locks `pp->e.lock`
 // returns false iff there is no SPDP sample yet
 bool ddsi_spdp_force_republish (struct spdp_admin *adm, const struct ddsi_participant *pp, const struct ddsi_proxy_reader *prd)
