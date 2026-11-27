@@ -20,7 +20,8 @@ struct ddsi_domaingv;
 
 #define TCP_TEST_TRACE_STREAMS "<Tracing><Category>tcp,discovery</Category><OutputFile>stdout</OutputFile></Tracing>"
 
-void tcp_test_run_config (const char *extra, void (*action) (dds_entity_t rd, dds_entity_t wr, void *arg), void *arg);
+void tcp_test_run_config (const char *extra, const dds_topic_descriptor_t *desc, dds_duration_t latency_budget,
+                          void (*action) (dds_entity_t rd, dds_entity_t wr, void *arg), void *arg);
 void tcp_test_basic_write (dds_entity_t rd, dds_entity_t wr, void *arg);
 bool tcp_test_wait_for_proxy (struct ddsi_domaingv *gv, const ddsi_guid_t *guid, bool present);
 

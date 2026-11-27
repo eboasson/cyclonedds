@@ -36,7 +36,8 @@ static void scan_for_framing_error (void *ptr, const dds_log_data_t *data)
     ddsrt_atomic_or32 (&framing_errors, 1u << data->domid);
 }
 
-void tcp_test_run_config (const char *extra, void (*action) (dds_entity_t rd, dds_entity_t wr, void *arg), void *arg)
+void tcp_test_run_config (const char *extra, const dds_topic_descriptor_t *desc, dds_duration_t latency_budget,
+                          void (*action) (dds_entity_t rd, dds_entity_t wr, void *arg), void *arg)
 {
   const char *config_fmt =
     "<General>"
@@ -92,8 +93,9 @@ void tcp_test_run_config (const char *extra, void (*action) (dds_entity_t rd, dd
   create_unique_topic_name ("tcp_basic", topicname, sizeof (topicname));
   dds_qos_t *qos = dds_create_qos ();
   dds_qset_reliability (qos, DDS_RELIABILITY_RELIABLE, DDS_INFINITY);
-  const dds_entity_t tp_pub = dds_create_topic (pp_pub, &Space_Type1_desc, topicname, qos, NULL);
-  const dds_entity_t tp_sub = dds_create_topic (pp_sub, &Space_Type1_desc, topicname, qos, NULL);
+  dds_qset_latency_budget (qos, latency_budget);
+  const dds_entity_t tp_pub = dds_create_topic (pp_pub, desc, topicname, qos, NULL);
+  const dds_entity_t tp_sub = dds_create_topic (pp_sub, desc, topicname, qos, NULL);
   dds_delete_qos (qos);
 
   const dds_entity_t wr = dds_create_writer (pp_pub, tp_pub, NULL, NULL);
@@ -108,6 +110,8 @@ void tcp_test_run_config (const char *extra, void (*action) (dds_entity_t rd, dd
   rc = dds_delete (doms);
   CU_ASSERT_EQ_FATAL (rc, 0);
 #else // DDS_HAS_TCP
+  (void) desc;
+  (void) latency_budget;
   (void) action;
   (void) arg;
   CU_ASSERT_LT_FATAL (doms, 0);
@@ -119,7 +123,7 @@ void tcp_test_run_config (const char *extra, void (*action) (dds_entity_t rd, dd
 
 static void do_tcp (void (*action) (dds_entity_t rd, dds_entity_t wr, void *arg), void *arg)
 {
-  tcp_test_run_config ("", action, arg);
+  tcp_test_run_config ("", &Space_Type1_desc, 0, action, arg);
 }
 
 void tcp_test_basic_write (dds_entity_t rd, dds_entity_t wr, void *varg)
@@ -153,6 +157,49 @@ void tcp_test_basic_write (dds_entity_t rd, dds_entity_t wr, void *varg)
 CU_Test (ddsc_tcp, basic)
 {
   do_tcp (tcp_test_basic_write, NULL);
+}
+
+static void do_async_reliable_write (dds_entity_t rd, dds_entity_t wr, void *arg)
+{
+  (void) arg;
+  const Space_simpletypes samples[] = {
+    { .l = 1, .s = "a" },
+    { .l = 2, .s = "a longer string key for the second frame" }
+  };
+  const dds_entity_t ws = dds_create_waitset (dds_get_participant (rd));
+  const dds_entity_t condition = dds_create_readcondition (rd, DDS_ANY_STATE);
+  CU_ASSERT_GT_FATAL (ws, 0);
+  CU_ASSERT_GT_FATAL (condition, 0);
+  CU_ASSERT_EQ_FATAL (dds_waitset_attach (ws, condition, 0), DDS_RETCODE_OK);
+
+  for (size_t i = 0; i < 2; i++)
+    CU_ASSERT_EQ_FATAL (dds_write (wr, &samples[i]), DDS_RETCODE_OK);
+
+  bool seen[2] = { false, false };
+  const dds_time_t deadline = dds_time () + DDS_SECS (5);
+  for (size_t i = 0; i < 2; i++)
+  {
+    void *loan = NULL;
+    dds_sample_info_t si;
+    const dds_return_t ready = dds_waitset_wait_until (ws, NULL, 0, deadline);
+    CU_ASSERT_EQ (ready, 1);
+    if (ready != 1)
+      return;
+    CU_ASSERT_EQ_FATAL (dds_take (rd, &loan, &si, 1, 1), 1);
+    const Space_simpletypes *sample = loan;
+    for (size_t j = 0; j < 2; j++)
+      if (si.valid_data && sample->l == samples[j].l && sample->s && strcmp (sample->s, samples[j].s) == 0)
+        seen[j] = true;
+    CU_ASSERT_EQ_FATAL (dds_return_loan (rd, &loan, 1), DDS_RETCODE_OK);
+  }
+  CU_ASSERT (seen[0] && seen[1]);
+  CU_ASSERT_EQ (dds_wait_for_acks (wr, DDS_SECS (5)), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (ddsrt_atomic_ld32 (&framing_errors), 0);
+}
+
+CU_Test (ddsc_tcp, async_reliable_write, .timeout = 20)
+{
+  tcp_test_run_config ("", &Space_simpletypes_desc, DDS_MSECS (10), do_async_reliable_write, NULL);
 }
 
 struct inject_arg {

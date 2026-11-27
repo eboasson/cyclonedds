@@ -28,7 +28,7 @@
 
 CU_Test (ddsc_tcp, tls_mutual_auth, .timeout = 20)
 {
-  tcp_test_run_config (TLS_TEST_OPTIONS, tcp_test_basic_write, NULL);
+  tcp_test_run_config (TLS_TEST_OPTIONS, &Space_Type1_desc, 0, tcp_test_basic_write, NULL);
 }
 
 static dds_entity_t create_tls_domain (dds_domainid_t id, const char *peers, const char *suite)
@@ -207,7 +207,7 @@ static void transfer_both_directions (dds_entity_t rd, dds_entity_t wr, void *ar
 
 CU_Test (ddsc_tcp, tls_bidirectional, .timeout = 30)
 {
-  tcp_test_run_config (TLS_TEST_OPTIONS, transfer_both_directions, NULL);
+  tcp_test_run_config (TLS_TEST_OPTIONS, &Space_Type1_desc, 0, transfer_both_directions, NULL);
 }
 
 CU_Test (ddsc_tcp, tls_parallel_connect_spdp, .timeout = 20)

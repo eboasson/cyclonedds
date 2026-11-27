@@ -1370,6 +1370,19 @@ void ddsi_xpack_send (struct ddsi_xpack *xp, bool immediately)
       xp1->msgfrags = ddsrt_malloc (sizeof (*xp->msgfrags) + xp->msgfrags->niov * sizeof (ddsrt_iovec_t));
       xp1->msgfrags->niov = xp->msgfrags->niov;
       memcpy (xp1->msgfrags->iov, xp->msgfrags->iov, xp->msgfrags->niov * sizeof (*xp->msgfrags->iov));
+      if (xp1->msgfrags->niov > 0)
+      {
+        /* The writer reuses xp, so the queued iovecs must use their own headers. */
+        ddsrt_iovec_t * const iov = xp1->msgfrags->iov;
+        assert (iov[0].iov_base == (void *) &xp->hdr);
+        iov[0].iov_base = (void *) &xp1->hdr;
+        if (!gv->m_factory->m_connless)
+        {
+          assert (xp1->msgfrags->niov >= 2);
+          assert (iov[1].iov_base == (void *) &xp->msg_len);
+          iov[1].iov_base = (void *) &xp1->msg_len;
+        }
+      }
     }
     ddsi_xpack_reinit (xp);
     xp1->sendq_next = NULL;
