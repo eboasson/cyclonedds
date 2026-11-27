@@ -998,6 +998,57 @@ CU_Test (ddsc_typewrap, deferred_validation_depth, .init = typewrap_init, .fini 
   ddsrt_free (chain);
 }
 
+CU_Test (ddsc_typewrap, install_deep_partial_chain, .init = typewrap_init, .fini = typewrap_fini)
+{
+  struct ddsi_domaingv *gv = get_domaingv (participant);
+  const ddsi_typeid_t integer = { .x._d = DDS_XTypes_TK_INT32 };
+  struct DDS_XTypes_TypeObject leaf_obj;
+  struct DDS_XTypes_CompleteStructMember leaf_member;
+  init_struct_dependency_typeobject (&leaf_obj, &leaf_member, "Leaf", "value", 1, &integer);
+  ddsi_typeid_t child_id;
+  CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&leaf_obj, &child_id), DDS_RETCODE_OK);
+
+  /* Retain the leaf's identifier but install its definition last. Each
+     successive struct arrives with a deeper chain of partial dependencies. */
+  struct ddsi_type *types[104] = { NULL }, *sequence = NULL;
+  ddsrt_mutex_lock (&gv->typelib_lock);
+  dds_return_t ret = ddsi_type_ref_id_locked (gv, &types[0], &child_id);
+  for (size_t i = 1; ret == DDS_RETCODE_OK && i < sizeof (types) / sizeof (types[0]); i++)
+  {
+    char name[32];
+    (void) snprintf (name, sizeof (name), "Nested%zu", i);
+    struct DDS_XTypes_TypeObject obj;
+    struct DDS_XTypes_CompleteStructMember member;
+    init_struct_dependency_typeobject (&obj, &member, name, "child", 1, &child_id);
+    if ((ret = ddsi_typeobj_get_hash_id (&obj, &child_id)) == DDS_RETCODE_OK &&
+        (ret = ddsi_type_ref_id_locked (gv, &types[i], &child_id)) == DDS_RETCODE_OK)
+      ret = ddsi_type_add_typeobj (gv, types[i], &obj);
+  }
+  CU_ASSERT_EQ (ret, DDS_RETCODE_OK);
+  if (ret == DDS_RETCODE_OK)
+  {
+    /* Plain collections are decoded by the new-type path. */
+    const ddsi_typeid_t sequence_id = { .x = {
+      ._d = DDS_XTypes_TI_PLAIN_SEQUENCE_SMALL, ._u.seq_sdefn = {
+        .header = { .equiv_kind = DDS_XTypes_EK_COMPLETE, .element_flags = DDS_XTypes_TRY_CONSTRUCT1 },
+        .element_identifier = &child_id.x
+      }
+    } };
+    ret = ddsi_type_ref_id_locked (gv, &sequence, &sequence_id);
+    CU_ASSERT_EQ (ret, DDS_RETCODE_OK);
+    if (ret == DDS_RETCODE_OK)
+    {
+      CU_ASSERT_EQ (sequence->state, DDSI_TYPE_PARTIAL_RESOLVED);
+      CU_ASSERT_EQ (ddsi_type_add_typeobj (gv, types[0], &leaf_obj), DDS_RETCODE_OK);
+      CU_ASSERT_EQ (sequence->state, DDSI_TYPE_RESOLVED);
+    }
+  }
+  ddsi_type_unref_locked (gv, sequence);
+  for (size_t i = 0; i < sizeof (types) / sizeof (types[0]); i++)
+    ddsi_type_unref_locked (gv, types[i]);
+  ddsrt_mutex_unlock (&gv->typelib_lock);
+}
+
 CU_Test (ddsc_typewrap, invalid_dependency_state, .init = typewrap_init, .fini = typewrap_fini)
 {
   struct DDS_XTypes_TypeObject invalid_dep_typeobj = {

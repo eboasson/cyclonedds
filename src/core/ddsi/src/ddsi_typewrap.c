@@ -2003,6 +2003,13 @@ dds_return_t ddsi_xt_validate (struct ddsi_domaingv *gv, const struct ddsi_type 
   return ddsi_xt_validate_for_resolution (gv, type, true);
 }
 
+static dds_return_t xt_validate_decoded_type (struct ddsi_domaingv *gv, const struct ddsi_type *type)
+{
+  /* The library validates an in-progress installation again when all its
+     dependencies are ready. Standalone decoding still requires the full check. */
+  return ddsi_xt_validate_for_resolution (gv, type, !xt_definition_in_progress (type));
+}
+
 static dds_return_t add_minimal_typeobj (struct ddsi_domaingv *gv, struct xt_type *xt, const struct DDS_XTypes_TypeObject *to)
 {
   const struct DDS_XTypes_MinimalTypeObject *mto = &to->_u.minimal;
@@ -2370,7 +2377,7 @@ dds_return_t ddsi_xt_type_add_typeobj (struct ddsi_domaingv *gv, struct ddsi_typ
   else
     ret = (to->_d != DDS_XTypes_EK_COMPLETE) ? DDS_RETCODE_BAD_PARAMETER : add_complete_typeobj (gv, xt, to);
 
-  if (ret != DDS_RETCODE_OK || (ret_validate = ddsi_xt_validate (gv, type)) != DDS_RETCODE_OK)
+  if (ret != DDS_RETCODE_OK || (ret_validate = xt_validate_decoded_type (gv, type)) != DDS_RETCODE_OK)
   {
     if (ret == DDS_RETCODE_OK)
     {
@@ -2496,7 +2503,7 @@ dds_return_t ddsi_xt_type_init_impl (struct ddsi_domaingv *gv, struct ddsi_type 
         break;
     }
   }
-  if (ret != DDS_RETCODE_OK || (ret = ddsi_xt_validate (gv, type)) != DDS_RETCODE_OK)
+  if (ret != DDS_RETCODE_OK || (ret = xt_validate_decoded_type (gv, type)) != DDS_RETCODE_OK)
   {
     GVWARNING ("type " PTYPEIDFMT ": ddsi_xt_type_init_impl with invalid type object\n", PTYPEID (xt->id.x));
     goto err;
