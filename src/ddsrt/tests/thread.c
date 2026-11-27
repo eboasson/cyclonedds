@@ -20,6 +20,7 @@
 
 #include "CUnit/Theory.h"
 #include "dds/ddsrt/cdtors.h"
+#include "dds/ddsrt/heap.h"
 #include "dds/ddsrt/retcode.h"
 #include "dds/ddsrt/sync.h"
 #include "dds/ddsrt/threads.h"
@@ -103,6 +104,36 @@ static uint32_t thread_main(void *ptr)
 #endif
 
   return (uint32_t)arg->ret;
+}
+
+#if !DDSRT_WITH_FREERTOS
+static const char worker_name[] = "thread-startup-allocation-test";
+static bool fail_context;
+
+static void *fail_worker_allocation (size_t size)
+{
+  return (fail_context || size == sizeof (worker_name)) ? NULL : malloc (size);
+}
+#endif
+
+CU_Test(ddsrt_thread, startup_allocation_failure)
+{
+#if !DDSRT_WITH_FREERTOS
+  ddsrt_threadattr_t attr;
+  ddsrt_threadattr_init (&attr);
+  thread_arg_t arg = { .attr = &attr };
+  for (int i = 0; i < 2; i++)
+  {
+    ddsrt_thread_t thread;
+    fail_context = (i == 0);
+    ddsrt_set_allocator ((ddsrt_allocation_ops_t) { .malloc = fail_worker_allocation });
+    const dds_return_t rc = ddsrt_thread_create (&thread, worker_name, &attr, thread_main, &arg);
+    ddsrt_set_allocator ((ddsrt_allocation_ops_t) { 0 });
+    if (rc == DDS_RETCODE_OK)
+      ddsrt_thread_join (thread, NULL);
+    CU_ASSERT_EQ (rc, DDS_RETCODE_OUT_OF_RESOURCES);
+  }
+#endif
 }
 
 CU_TheoryDataPoints(ddsrt_thread, create_and_join) = {

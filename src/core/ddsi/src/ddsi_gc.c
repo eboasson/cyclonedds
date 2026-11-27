@@ -285,8 +285,15 @@ void ddsi_gcreq_queue_free (struct ddsi_gcreq_queue *q)
     ddsi_gcreq_enqueue (gcreq);
 
     ddsi_join_thread (q->thrst);
-    assert (q->first == NULL);
   }
+  else if (q->first)
+  {
+    /* Built-in writer deletion can enqueue reclamation even when the GC
+       thread failed to start. Wait out any grace periods in this thread. */
+    while (ddsi_gcreq_queue_step (q))
+      dds_sleepfor (DDS_MSECS (1));
+  }
+  assert (q->first == NULL && q->count == 0);
   ddsrt_cond_etime_destroy (&q->cond);
   ddsrt_mutex_destroy (&q->lock);
   ddsrt_free (q);

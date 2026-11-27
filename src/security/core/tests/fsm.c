@@ -99,6 +99,25 @@ static void fsm_control_fini (void)
   dds_delete (g_participant);
 }
 
+CU_Test(ddssec_fsm, worker_startup_failure, .timeout = 15)
+{
+  const dds_entity_t domain = dds_create_domain (0,
+      "<General><Transport>none</Transport></General><Threads><Thread Name=\"fsm\">"
+      "<Scheduling><Affinity>4294967295</Affinity></Scheduling></Thread></Threads>");
+  CU_ASSERT_GT_FATAL (domain, 0);
+  struct ddsi_domaingv *gv = get_entity_gv (domain);
+  struct dds_security_fsm_control *control = dds_security_fsm_control_create (gv);
+  CU_ASSERT_LT_FATAL (dds_security_fsm_control_start (control, NULL), 0);
+  dds_security_fsm_control_free (control);
+
+  control = dds_security_fsm_control_create (gv);
+  CU_ASSERT_LT_FATAL (dds_security_fsm_control_start (control, NULL), 0);
+  CU_ASSERT_EQ_FATAL (dds_security_fsm_control_start (control, "fsm-retry"), DDS_RETCODE_OK);
+  dds_security_fsm_control_stop (control);
+  dds_security_fsm_control_free (control);
+  CU_ASSERT_EQ (dds_delete (domain), DDS_RETCODE_OK);
+}
+
 static void a (struct dds_security_fsm *fsm, void *arg)
 {
   printf ("[%p] Transition %s\n", fsm, __FUNCTION__);

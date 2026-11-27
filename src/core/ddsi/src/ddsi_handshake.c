@@ -1027,8 +1027,10 @@ static struct ddsi_handshake * ddsi_handshake_create(struct ddsi_participant *pp
     rc = dds_security_fsm_control_start(hsadmin->fsm_control, NULL);
     if (rc < 0)
     {
-      GVERROR("Failed to create FSM control");
-      goto fsm_control_failed;
+      GVERROR("Failed to start FSM control\n");
+      dds_security_fsm_control_free (hsadmin->fsm_control);
+      hsadmin->fsm_control = NULL;
+      goto fsm_failed;
     }
   }
 
@@ -1048,7 +1050,8 @@ static struct ddsi_handshake * ddsi_handshake_create(struct ddsi_participant *pp
   return handshake;
 
 fsm_failed:
-fsm_control_failed:
+  DDS_Security_OctetSeq_deinit (&handshake->pdata);
+  ddsrt_mutex_destroy (&handshake->lock);
   ddsrt_free(handshake);
   return NULL;
 }

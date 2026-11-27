@@ -462,7 +462,7 @@ static int set_ext_address_and_mask (struct ddsi_domaingv *gv)
 
 static int check_thread_properties (const struct ddsi_domaingv *gv)
 {
-  static const char *fixed[] = { "recv", "recvUC", "recvMC", "tev", "gc", "lease", "dq.builtins", "xmit.user", "dq.user", "debmon", "fsm", NULL };
+  static const char *fixed[] = { "recv", "recvUC", "recvMC", "tev", "gc", "lease", "dq.builtins", "xmit.user", "dq.user", "debmon", "fsm", "sendq", NULL };
   const struct ddsi_config_thread_properties_listelem *e;
   int ok = 1, i;
   for (e = gv->config.thread_properties; e; e = e->next)
@@ -1006,36 +1006,23 @@ static int setup_and_start_recv_threads (struct ddsi_domaingv *gv)
     if ((gv->recv_threads[i].arg.rbpool = ddsi_rbufpool_new (&gv->logconfig, gv->config.rbuf_size, gv->config.rmsg_chunk_size)) == NULL)
     {
       GVERROR ("rtps_init: can't allocate receive buffer pool for thread %s\n", gv->recv_threads[i].name);
-      goto fail;
+      return -1;
     }
     if (gv->recv_threads[i].arg.mode == DDSI_RTM_MANY)
     {
       if ((gv->recv_threads[i].arg.u.many.ws = ddsi_sock_waitset_new ()) == NULL)
       {
         GVERROR ("rtps_init: can't allocate sock waitset for thread %s\n", gv->recv_threads[i].name);
-        goto fail;
+        return -1;
       }
     }
     if (ddsi_create_thread (&gv->recv_threads[i].thrst, gv, gv->recv_threads[i].name, ddsi_recv_thread, &gv->recv_threads[i].arg) != DDS_RETCODE_OK)
     {
       GVERROR ("rtps_init: failed to start thread %s\n", gv->recv_threads[i].name);
-      goto fail;
+      return -1;
     }
   }
   return 0;
-
-fail:
-  /* to trigger any threads we already started to stop - xevent thread has already been started */
-  ddsi_term_prep (gv);
-  wait_for_receive_threads (gv);
-  for (uint32_t i = 0; i < gv->n_recv_threads; i++)
-  {
-    if (gv->recv_threads[i].arg.mode == DDSI_RTM_MANY && gv->recv_threads[i].arg.u.many.ws)
-      ddsi_sock_waitset_free (gv->recv_threads[i].arg.u.many.ws);
-    if (gv->recv_threads[i].arg.rbpool)
-      ddsi_rbufpool_free (gv->recv_threads[i].arg.rbpool);
-  }
-  return -1;
 }
 
 static bool ddsi_sertype_equal_wrap (const void *a, const void *b)
@@ -1221,6 +1208,7 @@ int ddsi_init (struct ddsi_domaingv *gv, struct ddsi_psmx_instance_locators *psm
     gv->xmit_conns_data[i] = NULL;
   }
   gv->listener = NULL;
+  gv->listen_ts = NULL;
   gv->debmon = NULL;
   gv->n_recv_threads = 0;
   gv->ddsi_tran_factories = NULL;
@@ -1673,8 +1661,6 @@ int ddsi_init (struct ddsi_domaingv *gv, struct ddsi_psmx_instance_locators *psm
       if (rc != DDS_RETCODE_OK || ddsi_listener_listen (gv->listener) != 0)
       {
         GVERROR ("Failed to create %s listener\n", gv->m_factory->m_typename);
-        if (gv->listener)
-          ddsi_listener_free(gv->listener);
         goto err_mc_conn;
       }
 
@@ -1779,9 +1765,10 @@ err_post_omg_security_init:
 #endif
 #endif
 err_joinleave_spdp:
-  ddsi_free_config_nwpart_addresses (gv);
 err_network_partition_config:
+  ddsi_free_config_nwpart_addresses (gv);
 err_mc_conn:
+  ddsi_listener_free (gv->listener);
   for (int i = 0; i < gv->n_interfaces; i++)
     gv->intf_xlocators[i].conn = NULL;
   free_conns (gv);
@@ -1858,28 +1845,22 @@ err_udp_tcp_init:
 
 int ddsi_start (struct ddsi_domaingv *gv)
 {
-  ddsi_gcreq_queue_start (gv->gcreq_queue);
-
-  ddsi_dqueue_start (gv->builtins_dqueue);
-  ddsi_dqueue_start (gv->user_dqueue);
-
-  if (ddsi_xeventq_start (gv->xevents, NULL) < 0)
+  /* Before receive starts only the built-in writers need cleanup. Each queue
+     can be finalized even if its worker failed to start. */
+  if (!ddsi_gcreq_queue_start (gv->gcreq_queue) ||
+      !ddsi_dqueue_start (gv->builtins_dqueue) ||
+      !ddsi_dqueue_start (gv->user_dqueue) ||
+      ddsi_xeventq_start (gv->xevents, NULL) < 0)
     return -1;
 
   if (gv->config.transport_selector != DDSI_TRANS_NONE && setup_and_start_recv_threads (gv) < 0)
-  {
-    ddsi_xeventq_stop (gv->xevents);
-    return -1;
-  }
+    goto fail;
   if (gv->listener)
   {
     if (ddsi_create_thread (&gv->listen_ts, gv, "listen", ddsi_listen_thread, gv->listener) != DDS_RETCODE_OK)
     {
       GVERROR ("failed to create TCP listener thread\n");
-      ddsi_listener_free (gv->listener);
-      gv->listener = NULL;
-      ddsi_stop (gv);
-      return -1;
+      goto fail;
     }
   }
   if (gv->config.monitor_port >= 0)
@@ -1887,8 +1868,7 @@ int ddsi_start (struct ddsi_domaingv *gv)
     if ((gv->debmon = ddsi_new_debug_monitor (gv, gv->config.monitor_port)) == NULL)
     {
       GVERROR ("failed to create debug monitor thread\n");
-      ddsi_stop (gv);
-      return -1;
+      goto fail;
     }
     else {
       ddsi_locator_t loc;
@@ -1902,6 +1882,10 @@ int ddsi_start (struct ddsi_domaingv *gv)
   }
 
   return 0;
+
+fail:
+  ddsi_stop (gv);
+  return -1;
 }
 
 struct dq_builtins_ready_arg {
@@ -1934,12 +1918,14 @@ void ddsi_stop (struct ddsi_domaingv *gv)
   if (gv->config.transport_selector != DDSI_TRANS_NONE)
     wait_for_receive_threads (gv);
 
-  if (gv->listener)
+  if (gv->listen_ts)
   {
-    ddsi_listener_unblock(gv->listener);
+    ddsi_listener_unblock (gv->listener);
     ddsi_join_thread (gv->listen_ts);
-    ddsi_listener_free(gv->listener);
+    gv->listen_ts = NULL;
   }
+  ddsi_listener_free (gv->listener);
+  gv->listener = NULL;
 
   ddsi_xeventq_stop (gv->xevents);
 
@@ -2051,6 +2037,8 @@ void ddsi_stop (struct ddsi_domaingv *gv)
 
 void ddsi_fini (struct ddsi_domaingv *gv)
 {
+  /* Startup can fail before the listener thread or any receive threads run. */
+  ddsi_listener_free (gv->listener);
   /* No participants or proxy participants left, so this is safe */
   ddsi_spdp_scheduler_delete (gv->spdp_schedule);
 
@@ -2084,6 +2072,7 @@ void ddsi_fini (struct ddsi_domaingv *gv)
     ddsi_xpack_sendq_fini (gv);
   }
   ddsrt_mutex_unlock (&gv->sendq_running_lock);
+  ddsrt_mutex_destroy (&gv->sendq_running_lock);
 
   (void) joinleave_spdp_defmcip (gv, 0);
   for (int i = 0; i < gv->n_interfaces; i++)
@@ -2106,9 +2095,10 @@ void ddsi_fini (struct ddsi_domaingv *gv)
      queues been drained.  I.e., until very late in the game. */
   for (uint32_t i = 0; i < gv->n_recv_threads; i++)
   {
-    if (gv->recv_threads[i].arg.mode == DDSI_RTM_MANY)
+    if (gv->recv_threads[i].arg.mode == DDSI_RTM_MANY && gv->recv_threads[i].arg.u.many.ws)
       ddsi_sock_waitset_free (gv->recv_threads[i].arg.u.many.ws);
-    ddsi_rbufpool_free (gv->recv_threads[i].arg.rbpool);
+    if (gv->recv_threads[i].arg.rbpool)
+      ddsi_rbufpool_free (gv->recv_threads[i].arg.rbpool);
   }
 
   ddsi_tkmap_free (gv->m_tkmap);

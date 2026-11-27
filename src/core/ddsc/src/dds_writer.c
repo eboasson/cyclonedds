@@ -395,7 +395,19 @@ static dds_entity_t dds_create_writer_int (dds_entity_t participant_or_publisher
 #endif
 
   // configure async mode
-  bool async_mode = (wqos->latency_budget.duration > 0);
+  const bool async_mode = (wqos->latency_budget.duration > 0);
+  if (async_mode)
+  {
+    ddsrt_mutex_lock (&gv->sendq_running_lock);
+    if (!gv->sendq_running)
+    {
+      ddsi_xpack_sendq_init (gv);
+      rc = ddsi_xpack_sendq_start (gv);
+    }
+    ddsrt_mutex_unlock (&gv->sendq_running_lock);
+    if (rc != DDS_RETCODE_OK)
+      goto err_sendq;
+  }
 
   /* Create writer */
   struct dds_writer * const wr = dds_alloc (sizeof (*wr));
@@ -455,18 +467,11 @@ static dds_entity_t dds_create_writer_int (dds_entity_t participant_or_publisher
   dds_topic_unpin (tp);
   dds_publisher_unlock (pub);
 
-  // start async thread if not already started and the latency budget is non zero
-  ddsrt_mutex_lock (&gv->sendq_running_lock);
-  if (async_mode && !gv->sendq_running) {
-    ddsi_xpack_sendq_init(gv);
-    ddsi_xpack_sendq_start(gv);
-  }
-
-  ddsrt_mutex_unlock (&gv->sendq_running_lock);
   return writer;
 
 err_wr_guid:
 err_pipe_open:
+err_sendq:
 #ifdef DDS_HAS_SECURITY
 err_not_allowed:
 #endif

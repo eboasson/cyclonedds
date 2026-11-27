@@ -59,6 +59,25 @@ CU_Test(ddsc_create_writer, null_parent, .init = setup, .fini = teardown)
     CU_ASSERT_EQ_FATAL (writer, DDS_RETCODE_BAD_PARAMETER);
 }
 
+CU_Test(ddsc_create_writer, sendq_startup_failure, .timeout = 15)
+{
+  const dds_entity_t domain = dds_create_domain (0,
+      "<General><Transport>none</Transport></General><Threads><Thread Name=\"sendq\">"
+      "<Scheduling><Affinity>4294967295</Affinity></Scheduling></Thread></Threads>");
+  CU_ASSERT_GT_FATAL (domain, 0);
+  const dds_entity_t pp = dds_create_participant (0, NULL, NULL);
+  CU_ASSERT_GT_FATAL (pp, 0);
+  const dds_entity_t tp = dds_create_topic (pp, &RoundTripModule_DataType_desc, "RoundTrip", NULL, NULL);
+  CU_ASSERT_GT_FATAL (tp, 0);
+  dds_qos_t *qos = dds_create_qos ();
+  dds_qset_latency_budget (qos, DDS_MSECS (1));
+  CU_ASSERT_LT (dds_create_writer (pp, tp, qos, NULL), 0);
+  CU_ASSERT_LT (dds_create_writer (pp, tp, qos, NULL), 0);
+  CU_ASSERT_GT (dds_create_writer (pp, tp, NULL, NULL), 0);
+  dds_delete_qos (qos);
+  CU_ASSERT_EQ (dds_delete (domain), DDS_RETCODE_OK);
+}
+
 CU_Test(ddsc_create_writer, bad_parent, .init = setup, .fini = teardown)
 {
     writer = dds_create_writer(topic, topic, NULL, NULL);

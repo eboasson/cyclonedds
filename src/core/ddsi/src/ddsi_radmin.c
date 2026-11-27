@@ -343,7 +343,7 @@ struct ddsi_rbufpool *ddsi_rbufpool_new (const struct ddsrt_log_cfg *logcfg, uin
   if (rbuf_size < max_rmsg_size_w_hdr (max_rmsg_size))
     rbuf_size = max_rmsg_size_w_hdr (max_rmsg_size);
 
-  if ((rbp = ddsrt_malloc (sizeof (*rbp))) == NULL)
+  if ((rbp = ddsrt_malloc_s (sizeof (*rbp))) == NULL)
     goto fail_rbp;
 #ifndef NDEBUG
   rbp->owner_tid = ddsrt_thread_self ();
@@ -429,7 +429,7 @@ static struct ddsi_rbuf *ddsi_rbuf_alloc_new (struct ddsi_rbufpool *rbp)
   struct ddsi_rbuf *rb;
   ASSERT_RBUFPOOL_OWNER (rbp);
 
-  if ((rb = ddsrt_malloc (sizeof (struct ddsi_rbuf) + rbp->rbuf_size)) == NULL)
+  if ((rb = ddsrt_malloc_s (sizeof (struct ddsi_rbuf) + rbp->rbuf_size)) == NULL)
     return NULL;
 #if USE_VALGRIND
   VALGRIND_MAKE_MEM_NOACCESS (rb->raw, rbp->rbuf_size);
@@ -2740,7 +2740,7 @@ bool ddsi_dqueue_start (struct ddsi_dqueue *q)
   char *thrname;
   size_t thrnamesz;
   thrnamesz = 3 + strlen (q->name) + 1;
-  if ((thrname = ddsrt_malloc (thrnamesz)) == NULL)
+  if ((thrname = ddsrt_malloc_s (thrnamesz)) == NULL)
     return false;
   (void) snprintf (thrname, thrnamesz, "dq.%s", q->name);
   dds_return_t ret = ddsi_create_thread (&q->thrst, q->gv, thrname, dqueue_thread, q);

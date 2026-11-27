@@ -14,6 +14,7 @@
 #include <stddef.h>
 
 #include "dds/features.h"
+#include "dds/ddsrt/retcode.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -35,7 +36,7 @@ DDS_EXPORT void ddsi_xpack_send (struct ddsi_xpack *xp, bool immediately /* unus
 void ddsi_xpack_sendq_init (struct ddsi_domaingv *gv);
 
 /** @component rtps_msg */
-void ddsi_xpack_sendq_start (struct ddsi_domaingv *gv);
+dds_return_t ddsi_xpack_sendq_start (struct ddsi_domaingv *gv);
 
 #if defined (__cplusplus)
 }

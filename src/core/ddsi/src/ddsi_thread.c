@@ -320,9 +320,13 @@ static dds_return_t create_thread_int (struct ddsi_thread_state **ts1_out, const
   struct ddsi_thread_state *thrst;
   ddsrt_mutex_lock (&thread_states.lock);
 
-  thrst = *ts1_out = init_thread_state (name, gv, DDSI_THREAD_STATE_INIT);
+  *ts1_out = NULL;
+  thrst = init_thread_state (name, gv, DDSI_THREAD_STATE_INIT);
   if (thrst == NULL)
-    goto fatal;
+  {
+    ddsrt_mutex_unlock (&thread_states.lock);
+    return DDS_RETCODE_OUT_OF_RESOURCES;
+  }
 
   thrst->f = f;
   thrst->f_arg = arg;
@@ -342,19 +346,15 @@ static dds_return_t create_thread_int (struct ddsi_thread_state **ts1_out, const
     GVTRACE ("create_thread: %s: class %d priority %"PRId32" stack %"PRIu32"\n", name, (int) tattr.schedClass, tattr.schedPriority, tattr.stackSize);
   }
 
-  if (ddsrt_thread_create (&thrst->tid, name, &tattr, &create_thread_wrapper, thrst) != DDS_RETCODE_OK)
-  {
+  const dds_return_t rc = ddsrt_thread_create (&thrst->tid, name, &tattr, create_thread_wrapper, thrst);
+  if (rc == DDS_RETCODE_OK)
+    *ts1_out = thrst;
+  else
     thrst->state = DDSI_THREAD_STATE_ZERO;
-    DDS_FATAL ("create_thread: %s: ddsrt_thread_create failed\n", name);
-    goto fatal;
-  }
   ddsrt_mutex_unlock (&thread_states.lock);
-  return DDS_RETCODE_OK;
-fatal:
-  ddsrt_mutex_unlock (&thread_states.lock);
-  *ts1_out = NULL;
-  abort ();
-  return DDS_RETCODE_ERROR;
+  if (rc != DDS_RETCODE_OK)
+    DDS_ERROR ("create_thread: %s: ddsrt_thread_create failed (%"PRId32")\n", name, rc);
+  return rc;
 }
 
 dds_return_t ddsi_create_thread_with_properties (struct ddsi_thread_state **thrst, struct ddsi_config_thread_properties_listelem const * const tprops, const char *name, uint32_t (*f) (void *arg), void *arg)

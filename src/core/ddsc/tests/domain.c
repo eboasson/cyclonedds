@@ -9,6 +9,7 @@
 // SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "dds/ddsrt/environ.h"
 #include "dds/ddsrt/heap.h"
@@ -19,6 +20,48 @@
 #include "CUnit/Test.h"
 #include "config_env.h"
 #include "test_util.h"
+
+#ifdef DDS_HAS_FAKEUDP
+/* Reject the configured receive buffer (plus its small private header). */
+static void *fail_receive_buffer_alloc (size_t size)
+{
+  const size_t buffer_size = 3 * 1024 * 1024;
+  return (size >= buffer_size && size < buffer_size + 1024) ? NULL : malloc (size);
+}
+#endif
+
+CU_Test(ddsc_domain, receive_pool_startup_failure)
+{
+#ifdef DDS_HAS_FAKEUDP
+  const char *config = "<General><Transport>fakeudp</Transport></General>"
+                       "<Sizing><ReceiveBufferSize>3 MiB</ReceiveBufferSize></Sizing>";
+  ddsrt_set_allocator ((ddsrt_allocation_ops_t) { .malloc = fail_receive_buffer_alloc });
+  const dds_entity_t failed = dds_create_domain (0, config);
+  ddsrt_set_allocator ((ddsrt_allocation_ops_t) { 0 });
+  CU_ASSERT_LT_FATAL (failed, 0);
+  const dds_entity_t domain = dds_create_domain (0, config);
+  CU_ASSERT_GT_FATAL (domain, 0);
+  CU_ASSERT_EQ (dds_delete (domain), DDS_RETCODE_OK);
+#endif
+}
+
+CU_Test(ddsc_domain, worker_startup_failure, .timeout = 15)
+{
+  /* Request an unavailable CPU. Each worker creation must unwind the earlier
+     workers and leave the same domain id available for a subsequent start. */
+  static const char *const workers[] = { "gc", "dq.builtins", "dq.user", "tev" };
+  const char *transport = "<General><Transport>none</Transport></General>";
+  for (size_t i = 0; i < sizeof (workers) / sizeof (workers[0]); i++)
+  {
+    char config[256];
+    snprintf (config, sizeof (config), "%s<Threads><Thread Name=\"%s\"><Scheduling>"
+              "<Affinity>4294967295</Affinity></Scheduling></Thread></Threads>", transport, workers[i]);
+    CU_ASSERT_LT_FATAL (dds_create_domain (0, config), 0);
+    dds_entity_t domain = dds_create_domain (0, transport);
+    CU_ASSERT_GT_FATAL (domain, 0);
+    CU_ASSERT_EQ (dds_delete (domain), DDS_RETCODE_OK);
+  }
+}
 
 CU_Test(ddsc_domain, get_domainid)
 {

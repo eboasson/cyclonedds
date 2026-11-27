@@ -557,7 +557,8 @@ dds_return_t dds_security_fsm_control_start (struct dds_security_fsm_control *co
 
   control->running = true;
   rc = ddsi_create_thread (&control->thrst, control->gv, fsm_name, (uint32_t (*) (void *)) handle_events, control);
-
+  if (rc != DDS_RETCODE_OK)
+    control->running = false;
   return rc;
 }
 

@@ -84,6 +84,27 @@ typedef struct {
   void *arg;
 } thread_context_t;
 
+static thread_context_t *thread_context_new (const char *name, ddsrt_thread_routine_t routine, void *arg)
+{
+  thread_context_t *ctx = ddsrt_malloc_s (sizeof (*ctx));
+  if (ctx == NULL)
+    return NULL;
+  if ((ctx->name = ddsrt_strdup (name)) == NULL)
+  {
+    ddsrt_free (ctx);
+    return NULL;
+  }
+  ctx->routine = routine;
+  ctx->arg = arg;
+  return ctx;
+}
+
+static void thread_context_free (thread_context_t *ctx)
+{
+  ddsrt_free (ctx->name);
+  ddsrt_free (ctx);
+}
+
 static uint32_t
 os_startRoutineWrapper(
   void *threadContext)
@@ -98,8 +119,7 @@ os_startRoutineWrapper(
 
   /* Free the thread context resources, arguments is responsibility */
   /* for the caller of os_threadCreate                                */
-  ddsrt_free(context->name);
-  ddsrt_free(context);
+  thread_context_free (context);
 
   /* return the result of the user routine */
   return resultValue;
@@ -130,14 +150,15 @@ ddsrt_thread_create(
     return DDS_RETCODE_ERROR;
   }
 
-  if ((ctx = ddsrt_malloc(sizeof(*ctx))) == NULL ||
-      (ctx->name = ddsrt_strdup(name)) == NULL)
+  prio = attr->schedPriority;
+  if (prio < RT_PRIORITY_MIN || prio > RT_PRIORITY_MAX)
+    return DDS_RETCODE_ERROR;
+
+  if ((ctx = thread_context_new (name, start_routine, arg)) == NULL)
   {
     return DDS_RETCODE_OUT_OF_RESOURCES;
   }
 
-  ctx->routine = start_routine;
-  ctx->arg = arg;
   thr.handle = CreateThread(NULL,
     (SIZE_T)attr->stackSize,
     (LPTHREAD_START_ROUTINE)os_startRoutineWrapper,
@@ -147,14 +168,7 @@ ddsrt_thread_create(
 
   if (thr.handle == NULL)
   {
-    return DDS_RETCODE_ERROR;
-  }
-
-  *thrptr = thr;
-
-  prio = attr->schedPriority;
-  if (prio < RT_PRIORITY_MIN || prio > RT_PRIORITY_MAX)
-  {
+    thread_context_free (ctx);
     return DDS_RETCODE_ERROR;
   }
 
@@ -176,9 +190,15 @@ ddsrt_thread_create(
   if (Ret == 0xFFFFFFFF)
   {
     DDS_WARNING("ResumeThread failed with %" PRIu32 "\n", (uint32_t)GetLastError());
+    /* The thread is still suspended and has not entered its start routine. */
+    if (!TerminateThread (thr.handle, 1))
+      DDS_WARNING ("TerminateThread failed with %" PRIu32 "\n", (uint32_t) GetLastError ());
+    CloseHandle (thr.handle);
+    thread_context_free (ctx);
     return DDS_RETCODE_ERROR;
   }
 
+  *thrptr = thr;
   return DDS_RETCODE_OK;
 }
 
@@ -207,12 +227,9 @@ ddsrt_thread_create(
     return DDS_RETCODE_ERROR;
   }
 
-  if ((ctx = ddsrt_malloc(sizeof(*ctx))) == NULL ||
-      (ctx->name = ddsrt_strdup(name)) == NULL)
+  if ((ctx = thread_context_new (name, start_routine, arg)) == NULL)
     return DDS_RETCODE_OUT_OF_RESOURCES;
 
-  ctx->routine = start_routine;
-  ctx->arg = arg;
   thr.handle = CreateThread(NULL,
     (SIZE_T)attr->stackSize,
     (LPTHREAD_START_ROUTINE)os_startRoutineWrapper,
@@ -221,7 +238,10 @@ ddsrt_thread_create(
     &thr.tid);
 
   if (thr.handle == NULL)
+  {
+    thread_context_free (ctx);
     return DDS_RETCODE_ERROR;
+  }
 
   *thrptr = thr;
 

@@ -1313,11 +1313,17 @@ void ddsi_xpack_sendq_init (struct ddsi_domaingv *gv)
   ddsrt_cond_init (&gv->sendq_cond);
 }
 
-void ddsi_xpack_sendq_start (struct ddsi_domaingv *gv)
+dds_return_t ddsi_xpack_sendq_start (struct ddsi_domaingv *gv)
 {
-  if (ddsi_create_thread (&gv->sendq_ts, gv, "sendq", ddsi_xpack_sendq_thread, gv) != DDS_RETCODE_OK)
-    GVERROR ("ddsi_xpack_sendq_start: can't create ddsi_xpack_sendq_thread\n");
-  gv->sendq_running = true;
+  const dds_return_t rc = ddsi_create_thread (&gv->sendq_ts, gv, "sendq", ddsi_xpack_sendq_thread, gv);
+  if (rc == DDS_RETCODE_OK)
+    gv->sendq_running = true;
+  else
+  {
+    ddsrt_cond_destroy (&gv->sendq_cond);
+    ddsrt_mutex_destroy (&gv->sendq_lock);
+  }
+  return rc;
 }
 
 void ddsi_xpack_sendq_stop (struct ddsi_domaingv *gv)

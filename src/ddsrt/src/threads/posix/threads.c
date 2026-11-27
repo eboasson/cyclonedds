@@ -441,8 +441,13 @@ ddsrt_thread_create (
   }
 
   /* Construct context structure & start thread */
-  ctx = ddsrt_malloc (sizeof (thread_context_t));
-  ctx->name = ddsrt_strdup(name);
+  ctx = ddsrt_malloc_s (sizeof (*ctx));
+  if (ctx == NULL || (ctx->name = ddsrt_strdup (name)) == NULL)
+  {
+    ddsrt_free (ctx);
+    pthread_attr_destroy (&pattr);
+    return DDS_RETCODE_OUT_OF_RESOURCES;
+  }
   ctx->routine = start_routine;
   ctx->arg = arg;
 
