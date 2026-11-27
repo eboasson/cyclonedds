@@ -61,6 +61,10 @@ jobs:
         image: ubuntu-24.04
         sanitizer: address,undefined
         ssl: off
+        tcp: on
+        tcp_tls: off
+        network_partitions: off
+        source_specific_multicast: off
         lifespan: off
         deadline_missed: on
         type_discovery: off
@@ -76,6 +80,8 @@ jobs:
         image: ubuntu-24.04
         analyzer: on
         sanitizer: address,undefined
+        tcp: on
+        tcp_tls: on
         cc: clang
       'Ub 24.04 + Clang (Deb, x86_64, no security)':
         image: ubuntu-24.04

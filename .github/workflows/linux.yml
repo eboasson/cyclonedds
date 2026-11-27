@@ -84,6 +84,10 @@ jobs:
               shared_libs: true,
               sanitizer: "address,undefined",
               ssl: "OFF",
+              tcp: "ON",
+              tcp_tls: "OFF",
+              network_partitions: "OFF",
+              source_specific_multicast: "OFF",
               security: true,
               lifespan: false,
               deadline_missed: true,
@@ -119,6 +123,8 @@ jobs:
               analyzer: true,
               sanitizer: "address,undefined",
               ssl: "ON",
+              tcp: "ON",
+              tcp_tls: "ON",
               security: true,
               lifespan: true,
               deadline_missed: true,
@@ -239,6 +245,10 @@ jobs:
             -DANALYZER=${{ matrix.config.analyzer || false}} \
             -DSANITIZER=${{ matrix.config.sanitizer || 'none' }} \
             -DENABLE_SSL=${{ matrix.config.ssl }} \
+            -DENABLE_TCP=${{ matrix.config.tcp || 'OFF' }} \
+            -DENABLE_TCP_TLS=${{ matrix.config.tcp_tls || 'AUTO' }} \
+            -DENABLE_NETWORK_PARTITIONS=${{ matrix.config.network_partitions || 'ON' }} \
+            -DENABLE_SOURCE_SPECIFIC_MULTICAST=${{ matrix.config.source_specific_multicast || 'AUTO' }} \
             -DENABLE_SECURITY=${{ matrix.config.security }} \
             -DENABLE_LIFESPAN=${{ matrix.config.lifespan }} \
             -DENABLE_DEADLINE_MISSED=${{ matrix.config.deadline_missed }} \
