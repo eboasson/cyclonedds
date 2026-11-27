@@ -34,6 +34,17 @@ outgoing packets for that peer. When the connection is ready, each local partici
 sends its current SPDP announcement. DDSI reliability can recover missed reliable
 samples once the endpoints are matched.
 
+When a peer advertises one TCP listener on the address from which it connected,
+|var-project| can reply over the accepted stream. If both peers dial, discovery
+uses the connection initiated by the lower advertised address and port once
+the same participant has announced on both streams. A directed SPDP reply on
+the selected stream confirms its return path for the addressed participant.
+The other stream remains open until its discovered participants have moved and
+each local participant has been acknowledged on the selected stream.
+Separately advertised endpoint ports remain independent destinations. When a
+client reconnects from a new source port, SPDP updates the return routes of
+its discovered participants and endpoints.
+
 ``TCP/ConnectTimeout`` covers time spent waiting for a connection slot and the TLS
 handshake. Incoming handshakes and outgoing attempts have separate limits so both
 can make progress. If a queue is full, a later connection attempt can retry.

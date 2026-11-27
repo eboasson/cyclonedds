@@ -52,7 +52,22 @@ bool ddsi_include_multicast_locator_in_discovery (const struct ddsi_domaingv *gv
   return false;
 }
 
-static void addrset_from_locatorlists_add_one (struct ddsi_domaingv const * const gv, struct ddsi_tran_conn * const *xmit_conns, const struct ddsi_network_packet_info *pktinfo, const ddsi_locator_t *loc, struct ddsi_addrset *as, ddsi_interface_set_t *intfs, bool *direct, struct ddsi_addrset *routed_as)
+/* Preserve independently advertised data/endpoint listeners, including a
+   different port on the same host. Only the observed peer or its SPDP
+   listener can use this stream as a return path. */
+bool ddsi_use_tcp_return_path (const ddsi_locator_t *src, const ddsi_locators_t *destinations, const ddsi_locators_t *listeners)
+{
+  if (destinations->n != 1)
+    return false;
+  const ddsi_locator_t *dst = &destinations->first->loc;
+  if (dst->kind != src->kind || dst->port == 0 || dst->port > UINT16_MAX ||
+      memcmp (dst->address, src->address, sizeof (dst->address)) != 0)
+    return false;
+  return dst->port == src->port ||
+    (listeners && listeners->n == 1 && ddsi_compare_locators (dst, &listeners->first->loc) == 0);
+}
+
+static void addrset_from_locatorlists_add_one (struct ddsi_domaingv const * const gv, struct ddsi_tran_conn * const *xmit_conns, const struct ddsi_network_packet_info *pktinfo, const ddsi_locator_t *loc, struct ddsi_addrset *as, ddsi_interface_set_t *intfs, bool *direct, struct ddsi_addrset *routed_as, bool reply)
 {
   size_t interf_idx;
   switch (ddsi_is_nearby_address (gv, loc, (size_t) gv->n_interfaces, gv->interfaces, &interf_idx))
@@ -65,7 +80,7 @@ static void addrset_from_locatorlists_add_one (struct ddsi_domaingv const * cons
       assert (interf_idx < MAX_XMIT_CONNS);
       assert (xmit_conns[interf_idx] != NULL);
       ddsi_add_xlocator_to_addrset (gv, as, &(const ddsi_xlocator_t) {
-        .conn = xmit_conns[interf_idx],
+        .conn = reply && xmit_conns[interf_idx]->m_return_conn ? xmit_conns[interf_idx]->m_return_conn : xmit_conns[interf_idx],
         .c = *loc });
       intfs->xs[interf_idx] = true;
       *direct = true;
@@ -107,7 +122,7 @@ static void addrset_from_locatorlists_add_one (struct ddsi_domaingv const * cons
         {
           assert (xmit_conns[i] != NULL);
           ddsi_add_xlocator_to_addrset (gv, routed_as ? routed_as : as, &(const ddsi_xlocator_t) {
-            .conn = xmit_conns[i],
+            .conn = reply && xmit_conns[i]->m_return_conn ? xmit_conns[i]->m_return_conn : xmit_conns[i],
             .c = *loc });
         }
       }
@@ -203,7 +218,7 @@ static struct ddsi_addrset *ddsi_addrset_from_locatorlists_handle_uc (const stru
       }
     }
 
-    addrset_from_locatorlists_add_one (gv, xmit_conns, pktinfo, &loc, as, intfs, direct, routed_as);
+    addrset_from_locatorlists_add_one (gv, xmit_conns, pktinfo, &loc, as, intfs, direct, routed_as, false);
   }
 
   if (ddsi_addrset_empty (as))
@@ -286,7 +301,7 @@ struct ddsi_addrset *ddsi_addrset_from_locatorlists (const struct ddsi_domaingv 
   {
     // FIXME: conn_read should provide interface information in source address
     //GVTRACE (" add-srcloc");
-    addrset_from_locatorlists_add_one (gv, xmit_conns, pktinfo, &pktinfo->src, as, &intfs, &direct, NULL);
+    addrset_from_locatorlists_add_one (gv, xmit_conns, pktinfo, &pktinfo->src, as, &intfs, &direct, NULL, true);
   }
 
   // if no decisions yet on suitable interfaces, fall back on inherited interfaces (if any), or else whatever

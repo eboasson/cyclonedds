@@ -42,6 +42,10 @@ bool ddsi_proxy_participant_note_connection (struct ddsi_proxy_participant *prox
 /** @component ddsi_proxy_participant */
 bool ddsi_proxy_participant_has_connection (const struct ddsi_proxy_participant *pp, uint64_t id);
 
+/** @brief Check on the discovery queue that every user of old_id has moved to keep_id.
+ * @component ddsi_proxy_participant */
+bool ddsi_proxy_participants_can_drop_connection (struct ddsi_domaingv *gv, uint64_t old_id, uint64_t keep_id);
+
 /** @component ddsi_proxy_participant */
 void ddsi_purge_proxy_participants (struct ddsi_domaingv *gv, uint64_t conn_id);
 

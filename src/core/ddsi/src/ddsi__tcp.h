@@ -12,6 +12,7 @@
 #define DDSI__TCP_H
 
 #include "dds/ddsi/ddsi_tran.h"
+#include "dds/ddsi/ddsi_guid.h"
 #include "dds/ddsrt/time.h"
 
 #if defined (__cplusplus)
@@ -19,6 +20,15 @@ extern "C" {
 #endif
 
 struct ddsi_domaingv;
+struct ddsi_proxy_participant;
+
+/** @component tcp_transport */
+bool ddsi_tcp_select_peer_stream (struct ddsi_domaingv *gv, const struct ddsi_proxy_participant *pp, const ddsi_locator_t *listener, ddsi_locator_t *src, uint64_t *id, const ddsi_guid_prefix_t *dst, bool *announce, bool *confirm);
+
+/** @brief Retire a duplicate only after discovery has moved its participants.
+ * Called on the discovery queue after updating the selected source route.
+ * @component tcp_transport */
+void ddsi_tcp_prune_peer_stream (struct ddsi_domaingv *gv, const ddsi_locator_t *src, uint64_t id);
 
 /** @component tcp_transport */
 int ddsi_tcp_init (struct ddsi_domaingv *gv);

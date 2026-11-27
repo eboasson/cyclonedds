@@ -260,3 +260,13 @@ CU_Test (ddsc_tcp, tls_parallel_connect_spdp, .timeout = 20)
   CU_ASSERT_EQ (ddsrt_close (stream), DDS_RETCODE_OK);
   CU_ASSERT_EQ (ddsrt_close (listener), DDS_RETCODE_OK);
 }
+
+CU_Test (ddsc_tcp, tls_simultaneous_connections, .timeout = 20)
+{
+  tcp_test_two_listeners (true, 1, TLS_TEST_OPTIONS TCP_TEST_TRACE_STREAMS);
+}
+
+CU_Test (ddsc_tcp, tls_simultaneous_connections_multiple_participants, .timeout = 30)
+{
+  tcp_test_two_listeners (true, 3, TLS_TEST_OPTIONS TCP_TEST_TRACE_STREAMS);
+}

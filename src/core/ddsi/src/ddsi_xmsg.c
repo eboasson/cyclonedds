@@ -33,6 +33,7 @@
 #include "ddsi__misc.h"
 #include "ddsi__xmsg.h"
 #include "ddsi__entity.h"
+#include "dds/ddsi/ddsi_proxy_participant.h"
 #include "ddsi__entity_index.h"
 #include "ddsi__security_omg.h"
 #include "ddsi__endpoint.h"
@@ -741,12 +742,25 @@ bool ddsi_xmsg_getdst1_prefix (struct ddsi_xmsg *m, ddsi_guid_prefix_t *gp)
   return false;
 }
 
+static void setdst_proxy_uc (struct ddsi_xmsg *m, const struct ddsi_entity_common *e, const struct ddsi_proxy_endpoint_common *c)
+{
+  if (e->gv->m_factory->m_stream)
+  {
+    ddsrt_mutex_lock (&c->proxypp->source_route_lock);
+    const ddsi_xlocator_t loc = c->loc_uc;
+    ddsrt_mutex_unlock (&c->proxypp->source_route_lock);
+    ddsi_xmsg_setdst1 (e->gv, m, &e->guid.prefix, &loc);
+  }
+  else
+    ddsi_xmsg_setdst1 (e->gv, m, &e->guid.prefix, &c->loc_uc);
+}
+
 void ddsi_xmsg_setdst_prd (struct ddsi_xmsg *m, const struct ddsi_proxy_reader *prd)
 {
   // only accepting endpoints that have an address
   assert (m->dstmode == NN_XMSG_DST_UNSET);
   if (!prd->redundant_networking)
-    ddsi_xmsg_setdst1 (prd->e.gv, m, &prd->e.guid.prefix, &prd->c.loc_uc);
+    setdst_proxy_uc (m, &prd->e, &prd->c);
   else
   {
     // FIXME: maybe I should work on the merging instead ...
@@ -763,7 +777,7 @@ void ddsi_xmsg_setdst_pwr (struct ddsi_xmsg *m, const struct ddsi_proxy_writer *
   // only accepting endpoints that have an address
   assert (m->dstmode == NN_XMSG_DST_UNSET);
   if (!pwr->redundant_networking)
-    ddsi_xmsg_setdst1 (pwr->e.gv, m, &pwr->e.guid.prefix, &pwr->c.loc_uc);
+    setdst_proxy_uc (m, &pwr->e, &pwr->c);
   else
   {
     // FIXME: maybe I should work on the merging instead ...

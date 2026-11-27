@@ -27,6 +27,7 @@
 #include "ddsi__endpoint.h"
 #include "ddsi__plist.h"
 #include "ddsi__proxy_participant.h"
+#include "ddsi__proxy_endpoint.h"
 #include "ddsi__topic.h"
 #include "ddsi__vendor.h"
 #include "ddsi__xevent.h"
@@ -34,6 +35,7 @@
 #include "ddsi__lease.h"
 #include "ddsi__xqos.h"
 #include "ddsi__spdp_schedule.h"
+#include "ddsi__tcp.h"
 
 static bool get_pp_and_spdp_wr (struct ddsi_domaingv *gv, const ddsi_guid_t *pp_guid, struct ddsi_participant **pp, struct ddsi_writer **spdp_wr)
   ddsrt_nonnull_all;
@@ -410,6 +412,109 @@ static bool accept_packet_from_interface (const struct ddsi_domaingv *gv, const 
   return false;
 }
 
+static bool matches_stream_peer (const struct ddsi_receiver_state *rst, const ddsi_locators_t *locs)
+{
+  return rst->conn_id && ddsi_use_tcp_return_path (&rst->pktinfo.src, locs, locs);
+}
+
+static bool default_is_stream_listener (const struct ddsi_receiver_state *rst, const ddsi_plist_t *datap)
+{
+  const ddsi_locators_t *meta = (datap->present & PP_METATRAFFIC_UNICAST_LOCATOR) ? &datap->metatraffic_unicast_locators : NULL;
+  return rst->conn_id && (datap->present & PP_DEFAULT_UNICAST_LOCATOR) &&
+         ddsi_use_tcp_return_path (&rst->pktinfo.src, &datap->default_unicast_locators, meta);
+}
+
+static bool use_source_route (const struct ddsi_receiver_state *rst, const ddsi_plist_t *datap)
+{
+  return rst->conn_id && (rst->gv->config.tcp_use_peeraddr_for_unicast ||
+    !(datap->present & PP_DEFAULT_UNICAST_LOCATOR) || default_is_stream_listener (rst, datap) ||
+    !(datap->present & PP_METATRAFFIC_UNICAST_LOCATOR) || matches_stream_peer (rst, &datap->metatraffic_unicast_locators));
+}
+
+/* Replay local discovery once on each new ingress stream. In a simultaneous
+   open this lets both ends identify both directions before closing either. */
+static bool note_stream (struct ddsi_proxy_participant *pp, const struct ddsi_receiver_state *rst, const ddsi_plist_t *datap,
+                         struct ddsi_receiver_state *selected)
+{
+  *selected = *rst;
+  if (!rst->conn_id)
+    return false;
+  const bool fresh = ddsi_proxy_participant_note_connection (pp, rst->conn_id);
+  bool resolved = false, confirm = false;
+#ifdef DDS_HAS_TCP
+  const ddsi_locator_t *listener = NULL;
+  if ((datap->present & PP_METATRAFFIC_UNICAST_LOCATOR) && matches_stream_peer (rst, &datap->metatraffic_unicast_locators))
+    listener = &datap->metatraffic_unicast_locators.first->loc;
+  bool announce;
+  const ddsi_guid_t dst = { .prefix = rst->dst_guid_prefix, .entityid = { .u = DDSI_ENTITYID_PARTICIPANT } };
+  const bool directed = (dst.prefix.u[0] || dst.prefix.u[1] || dst.prefix.u[2]) &&
+    ddsi_entidx_lookup_participant_guid (rst->gv->entity_index, &dst) != NULL;
+  resolved = ddsi_tcp_select_peer_stream (rst->gv, pp, listener, &selected->pktinfo.src, &selected->conn_id,
+    directed ? &dst.prefix : NULL, &announce, &confirm);
+  /* Confirm each participant after selecting its route. Undirected periodic
+     SPDP retries a lost confirmation without directed replies forming a loop. */
+  confirm = confirm && (fresh || !directed || selected->conn_id != pp->source_route_conn_id);
+  if (announce)
+  {
+    const ddsi_xlocator_t peer = { .c = rst->pktinfo.src, .conn = rst->gv->xmit_conns_meta[0] };
+    ddsi_spdp_republish_to_locator (rst->gv->spdp_schedule, &peer);
+  }
+#else
+  (void) datap;
+#endif
+  /* Previously seen old streams may still have SPDP queued. */
+  if (!fresh && !resolved)
+    selected->conn_id = 0;
+  return confirm;
+}
+
+/* SPDP is serialized on the builtin queue. The endpoint snapshot avoids
+   nesting endpoint locks inside the participant lock. GC protects the
+   snapshot while this delivery thread is awake. */
+static void move_source_route (struct ddsi_proxy_participant *pp, const struct ddsi_receiver_state *rst)
+{
+  struct ddsi_domaingv *gv = rst->gv;
+  const ddsi_xlocator_t old = { .c = pp->source_route, .conn = gv->xmit_conns_data[0]->m_return_conn };
+  const ddsi_xlocator_t replacement = { .c = rst->pktinfo.src, .conn = old.conn };
+  /* TCP uses the same domain transmit connection for data and metatraffic. */
+  assert (old.conn && old.conn == gv->xmit_conns_meta[0]->m_return_conn);
+  if (ddsi_compare_locators (&old.c, &replacement.c) == 0)
+  {
+    pp->source_route_conn_id = rst->conn_id;
+    return;
+  }
+
+  ddsrt_mutex_lock (&pp->e.lock);
+  if (pp->deleting)
+  {
+    ddsrt_mutex_unlock (&pp->e.lock);
+    return;
+  }
+  if (ddsi_addrset_replace_uc (pp->as_meta, &old, &replacement))
+  {
+    /* TCP discovery has one unicast return address. Move its scheduler
+       reference with the participant, including configured peer references. */
+    if (ddsi_spdp_ref_locator (gv->spdp_schedule, &replacement, true) != DDS_RETCODE_OK)
+    {
+      (void) ddsi_addrset_replace_uc (pp->as_meta, &replacement, &old);
+      ddsrt_mutex_unlock (&pp->e.lock);
+      return;
+    }
+    ddsi_spdp_unref_locator (gv->spdp_schedule, &old, false);
+  }
+  pp->source_route_conn_id = rst->conn_id;
+  pp->source_route = rst->pktinfo.src;
+  (void) ddsi_addrset_replace_uc (pp->as_default, &old, &replacement);
+  struct ddsi_generic_proxy_endpoint **eps = ddsrt_malloc (pp->refc * sizeof (*eps));
+  uint32_t n = 0;
+  for (struct ddsi_proxy_endpoint_common *c = pp->endpoints; c; c = c->next_ep)
+    eps[n++] = (struct ddsi_generic_proxy_endpoint *) ddsi_entity_common_from_proxy_endpoint_common (c);
+  ddsrt_mutex_unlock (&pp->e.lock);
+  for (uint32_t i = 0; i < n; i++)
+    ddsi_proxy_endpoint_move_source (eps[i], &old, &replacement);
+  ddsrt_free (eps);
+}
+
 enum participant_guid_is_known_result {
   PGIKR_UNKNOWN,
   PGIKR_KNOWN,
@@ -450,9 +555,22 @@ static enum participant_guid_is_known_result participant_guid_is_known (const st
        data is received from a particular pwr (in handle_regular) */
     if ((lease = ddsrt_atomic_ldvoidp (&proxypp->minl_auto)) != NULL)
       ddsi_lease_renew (lease, ddsrt_time_elapsed ());
-    ddsrt_mutex_lock (&proxypp->e.lock);
     if (rst->conn_id)
-      ddsi_proxy_participant_note_connection (proxypp, rst->conn_id);
+    {
+      struct ddsi_receiver_state selected;
+      const bool confirm = note_stream (proxypp, rst, datap, &selected);
+      if (selected.conn_id && proxypp->source_route_conn_id && selected.conn_id != proxypp->source_route_conn_id)
+        move_source_route (proxypp, &selected);
+#ifdef DDS_HAS_TCP
+      if (selected.conn_id)
+        ddsi_tcp_prune_peer_stream (gv, &selected.pktinfo.src, selected.conn_id);
+#endif
+      /* A directed SPDP reply over the selected return route acknowledges
+         that the peer can close its other stream without orphaning us. */
+      if (confirm)
+        respond_to_spdp (gv, &datap->participant_guid);
+    }
+    ddsrt_mutex_lock (&proxypp->e.lock);
     if (seq > proxypp->seq)
     {
       interesting = 1;
@@ -514,7 +632,7 @@ static bool get_locators (const struct ddsi_receiver_state *rst, const ddsi_plis
 
   uc = (datap->present & PP_DEFAULT_UNICAST_LOCATOR) ? &datap->default_unicast_locators : &emptyset;
   mc = (datap->present & PP_DEFAULT_MULTICAST_LOCATOR) ? &datap->default_multicast_locators : &emptyset;
-  if (gv->config.tcp_use_peeraddr_for_unicast)
+  if (gv->config.tcp_use_peeraddr_for_unicast || default_is_stream_listener (rst, datap))
     uc = &emptyset; // force use of source locator
   allow_srcloc = (uc == &emptyset) && !ddsi_is_unspec_locator (&rst->pktinfo.src);
   ddsi_interface_set_init (&inherited_intfs);
@@ -522,7 +640,7 @@ static bool get_locators (const struct ddsi_receiver_state *rst, const ddsi_plis
 
   uc = (datap->present & PP_METATRAFFIC_UNICAST_LOCATOR) ? &datap->metatraffic_unicast_locators : &emptyset;
   mc = (datap->present & PP_METATRAFFIC_MULTICAST_LOCATOR) ? &datap->metatraffic_multicast_locators : &emptyset;
-  if (gv->config.tcp_use_peeraddr_for_unicast)
+  if (gv->config.tcp_use_peeraddr_for_unicast || matches_stream_peer (rst, uc))
     uc = &emptyset; // force use of source locator
   allow_srcloc = (uc == &emptyset) && !ddsi_is_unspec_locator (&rst->pktinfo.src);
   ddsi_interface_set_init (&inherited_intfs);
@@ -646,7 +764,15 @@ static enum handle_spdp_result handle_spdp_alive (const struct ddsi_receiver_sta
   else
   {
     if (rst->conn_id)
-      ddsi_proxy_participant_note_connection (proxy_participant, rst->conn_id);
+    {
+      if (use_source_route (rst, datap))
+      {
+        proxy_participant->source_route_conn_id = rst->conn_id;
+        proxy_participant->source_route = rst->pktinfo.src;
+      }
+      struct ddsi_receiver_state selected;
+      (void) note_stream (proxy_participant, rst, datap, &selected);
+    }
     /* Force transmission of SPDP messages - we're not very careful
        in avoiding the processing of SPDP packets addressed to others
        so filter here */

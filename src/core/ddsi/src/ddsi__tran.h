@@ -216,6 +216,7 @@ struct ddsi_tran_conn
   uint32_t m_waitset_slot; /* registration in the domain receiver, protected by its waitset lock */
   ddsi_guid_prefix_t m_dst_prefix; /* many-unicast participant, zero on shared sockets */
   ddsrt_atomic_uint32_t m_closed;
+  struct ddsi_tran_conn *m_return_conn; /* optional transmit connection restricted to existing return paths */
   uint64_t m_conn_id; /* stable identity of an established stream, zero for other transports */
   ddsrt_atomic_uint32_t m_count;
 

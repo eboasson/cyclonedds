@@ -182,6 +182,7 @@ void ddsi_factory_conn_init (const struct ddsi_tran_factory *factory, const stru
   ddsrt_atomic_st32 (&conn->m_closed, 0);
   conn->m_waitset_slot = 0;
   conn->m_dst_prefix = (ddsi_guid_prefix_t) { .u = { 0 } };
+  conn->m_return_conn = NULL;
   conn->m_conn_id = 0;
   conn->m_connless = factory->m_connless;
   conn->m_stream = factory->m_stream;

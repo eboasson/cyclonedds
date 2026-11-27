@@ -41,6 +41,9 @@ void ddsi_remove_from_addrset (const struct ddsi_domaingv *gv, struct ddsi_addrs
   ddsrt_nonnull_all;
 
 /** @component locators */
+bool ddsi_addrset_replace_uc (struct ddsi_addrset *as, const ddsi_xlocator_t *old, const ddsi_xlocator_t *replacement);
+
+/** @component locators */
 int ddsi_compare_locators (const ddsi_locator_t *a, const ddsi_locator_t *b)
   ddsrt_nonnull_all;
 

@@ -26,6 +26,7 @@
 #include "ddsi__radmin.h"
 #include "dds/ddsi/ddsi_endpoint.h"
 #include "dds/ddsi/ddsi_domaingv.h"
+#include "dds/ddsi/ddsi_participant.h"
 #include "ddsi__eth.h"
 #include "ddsi__protocol.h"
 #include "ddsi__tran.h"
@@ -33,7 +34,9 @@
 #include "ddsi__tcp_connect.h"
 #include "ddsi__spdp_schedule.h"
 #include "ddsi__ipaddr.h"
+#include "ddsi__addrset.h"
 #include "ddsi__entity.h"
+#include "ddsi__entity_index.h"
 #include "ddsi__ssl.h"
 #include "ddsi__proxy_participant.h"
 #include "ddsi__sockwaitset.h"
@@ -65,6 +68,11 @@ typedef struct ddsi_tcp_conn {
   union addr m_peer_addr;
   uint32_t m_peer_port;
   struct ddsrt_circlist_elem m_recv_link;
+  ddsrt_avl_node_t listener_node;
+  ddsi_locator_t advertised_listener; /* cache lock; port zero until indexed */
+  bool listener_verified;
+  bool spdp_seen;
+  ddsrt_avl_tree_t confirmed_participants; /* local GUIDs confirmed on this stream, cache lock */
   bool m_retired; /* protected by m_mutex */
   ddsrt_mutex_t m_mutex;
   ddsrt_socket_t m_sock;
@@ -97,8 +105,10 @@ struct ddsi_tran_factory_tcp {
   int32_t m_kind;
   ddsrt_mutex_t ddsi_tcp_cache_lock_g;
   ddsrt_avl_tree_t ddsi_tcp_cache_g;
+  ddsrt_avl_tree_t listeners; /* advertised listeners of accepted streams */
   struct ddsrt_circlist recv_conns; /* protected by the cache lock */
   struct ddsi_tcp_conn ddsi_tcp_conn_client;
+  struct ddsi_tcp_conn reply_conn;
   ddsrt_fibheap_t read_timers;
   struct ddsi_tcp_connector *connector;
 #ifdef DDS_HAS_TCP_TLS
@@ -134,6 +144,14 @@ static const ddsrt_avl_treedef_t ddsi_tcp_treedef = DDSRT_AVL_TREEDEF_INITIALIZE
   ddsi_tcp_cmp_conn_wrap,
   0
 );
+
+static int compare_listener (const void *a, const void *b)
+{
+  return ddsi_compare_locators (a, b);
+}
+
+static const ddsrt_avl_treedef_t listener_treedef = DDSRT_AVL_TREEDEF_INITIALIZER (
+  offsetof (struct ddsi_tcp_conn, listener_node), offsetof (struct ddsi_tcp_conn, advertised_listener), compare_listener, 0);
 
 static dds_return_t ddsi_tcp_wait_once (ddsrt_socket_t sock, bool want_read, dds_duration_t timeout)
 {
@@ -408,6 +426,11 @@ static void ddsi_tcp_cache_remove (ddsi_tcp_conn_t conn)
   struct ddsi_tran_factory_tcp * const fact = (struct ddsi_tran_factory_tcp *) conn->m_base.m_factory;
   ddsrt_avl_dpath_t path;
   ddsrt_mutex_lock (&fact->ddsi_tcp_cache_lock_g);
+  if (conn->advertised_listener.port)
+  {
+    ddsrt_avl_delete (&listener_treedef, &fact->listeners, conn);
+    conn->advertised_listener.port = 0;
+  }
   ddsi_tcp_node_t node = ddsrt_avl_lookup_dpath (&ddsi_tcp_treedef, &fact->ddsi_tcp_cache_g, conn, &path);
   if (node && node->m_conn == conn)
     ddsrt_avl_delete_dpath (&ddsi_tcp_treedef, &fact->ddsi_tcp_cache_g, node, &path);
@@ -469,7 +492,14 @@ static dds_return_t ddsi_tcp_get_conn (struct ddsi_tran_factory_tcp *fact, const
   dds_return_t rc = DDS_RETCODE_TRY_AGAIN;
   ddsrt_mutex_lock (&fact->ddsi_tcp_cache_lock_g);
   ddsi_tcp_node_t node = ddsrt_avl_lookup_ipath (&ddsi_tcp_treedef, &fact->ddsi_tcp_cache_g, &key, &path);
-  if (node)
+  ddsi_tcp_conn_t accepted = ddsrt_avl_lookup (&listener_treedef, &fact->listeners, loc);
+  if (accepted && accepted->listener_verified)
+  {
+    *result = accepted;
+    ddsi_conn_add_ref (&accepted->m_base);
+    rc = DDS_RETCODE_OK;
+  }
+  else if (node)
   {
     if (node->m_conn->m_sock != DDSRT_INVALID_SOCKET)
     {
@@ -493,6 +523,182 @@ static dds_return_t ddsi_tcp_get_conn (struct ddsi_tran_factory_tcp *fact, const
     rc = DDS_RETCODE_NO_CONNECTION;
   ddsrt_mutex_unlock (&fact->ddsi_tcp_cache_lock_g);
   return rc;
+}
+
+static ddsi_tcp_conn_t cached_stream (struct ddsi_tran_factory_tcp *fact, const ddsi_locator_t *loc)
+{
+  struct ddsi_tcp_conn key = { .m_peer_port = loc->port };
+  struct sockaddr_storage addr;
+  ddsi_ipaddr_from_loc (&addr, loc);
+  memcpy (&key.m_peer_addr, &addr, ddsrt_sockaddr_get_size ((struct sockaddr *) &addr));
+  ddsi_tcp_node_t node = ddsrt_avl_lookup (&ddsi_tcp_treedef, &fact->ddsi_tcp_cache_g, &key);
+  return node ? node->m_conn : NULL;
+}
+
+struct confirmed_participant {
+  ddsrt_avl_node_t node;
+  ddsi_guid_t guid;
+};
+
+static int compare_confirmed_participant (const void *a, const void *b)
+{
+  return memcmp (a, b, sizeof (ddsi_guid_t));
+}
+
+static const ddsrt_avl_treedef_t confirmed_participants_treedef = DDSRT_AVL_TREEDEF_INITIALIZER (
+  offsetof (struct confirmed_participant, node), offsetof (struct confirmed_participant, guid), compare_confirmed_participant, 0);
+
+static void confirm_participant (ddsi_tcp_conn_t conn, const ddsi_guid_prefix_t *dst)
+{
+  struct ddsi_domaingv *gv = conn->m_base.m_base.gv;
+  const ddsi_guid_t guid = { .prefix = *dst, .entityid = { .u = DDSI_ENTITYID_PARTICIPANT } };
+  if (ddsrt_avl_lookup (&confirmed_participants_treedef, &conn->confirmed_participants, &guid))
+    return;
+  /* Keep a long-lived connection from retaining GUIDs of deleted participants. */
+  struct confirmed_participant *p = ddsrt_avl_find_min (&confirmed_participants_treedef, &conn->confirmed_participants);
+  while (p)
+  {
+    struct confirmed_participant *next = ddsrt_avl_find_succ (&confirmed_participants_treedef, &conn->confirmed_participants, p);
+    if (!ddsi_entidx_lookup_participant_guid (gv->entity_index, &p->guid))
+    {
+      ddsrt_avl_delete (&confirmed_participants_treedef, &conn->confirmed_participants, p);
+      ddsrt_free (p);
+    }
+    p = next;
+  }
+  p = ddsrt_malloc (sizeof (*p));
+  p->guid = guid;
+  ddsrt_avl_insert (&confirmed_participants_treedef, &conn->confirmed_participants, p);
+}
+
+static bool all_local_participants_confirmed (struct ddsi_domaingv *gv, const ddsi_tcp_conn_t conn)
+{
+  bool confirmed = true;
+  struct ddsi_entity_enum_participant it;
+  struct ddsi_participant *pp;
+  ddsi_entidx_enum_participant_init (&it, gv->entity_index);
+  while ((pp = ddsi_entidx_enum_participant_next (&it)) != NULL)
+  {
+    if (!(pp->flags & RTPS_PF_NO_BUILTIN_WRITERS) &&
+        !ddsrt_avl_lookup (&confirmed_participants_treedef, &conn->confirmed_participants, &pp->e.guid))
+    {
+      confirmed = false;
+      break;
+    }
+  }
+  ddsi_entidx_enum_participant_fini (&it);
+  return confirmed;
+}
+
+/* A listener advertisement alone cannot authorize redirecting other writers:
+   the same participant must first be discovered over an actual outgoing
+   connection to that listener. Until then its own replies use the ingress
+   stream, and independently configured peers continue to dial normally. */
+bool ddsi_tcp_select_peer_stream (struct ddsi_domaingv *gv, const struct ddsi_proxy_participant *pp,
+    const ddsi_locator_t *listener, ddsi_locator_t *src, uint64_t *id, const ddsi_guid_prefix_t *dst, bool *announce, bool *confirm)
+{
+  struct ddsi_tran_factory_tcp *fact = (struct ddsi_tran_factory_tcp *) gv->m_factory;
+  bool selected = false;
+  *announce = false;
+  *confirm = false;
+  ddsrt_mutex_lock (&fact->ddsi_tcp_cache_lock_g);
+  ddsi_tcp_conn_t stream = cached_stream (fact, src);
+  if (stream == NULL || stream->m_base.m_conn_id != *id || ddsrt_atomic_ld32 (&stream->m_base.m_closed))
+  {
+    /* A queued announcement can outlive its receive registration. Its
+       pending close still participates in discovery ordering, but it cannot
+       supply a new route for an already reachable participant. */
+    *id = 0;
+    goto done;
+  }
+  *announce = !stream->spdp_seen;
+  stream->spdp_seen = true;
+  if (dst && stream->m_base.m_server)
+    confirm_participant (stream, dst);
+  if (!listener)
+    goto done;
+  ddsi_tcp_conn_t in = ddsrt_avl_lookup (&listener_treedef, &fact->listeners, listener);
+  if (stream->m_base.m_server && in != stream)
+  {
+    /* More than one process on one host can claim the same port. Never
+       displace an existing association on the strength of that claim. */
+    if (in || stream->advertised_listener.port)
+      goto done;
+    in = stream;
+    in->advertised_listener = *listener;
+    ddsrt_avl_insert (&listener_treedef, &fact->listeners, in);
+  }
+  ddsi_tcp_conn_t out = cached_stream (fact, listener);
+  if (in && out && !out->m_base.m_server && pp &&
+      ddsi_proxy_participant_has_connection (pp, in->m_base.m_conn_id) &&
+      ddsi_proxy_participant_has_connection (pp, out->m_base.m_conn_id))
+  {
+    /* Both ends compare the same pair of listening addresses. Keep the
+       connection initiated by the lower listener. */
+    if (!gv->config.publish_uc_locators)
+      goto done;
+    ddsi_locator_t local = { .kind = DDSI_LOCATOR_KIND_INVALID };
+    for (int i = 0; i < gv->n_interfaces; i++)
+    {
+      if (!gv->xmit_conns_meta[i]->m_factory->m_enable_spdp)
+        continue;
+      /* Ambiguous interface pair. Independent advertised paths may be
+         intentional, and the peer also only merges a single listener. */
+      if (local.kind != DDSI_LOCATOR_KIND_INVALID)
+        goto done;
+      local = gv->interfaces[i].extloc;
+      local.port = gv->loc_meta_uc.port;
+    }
+    if (local.kind == DDSI_LOCATOR_KIND_INVALID)
+      goto done;
+    const int cmp = ddsi_compare_locators (&local, listener);
+    if (cmp == 0)
+      goto done;
+    in->listener_verified = cmp > 0;
+    ddsi_tcp_conn_t keep = cmp > 0 ? in : out;
+    selected = true;
+    /* Only the endpoint which dials the losing stream retires it. It has
+       now verified the alias for future writes to that listening port.
+       Closing an accepted stream on the other end could race that proof
+       and cause the peer to dial its advertised listener again. */
+    *confirm = cmp < 0;
+    ddsi_ipaddr_to_loc (src, &keep->m_peer_addr.a, fact->m_kind);
+    *id = keep->m_base.m_conn_id;
+  }
+done:
+  ddsrt_mutex_unlock (&fact->ddsi_tcp_cache_lock_g);
+  return selected;
+}
+
+void ddsi_tcp_prune_peer_stream (struct ddsi_domaingv *gv, const ddsi_locator_t *src, uint64_t id)
+{
+  struct ddsi_tran_factory_tcp *fact = (struct ddsi_tran_factory_tcp *) gv->m_factory;
+  ddsi_tcp_conn_t retire = NULL;
+  ddsrt_mutex_lock (&fact->ddsi_tcp_cache_lock_g);
+  ddsi_tcp_conn_t keep = cached_stream (fact, src);
+  if (keep && keep->m_base.m_conn_id == id && keep->listener_verified &&
+      !ddsrt_atomic_ld32 (&keep->m_base.m_closed))
+  {
+    ddsi_tcp_conn_t out = cached_stream (fact, &keep->advertised_listener);
+    /* The listener alias is already published, so newly created participants
+       send on keep. Existing participants must be safe on both ends before
+       closing the shared stream: local routes have moved, and directed SPDP
+       on keep confirms the peer's return route for each local participant. */
+    if (out && !out->m_base.m_server &&
+        ddsi_proxy_participants_can_drop_connection (gv, out->m_base.m_conn_id, id) &&
+        all_local_participants_confirmed (gv, keep))
+    {
+      retire = out;
+      ddsi_conn_add_ref (&retire->m_base);
+    }
+  }
+  ddsrt_mutex_unlock (&fact->ddsi_tcp_cache_lock_g);
+  if (retire)
+  {
+    ddsi_tcp_retire (retire);
+    ddsi_tcp_cache_remove (retire);
+    ddsi_conn_unref (&retire->m_base);
+  }
 }
 
 void ddsi_tcp_connect_done (ddsi_tcp_conn_t conn, dds_return_t rc, ddsrt_socket_t sock, struct ssl_st *ssl)
@@ -1050,7 +1256,7 @@ static dds_return_t ddsi_tcp_conn_write (struct ddsi_tran_conn * base, const dds
   if (rc != DDS_RETCODE_OK || size == 0)
     return rc;
   ddsi_tcp_conn_t conn;
-  if ((rc = ddsi_tcp_get_conn (fact, dst, !(flags & DDSI_TRAN_NO_CONNECT), &conn)) != DDS_RETCODE_OK)
+  if ((rc = ddsi_tcp_get_conn (fact, dst, base != &fact->reply_conn.m_base && !(flags & DDSI_TRAN_NO_CONNECT), &conn)) != DDS_RETCODE_OK)
     return rc;
 
   struct ddsi_tcp_concat_msg concat_msg;
@@ -1128,6 +1334,7 @@ static dds_return_t ddsi_tcp_create_conn (struct ddsi_tran_conn **conn_out, stru
   struct ddsi_network_interface const * const intf = qos->m_interface ? qos->m_interface : &gv->interfaces[0];
 
   fact->ddsi_tcp_conn_client.m_base.m_interf = intf;
+  fact->reply_conn.m_base.m_interf = intf;
   *conn_out = &fact->ddsi_tcp_conn_client.m_base;
   return DDS_RETCODE_OK;
 }
@@ -1346,6 +1553,7 @@ static ddsi_tcp_conn_t ddsi_tcp_new_conn (struct ddsi_tran_factory_tcp *fact, co
   ddsi_tcp_conn_t conn = ddsrt_malloc (sizeof (*conn));
 
   memset (conn, 0, sizeof (*conn));
+  ddsrt_avl_init (&confirmed_participants_treedef, &conn->confirmed_participants);
   ddsi_tcp_base_init (fact, interf, &conn->m_base);
   ddsrt_mutex_init (&conn->m_mutex);
 #ifdef DDS_HAS_TCP_TLS
@@ -1421,6 +1629,7 @@ static void ddsi_tcp_conn_delete (ddsi_tcp_conn_t conn)
   ddsrt_mutex_destroy (&conn->m_ssl_mutex);
 #endif
   assert (conn->m_read_timer.v == DDS_NEVER);
+  ddsrt_avl_free (&confirmed_participants_treedef, &conn->confirmed_participants, ddsrt_free);
   ddsrt_free (conn->m_partial);
   ddsi_tcp_sock_free (gv, conn->m_sock, "connection");
   ddsrt_mutex_destroy (&conn->m_mutex);
@@ -1635,6 +1844,9 @@ struct ddsi_tran_factory *ddsi_tcp_new_factory (struct ddsi_domaingv *gv)
   memset (&fact->ddsi_tcp_conn_client, 0, sizeof (fact->ddsi_tcp_conn_client));
   ddsi_tcp_base_init (fact, NULL, &fact->ddsi_tcp_conn_client.m_base);
   fact->ddsi_tcp_conn_client.m_sock = DDSRT_INVALID_SOCKET;
+  ddsi_tcp_base_init (fact, NULL, &fact->reply_conn.m_base);
+  fact->reply_conn.m_sock = DDSRT_INVALID_SOCKET;
+  fact->ddsi_tcp_conn_client.m_base.m_return_conn = &fact->reply_conn.m_base;
 
 #ifdef DDS_HAS_TCP_TLS
   if (gv->config.ssl_enable && (fact->ssl_ctx = ddsi_ssl_ctx_new (gv)) == NULL)
@@ -1647,6 +1859,7 @@ struct ddsi_tran_factory *ddsi_tcp_new_factory (struct ddsi_domaingv *gv)
   ddsrt_fibheap_init (&read_timer_fhdef, &fact->read_timers);
   ddsrt_circlist_init (&fact->recv_conns);
   ddsrt_avl_init (&ddsi_tcp_treedef, &fact->ddsi_tcp_cache_g);
+  ddsrt_avl_init (&listener_treedef, &fact->listeners);
   ddsrt_mutex_init (&fact->ddsi_tcp_cache_lock_g);
 
   return &fact->fact;

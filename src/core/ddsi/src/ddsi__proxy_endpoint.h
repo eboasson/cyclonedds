@@ -30,6 +30,9 @@ struct ddsi_alive_state;
 struct dds_qos;
 struct ddsi_addrset;
 
+/** @component ddsi_proxy_endpoint */
+void ddsi_proxy_endpoint_move_source (struct ddsi_generic_proxy_endpoint *ep, const ddsi_xlocator_t *old, const ddsi_xlocator_t *replacement);
+
 extern const ddsrt_avl_treedef_t ddsi_pwr_readers_treedef;
 extern const ddsrt_avl_treedef_t ddsi_prd_writers_treedef;
 

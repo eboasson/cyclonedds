@@ -263,6 +263,28 @@ void ddsi_add_locator_to_addrset (const struct ddsi_domaingv *gv, struct ddsi_ad
   }
 }
 
+/* Change the unicast return path without exposing an empty set to senders. */
+bool ddsi_addrset_replace_uc (struct ddsi_addrset *as, const ddsi_xlocator_t *old, const ddsi_xlocator_t *replacement)
+{
+  LOCK (as);
+  struct ddsi_addrset_node *n = ddsrt_avl_clookup (&addrset_treedef, &as->ucaddrs, old);
+  const bool found = n != NULL;
+  if (found)
+  {
+    ddsrt_avl_cdelete (&addrset_treedef, &as->ucaddrs, n);
+    ddsrt_avl_ipath_t path;
+    if (ddsrt_avl_clookup_ipath (&addrset_treedef, &as->ucaddrs, replacement, &path))
+      ddsrt_free (n);
+    else
+    {
+      n->loc = *replacement;
+      ddsrt_avl_cinsert_ipath (&addrset_treedef, &as->ucaddrs, n, &path);
+    }
+  }
+  UNLOCK (as);
+  return found;
+}
+
 void ddsi_remove_from_addrset (const struct ddsi_domaingv *gv, struct ddsi_addrset *as, const ddsi_xlocator_t *loc)
 {
   ddsrt_avl_dpath_t path;

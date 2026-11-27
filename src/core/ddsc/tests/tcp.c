@@ -14,10 +14,12 @@
 #include "dds/ddsrt/io.h"
 #include "dds/ddsi/ddsi_entity_index.h"
 #include "dds/ddsi/ddsi_iid.h"
+#include "dds/ddsi/ddsi_plist.h"
 #include "dds/ddsi/ddsi_proxy_participant.h"
 #include "dds/ddsi/ddsi_thread.h"
 #include "dds__guid.h"
 #include "ddsi__addrset.h"
+#include "ddsi__discovery_addrset.h"
 #include "ddsi__proxy_participant.h"
 #include "ddsi__radmin.h"
 #include "ddsi__tran.h"
@@ -324,4 +326,21 @@ static void check_disconnect (dds_entity_t rd, dds_entity_t wr, void *arg)
 CU_Test (ddsc_tcp, prune_disconnected_peer, .timeout = 30)
 {
   do_tcp (check_disconnect, NULL);
+}
+
+CU_Test (ddsc_tcp, preserve_endpoint_listener)
+{
+  const ddsi_locator_t src = { .kind = DDSI_LOCATOR_KIND_TCPv4, .port = 49152, .address = { [12] = 127, [15] = 1 } };
+  struct ddsi_locators_one meta = { .loc = src }, ep = { .loc = src };
+  const ddsi_locators_t listeners = { .n = 1, .first = &meta, .last = &meta };
+  const ddsi_locators_t destinations = { .n = 1, .first = &ep, .last = &ep };
+  meta.loc.port = 7400;
+  ep.loc.port = 7500;
+  CU_ASSERT (!ddsi_use_tcp_return_path (&src, &destinations, &listeners));
+  ep.loc.port = meta.loc.port;
+  CU_ASSERT (ddsi_use_tcp_return_path (&src, &destinations, &listeners));
+  ep.loc.address[15] = 2;
+  CU_ASSERT (!ddsi_use_tcp_return_path (&src, &destinations, &listeners));
+  ep.loc = src;
+  CU_ASSERT (ddsi_use_tcp_return_path (&src, &destinations, NULL));
 }

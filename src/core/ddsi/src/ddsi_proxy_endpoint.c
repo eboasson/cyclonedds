@@ -731,13 +731,59 @@ dds_return_t ddsi_new_proxy_reader (struct ddsi_proxy_reader **proxy_reader, str
   }
 }
 
+static void rebuild_matched_writers (struct ddsi_proxy_reader *prd)
+{
+  struct ddsi_prd_wr_match *m;
+  ddsi_guid_t wrguid = { 0 };
+  while ((m = ddsrt_avl_lookup_succ_eq (&ddsi_prd_writers_treedef, &prd->writers, &wrguid)) != NULL)
+  {
+    struct ddsi_prd_wr_match *next;
+    ddsi_guid_t guid_next;
+    struct ddsi_writer * wr;
+
+    wrguid = m->wr_guid;
+    next = ddsrt_avl_find_succ (&ddsi_prd_writers_treedef, &prd->writers, m);
+    if (next)
+    {
+      guid_next = next->wr_guid;
+    }
+    else
+    {
+      memset (&guid_next, 0xff, sizeof (guid_next));
+      guid_next.entityid.u = (guid_next.entityid.u & ~(unsigned)0xff) | DDSI_ENTITYID_KIND_WRITER_NO_KEY;
+    }
+
+    ddsrt_mutex_unlock (&prd->e.lock);
+    wr = ddsi_entidx_lookup_writer_guid (prd->e.gv->entity_index, &wrguid);
+    if (wr)
+    {
+      ddsrt_mutex_lock (&wr->e.lock);
+      ddsi_rebuild_writer_addrset (wr);
+      ddsrt_mutex_unlock (&wr->e.lock);
+      ddsi_send_entityid_to_prd (prd, &wr->e.guid);
+    }
+    wrguid = guid_next;
+    ddsrt_mutex_lock (&prd->e.lock);
+  }
+}
+
+void ddsi_proxy_endpoint_move_source (struct ddsi_generic_proxy_endpoint *ep, const ddsi_xlocator_t *old, const ddsi_xlocator_t *replacement)
+{
+  ddsrt_mutex_lock (&ep->e.lock);
+  (void) ddsi_addrset_replace_uc (ep->c.as, old, replacement);
+  ddsrt_mutex_lock (&ep->c.proxypp->source_route_lock);
+  if (ddsi_compare_xlocators (&ep->c.loc_uc, old) == 0)
+    ep->c.loc_uc = *replacement;
+  ddsrt_mutex_unlock (&ep->c.proxypp->source_route_lock);
+  /* Built-in endpoints may share the participant's already updated address
+     set. Their matched writers nevertheless hold their own aggregate sets. */
+  if (ep->e.kind == DDSI_EK_PROXY_READER)
+    rebuild_matched_writers ((struct ddsi_proxy_reader *) ep);
+  ddsrt_mutex_unlock (&ep->e.lock);
+}
+
 void ddsi_update_proxy_reader (struct ddsi_proxy_reader *prd, ddsi_seqno_t seq, struct ddsi_addrset *as, const struct dds_qos *xqos, ddsrt_wctime_t timestamp)
 {
-  struct ddsi_prd_wr_match * m;
-  ddsi_guid_t wrguid;
-
-  memset (&wrguid, 0, sizeof (wrguid));
-
   ddsrt_mutex_lock (&prd->e.lock);
   if (seq > prd->c.seq)
   {
@@ -750,38 +796,7 @@ void ddsi_update_proxy_reader (struct ddsi_proxy_reader *prd, ddsi_seqno_t seq, 
       ddsi_ref_addrset (as);
       prd->c.as = as;
 
-      /* Rebuild writer endpoints */
-
-      while ((m = ddsrt_avl_lookup_succ_eq (&ddsi_prd_writers_treedef, &prd->writers, &wrguid)) != NULL)
-      {
-        struct ddsi_prd_wr_match *next;
-        ddsi_guid_t guid_next;
-        struct ddsi_writer * wr;
-
-        wrguid = m->wr_guid;
-        next = ddsrt_avl_find_succ (&ddsi_prd_writers_treedef, &prd->writers, m);
-        if (next)
-        {
-          guid_next = next->wr_guid;
-        }
-        else
-        {
-          memset (&guid_next, 0xff, sizeof (guid_next));
-          guid_next.entityid.u = (guid_next.entityid.u & ~(unsigned)0xff) | DDSI_ENTITYID_KIND_WRITER_NO_KEY;
-        }
-
-        ddsrt_mutex_unlock (&prd->e.lock);
-        wr = ddsi_entidx_lookup_writer_guid (prd->e.gv->entity_index, &wrguid);
-        if (wr)
-        {
-          ddsrt_mutex_lock (&wr->e.lock);
-          ddsi_rebuild_writer_addrset (wr);
-          ddsrt_mutex_unlock (&wr->e.lock);
-          ddsi_send_entityid_to_prd (prd, &wr->e.guid);
-        }
-        wrguid = guid_next;
-        ddsrt_mutex_lock (&prd->e.lock);
-      }
+      rebuild_matched_writers (prd);
     }
 
     (void) ddsi_update_qos_locked (&prd->e, prd->c.xqos, xqos, timestamp);

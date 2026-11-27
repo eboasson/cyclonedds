@@ -333,6 +333,8 @@ static void free_proxy_participant (struct ddsi_proxy_participant *proxypp)
   ddsi_unref_addrset (proxypp->as_meta);
   ddsi_plist_fini (proxypp->plist);
   ddsrt_free (proxypp->plist);
+  if (proxypp->e.gv->m_factory->m_stream)
+    ddsrt_mutex_destroy (&proxypp->source_route_lock);
   ddsi_entity_common_fini (&proxypp->e);
   ddsrt_free (proxypp);
 }
@@ -363,6 +365,9 @@ bool ddsi_new_proxy_participant (struct ddsi_proxy_participant **proxy_participa
   proxypp->vendor = vendor;
   proxypp->bes = bes;
   proxypp->seq = seq;
+  proxypp->source_route_conn_id = 0;
+  if (gv->m_factory->m_stream)
+    ddsrt_mutex_init (&proxypp->source_route_lock);
   proxypp->spdp_conns = NULL;
   if (plist->present & PP_CYCLONE_RECEIVE_BUFFER_SIZE)
     proxypp->receive_buffer_size = plist->cyclone_receive_buffer_size;
@@ -629,6 +634,25 @@ bool ddsi_proxy_participant_has_connection (const struct ddsi_proxy_participant 
   return found;
 }
 
+bool ddsi_proxy_participants_can_drop_connection (struct ddsi_domaingv *gv, uint64_t old_id, uint64_t keep_id)
+{
+  bool safe = true;
+  ddsrt_mutex_lock (&gv->participant_set_lock);
+  struct ddsi_spdp_connection *c = ddsrt_avl_lookup_succ_eq (&ddsi_spdp_connections_treedef, &gv->spdp_connections, &old_id);
+  for (; c && c->id == old_id; c = ddsrt_avl_find_succ (&ddsi_spdp_connections_treedef, &gv->spdp_connections, c))
+  {
+    const struct ddsi_proxy_participant *pp = c->pp;
+    if (ddsi_entidx_lookup_proxy_participant_guid (gv->entity_index, &pp->e.guid) == pp &&
+        (pp->source_route_conn_id == old_id || !has_connection_locked (pp, keep_id)))
+    {
+      safe = false;
+      break;
+    }
+  }
+  ddsrt_mutex_unlock (&gv->participant_set_lock);
+  return safe;
+}
+
 bool ddsi_proxy_participant_note_connection (struct ddsi_proxy_participant *proxypp, uint64_t conn_id)
 {
   assert (conn_id != 0);
@@ -662,7 +686,7 @@ void ddsi_purge_proxy_participants (struct ddsi_domaingv *gv, uint64_t conn_id)
   {
     struct ddsi_proxy_participant *pp = conn->pp;
     remove_connection_locked (gv, conn);
-    if (pp->spdp_conns == NULL)
+    if (pp->spdp_conns == NULL || pp->source_route_conn_id == conn_id)
     {
       const ddsi_guid_t guid = pp->e.guid;
       /* GC may already be retiring this incarnation of the participant. */

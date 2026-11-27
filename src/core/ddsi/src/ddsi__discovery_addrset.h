@@ -18,6 +18,10 @@ extern "C" {
 #endif
 
 struct ddsi_network_packet_info;
+struct ddsi_locators;
+
+/** @component discovery */
+bool ddsi_use_tcp_return_path (const ddsi_locator_t *src, const struct ddsi_locators *destinations, const struct ddsi_locators *listeners);
 
 typedef struct ddsi_interface_set {
   bool xs[MAX_XMIT_CONNS];

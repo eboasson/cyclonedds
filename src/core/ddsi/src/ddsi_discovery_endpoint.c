@@ -379,7 +379,7 @@ static void addrset_from_locatorlists_collect_interfaces (const ddsi_xlocator_t 
   for (int i = 0; i < gv->n_interfaces; i++)
   {
     //GVTRACE(" {%p,%p}", loc->conn, arg->xmit_conns[i]);
-    if (loc->conn == arg->xmit_conns[i])
+    if (loc->conn == arg->xmit_conns[i] || (arg->xmit_conns[i] && loc->conn == arg->xmit_conns[i]->m_return_conn))
     {
       arg->intfs->xs[i] = true;
       break;
@@ -498,13 +498,26 @@ void ddsi_handle_sedp_alive_endpoint (const struct ddsi_receiver_state *rst, dds
 
   // allow, force this way: original behaviour; allow_srcloc = true means SEDP quite quickly ends up using it
   // in favour of inheriting addresses from participant
-  const bool allow_srcloc = gv->config.tcp_use_peeraddr_for_unicast && !ddsi_is_unspec_locator (&rst->pktinfo.src);
+  struct ddsi_network_packet_info pktinfo = rst->pktinfo;
+  bool inherit_tcp = false;
+  if (rst->conn_id && proxypp->source_route_conn_id)
+  {
+    const ddsi_plist_t *pp = proxypp->plist;
+    /* Cyclone repeats its participant's default listener in SEDP. Retain
+       independent endpoint locators, and use the selected stream for this
+       listener even if the announcement arrived on the losing stream. */
+    const ddsi_locators_t *meta = (pp->present & PP_METATRAFFIC_UNICAST_LOCATOR) ? &pp->metatraffic_unicast_locators : NULL;
+    inherit_tcp = (datap->present & PP_UNICAST_LOCATOR) &&
+      ddsi_use_tcp_return_path (&proxypp->source_route, &datap->unicast_locators, meta);
+    pktinfo.src = proxypp->source_route;
+  }
+  const bool allow_srcloc = (gv->config.tcp_use_peeraddr_for_unicast || inherit_tcp) && !ddsi_is_unspec_locator (&pktinfo.src);
   const bool force_srcloc = allow_srcloc;
   // Endpoint addrsets are attached to proxy readers/writers and are used when
   // sending user data to those endpoints.  Therefore use data transmit
   // connections here; the fact that we learned the locators from SEDP does not
   // make the resulting endpoint addrset metatraffic.
-  as = ddsi_get_endpoint_addrset (gv, gv->xmit_conns_data, datap, proxypp->as_default, &rst->pktinfo, allow_srcloc, force_srcloc);
+  as = ddsi_get_endpoint_addrset (gv, gv->xmit_conns_data, datap, proxypp->as_default, &pktinfo, allow_srcloc, force_srcloc);
   if (ddsi_addrset_empty (as) || !ddsi_addrset_contains_non_psmx_uc (as))
   {
     ddsi_unref_addrset (as);
