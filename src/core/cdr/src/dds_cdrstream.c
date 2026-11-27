@@ -172,7 +172,6 @@ struct key_props {
   bool is_array_nonprim;
   bool is_union;
   bool stripped_union_header;
-  bool has_union_struct_arm;
 };
 
 /* A selected union is a value reached from a keyed member, an element, or
@@ -8660,11 +8659,10 @@ static void add_key_size_for_union_cases (struct key_props *k, const uint32_t *o
       case DDS_SOP_VAL_SEQ: case DDS_SOP_VAL_BSQ: case DDS_SOP_VAL_ARR:
       case DDS_SOP_VAL_UNI: case DDS_SOP_VAL_STU: {
         const uint32_t *value_ops = jeq + DDS_OP_ADR_JSR (jeq[0]);
-        const uint32_t *struct_ops = keyholder_struct_type (type, value_ops);
-        if (struct_ops)
+        if (k->builder && k->builder->ret == DDS_RETCODE_OK)
         {
-          k->has_union_struct_arm = true;
-          if (k->builder && k->builder->ret == DDS_RETCODE_OK)
+          const uint32_t *struct_ops = keyholder_struct_type (type, value_ops);
+          if (struct_ops)
             add_keyholder_layout (k->builder, struct_ops);
         }
         add_key_size_for_elements (k, value_ops, 1, type);
@@ -9002,8 +9000,11 @@ static uint32_t dds_stream_descriptor_flags_impl (struct dds_cdrstream_desc *des
 
   if (desc->keys.nkeys > 0)
   {
-    struct key_props key_properties = { 0 };
-    key_properties.supported_data_representations = ops_info->supported_data_representations;
+    /* Collect all canonical layouts while visiting the sample representation.
+       The same struct may appear before its union arm in member-ID order. */
+    struct key_props key_properties = {
+      .supported_data_representations = ops_info->supported_data_representations,
+      .builder = builder };
     (void) dds_stream_key_size (desc->ops.ops, &key_properties, CDR_FIELDS);
 
     if (keysz_xcdrv1 != NULL)
@@ -9027,12 +9028,9 @@ static uint32_t dds_stream_descriptor_flags_impl (struct dds_cdrstream_desc *des
     if (key_properties.is_union)
       descriptor_flags |= DDS_TOPIC_KEY_UNION;
 
-    /* The sample-key pass has seen every possible arm, including those behind
-       collections. Prepare layouts only for structs reached on those paths. */
     const bool may_have_union_headers = key_properties.is_union && (key_properties.is_mutable || key_properties.is_appendable);
     struct key_props hash_key_properties = {
-      .mid_table = may_have_union_headers || key_properties.has_union_struct_arm ? &desc->member_ids : NULL,
-      .builder = key_properties.has_union_struct_arm ? builder : NULL };
+      .mid_table = may_have_union_headers || desc->member_ids.has_keyholder_layouts ? &desc->member_ids : NULL };
     dds_stream_key_size_keyhash (desc, &hash_key_properties);
     if (builder)
       builder->table->keyhash_needs_projection = hash_key_properties.stripped_union_header || builder->table->has_keyholder_layouts;

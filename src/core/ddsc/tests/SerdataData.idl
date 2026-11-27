@@ -109,6 +109,22 @@ struct SerdataKeyAggregateChoice {
     @key SerdataAggregateChoice u;
 };
 
+@nested @appendable
+struct SerdataSharedKeyFields {
+    @key octet x;
+    @key octet y;
+};
+@nested @final
+union SerdataSharedKeyChoice switch (char) {
+    case 'v': SerdataSharedKeyFields fields;
+};
+@final
+struct SerdataKeySharedLayout {
+    @key SerdataSharedKeyFields elements[1];
+    @key SerdataSharedKeyChoice choice;
+    @key uint32 tail;
+};
+
 @nested @final
 union SerdataWideDiscriminator switch (@key uint64) {
     case 1: string label;

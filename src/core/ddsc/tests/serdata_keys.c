@@ -266,6 +266,22 @@ CU_Test(ddsc_serdata, keyhash_projection)
   }
 }
 
+CU_Test(ddsc_serdata, keyhash_shared_collection_and_union_layout)
+{
+  const SerdataKeySharedLayout sample = {
+    .elements = { { 1, 2 } }, .choice = { ._d = 'v', ._u.fields = { 3, 4 } }, .tail = 5
+  };
+  // Both occurrences of the appendable struct contribute just their two key octets.
+  const unsigned char key[DDS_FIXED_KEY_MAX_SIZE] = { SER_DHEADERBE(2), 1, 2, 'v', 3, 4, 0, 0, 0, SER32BE(5) };
+  SerdataKeySharedLayout out = { 0 };
+  check_direct_union_keyhash (&SerdataKeySharedLayout_desc, &sample, &out, key, sizeof (key));
+  CU_ASSERT_MEMEQ (out.elements, sizeof (out.elements), sample.elements, sizeof (sample.elements));
+  CU_ASSERT_EQ (out.choice._d, 'v');
+  CU_ASSERT_EQ (out.choice._u.fields.x, 3);
+  CU_ASSERT_EQ (out.choice._u.fields.y, 4);
+  CU_ASSERT_EQ (out.tail, 5);
+}
+
 CU_Test(ddsc_serdata, keys_wstring_fixed_endian)
 {
   // Native-endian XCDR1/2 data: the key-only sample starts after the non-key tag.
