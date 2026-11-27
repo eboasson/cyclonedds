@@ -1765,30 +1765,29 @@ CU_Test (ddsc_dynamic_type, type_info_multi_scc, .init = dynamic_type_init, .fin
 
 CU_Test (ddsc_dynamic_type, struct_member_key, .init = dynamic_type_init, .fini = dynamic_type_fini)
 {
-  static const struct {
-    dds_dynamic_type_descriptor_t member_type;
-    dds_return_t ret;
-  } tests[] = {
-    { { .kind = DDS_DYNAMIC_INT32, .name = "m" }, DDS_RETCODE_OK },
-    { { .kind = DDS_DYNAMIC_SEQUENCE, .name = "m", .element_type = TYPE_SPEC_PRIM_NC(DDS_DYNAMIC_INT32), .num_bounds = 0 }, DDS_RETCODE_OK }
+  static const dds_dynamic_type_descriptor_t tests[] = {
+    { .kind = DDS_DYNAMIC_INT32, .name = "m" },
+    { .kind = DDS_DYNAMIC_SEQUENCE, .name = "m", .element_type = TYPE_SPEC_PRIM_NC(DDS_DYNAMIC_INT32), .num_bounds = 0 }
   };
 
   for (uint32_t i = 0; i < sizeof (tests) / sizeof (tests[0]); i++)
   {
     dds_dynamic_type_t dtype = dds_dynamic_type_create (participant, (dds_dynamic_type_descriptor_t) { .kind = DDS_DYNAMIC_STRUCTURE, .name = "dstruct" });
     CU_ASSERT_EQ_FATAL (dtype.ret, DDS_RETCODE_OK);
-    dds_dynamic_type_t dm = dds_dynamic_type_create (participant, tests[i].member_type);
+    dds_dynamic_type_t dm = dds_dynamic_type_create (participant, tests[i]);
     dds_dynamic_type_add_member (&dtype, DDS_DYNAMIC_MEMBER(dm, "m"));
     dds_return_t ret = dds_dynamic_member_set_key (&dtype, 0, true);
     CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
 
-    dds_typeinfo_t *type_info;
+    dds_typeinfo_t *type_info = NULL;
     ret = dds_dynamic_type_register (&dtype, &type_info);
-    CU_ASSERT_EQ_FATAL (ret, tests[i].ret);
+    CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
+    CU_ASSERT_NEQ_FATAL (type_info, NULL);
 
-    dds_topic_descriptor_t *descriptor;
+    dds_topic_descriptor_t *descriptor = NULL;
     ret = dds_create_topic_descriptor (DDS_FIND_SCOPE_LOCAL_DOMAIN, participant, type_info, 0, &descriptor);
     CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
+    CU_ASSERT_NEQ_FATAL (descriptor, NULL);
 
     char topic_name[100];
     create_unique_topic_name ("ddsc_dynamic_type", topic_name, sizeof (topic_name));

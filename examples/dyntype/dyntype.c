@@ -130,15 +130,21 @@ int main (int argc, char ** argv)
   });
 
   // Register type and create topic
-  dds_typeinfo_t *type_info;
+  dds_typeinfo_t *type_info = NULL;
   rc = dds_dynamic_type_register (&dstruct, &type_info);
   if (rc != DDS_RETCODE_OK)
+  {
     DDS_FATAL ("dds_dynamic_type_register: %s\n", dds_strretcode (-rc));
+    return EXIT_FAILURE;
+  }
 
-  dds_topic_descriptor_t *descriptor;
+  dds_topic_descriptor_t *descriptor = NULL;
   rc = dds_create_topic_descriptor (DDS_FIND_SCOPE_LOCAL_DOMAIN, participant, type_info, 0, &descriptor);
   if (rc != DDS_RETCODE_OK)
+  {
     DDS_FATAL ("dds_create_topic_descriptor: %s\n", dds_strretcode (-rc));
+    return EXIT_FAILURE;
+  }
 
   dds_entity_t topic = dds_create_topic (participant, descriptor, "dynamictopic", NULL, NULL);
   if (topic < 0)
