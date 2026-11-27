@@ -1029,6 +1029,23 @@ module TypeBuilderTypes {
     unsigned short after;
   };
 
+  @nested @final struct t83_fields {
+    @id(2) long late;
+    @id(1) long early;
+  };
+  @nested @mutable struct t83_base {
+    t83_fields fields;
+  };
+  @nested @mutable struct t83_derived : t83_base {
+    long extra;
+  };
+  @nested @final union t83_choice switch (long) {
+    case 1: t83_derived value;
+  };
+  @final struct t83 {
+    @key t83_choice choice;
+  };
+
   /* Both derived types embed the complete, padded BaseSample (#2510). */
   @mutable @data_representation(XCDR2)
   struct BaseBaseSample {

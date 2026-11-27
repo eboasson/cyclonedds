@@ -3297,7 +3297,8 @@ static idl_retcode_t get_ctype_memberids(const idl_pstate_t *pstate, struct desc
       vc = vc->next;
     else
     {
-      vc->next = idl_calloc (1, sizeof (*vc->next));
+      if (!(vc->next = idl_calloc (1, sizeof (*vc->next))))
+        return IDL_RETCODE_NO_MEMORY;
       vc->next->ctype = ctype;
       break;
     }
@@ -3309,14 +3310,17 @@ static idl_retcode_t get_ctype_memberids(const idl_pstate_t *pstate, struct desc
     if (inst->type == OPCODE && DDS_OP(inst->data.opcode.code) == DDS_OP_ADR)
     {
       if ((ret = get_ctype_memberids_adr(pstate, descriptor, offs, inst, ctype, ctype_mids, visited_ctypes, idl_is_extensible(ctype->node, IDL_MUTABLE))) != IDL_RETCODE_OK)
-        goto err;
+        return ret;
+    }
+    else if (inst->type == BASE_MEMBERS_OFFSET)
+    {
+      struct constructed_type *base = find_ctype(descriptor, inst->data.inst_offset.node);
+      assert(base);
+      if ((ret = get_ctype_memberids(pstate, descriptor, base, ctype_mids, visited_ctypes)) != IDL_RETCODE_OK)
+        return ret;
     }
   }
   return IDL_RETCODE_OK;
-
-err:
-  free_ctype_memberids(*ctype_mids);
-  return ret;
 }
 
 
@@ -3582,6 +3586,8 @@ generate_descriptor_impl(
 {
   idl_retcode_t ret;
   idl_visitor_t visitor;
+  struct visited_ctype visited_ctypes = { NULL, NULL };
+  struct constructed_type_memberid *ctype_mids = NULL;
 
   /* must be invoked for topics only, so structs and unions */
   assert(idl_is_struct(topic_node) || idl_is_union(topic_node));
@@ -3627,8 +3633,6 @@ generate_descriptor_impl(
   if ((ret = set_dlc_required_prefixes(descriptor)) < 0)
     goto err;
 
-  struct visited_ctype visited_ctypes = { NULL, NULL };
-  struct constructed_type_memberid *ctype_mids = NULL;
   if ((ret = get_ctype_memberids(pstate, descriptor, ctype, &ctype_mids, &visited_ctypes)) != IDL_RETCODE_OK)
     goto err;
   for (struct constructed_type_memberid *mid = ctype_mids; mid != NULL; mid = mid->next)
@@ -3636,24 +3640,12 @@ generate_descriptor_impl(
     if ((ret = add_member_id_entry (pstate, descriptor, mid)) < 0)
       goto err;
   }
-  if (ctype_mids != NULL)
-  {
-    free_ctype_memberids(ctype_mids);
-    if ((ret = close_member_id_table (pstate, descriptor)) < 0)
-      goto err;
-  }
+  if (ctype_mids && (ret = close_member_id_table (pstate, descriptor)) < 0)
+    goto err;
   if ((ret = add_enum_metadata_entries (pstate, descriptor)) < 0)
     goto err;
   free_ctype_enummetas (descriptor->enum_metadata);
   descriptor->enum_metadata = NULL;
-  struct visited_ctype *vc = visited_ctypes.next;
-  while (vc != NULL)
-  {
-    struct visited_ctype *vcn = vc->next;
-    idl_free (vc);
-    vc = vcn;
-  }
-
   /* set data representation restriction flag and mask (ignore unsupported data representations) */
   allowable_data_representations_t dr = idl_allowable_data_representations(descriptor->topic);
   if (dr != IDL_ALLOWABLE_DATAREPRESENTATION_DEFAULT && (dr & (IDL_DATAREPRESENTATION_FLAG_XCDR1 | IDL_DATAREPRESENTATION_FLAG_XCDR2))) {
@@ -3662,6 +3654,13 @@ generate_descriptor_impl(
   }
 
 err:
+  free_ctype_memberids(ctype_mids);
+  while (visited_ctypes.next)
+  {
+    struct visited_ctype *vc = visited_ctypes.next;
+    visited_ctypes.next = vc->next;
+    idl_free(vc);
+  }
   if (ret < 0)
     descriptor_fini(descriptor);
   return ret;
