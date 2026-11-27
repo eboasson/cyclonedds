@@ -159,15 +159,11 @@ struct ddsi_domaingv {
   /* TCP listener */
   struct ddsi_tran_listener * listener;
 
-  /* In many sockets mode, the receive threads maintain a local array
-     with participant GUIDs and sockets, participant_set_generation is
-     used to notify them. */
-  ddsrt_atomic_uint32_t participant_set_generation;
-
   /* nparticipants is used primarily for limiting the number of active
      participants, but also during shutdown to determine when it is
      safe to stop the GC thread. */
   ddsrt_mutex_t participant_set_lock;
+  ddsrt_avl_tree_t spdp_connections; /* proxy participant memberships by stream id, under participant_set_lock */
   ddsrt_cond_t participant_set_cond;
   uint32_t nparticipants;
 

@@ -489,6 +489,7 @@ CU_Theory((const struct participant_case *tc), ddsc_fakeudp_ports, participant_p
     {
       CU_ASSERT_NEQ_FATAL (pp->m_conn, NULL);
       ppconn[i] = pp->m_conn;
+      CU_ASSERT_EQ (memcmp (&ppconn[i]->m_dst_prefix, &pp->e.guid.prefix, sizeof (pp->e.guid.prefix)), 0);
       assert_locator (what, &pp->m_locator, tc->participant[i].addr, tc->participant[i].port);
     }
     else

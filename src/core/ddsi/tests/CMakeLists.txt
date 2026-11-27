@@ -26,6 +26,10 @@ set(ddsi_test_sources
     "sysdeps.c"
     "wraddrset.c")
 
+if(APPLE OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  list(APPEND ddsi_test_sources "sockwaitset.c")
+endif()
+
 if(ENABLE_DEADLINE_MISSED)
   list(APPEND ddsi_test_sources "deadline.c")
 endif()

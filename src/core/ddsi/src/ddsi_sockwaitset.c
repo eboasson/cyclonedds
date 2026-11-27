@@ -9,6 +9,7 @@
 // SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 
 #include <assert.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -24,748 +25,262 @@
 
 #define MODE_KQUEUE 1
 #define MODE_SELECT 2
-#define MODE_WFMEVS 3
 #define MODE_EPOLL  4
 
-#if defined __APPLE__
+#if LWIP_SOCKET
+#define MODE_SEL MODE_SELECT
+#elif defined __APPLE__
 #define MODE_SEL MODE_KQUEUE
 #elif defined __linux
 #define MODE_SEL MODE_EPOLL
-#elif defined WINCE
-#define MODE_SEL MODE_WFMEVS
 #else
 #define MODE_SEL MODE_SELECT
 #endif
 
+#if MODE_SEL == MODE_KQUEUE || MODE_SEL == MODE_EPOLL || (MODE_SEL == MODE_SELECT && !LWIP_SOCKET)
+static void consume_trigger (struct ddsi_sock_waitset *ws);
+#ifndef _WIN32
+#include <errno.h>
+#endif
+#endif
+
+static dds_duration_t wait_duration (ddsrt_mtime_t deadline)
+{
+  if (deadline.v == DDS_NEVER)
+    return DDS_INFINITY;
+  const ddsrt_mtime_t now = ddsrt_time_monotonic ();
+  return deadline.v <= now.v ? 0 : deadline.v - now.v;
+}
+
+#if MODE_SEL == MODE_KQUEUE || MODE_SEL == MODE_EPOLL
+
+#include <unistd.h>
+#include <fcntl.h>
 #if MODE_SEL == MODE_KQUEUE
-
-#include <unistd.h>
-#include <errno.h>
-#include <fcntl.h>
-#ifndef __QNXNTO__
-#include <sys/fcntl.h>
-#endif  // __QNXNTO__
-#include <sys/types.h>
 #include <sys/event.h>
-#include <sys/time.h>
-
-struct ddsi_sock_waitset_ctx
-{
-  struct kevent *evs;
-  uint32_t nevs;
-  uint32_t evs_sz;
-  uint32_t index; /* cursor for enumerating */
-};
-
-struct entry {
-  uint32_t index;
-  int fd;
-  struct ddsi_tran_conn * conn;
-};
-
-struct ddsi_sock_waitset
-{
-  int kqueue;
-  int pipe[2]; /* pipe used for triggering */
-  ddsrt_atomic_uint32_t sz;
-  struct entry *entries;
-  struct ddsi_sock_waitset_ctx ctx; /* set of descriptors being handled */
-  ddsrt_mutex_t lock; /* for add/delete */
-};
-
-static int add_entry_locked (struct ddsi_sock_waitset * ws, struct ddsi_tran_conn * conn, int fd)
-{
-  uint32_t idx, fidx, sz, n;
-  struct kevent kev;
-  assert (fd >= 0);
-  sz = ddsrt_atomic_ld32 (&ws->sz);
-  for (idx = 0, fidx = UINT32_MAX, n = 0; idx < sz; idx++)
-  {
-    if (ws->entries[idx].fd == -1)
-      fidx = (idx < fidx) ? idx : fidx;
-    else if (ws->entries[idx].conn == conn)
-      return 0;
-    else
-      n++;
-  }
-
-  if (fidx == UINT32_MAX)
-  {
-    const uint32_t newsz = ddsrt_atomic_add32_nv (&ws->sz, WAITSET_DELTA);
-    struct entry * const old_entries = ws->entries;
-    ws->entries = ddsrt_realloc (ws->entries, newsz * sizeof (*ws->entries));
-    if (ws->entries != old_entries)
-    {
-      /* kqueue user data points into ws->entries; refresh it after realloc. */
-      for (idx = 0; idx < sz; idx++)
-      {
-        if (ws->entries[idx].fd == -1)
-          continue;
-        EV_SET (&kev, (unsigned)ws->entries[idx].fd, EVFILT_READ, EV_ADD, 0, 0, &ws->entries[idx]);
-        if (kevent(ws->kqueue, &kev, 1, NULL, 0, NULL) == -1)
-          return -1;
-      }
-    }
-    for (idx = sz; idx < newsz; idx++)
-      ws->entries[idx].fd = -1;
-    fidx = sz;
-  }
-  EV_SET (&kev, (unsigned)fd, EVFILT_READ, EV_ADD, 0, 0, &ws->entries[fidx]);
-  if (kevent(ws->kqueue, &kev, 1, NULL, 0, NULL) == -1)
-    return -1;
-  ws->entries[fidx].conn = conn;
-  ws->entries[fidx].fd = fd;
-  ws->entries[fidx].index = n;
-  return 1;
-}
-
-struct ddsi_sock_waitset * ddsi_sock_waitset_new (void)
-{
-  const uint32_t sz = WAITSET_DELTA;
-  struct ddsi_sock_waitset * ws;
-  uint32_t i;
-  if ((ws = ddsrt_malloc (sizeof (*ws))) == NULL)
-    goto fail_waitset;
-  ddsrt_atomic_st32 (&ws->sz, sz);
-  if ((ws->entries = ddsrt_malloc (sz * sizeof (*ws->entries))) == NULL)
-    goto fail_entries;
-  for (i = 0; i < sz; i++)
-    ws->entries[i].fd = -1;
-  ws->ctx.nevs = 0;
-  ws->ctx.index = 0;
-  ws->ctx.evs_sz = sz;
-  if ((ws->ctx.evs = ddsrt_malloc (ws->ctx.evs_sz * sizeof (*ws->ctx.evs))) == NULL)
-    goto fail_ctx_evs;
-  if ((ws->kqueue = kqueue ()) == -1)
-    goto fail_kqueue;
-  if (pipe (ws->pipe) == -1)
-    goto fail_pipe;
-  if (add_entry_locked (ws, NULL, ws->pipe[0]) < 0)
-    goto fail_add_trigger;
-  assert (ws->entries[0].fd == ws->pipe[0]);
-  if (fcntl (ws->kqueue, F_SETFD, fcntl (ws->kqueue, F_GETFD) | FD_CLOEXEC) == -1)
-    goto fail_fcntl;
-  if (fcntl (ws->pipe[0], F_SETFD, fcntl (ws->pipe[0], F_GETFD) | FD_CLOEXEC) == -1)
-    goto fail_fcntl;
-  if (fcntl (ws->pipe[1], F_SETFD, fcntl (ws->pipe[1], F_GETFD) | FD_CLOEXEC) == -1)
-    goto fail_fcntl;
-  ddsrt_mutex_init (&ws->lock);
-  return ws;
-
-fail_fcntl:
-fail_add_trigger:
-  close (ws->pipe[0]);
-  close (ws->pipe[1]);
-fail_pipe:
-  close (ws->kqueue);
-fail_kqueue:
-  ddsrt_free (ws->ctx.evs);
-fail_ctx_evs:
-  ddsrt_free (ws->entries);
-fail_entries:
-  ddsrt_free (ws);
-fail_waitset:
-  return NULL;
-}
-
-void ddsi_sock_waitset_free (struct ddsi_sock_waitset * ws)
-{
-  ddsrt_mutex_destroy (&ws->lock);
-  close (ws->pipe[0]);
-  close (ws->pipe[1]);
-  close (ws->kqueue);
-  ddsrt_free (ws->entries);
-  ddsrt_free (ws->ctx.evs);
-  ddsrt_free (ws);
-}
-
-void ddsi_sock_waitset_trigger (struct ddsi_sock_waitset * ws)
-{
-  char buf = 0;
-  int n;
-  n = (int)write (ws->pipe[1], &buf, 1);
-  if (n != 1)
-  {
-    DDS_WARNING("ddsi_sock_waitset_trigger: read failed on trigger pipe, errno = %d\n", errno);
-  }
-}
-
-int ddsi_sock_waitset_add (struct ddsi_sock_waitset * ws, struct ddsi_tran_conn * conn)
-{
-  int ret;
-  ddsrt_mutex_lock (&ws->lock);
-  ret = add_entry_locked (ws, conn, ddsi_conn_handle (conn));
-  ddsrt_mutex_unlock (&ws->lock);
-  return ret;
-}
-
-void ddsi_sock_waitset_purge (struct ddsi_sock_waitset * ws, unsigned index)
-{
-  /* Sockets may have been closed by the time Purge is called, but any closed sockets
-     are automatically deleted from the kqueue and the file descriptors be reused
-     in the meantime.  It therefore seems wiser replace the kqueue then to delete
-     entries */
-  uint32_t i, sz;
-  struct kevent kev;
-  ddsrt_mutex_lock (&ws->lock);
-  sz = ddsrt_atomic_ld32 (&ws->sz);
-  close (ws->kqueue);
-  if ((ws->kqueue = kqueue()) == -1)
-    abort (); /* FIXME */
-  for (i = 0; i <= index; i++)
-  {
-    assert (ws->entries[i].fd >= 0);
-    EV_SET(&kev, (unsigned)ws->entries[i].fd, EVFILT_READ, EV_ADD, 0, 0, &ws->entries[i]);
-    if (kevent(ws->kqueue, &kev, 1, NULL, 0, NULL) == -1)
-      abort (); /* FIXME */
-  }
-  for (; i < sz; i++)
-  {
-    ws->entries[i].conn = NULL;
-    ws->entries[i].fd = -1;
-  }
-  ddsrt_mutex_unlock (&ws->lock);
-}
-
-void ddsi_sock_waitset_remove (struct ddsi_sock_waitset * ws, struct ddsi_tran_conn * conn)
-{
-  const int fd = ddsi_conn_handle (conn);
-  uint32_t i, sz;
-  assert (fd >= 0);
-  ddsrt_mutex_lock (&ws->lock);
-  sz = ddsrt_atomic_ld32 (&ws->sz);
-  for (i = 1; i < sz; i++)
-    if (ws->entries[i].fd == fd)
-      break;
-  if (i < sz)
-  {
-    struct kevent kev;
-    EV_SET(&kev, (unsigned)ws->entries[i].fd, EVFILT_READ, EV_DELETE, 0, 0, 0);
-    if (kevent(ws->kqueue, &kev, 1, NULL, 0, NULL) == -1)
-      abort (); /* FIXME */
-    ws->entries[i].fd = -1;
-  }
-  ddsrt_mutex_unlock (&ws->lock);
-}
-
-struct ddsi_sock_waitset_ctx * ddsi_sock_waitset_wait (struct ddsi_sock_waitset * ws)
-{
-  /* if the array of events is smaller than the number of file descriptors in the
-     kqueue, things will still work fine, as the kernel will just return what can
-     be stored, and the set will be grown on the next call */
-  uint32_t ws_sz = ddsrt_atomic_ld32 (&ws->sz);
-  int nevs;
-  if (ws->ctx.evs_sz < ws_sz)
-  {
-    ws->ctx.evs_sz = ws_sz;
-    ws->ctx.evs = ddsrt_realloc (ws->ctx.evs, ws_sz * sizeof(*ws->ctx.evs));
-  }
-  nevs = kevent (ws->kqueue, NULL, 0, ws->ctx.evs, (int)ws->ctx.evs_sz, NULL);
-  if (nevs < 0)
-  {
-    if (errno == EINTR)
-      nevs = 0;
-    else
-    {
-      DDS_WARNING("ddsi_sock_waitset_wait: kevent failed, errno = %d\n", errno);
-      return NULL;
-    }
-  }
-  ws->ctx.nevs = (uint32_t)nevs;
-  ws->ctx.index = 0;
-  return &ws->ctx;
-}
-
-int ddsi_sock_waitset_next_event (struct ddsi_sock_waitset_ctx * ctx, struct ddsi_tran_conn **conn)
-{
-  while (ctx->index < ctx->nevs)
-  {
-    uint32_t idx = ctx->index++;
-    struct entry * const entry = ctx->evs[idx].udata;
-    if (entry->index > 0)
-    {
-      *conn = entry->conn;
-      return (int)(entry->index - 1);
-    }
-    else
-    {
-      /* trigger pipe, read & try again */
-      char dummy;
-      read ((int)ctx->evs[idx].ident, &dummy, 1);
-    }
-  }
-  return -1;
-}
-
-#elif MODE_SEL == MODE_EPOLL
-
-#include <unistd.h>
-#include <errno.h>
-#include <fcntl.h>
+typedef struct kevent wait_event_t;
+#else
 #include <sys/epoll.h>
+typedef struct epoll_event wait_event_t;
+#endif
+
+struct entry {
+  struct ddsi_tran_conn *conn;
+  uint32_t next;
+  bool read_enabled;
+};
 
 struct ddsi_sock_waitset_ctx
 {
-  struct epoll_event *evs;
-  uint32_t nevs;
-  uint32_t evs_sz;
-  uint32_t index; /* cursor for enumerating */
-};
-
-struct entry {
-  uint32_t index;
-  int fd;
-  struct ddsi_tran_conn * conn;
+  wait_event_t evs[64];
+  int n, index;
+  struct ddsi_sock_waitset *ws;
 };
 
 struct ddsi_sock_waitset
 {
-  int epfd;
-  int pipe[2]; /* pipe used for triggering */
-  ddsrt_atomic_uint32_t sz;
+  int pollfd;
+  int pipe[2];
+  bool trigger_pending;
+  ddsrt_mutex_t lock;
   struct entry *entries;
-  struct ddsi_sock_waitset_ctx ctx; /* set of descriptors being handled */
-  ddsrt_mutex_t lock; /* for add/delete */
+  uint32_t nslots;
+  uint32_t available, retired_first, retired_last;
+  struct ddsi_sock_waitset_ctx ctx;
 };
 
-static int add_entry_locked (struct ddsi_sock_waitset * ws, struct ddsi_tran_conn * conn, int fd)
+static int update_interest (int pollfd, int fd, uint32_t slot, bool add)
 {
-  uint32_t idx, fidx, sz, n;
-  struct epoll_event ev;
-  assert (fd >= 0);
-  sz = ddsrt_atomic_ld32 (&ws->sz);
-  for (idx = 0, fidx = UINT32_MAX, n = 0; idx < sz; idx++)
-  {
-    if (ws->entries[idx].fd == -1)
-      fidx = (idx < fidx) ? idx : fidx;
-    else if (ws->entries[idx].conn == conn)
-      return 0;
-    else
-      n++;
-  }
-
-  if (fidx == UINT32_MAX)
-  {
-    const uint32_t newsz = ddsrt_atomic_add32_nv (&ws->sz, WAITSET_DELTA);
-    struct entry * const old_entries = ws->entries;
-    ws->entries = ddsrt_realloc (ws->entries, newsz * sizeof (*ws->entries));
-    if (ws->entries != old_entries)
-    {
-      /* epoll user data points into ws->entries; refresh it after realloc. */
-      for (idx = 0; idx < sz; idx++)
-      {
-        if (ws->entries[idx].fd == -1)
-          continue;
-        ev.events = EPOLLIN;
-        ev.data.ptr = &ws->entries[idx];
-        if (epoll_ctl (ws->epfd, EPOLL_CTL_MOD, ws->entries[idx].fd, &ev) == -1)
-          return -1;
-      }
-    }
-    for (idx = sz; idx < newsz; idx++)
-      ws->entries[idx].fd = -1;
-    fidx = sz;
-  }
-  ev.events = EPOLLIN;
-  ev.data.ptr = &ws->entries[fidx];
-  if (epoll_ctl (ws->epfd, EPOLL_CTL_ADD, fd, &ev) == -1)
-    return -1;
-  ws->entries[fidx].conn = conn;
-  ws->entries[fidx].fd = fd;
-  ws->entries[fidx].index = n;
-  return 1;
+  int ret;
+#if MODE_SEL == MODE_KQUEUE
+  struct kevent ev;
+  EV_SET (&ev, (unsigned) fd, EVFILT_READ, add ? EV_ADD : EV_DELETE, 0, 0, (void *) (uintptr_t) slot);
+  do { ret = kevent (pollfd, &ev, 1, NULL, 0, NULL); } while (ret == -1 && errno == EINTR);
+#else
+  struct epoll_event ev = { .events = EPOLLIN, .data.u32 = slot };
+  do { ret = epoll_ctl (pollfd, add ? EPOLL_CTL_ADD : EPOLL_CTL_DEL, fd, &ev); } while (ret == -1 && errno == EINTR);
+#endif
+  return ret;
 }
 
-struct ddsi_sock_waitset * ddsi_sock_waitset_new (void)
+struct ddsi_sock_waitset *ddsi_sock_waitset_new (void)
 {
-  const uint32_t sz = WAITSET_DELTA;
-  struct ddsi_sock_waitset * ws;
-  uint32_t i;
-  if ((ws = ddsrt_malloc (sizeof (*ws))) == NULL)
-    goto fail_waitset;
-  ddsrt_atomic_st32 (&ws->sz, sz);
-  if ((ws->entries = ddsrt_malloc (sz * sizeof (*ws->entries))) == NULL)
-    goto fail_entries;
-  for (i = 0; i < sz; i++)
-    ws->entries[i].fd = -1;
-  ws->ctx.nevs = 0;
-  ws->ctx.index = 0;
-  ws->ctx.evs_sz = sz;
-  if ((ws->ctx.evs = ddsrt_malloc (ws->ctx.evs_sz * sizeof (*ws->ctx.evs))) == NULL)
-    goto fail_ctx_evs;
-  if ((ws->epfd = epoll_create (1)) == -1)
-    goto fail_epoll_create;
+  struct ddsi_sock_waitset *ws = ddsrt_calloc_s (1, sizeof (*ws));
+  if (!ws)
+    return NULL;
+#if MODE_SEL == MODE_KQUEUE
+  ws->pollfd = kqueue ();
+#else
+  ws->pollfd = epoll_create (1);
+#endif
+  if (ws->pollfd == -1)
+    goto fail;
   if (pipe (ws->pipe) == -1)
     goto fail_pipe;
-  if (add_entry_locked (ws, NULL, ws->pipe[0]) < 0)
-    goto fail_add_trigger;
-  assert (ws->entries[0].fd == ws->pipe[0]);
-  if (fcntl (ws->epfd, F_SETFD, fcntl (ws->epfd, F_GETFD) | FD_CLOEXEC) == -1)
-    goto fail_fcntl;
-  if (fcntl (ws->pipe[0], F_SETFD, fcntl (ws->pipe[0], F_GETFD) | FD_CLOEXEC) == -1)
-    goto fail_fcntl;
-  if (fcntl (ws->pipe[1], F_SETFD, fcntl (ws->pipe[1], F_GETFD) | FD_CLOEXEC) == -1)
-    goto fail_fcntl;
+  if (fcntl (ws->pollfd, F_SETFD, FD_CLOEXEC) == -1 ||
+      fcntl (ws->pipe[0], F_SETFD, FD_CLOEXEC) == -1 ||
+      fcntl (ws->pipe[1], F_SETFD, FD_CLOEXEC) == -1 ||
+      update_interest (ws->pollfd, ws->pipe[0], 0, true) == -1)
+    goto fail_setup;
+  ws->ctx.ws = ws;
   ddsrt_mutex_init (&ws->lock);
   return ws;
 
-fail_fcntl:
-fail_add_trigger:
+fail_setup:
   close (ws->pipe[0]);
   close (ws->pipe[1]);
 fail_pipe:
-  close (ws->epfd);
-fail_epoll_create:
-  ddsrt_free (ws->ctx.evs);
-fail_ctx_evs:
-  ddsrt_free (ws->entries);
-fail_entries:
+  close (ws->pollfd);
+fail:
   ddsrt_free (ws);
-fail_waitset:
   return NULL;
 }
 
-void ddsi_sock_waitset_free (struct ddsi_sock_waitset * ws)
+void ddsi_sock_waitset_free (struct ddsi_sock_waitset *ws)
 {
   ddsrt_mutex_destroy (&ws->lock);
   close (ws->pipe[0]);
   close (ws->pipe[1]);
-  close (ws->epfd);
+  close (ws->pollfd);
   ddsrt_free (ws->entries);
-  ddsrt_free (ws->ctx.evs);
   ddsrt_free (ws);
 }
 
-void ddsi_sock_waitset_trigger (struct ddsi_sock_waitset * ws)
-{
-  char buf = 0;
-  int n;
-  n = (int)write (ws->pipe[1], &buf, 1);
-  if (n != 1)
-  {
-    DDS_WARNING("ddsi_sock_waitset_trigger: read failed on trigger pipe, errno = %d\n", errno);
-  }
-}
-
-int ddsi_sock_waitset_add (struct ddsi_sock_waitset * ws, struct ddsi_tran_conn * conn)
-{
-  int ret;
-  ddsrt_mutex_lock (&ws->lock);
-  ret = add_entry_locked (ws, conn, ddsi_conn_handle (conn));
-  ddsrt_mutex_unlock (&ws->lock);
-  return ret;
-}
-
-void ddsi_sock_waitset_purge (struct ddsi_sock_waitset * ws, unsigned index)
-{
-  /* Sockets may have been closed by the time Purge is called, but any closed sockets
-     are automatically deleted from the epoll-monitored set of file descriptors and the
-     file descriptors be reused in the meantime.  It therefore seems wiser replace the
-     epoll descriptor then to delete entries */
-  uint32_t i, sz;
-  struct epoll_event ev;
-  ddsrt_mutex_lock (&ws->lock);
-  sz = ddsrt_atomic_ld32 (&ws->sz);
-  close (ws->epfd);
-  if ((ws->epfd = epoll_create (1)) == -1)
-    abort (); /* FIXME */
-  for (i = 0; i <= index; i++)
-  {
-    assert (ws->entries[i].fd >= 0);
-    ev.events = EPOLLIN;
-    ev.data.ptr = &ws->entries[i];
-    if (epoll_ctl (ws->epfd, EPOLL_CTL_ADD, ws->entries[i].fd, &ev) == -1)
-      abort (); /* FIXME */
-  }
-  for (; i < sz; i++)
-  {
-    ws->entries[i].conn = NULL;
-    ws->entries[i].fd = -1;
-  }
-  ddsrt_mutex_unlock (&ws->lock);
-}
-
-void ddsi_sock_waitset_remove (struct ddsi_sock_waitset * ws, struct ddsi_tran_conn * conn)
+int ddsi_sock_waitset_add (struct ddsi_sock_waitset *ws, struct ddsi_tran_conn *conn)
 {
   const int fd = ddsi_conn_handle (conn);
-  uint32_t i, sz;
-  assert (fd >= 0);
+  if (fd < 0)
+    return -1;
+  int ret = 0;
   ddsrt_mutex_lock (&ws->lock);
-  sz = ddsrt_atomic_ld32 (&ws->sz);
-  for (i = 1; i < sz; i++)
-    if (ws->entries[i].fd == fd)
-      break;
-  if (i < sz)
+  if (!conn->m_waitset_slot || conn->m_waitset_slot >= ws->nslots || ws->entries[conn->m_waitset_slot].conn != conn)
   {
-    // pre linux 2.6.9, a non-null event pointer was required, contents don't matter
-    struct epoll_event ev;
-    if (epoll_ctl (ws->epfd, EPOLL_CTL_DEL, ws->entries[i].fd, &ev) == -1)
-      abort (); /* FIXME */
-    ws->entries[i].fd = -1;
+    if (!ws->available)
+    {
+      /* Slot zero identifies the trigger and terminates the free lists. */
+      const uint32_t first = ws->nslots ? ws->nslots : 1;
+      if (first > INT_MAX / (2 * sizeof (*ws->entries)))
+        goto fail;
+      const uint32_t size = ws->nslots ? ws->nslots * 2 : WAITSET_DELTA;
+      struct entry *entries = ddsrt_realloc_s (ws->entries, size * sizeof (*entries));
+      if (entries == NULL)
+        goto fail;
+      for (uint32_t i = first; i < size; i++)
+        entries[i] = (struct entry) { .next = (i + 1 == size) ? 0 : i + 1 };
+      ws->entries = entries;
+      ws->nslots = size;
+      ws->available = first;
+    }
+    const uint32_t slot = ws->available;
+    if (update_interest (ws->pollfd, fd, slot, true) == -1)
+      goto fail;
+    ws->available = ws->entries[slot].next;
+    ws->entries[slot].conn = conn;
+    ws->entries[slot].read_enabled = true;
+    conn->m_waitset_slot = slot;
+    ret = 1;
   }
   ddsrt_mutex_unlock (&ws->lock);
-}
-
-struct ddsi_sock_waitset_ctx * ddsi_sock_waitset_wait (struct ddsi_sock_waitset * ws)
-{
-  /* if the array of events is smaller than the number of file descriptors in the
-     kqueue, things will still work fine, as the kernel will just return what can
-     be stored, and the set will be grown on the next call */
-  uint32_t ws_sz = ddsrt_atomic_ld32 (&ws->sz);
-  int nevs;
-  if (ws->ctx.evs_sz < ws_sz)
-  {
-    ws->ctx.evs_sz = ws_sz;
-    ws->ctx.evs = ddsrt_realloc (ws->ctx.evs, ws_sz * sizeof(*ws->ctx.evs));
-  }
-  nevs = epoll_wait (ws->epfd, ws->ctx.evs, (int)ws->ctx.evs_sz, -1);
-  if (nevs < 0)
-  {
-    if (errno == EINTR)
-      nevs = 0;
-    else
-    {
-      DDS_WARNING("ddsi_sock_waitset_wait: kevent failed, errno = %d\n", errno);
-      return NULL;
-    }
-  }
-  ws->ctx.nevs = (uint32_t)nevs;
-  ws->ctx.index = 0;
-  return &ws->ctx;
-}
-
-int ddsi_sock_waitset_next_event (struct ddsi_sock_waitset_ctx * ctx, struct ddsi_tran_conn **conn)
-{
-  while (ctx->index < ctx->nevs)
-  {
-    uint32_t idx = ctx->index++;
-    struct entry * const entry = ctx->evs[idx].data.ptr;
-    if (entry->index > 0)
-    {
-      *conn = entry->conn;
-      return (int)(entry->index - 1);
-    }
-    else
-    {
-      /* trigger pipe, read & try again */
-      char dummy;
-      if (read (entry->fd, &dummy, 1) < 0)
-        abort ();
-    }
-  }
+  return ret;
+fail:
+  ddsrt_mutex_unlock (&ws->lock);
   return -1;
 }
 
-#elif MODE_SEL == MODE_WFMEVS
-
-struct ddsi_sock_waitset_ctx
+bool ddsi_sock_waitset_set_read_enabled (struct ddsi_sock_waitset *ws, struct ddsi_tran_conn *conn, bool enabled)
 {
-  struct ddsi_tran_conn * conns[MAXIMUM_WAIT_OBJECTS]; /* connections and listeners */
-  WSAEVENT events[MAXIMUM_WAIT_OBJECTS];        /* events associated with sockets */
-  int index; /* last wakeup index, or -1 */
-  unsigned n; /* sockets/events [0 .. n-1] are occupied */
-};
-
-struct ddsi_sock_waitset
-{
-  ddsrt_mutex_t mutex;  /* concurrency guard */
-  struct ddsi_sock_waitset_ctx ctx;
-  struct ddsi_sock_waitset_ctx ctx0;
-};
-
-struct ddsi_sock_waitset * ddsi_sock_waitset_new (void)
-{
-  struct ddsi_sock_waitset * ws = ddsrt_malloc (sizeof (*ws));
-  ws->ctx.conns[0] = NULL;
-  ws->ctx.events[0] = WSACreateEvent ();
-  ws->ctx.n = 1;
-  ws->ctx.index = -1;
-  ddsrt_mutex_init (&ws->mutex);
-  return ws;
-}
-
-void ddsi_sock_waitset_free (struct ddsi_sock_waitset * ws)
-{
-  for (unsigned i = 0; i < ws->ctx.n; i++)
+  ddsrt_mutex_lock (&ws->lock);
+  const uint32_t slot = conn->m_waitset_slot;
+  bool ok = slot && slot < ws->nslots && ws->entries[slot].conn == conn;
+  if (ok && ws->entries[slot].read_enabled != enabled)
   {
-    WSACloseEvent (ws->ctx.events[i]);
+    ok = update_interest (ws->pollfd, ddsi_conn_handle (conn), slot, enabled) == 0;
+    if (ok)
+      ws->entries[slot].read_enabled = enabled;
   }
-  ddsrt_mutex_destroy (&ws->mutex);
-  ddsrt_free (ws);
+  ddsrt_mutex_unlock (&ws->lock);
+  return ok;
 }
 
-void ddsi_sock_waitset_purge (struct ddsi_sock_waitset * ws, unsigned index)
+void ddsi_sock_waitset_remove (struct ddsi_sock_waitset *ws, struct ddsi_tran_conn *conn)
 {
-  ddsrt_mutex_lock (&ws->mutex);
-  for (unsigned i = index + 1; i < ws->ctx.n; i++)
+  ddsrt_mutex_lock (&ws->lock);
+  const uint32_t slot = conn->m_waitset_slot;
+  if (slot && slot < ws->nslots && ws->entries[slot].conn == conn)
   {
-    ws->ctx.conns[i] = NULL;
-    if (!WSACloseEvent (ws->ctx.events[i]))
+    if (!ws->entries[slot].read_enabled || update_interest (ws->pollfd, ddsi_conn_handle (conn), slot, false) == 0 || errno == ENOENT || errno == EBADF)
     {
-      DDS_WARNING("ddsi_sock_waitset_purge: WSACloseEvent (%x failed, error %d\n", (os_uint32) ws->ctx.events[i], os_getErrno ());
+      /* Already returned events can still name this slot until the next wait. */
+      ws->entries[slot].next = ws->retired_first;
+      ws->retired_first = slot;
+      if (!ws->retired_last)
+        ws->retired_last = slot;
     }
-  }
-  ws->ctx.n = index + 1;
-  ddsrt_mutex_unlock (&ws->mutex);
-}
-
-void ddsi_sock_waitset_remove (struct ddsi_sock_waitset * ws, struct ddsi_tran_conn * conn)
-{
-  ddsrt_mutex_lock (&ws->mutex);
-  for (unsigned i = 0; i < ws->ctx.n; i++)
-  {
-    if (conn == ws->ctx.conns[i])
-    {
-      WSACloseEvent (ws->ctx.events[i]);
-      ws->ctx.n--;
-      if (i != ws->ctx.n)
-      {
-        ws->ctx.events[i] = ws->ctx.events[ws->ctx.n];
-        ws->ctx.conns[i] = ws->ctx.conns[ws->ctx.n];
-      }
-      break;
-    }
-  }
-  ddsrt_mutex_unlock (&ws->mutex);
-}
-
-void ddsi_sock_waitset_trigger (struct ddsi_sock_waitset * ws)
-{
-  if (! WSASetEvent (ws->ctx.events[0]))
-  {
-    DDS_WARNING("ddsi_sock_waitset_trigger: WSASetEvent(%x) failed, error %d\n", (os_uint32) ws->ctx.events[0], os_getErrno ());
-  }
-}
-
-int ddsi_sock_waitset_add (struct ddsi_sock_waitset * ws, struct ddsi_tran_conn * conn)
-{
-  WSAEVENT ev;
-  os_socket sock = ddsi_conn_handle (conn);
-  unsigned idx;
-  int ret;
-
-  ddsrt_mutex_lock (&ws->mutex);
-
-  for (idx = 0; idx < ws->ctx.n; idx++)
-  {
-    if (ws->ctx.conns[idx] == conn)
-      break;
-  }
-  if (idx < ws->ctx.n)
-    ret = 0;
-  else
-  {
-    assert (ws->n < MAXIMUM_WAIT_OBJECTS);
-    if ((ev = WSACreateEvent ()) == WSA_INVALID_EVENT)
-      ret = -1;
     else
     {
-      if (WSAEventSelect (sock, ev, FD_READ) == SOCKET_ERROR)
-      {
-        DDS_WARNING("ddsi_sock_waitset_add: WSAEventSelect(%x,%x) failed, error %d\n", (os_uint32) sock, (os_uint32) ev, os_getErrno ());
-        WSACloseEvent (ev);
-        ret = -1;
-      }
-      else
-      {
-        ws->ctx.conns[ws->ctx.n] = conn;
-        ws->ctx.events[ws->ctx.n] = ev;
-        ws->ctx.n++;
-        ret = 1;
-      }
+      /* Keep the slot empty if the kernel may still report events for it. */
+      DDS_WARNING ("ddsi_sock_waitset_remove: failed to unregister socket, errno = %d\n", errno);
     }
+    ws->entries[slot].conn = NULL;
+    conn->m_waitset_slot = 0;
   }
-
-  ddsrt_mutex_unlock (&ws->mutex);
-  return ret;
+  ddsrt_mutex_unlock (&ws->lock);
 }
 
-struct ddsi_sock_waitset_ctx * ddsi_sock_waitset_wait (struct ddsi_sock_waitset * ws)
+struct ddsi_sock_waitset_ctx *ddsi_sock_waitset_wait_until (struct ddsi_sock_waitset *ws, ddsrt_mtime_t deadline)
 {
-  unsigned idx;
-
-  assert (ws->index == -1);
-
-  ddsrt_mutex_lock (&ws->mutex);
-  ws->ctx0 = ws->ctx;
-  ddsrt_mutex_unlock (&ws->mutex);
-
-  if ((idx = WSAWaitForMultipleEvents (ws->ctx0.n, ws->ctx0.events, FALSE, WSA_INFINITE, FALSE)) == WSA_WAIT_FAILED)
+  ddsrt_mutex_lock (&ws->lock);
+  if (ws->retired_last)
   {
-    DDS_WARNING("ddsi_sock_waitset_wait: WSAWaitForMultipleEvents(%d,...,0,0,0) failed, error %d\n", ws->ctx0.n, os_getErrno ());
+    ws->entries[ws->retired_last].next = ws->available;
+    ws->available = ws->retired_first;
+    ws->retired_first = ws->retired_last = 0;
+  }
+  ddsrt_mutex_unlock (&ws->lock);
+  const dds_duration_t remaining = wait_duration (deadline);
+  const int maxevents = (int) (sizeof (ws->ctx.evs) / sizeof (ws->ctx.evs[0]));
+#if MODE_SEL == MODE_KQUEUE
+  const struct timespec timeout = { .tv_sec = (time_t) (remaining / DDS_NSECS_IN_SEC), .tv_nsec = (long) (remaining % DDS_NSECS_IN_SEC) };
+  const int n = kevent (ws->pollfd, NULL, 0, ws->ctx.evs, maxevents, remaining == DDS_INFINITY ? NULL : &timeout);
+#else
+  const int timeout = remaining == DDS_INFINITY ? -1 : remaining >= DDS_MSECS (INT_MAX) ? INT_MAX :
+                      (int) ((remaining + DDS_NSECS_IN_MSEC - 1) / DDS_NSECS_IN_MSEC);
+  const int n = epoll_wait (ws->pollfd, ws->ctx.evs, maxevents, timeout);
+#endif
+  if (n < 0)
+  {
+    if (errno != EINTR)
+      DDS_WARNING ("ddsi_sock_waitset_wait: failed, errno = %d\n", errno);
     return NULL;
   }
-
-#ifndef WAIT_IO_COMPLETION /* curious omission in the WinCE headers */
-#define TEMP_DEF_WAIT_IO_COMPLETION
-#define WAIT_IO_COMPLETION 0xc0L
-#endif
-  if (idx >= WSA_WAIT_EVENT_0 && idx < WSA_WAIT_EVENT_0 + ws->ctx0.n)
-  {
-    ws->ctx0.index = idx - WSA_WAIT_EVENT_0;
-    if (ws->ctx0.index == 0)
-    {
-      /* pretend a spurious wakeup */
-      WSAResetEvent (ws->ctx0.events[0]);
-      ws->ctx0.index = -1;
-    }
-    return &ws->ctx0;
-  }
-
-  if (idx == WAIT_IO_COMPLETION)
-  {
-    /* Presumably can't happen with alertable = FALSE */
-    DDS_WARNING("ddsi_sock_waitset_wait: WSAWaitForMultipleEvents(%d,...,0,0,0) returned unexpected WAIT_IO_COMPLETION\n", ws->ctx0.n);
-  }
-  else
-  {
-    DDS_WARNING("ddsi_sock_waitset_wait: WSAWaitForMultipleEvents(%d,...,0,0,0) returned unrecognised %d\n", ws->ctx0.n, idx);
-  }
-#ifdef TEMP_DEF_WAIT_IO_COMPLETION
-#undef WAIT_IO_COMPLETION
-#undef TEMP_DEF_WAIT_IO_COMPLETION
-#endif
-  return NULL;
+  ws->ctx.n = n;
+  ws->ctx.index = 0;
+  return &ws->ctx;
 }
 
-/* This implementation follows the pattern of simply looking at the
- socket that triggered the wakeup; alternatively, one could scan the
- entire set as we do for select().  If the likelihood of two sockets
- having an event simultaneously is small, this is better, but if it
- is large, the lower indices may get a disproportionally large
- amount of attention. */
-
-int ddsi_sock_waitset_next_event (struct ddsi_sock_waitset_ctx * ctx, struct ddsi_tran_conn ** conn)
+int ddsi_sock_waitset_next_event (struct ddsi_sock_waitset_ctx *ctx, struct ddsi_tran_conn **conn)
 {
-  assert (-1 <= ctx->index && ctx->index < ctx->n);
-  assert (0 < ctx->n && ctx->n <= ctx->sz);
-  if (ctx->index == -1)
+  while (ctx->index < ctx->n)
   {
-    return -1;
-  }
-  else
-  {
-    WSANETWORKEVENTS nwev;
-    int idx = ctx->index;
-    os_socket handle;
-
-    ctx->index = -1;
-    handle = ddsi_conn_handle (ctx->conns[idx]);
-    if (WSAEnumNetworkEvents (handle, ctx->events[idx], &nwev) == SOCKET_ERROR)
+#if MODE_SEL == MODE_KQUEUE
+    const uint32_t slot = (uint32_t) (uintptr_t) ctx->evs[ctx->index++].udata;
+#else
+    const uint32_t slot = ctx->evs[ctx->index++].data.u32;
+#endif
+    if (!slot)
+      consume_trigger (ctx->ws);
+    else
     {
-      int err = os_getErrno ();
-      if (err != WSAENOTSOCK)
-      {
-        /* May have a wakeup and a close in parallel, so the handle
-         need not exist anymore. */
-        DDS_ERROR("ddsi_sock_waitset_next_event: WSAEnumNetworkEvents(%x,%x,...) failed, error %d", (os_uint32) handle, (os_uint32) ctx->events[idx], err);
-      }
-      return -1;
+      ddsrt_mutex_lock (&ctx->ws->lock);
+      *conn = ctx->ws->entries[slot].read_enabled ? ctx->ws->entries[slot].conn : NULL;
+      if (*conn)
+        ddsi_conn_add_ref (*conn);
+      ddsrt_mutex_unlock (&ctx->ws->lock);
+      if (*conn)
+        return (int) (slot - 1);
     }
-
-    *conn = ctx->conns[idx];
-    return idx - 1;
   }
+  return -1;
 }
 
 #elif MODE_SEL == MODE_SELECT
@@ -795,39 +310,52 @@ int ddsi_sock_waitset_next_event (struct ddsi_sock_waitset_ctx * ctx, struct dds
 
 #endif /* !_WIN32 && !LWIP_SOCKET && !__ZEPHYR__ */
 
-typedef struct ddsi_sock_waitset_set
+struct select_entry
 {
-  struct ddsi_tran_conn ** conns;  /* connections in set */
-  ddsrt_socket_t * fds;           /* file descriptors in set */
-  unsigned sz;               /* max number of fds in context */
-  unsigned n;                /* actual number of fds in context */
-} ddsi_sock_waitset_set_t;
+  struct ddsi_tran_conn *conn;
+  ddsrt_socket_t fd;
+  bool disabled; /* paused registration or invalidated snapshot entry */
+};
+
+struct select_set
+{
+  struct select_entry *entries;
+  unsigned sz;
+  unsigned n;
+};
 
 struct ddsi_sock_waitset_ctx
 {
-  ddsi_sock_waitset_set_t set;     /* set of connections and descriptors */
-  unsigned index;            /* cursor for enumerating */
-  fd_set rdset;              /* read file descriptors */
+  struct ddsi_sock_waitset *ws;
+  struct select_set set;
+  unsigned index;
+  fd_set rdset;
 };
 
 struct ddsi_sock_waitset
 {
-  ddsrt_socket_t pipe[2];             /* pipe used for triggering */
-  ddsrt_mutex_t mutex;                /* concurrency guard */
-  int fdmax_plus_1;              /* value for first parameter of select() */
-  ddsi_sock_waitset_set_t set;         /* set of descriptors handled next */
-  struct ddsi_sock_waitset_ctx ctx;  /* set of descriptors being handled  */
+  bool trigger_pending; /* protected by lock */
+#if LWIP_SOCKET
+  ddsrt_cond_mtime_t wake;
+#else
+  ddsrt_socket_t pipe[2];
+#endif
+  ddsrt_mutex_t lock;
+  struct select_set set;
+  struct ddsi_sock_waitset_ctx ctx;
 };
 
 #if defined (_WIN32)
 static int make_pipe (ddsrt_socket_t fd[2])
 {
-  struct sockaddr_in addr;
+  struct sockaddr_in addr = { 0 };
   socklen_t asize = sizeof (addr);
   ddsrt_socket_t listener = socket (AF_INET, SOCK_STREAM, 0);
   ddsrt_socket_t s1 = socket (AF_INET, SOCK_STREAM, 0);
   ddsrt_socket_t s2 = DDSRT_INVALID_SOCKET;
 
+  if (listener == DDSRT_INVALID_SOCKET || s1 == DDSRT_INVALID_SOCKET)
+    goto fail;
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
   addr.sin_port = 0;
@@ -844,18 +372,23 @@ static int make_pipe (ddsrt_socket_t fd[2])
     goto fail;
   if ((s2 = accept (listener, 0, 0)) == INVALID_SOCKET)
     goto fail;
+#ifndef WINCE
+  if (!SetHandleInformation ((HANDLE) s1, HANDLE_FLAG_INHERIT, 0) ||
+      !SetHandleInformation ((HANDLE) s2, HANDLE_FLAG_INHERIT, 0))
+    goto fail;
+#endif
   closesocket (listener);
-  /* Equivalent to FD_CLOEXEC */
-  SetHandleInformation ((HANDLE) s1, HANDLE_FLAG_INHERIT, 0);
-  SetHandleInformation ((HANDLE) s2, HANDLE_FLAG_INHERIT, 0);
   fd[0] = s1;
   fd[1] = s2;
   return 0;
 
 fail:
-  closesocket (listener);
-  closesocket (s1);
-  closesocket (s2);
+  if (listener != DDSRT_INVALID_SOCKET)
+    closesocket (listener);
+  if (s1 != DDSRT_INVALID_SOCKET)
+    closesocket (s1);
+  if (s2 != DDSRT_INVALID_SOCKET)
+    closesocket (s2);
   return -1;
 }
 #elif defined(__VXWORKS__)
@@ -893,330 +426,348 @@ static int make_pipe (int pfd[2])
   }
   return res;
 }
-#elif !defined(LWIP_SOCKET)
+#elif !LWIP_SOCKET
 static int make_pipe (int pfd[2])
 {
   return pipe (pfd);
 }
 #endif
 
-static void ddsi_sock_waitset_new_set (ddsi_sock_waitset_set_t * set)
+#ifndef _WIN32
+static bool selectable_fd (ddsrt_socket_t fd)
 {
-  set->fds = ddsrt_malloc (WAITSET_DELTA * sizeof (*set->fds));
-  set->conns = ddsrt_malloc (WAITSET_DELTA * sizeof (*set->conns));
-  set->sz = WAITSET_DELTA;
-  set->n = 1;
-}
-
-static void ddsi_sock_waitset_free_set (ddsi_sock_waitset_set_t * set)
-{
-  ddsrt_free (set->fds);
-  ddsrt_free (set->conns);
-}
-
-static void ddsi_sock_waitset_new_ctx (struct ddsi_sock_waitset_ctx * ctx)
-{
-  ddsi_sock_waitset_new_set (&ctx->set);
-  FD_ZERO (&ctx->rdset);
-}
-
-static void ddsi_sock_waitset_free_ctx (struct ddsi_sock_waitset_ctx * ctx)
-{
-  ddsi_sock_waitset_free_set (&ctx->set);
-}
-
-struct ddsi_sock_waitset * ddsi_sock_waitset_new (void)
-{
-  int result;
-  struct ddsi_sock_waitset * ws = ddsrt_malloc (sizeof (*ws));
-
-  ddsi_sock_waitset_new_set (&ws->set);
-  ddsi_sock_waitset_new_ctx (&ws->ctx);
-
-#if ! defined (_WIN32)
-  ws->fdmax_plus_1 = 0;
+#if LWIP_SOCKET && defined(LWIP_SOCKET_OFFSET)
+  return fd >= LWIP_SOCKET_OFFSET && fd - LWIP_SOCKET_OFFSET < FD_SETSIZE;
 #else
-  ws->fdmax_plus_1 = FD_SETSIZE;
+  return fd >= 0 && fd < FD_SETSIZE;
+#endif
+}
 #endif
 
-#if defined(LWIP_SOCKET)
-  ws->pipe[0] = -1;
-  ws->pipe[1] = -1;
-  result = 0;
-#else
-  result = make_pipe (ws->pipe);
+#if !LWIP_SOCKET
+static void close_pipe (ddsrt_socket_t pfd[2])
+{
+#if defined(__VXWORKS__) && defined(__RTP__)
+  char name[OSPL_PIPENAMESIZE];
+  ioctl (pfd[0], FIOGETNAME, &name);
 #endif
-  if (result == -1)
-  {
-    ddsi_sock_waitset_free_ctx (&ws->ctx);
-    ddsi_sock_waitset_free_set (&ws->set);
-    ddsrt_free (ws);
+#ifdef _WIN32
+  closesocket (pfd[0]);
+  closesocket (pfd[1]);
+#else
+  (void) close (pfd[0]);
+  (void) close (pfd[1]);
+#endif
+#if defined(__VXWORKS__) && defined(__RTP__)
+  pipeDevDelete (name, 0);
+#endif
+}
+#endif
+
+struct ddsi_sock_waitset *ddsi_sock_waitset_new (void)
+{
+  struct ddsi_sock_waitset *ws = ddsrt_calloc_s (1, sizeof (*ws));
+  if (ws == NULL)
     return NULL;
-  }
-
-#if !defined(LWIP_SOCKET)
-  ws->set.fds[0] = ws->pipe[0];
+#if LWIP_SOCKET
+  ddsrt_cond_mtime_init (&ws->wake);
 #else
-  ws->set.fds[0] = 0;
+  if (make_pipe (ws->pipe) < 0)
+    goto fail;
+#ifndef _WIN32
+  if (!selectable_fd (ws->pipe[0]))
+    goto fail_pipe;
 #endif
-  ws->set.conns[0] = NULL;
-
-#if !defined(__VXWORKS__) && !defined(_WIN32) && !defined(LWIP_SOCKET) && !defined(__QNXNTO__) && !defined(__ZEPHYR__)
-  (void) fcntl (ws->pipe[0], F_SETFD, fcntl (ws->pipe[0], F_GETFD) | FD_CLOEXEC);
-  (void) fcntl (ws->pipe[1], F_SETFD, fcntl (ws->pipe[1], F_GETFD) | FD_CLOEXEC);
+#if !defined(__VXWORKS__) && !defined(_WIN32) && !defined(__QNXNTO__) && !defined(__ZEPHYR__)
+  if (fcntl (ws->pipe[0], F_SETFD, FD_CLOEXEC) == -1 || fcntl (ws->pipe[1], F_SETFD, FD_CLOEXEC) == -1)
+    goto fail_pipe;
 #endif
-#if !defined(LWIP_SOCKET)
-  FD_SET (ws->set.fds[0], &ws->ctx.rdset);
 #endif
-#if !defined(_WIN32)
-  ws->fdmax_plus_1 = ws->set.fds[0] + 1;
-#endif
-
-  ddsrt_mutex_init (&ws->mutex);
-
+  ws->ctx.ws = ws;
+  ddsrt_mutex_init (&ws->lock);
   return ws;
+#if !LWIP_SOCKET
+#ifndef _WIN32
+fail_pipe:
+  close_pipe (ws->pipe);
+#endif
+fail:
+  ddsrt_free (ws);
+  return NULL;
+#endif
 }
 
-static void ddsi_sock_waitset_grow (ddsi_sock_waitset_set_t * set)
+void ddsi_sock_waitset_free (struct ddsi_sock_waitset *ws)
 {
-  set->sz += WAITSET_DELTA;
-  set->conns = ddsrt_realloc (set->conns, set->sz * sizeof (*set->conns));
-  set->fds = ddsrt_realloc (set->fds, set->sz * sizeof (*set->fds));
-}
-
-void ddsi_sock_waitset_free (struct ddsi_sock_waitset * ws)
-{
-#if defined(__VXWORKS__) && defined(__RTP__)
-  char nameBuf[OSPL_PIPENAMESIZE];
-  ioctl (ws->pipe[0], FIOGETNAME, &nameBuf);
+  assert (ws->ctx.index == ws->ctx.set.n);
+#if LWIP_SOCKET
+  ddsrt_cond_mtime_destroy (&ws->wake);
+#else
+  close_pipe (ws->pipe);
 #endif
-#if defined(_WIN32)
-  closesocket (ws->pipe[0]);
-  closesocket (ws->pipe[1]);
-#elif !defined(LWIP_SOCKET)
-  (void) close (ws->pipe[0]);
-  (void) close (ws->pipe[1]);
-#endif
-#if defined(__VXWORKS__) && defined(__RTP__)
-  pipeDevDelete ((char*) &nameBuf, 0);
-#endif
-  ddsi_sock_waitset_free_set (&ws->set);
-  ddsi_sock_waitset_free_ctx (&ws->ctx);
-  ddsrt_mutex_destroy (&ws->mutex);
+  ddsrt_free (ws->set.entries);
+  ddsrt_free (ws->ctx.set.entries);
+  ddsrt_mutex_destroy (&ws->lock);
   ddsrt_free (ws);
 }
 
-void ddsi_sock_waitset_trigger (struct ddsi_sock_waitset * ws)
+int ddsi_sock_waitset_add (struct ddsi_sock_waitset *ws, struct ddsi_tran_conn *conn)
 {
-#if defined(LWIP_SOCKET)
-  (void)ws;
+  const ddsrt_socket_t fd = ddsi_conn_handle (conn);
+#ifdef _WIN32
+  if (fd == DDSRT_INVALID_SOCKET)
 #else
-  char buf = 0;
-  int n;
-
-#if defined (_WIN32)
-  n = send (ws->pipe[1], &buf, 1, 0);
-#else
-  n = (int) write (ws->pipe[1], &buf, 1);
+  if (!selectable_fd (fd))
 #endif
-  if (n != 1)
+    return -1;
+  ddsrt_mutex_lock (&ws->lock);
+  for (unsigned i = 0; i < ws->set.n; i++)
   {
-    DDS_WARNING("ddsi_sock_waitset_trigger: write failed on trigger pipe\n");
-  }
-#endif /* defined(LWIP_SOCKET) */
-}
-
-int ddsi_sock_waitset_add (struct ddsi_sock_waitset * ws, struct ddsi_tran_conn * conn)
-{
-  ddsrt_socket_t handle = ddsi_conn_handle (conn);
-  ddsi_sock_waitset_set_t * set = &ws->set;
-  unsigned idx;
-  int ret;
-
-#if ! defined (_WIN32)
-  assert (handle >= 0);
-  assert (handle < FD_SETSIZE);
-#endif
-
-  ddsrt_mutex_lock (&ws->mutex);
-  for (idx = 0; idx < set->n; idx++)
-  {
-    if (set->conns[idx] == conn)
-      break;
-  }
-  if (idx < set->n)
-    ret = 0;
-  else
-  {
-    if (set->n == set->sz)
-      ddsi_sock_waitset_grow (set);
-#if ! defined (_WIN32)
-    if ((int) handle >= ws->fdmax_plus_1)
-      ws->fdmax_plus_1 = handle + 1;
-#endif
-    set->conns[set->n] = conn;
-    set->fds[set->n] = handle;
-    set->n++;
-    ret = 1;
-  }
-  ddsrt_mutex_unlock (&ws->mutex);
-  return ret;
-}
-
-void ddsi_sock_waitset_purge (struct ddsi_sock_waitset * ws, unsigned index)
-{
-  ddsi_sock_waitset_set_t * set = &ws->set;
-
-  ddsrt_mutex_lock (&ws->mutex);
-  if (index + 1 <= set->n)
-  {
-    for (unsigned i = index + 1; i < set->n; i++)
+    if (ws->set.entries[i].conn == conn)
     {
-      set->conns[i] = NULL;
-      set->fds[i] = 0;
+      ddsrt_mutex_unlock (&ws->lock);
+      return 0;
     }
-    set->n = index + 1;
   }
-  ddsrt_mutex_unlock (&ws->mutex);
+#ifdef _WIN32
+  if (ws->set.n + 1 >= FD_SETSIZE) /* Winsock counts sockets, including the wake socket */
+  {
+    ddsrt_mutex_unlock (&ws->lock);
+    return -1;
+  }
+#endif
+  if (ws->set.n == ws->set.sz)
+  {
+    const unsigned sz = ws->set.sz ? 2 * ws->set.sz : WAITSET_DELTA;
+    struct select_entry *entries = ddsrt_realloc_s (ws->set.entries, sz * sizeof (*entries));
+    if (entries == NULL)
+    {
+      ddsrt_mutex_unlock (&ws->lock);
+      return -1;
+    }
+    ws->set.entries = entries;
+    entries = ddsrt_realloc_s (ws->ctx.set.entries, sz * sizeof (*entries));
+    if (entries == NULL)
+    {
+      ddsrt_mutex_unlock (&ws->lock);
+      return -1;
+    }
+    ws->ctx.set.entries = entries;
+    ws->set.sz = sz;
+  }
+  ws->set.entries[ws->set.n++] = (struct select_entry) { .conn = conn, .fd = fd };
+  ddsrt_mutex_unlock (&ws->lock);
+  return 1;
 }
 
-void ddsi_sock_waitset_remove (struct ddsi_sock_waitset * ws, struct ddsi_tran_conn * conn)
+bool ddsi_sock_waitset_set_read_enabled (struct ddsi_sock_waitset *ws, struct ddsi_tran_conn *conn, bool enabled)
 {
-  ddsi_sock_waitset_set_t * set = &ws->set;
-
-  ddsrt_mutex_lock (&ws->mutex);
-  for (unsigned i = 0; i < set->n; i++)
+  bool found = false;
+  ddsrt_mutex_lock (&ws->lock);
+  for (unsigned i = 0; i < ws->set.n; i++)
   {
-    if (conn == set->conns[i])
+    if (ws->set.entries[i].conn == conn)
     {
-      set->n--;
-      if (i != set->n)
+      ws->set.entries[i].disabled = !enabled;
+      found = true;
+      break;
+    }
+  }
+  ddsrt_mutex_unlock (&ws->lock);
+  return found;
+}
+
+void ddsi_sock_waitset_remove (struct ddsi_sock_waitset *ws, struct ddsi_tran_conn *conn)
+{
+  bool wake = false;
+  ddsrt_mutex_lock (&ws->lock);
+  for (unsigned i = 0; i < ws->set.n; i++)
+  {
+    if (ws->set.entries[i].conn == conn)
+    {
+      ws->set.entries[i] = ws->set.entries[--ws->set.n];
+      for (unsigned j = ws->ctx.index; j < ws->ctx.set.n; j++)
       {
-        set->fds[i] = set->fds[set->n];
-        set->conns[i] = set->conns[set->n];
+        if (ws->ctx.set.entries[j].conn == conn)
+        {
+          ws->ctx.set.entries[j].disabled = true;
+          wake = true;
+          break;
+        }
       }
       break;
     }
   }
-  ddsrt_mutex_unlock (&ws->mutex);
+  ddsrt_mutex_unlock (&ws->lock);
+  if (wake)
+    ddsi_sock_waitset_trigger (ws);
 }
 
-struct ddsi_sock_waitset_ctx * ddsi_sock_waitset_wait (struct ddsi_sock_waitset * ws)
-{
-  unsigned u;
-#if !_WIN32
-  int fdmax;
-#endif
-  fd_set * rdset = NULL;
-  struct ddsi_sock_waitset_ctx * ctx = &ws->ctx;
-  ddsi_sock_waitset_set_t * dst = &ctx->set;
-  ddsi_sock_waitset_set_t * src = &ws->set;
-
-  ddsrt_mutex_lock (&ws->mutex);
-
-#if !_WIN32
-  fdmax = ws->fdmax_plus_1;
-#endif
-
-  /* Copy context to working context */
-
-  while (dst->sz < src->sz)
-  {
-    ddsi_sock_waitset_grow (dst);
-  }
-  dst->n = src->n;
-
-  for (u = 0; u < src->sz; u++)
-  {
-    dst->conns[u] = src->conns[u];
-    dst->fds[u] = src->fds[u];
-  }
-
-  ddsrt_mutex_unlock (&ws->mutex);
-
-  /* Copy file descriptors into select read set */
-
-  rdset = &ctx->rdset;
-  FD_ZERO (rdset);
-#if !defined(LWIP_SOCKET)
-  for (u = 0; u < dst->n; u++)
-  {
-    FD_SET (dst->fds[u], rdset);
-  }
-#else
-  for (u = 1; u < dst->n; u++)
-  {
-    DDSRT_WARNING_GNUC_OFF(sign-conversion)
-    FD_SET (dst->fds[u], rdset);
-    DDSRT_WARNING_GNUC_ON(sign-conversion)
-  }
-#endif /* !defined(LWIP_SOCKET) */
-
-  dds_return_t rc;
-  do
-  {
-    rc = ddsrt_select (fdmax, rdset, NULL, NULL, DDS_INFINITY);
-    if (rc < 0 && rc != DDS_RETCODE_INTERRUPTED && rc != DDS_RETCODE_TRY_AGAIN)
-    {
-      DDS_WARNING("ddsi_sock_waitset_wait: select failed, retcode = %"PRId32, rc);
-      break;
-    }
-  } while (rc < 0);
-
-  if (rc > 0)
-  {
-    /* this simply skips the trigger fd */
-    ctx->index = 1;
-#if !defined(LWIP_SOCKET)
-    if (FD_ISSET (dst->fds[0], rdset))
-    {
-      char buf;
-      int n1;
-#if defined (_WIN32)
-      n1 = recv (dst->fds[0], &buf, 1, 0);
-#else
-      n1 = (int) read (dst->fds[0], &buf, 1);
-#endif
-      if (n1 != 1)
-      {
-        DDS_WARNING("ddsi_sock_waitset_wait: read failed on trigger pipe\n");
-        assert (0);
-      }
-    }
-#endif /* !defined(LWIP_SOCKET) */
-    return ctx;
-  }
-
-  return NULL;
-}
-
-#if defined(LWIP_SOCKET)
+#if LWIP_SOCKET
 DDSRT_WARNING_GNUC_OFF(sign-conversion)
 #endif
-
-int ddsi_sock_waitset_next_event (struct ddsi_sock_waitset_ctx * ctx, struct ddsi_tran_conn ** conn)
+struct ddsi_sock_waitset_ctx *ddsi_sock_waitset_wait_until (struct ddsi_sock_waitset *ws, ddsrt_mtime_t deadline)
 {
-  while (ctx->index < ctx->set.n)
-  {
-    unsigned idx = ctx->index++;
-    ddsrt_socket_t fd = ctx->set.fds[idx];
-#if !defined(LWIP_SOCKET) /* && !defined(__ZEPHYR__) */
-    assert(idx > 0);
+  struct ddsi_sock_waitset_ctx *ctx = &ws->ctx;
+  int fdmax = 0;
+  ddsrt_mutex_lock (&ws->lock);
+  assert (ctx->index == ctx->set.n);
+  FD_ZERO (&ctx->rdset);
+#if !LWIP_SOCKET
+  FD_SET (ws->pipe[0], &ctx->rdset);
+#ifndef _WIN32
+  fdmax = ws->pipe[0] + 1;
 #endif
-    if (FD_ISSET (fd, &ctx->rdset))
-    {
-      *conn = ctx->set.conns[idx];
-
-      return (int) (idx - 1);
-    }
+#endif
+  ctx->index = 0;
+  ctx->set.n = 0;
+  for (unsigned i = 0; i < ws->set.n; i++)
+  {
+    if (ws->set.entries[i].disabled)
+      continue;
+    ctx->set.entries[ctx->set.n++] = ws->set.entries[i];
+    ddsi_conn_add_ref (ws->set.entries[i].conn);
+    const ddsrt_socket_t fd = ws->set.entries[i].fd;
+    FD_SET (fd, &ctx->rdset);
+#ifndef _WIN32
+    if (fd >= fdmax)
+      fdmax = fd + 1;
+#endif
   }
-  return -1;
+#if LWIP_SOCKET
+  /* Without a selectable descriptor, only the wake signal or a deadline
+     (including the next retry of a suspended TLS read) needs to wake us. */
+  if (ctx->set.n == 0)
+  {
+    while (!ws->trigger_pending)
+      if (!ddsrt_cond_mtime_waituntil (&ws->wake, &ws->lock, deadline))
+        break;
+    ws->trigger_pending = false;
+    ddsrt_mutex_unlock (&ws->lock);
+    return ctx;
+  }
+  if (ws->trigger_pending)
+  {
+    deadline.v = 0;
+    ws->trigger_pending = false;
+  }
+#endif
+  ddsrt_mutex_unlock (&ws->lock);
+  dds_return_t rc;
+#if LWIP_SOCKET
+  /* There is no selectable wake pipe. Keep the snapshot pinned across short
+     polls, checking the explicit wake and the caller's deadline between them. */
+  fd_set fds = ctx->rdset;
+  for (;;)
+  {
+    const dds_duration_t timeout = wait_duration (deadline);
+    ctx->rdset = fds;
+    rc = ddsrt_select (fdmax, &ctx->rdset, NULL, NULL, timeout < DDS_MSECS (25) ? timeout : DDS_MSECS (25));
+    if (rc != DDS_RETCODE_TIMEOUT || timeout <= DDS_MSECS (25))
+      break;
+    ddsrt_mutex_lock (&ws->lock);
+    const bool wake = ws->trigger_pending;
+    ws->trigger_pending = false;
+    ddsrt_mutex_unlock (&ws->lock);
+    if (wake)
+      break;
+  }
+#else
+  rc = ddsrt_select (fdmax, &ctx->rdset, NULL, NULL, wait_duration (deadline));
+#endif
+  if (rc <= 0)
+  {
+    if (rc != DDS_RETCODE_TIMEOUT && rc != DDS_RETCODE_INTERRUPTED && rc != DDS_RETCODE_TRY_AGAIN)
+      DDS_WARNING ("ddsi_sock_waitset_wait: select failed, retcode = %"PRId32"\n", rc);
+    FD_ZERO (&ctx->rdset);
+  }
+#if !LWIP_SOCKET
+  else if (FD_ISSET (ws->pipe[0], &ctx->rdset))
+    consume_trigger (ws);
+#endif
+  return ctx;
 }
 
-#if defined(LWIP_SOCKET)
+int ddsi_sock_waitset_next_event (struct ddsi_sock_waitset_ctx *ctx, struct ddsi_tran_conn **conn)
+{
+  for (;;)
+  {
+    ddsrt_mutex_lock (&ctx->ws->lock);
+    if (ctx->index == ctx->set.n)
+    {
+      ddsrt_mutex_unlock (&ctx->ws->lock);
+      return -1;
+    }
+    const unsigned idx = ctx->index++;
+    const struct select_entry entry = ctx->set.entries[idx];
+    ddsrt_mutex_unlock (&ctx->ws->lock);
+    if (!entry.disabled && FD_ISSET (entry.fd, &ctx->rdset))
+    {
+      *conn = entry.conn;
+      return (int) idx;
+    }
+    ddsi_conn_unref (entry.conn);
+  }
+}
+#if LWIP_SOCKET
 DDSRT_WARNING_GNUC_ON(sign-conversion)
 #endif
 
 #else
 #error "no mode selected"
 #endif
+
+#if MODE_SEL == MODE_KQUEUE || MODE_SEL == MODE_EPOLL || (MODE_SEL == MODE_SELECT && !LWIP_SOCKET)
+/* Only one wake byte may be outstanding. Holding the same lock across each
+   one-byte transfer and the state change also lets a trigger racing the read
+   write a fresh byte as soon as the previous wake has been consumed. */
+void ddsi_sock_waitset_trigger (struct ddsi_sock_waitset *ws)
+{
+  ddsrt_mutex_lock (&ws->lock);
+  if (!ws->trigger_pending)
+  {
+    const char byte = 0;
+    int n;
+#ifdef _WIN32
+    do { n = send (ws->pipe[1], &byte, 1, 0); } while (n < 0 && WSAGetLastError () == WSAEINTR);
+#else
+    do { n = (int) write (ws->pipe[1], &byte, 1); } while (n < 0 && errno == EINTR);
+#endif
+    if (n == 1)
+      ws->trigger_pending = true;
+    else
+      DDS_WARNING ("ddsi_sock_waitset_trigger: write failed on trigger pipe\n");
+  }
+  ddsrt_mutex_unlock (&ws->lock);
+}
+
+static void consume_trigger (struct ddsi_sock_waitset *ws)
+{
+  char byte;
+  int n;
+  ddsrt_mutex_lock (&ws->lock);
+  assert (ws->trigger_pending);
+#ifdef _WIN32
+  do { n = recv (ws->pipe[0], &byte, 1, 0); } while (n < 0 && WSAGetLastError () == WSAEINTR);
+#else
+  do { n = (int) read (ws->pipe[0], &byte, 1); } while (n < 0 && errno == EINTR);
+#endif
+  if (n != 1)
+    DDS_WARNING ("ddsi_sock_waitset_wait: read failed on trigger pipe\n");
+  ws->trigger_pending = false;
+  ddsrt_mutex_unlock (&ws->lock);
+}
+#elif MODE_SEL == MODE_SELECT
+void ddsi_sock_waitset_trigger (struct ddsi_sock_waitset *ws)
+{
+  ddsrt_mutex_lock (&ws->lock);
+  ws->trigger_pending = true;
+  ddsrt_cond_mtime_signal (&ws->wake);
+  ddsrt_mutex_unlock (&ws->lock);
+}
+#endif
+
+struct ddsi_sock_waitset_ctx *ddsi_sock_waitset_wait (struct ddsi_sock_waitset *ws)
+{
+  return ddsi_sock_waitset_wait_until (ws, DDSRT_MTIME_NEVER);
+}

@@ -57,7 +57,7 @@ struct ddsi_receiver_state {
   uint32_t rtps_encoded:1;                /* - */
   ddsi_vendorid_t vendor;                   /* 2 */
   ddsi_protocol_version_t protocol_version; /* 2 => 44/48 */
-  struct ddsi_tran_conn *conn;            /* Connection for request */
+  uint64_t conn_id;                       /* stream identity survives queued discovery processing */
   struct ddsi_network_packet_info pktinfo;
   struct ddsi_domaingv *gv;
 };

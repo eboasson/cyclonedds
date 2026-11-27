@@ -3028,7 +3028,7 @@ static int handle_submsg_sequence
      submessage (for now, only Data(Frag)). */
   rst = ddsi_rmsg_alloc (rmsg, sizeof (*rst));
   memset (rst, 0, sizeof (*rst));
-  rst->conn = conn;
+  rst->conn_id = conn ? conn->m_conn_id : 0;
   rst->src_guid_prefix = *src_prefix;
   if (dst_prefix)
   {
@@ -3378,8 +3378,8 @@ static bool do_packet (struct ddsi_thread_state * const thrst, struct ddsi_domai
     rc = read_packet_from_stream (gv, conn, rmsg, maxsz, &pktinfo, &sz);
   if (rc == DDS_RETCODE_TRY_AGAIN)
   {
-    rc = DDS_RETCODE_OK;
-    sz = 0;
+    ddsi_rmsg_commit (rmsg);
+    return true;
   }
   if (rc == DDS_RETCODE_OK && sz > 0 && !gv->deaf)
   {
@@ -3388,130 +3388,6 @@ static bool do_packet (struct ddsi_thread_state * const thrst, struct ddsi_domai
   }
   ddsi_rmsg_commit (rmsg);
   return (rc == DDS_RETCODE_OK && sz > 0);
-}
-
-struct local_participant_desc
-{
-  struct ddsi_tran_conn * m_conn;
-  ddsi_guid_prefix_t guid_prefix;
-};
-
-static int local_participant_cmp (const void *va, const void *vb)
-{
-  const struct local_participant_desc *a = va;
-  const struct local_participant_desc *b = vb;
-  ddsrt_socket_t h1 = ddsi_conn_handle (a->m_conn);
-  ddsrt_socket_t h2 = ddsi_conn_handle (b->m_conn);
-  return (h1 == h2) ? 0 : (h1 < h2) ? -1 : 1;
-}
-
-static size_t dedup_sorted_array (void *base, size_t nel, size_t width, int (*compar) (const void *, const void *))
-{
-  if (nel <= 1)
-    return nel;
-  else
-  {
-    char * const end = (char *) base + nel * width;
-    char *last_unique = base;
-    char *cursor = (char *) base + width;
-    size_t n_unique = 1;
-    while (cursor != end)
-    {
-      if (compar (cursor, last_unique) != 0)
-      {
-        n_unique++;
-        last_unique += width;
-        if (last_unique != cursor)
-          memcpy (last_unique, cursor, width);
-      }
-      cursor += width;
-    }
-    return n_unique;
-  }
-}
-
-struct local_participant_set {
-  struct local_participant_desc *ps;
-  uint32_t nps;
-  uint32_t gen;
-};
-
-static void local_participant_set_init (struct local_participant_set *lps, ddsrt_atomic_uint32_t *ppset_generation)
-{
-  lps->ps = NULL;
-  lps->nps = 0;
-  lps->gen = ddsrt_atomic_ld32 (ppset_generation) - 1;
-}
-
-static void local_participant_set_fini (struct local_participant_set *lps)
-{
-  ddsrt_free (lps->ps);
-}
-
-static void rebuild_local_participant_set (struct ddsi_thread_state * const thrst, struct ddsi_domaingv *gv, struct local_participant_set *lps)
-{
-  struct ddsi_entity_enum_participant est;
-  struct ddsi_participant *pp;
-  unsigned nps_alloc;
-  GVTRACE ("pp set gen changed: local %"PRIu32" global %"PRIu32"\n", lps->gen, ddsrt_atomic_ld32 (&gv->participant_set_generation));
-  ddsi_thread_state_awake_fixed_domain (thrst);
- restart:
-  lps->gen = ddsrt_atomic_ld32 (&gv->participant_set_generation);
-  /* Actual local set of participants may never be older than the
-     local generation count => membar to guarantee the ordering */
-  ddsrt_atomic_fence_acq ();
-  nps_alloc = gv->nparticipants;
-  ddsrt_free (lps->ps);
-  lps->nps = 0;
-  lps->ps = (nps_alloc == 0) ? NULL : ddsrt_malloc (nps_alloc * sizeof (*lps->ps));
-  ddsi_entidx_enum_participant_init (&est, gv->entity_index);
-  while ((pp = ddsi_entidx_enum_participant_next (&est)) != NULL)
-  {
-    if (lps->nps == nps_alloc)
-    {
-      /* New participants may get added while we do this (or
-         existing ones removed), so we may have to restart if it
-         turns out we didn't allocate enough memory [an
-         alternative would be to realloc on the fly]. */
-      ddsi_entidx_enum_participant_fini (&est);
-      GVTRACE ("  need more memory - restarting\n");
-      goto restart;
-    }
-    else
-    {
-      lps->ps[lps->nps].m_conn = pp->m_conn;
-      lps->ps[lps->nps].guid_prefix = pp->e.guid.prefix;
-      GVTRACE ("  pp "PGUIDFMT" handle %"PRIdSOCK"\n", PGUID (pp->e.guid), ddsi_conn_handle (pp->m_conn));
-      lps->nps++;
-    }
-  }
-  ddsi_entidx_enum_participant_fini (&est);
-
-  /* There is a (very small) probability of a participant
-     disappearing and new one appearing with the same socket while
-     we are enumerating, which would cause us to misinterpret the
-     participant guid prefix for a directed packet without an
-     explicit destination. Membar because we must have completed
-     the loop before testing the generation again. */
-  ddsrt_atomic_fence_acq ();
-  if (lps->gen != ddsrt_atomic_ld32 (&gv->participant_set_generation))
-  {
-    GVTRACE ("  set changed - restarting\n");
-    goto restart;
-  }
-  ddsi_thread_state_asleep (thrst);
-
-  /* The definition of the hash enumeration allows visiting one
-     participant multiple times, so guard against that, too.  Note
-     that there's no requirement that the set be ordered on
-     socket: it is merely a convenient way of finding
-     duplicates. */
-  if (lps->nps)
-  {
-    qsort (lps->ps, lps->nps, sizeof (*lps->ps), local_participant_cmp);
-    lps->nps = (unsigned) dedup_sorted_array (lps->ps, lps->nps, sizeof (*lps->ps), local_participant_cmp);
-  }
-  GVTRACE ("  nparticipants %"PRIu32"\n", lps->nps);
 }
 
 uint32_t ddsi_listen_thread (void *vlistener)
@@ -3527,11 +3403,29 @@ uint32_t ddsi_listen_thread (void *vlistener)
     conn = ddsi_listener_accept (listener);
     if (conn)
     {
-      ddsi_sock_waitset_add (gv->recv_threads[0].arg.u.many.ws, conn);
-      ddsi_sock_waitset_trigger (gv->recv_threads[0].arg.u.many.ws);
+      if (ddsi_sock_waitset_add (gv->recv_threads[0].arg.u.many.ws, conn) < 0)
+        ddsi_conn_free (conn);
+      else
+        ddsi_sock_waitset_trigger (gv->recv_threads[0].arg.u.many.ws);
     }
   }
   return 0;
+}
+
+/* Both the waitset and the buffered TLS path hand dispatch an owned reference. */
+static void dispatch_conn (struct ddsi_thread_state *thrst, struct ddsi_domaingv *gv, struct ddsi_tran_conn *conn, struct ddsi_rbufpool *rbpool)
+{
+  const ddsi_guid_prefix_t *guid_prefix = ddsi_guid_prefix_zero (&conn->m_dst_prefix) ? NULL : &conn->m_dst_prefix;
+  do
+  {
+    if (!do_packet (thrst, gv, conn, guid_prefix, rbpool))
+    {
+      if (!conn->m_connless)
+        ddsi_conn_free (conn); /* drop the stream receiver's reference */
+      break;
+    }
+  } while (conn->m_read_pending_fn && ddsrt_atomic_ld32 (&gv->rtps_keepgoing) && conn->m_read_pending_fn (conn));
+  ddsi_conn_unref (conn);
 }
 
 static int recv_thread_waitset_add_conn (struct ddsi_sock_waitset * ws, struct ddsi_tran_conn * conn)
@@ -3546,6 +3440,29 @@ static int recv_thread_waitset_add_conn (struct ddsi_sock_waitset * ws, struct d
         return 0;
     return ddsi_sock_waitset_add (ws, conn);
   }
+}
+
+bool ddsi_register_recv_conns (struct ddsi_domaingv *gv, struct ddsi_sock_waitset *ws)
+{
+  if (!gv->m_factory->m_connless)
+    return true;
+  for (int i = 0; i < gv->n_interfaces; i++)
+  {
+    if (recv_thread_waitset_add_conn (ws, gv->disc_conn_uc[i]) < 0 ||
+        recv_thread_waitset_add_conn (ws, gv->data_conn_uc[i]) < 0)
+      return false;
+  }
+  if (recv_thread_waitset_add_conn (ws, gv->disc_conn_mc) < 0 ||
+      recv_thread_waitset_add_conn (ws, gv->data_conn_mc) < 0)
+    return false;
+  /* Also receive replies sent directly to the source port by OpenDDS. */
+  for (int i = 0; i < gv->n_interfaces; i++)
+  {
+    struct ddsi_tran_conn *conn = gv->xmit_conns_data[i];
+    if (ddsi_conn_handle (conn) != DDSRT_INVALID_SOCKET && recv_thread_waitset_add_conn (ws, conn) < 0)
+      return false;
+  }
+  return true;
 }
 
 void ddsi_trigger_recv_threads (const struct ddsi_domaingv *gv)
@@ -3596,94 +3513,17 @@ uint32_t ddsi_recv_thread (void *vrecv_thread_arg)
   }
   else
   {
-    struct local_participant_set lps;
-    unsigned num_fixed = 0, num_fixed_uc = 0;
-    struct ddsi_sock_waitset_ctx * ctx;
-    local_participant_set_init (&lps, &gv->participant_set_generation);
-    if (gv->m_factory->m_connless)
-    {
-      int rc;
-      for (int i = 0; i < gv->n_interfaces; i++)
-      {
-        if (gv->disc_conn_uc[i])
-        {
-          if ((rc = recv_thread_waitset_add_conn (waitset, gv->disc_conn_uc[i])) < 0)
-            DDS_FATAL("recv_thread: failed to add disc_conn_uc[%d] to waitset\n", i);
-          num_fixed_uc += (unsigned)rc;
-        }
-        if (gv->data_conn_uc[i])
-        {
-          if ((rc = recv_thread_waitset_add_conn (waitset, gv->data_conn_uc[i])) < 0)
-            DDS_FATAL("recv_thread: failed to add data_conn_uc[%d] to waitset\n", i);
-          num_fixed_uc += (unsigned)rc;
-        }
-      }
-      num_fixed += num_fixed_uc;
-      if ((rc = recv_thread_waitset_add_conn (waitset, gv->disc_conn_mc)) < 0)
-        DDS_FATAL("recv_thread: failed to add disc_conn_mc to waitset\n");
-      num_fixed += (unsigned)rc;
-      if ((rc = recv_thread_waitset_add_conn (waitset, gv->data_conn_mc)) < 0)
-        DDS_FATAL("recv_thread: failed to add data_conn_mc to waitset\n");
-      num_fixed += (unsigned)rc;
-
-      // OpenDDS doesn't respect the locator lists and insists on sending to the
-      // socket it received packets from
-      for (int i = 0; i < gv->n_interfaces; i++)
-      {
-        // Iceoryx gets added as a pseudo-interface but there's no socket to wait
-        // for input on
-        if (ddsi_conn_handle (gv->xmit_conns_data[i]) == DDSRT_INVALID_SOCKET)
-          continue;
-        if ((rc = recv_thread_waitset_add_conn (waitset, gv->xmit_conns_data[i])) < 0)
-          DDS_FATAL("recv_thread: failed to add transmit_conn[%d] to waitset\n", i);
-        num_fixed += (unsigned)rc;
-      }
-    }
-
     while (ddsrt_atomic_ld32 (&gv->rtps_keepgoing))
     {
-      int rebuildws = 0;
       LOG_THREAD_CPUTIME (&gv->logconfig, next_thread_cputime);
-      if (gv->config.many_sockets_mode != DDSI_MSM_MANY_UNICAST)
+      struct ddsi_sock_waitset_ctx *ctx = ddsi_sock_waitset_wait (waitset);
+      if (ctx != NULL)
       {
-        /* no other sockets to check */
-      }
-      else if (ddsrt_atomic_ld32 (&gv->participant_set_generation) != lps.gen)
-      {
-        rebuildws = 1;
-      }
-
-      if (rebuildws && waitset && gv->config.many_sockets_mode == DDSI_MSM_MANY_UNICAST)
-      {
-        /* first rebuild local participant set - unless someone's toggling "deafness", this
-         only happens when the participant set has changed, so might as well rebuild it */
-        rebuild_local_participant_set (thrst, gv, &lps);
-        ddsi_sock_waitset_purge (waitset, num_fixed);
-        for (uint32_t i = 0; i < lps.nps; i++)
-        {
-          if (lps.ps[i].m_conn)
-            ddsi_sock_waitset_add (waitset, lps.ps[i].m_conn);
-        }
-      }
-
-      if ((ctx = ddsi_sock_waitset_wait (waitset)) != NULL)
-      {
-        int idx;
-        struct ddsi_tran_conn * conn;
-        while ((idx = ddsi_sock_waitset_next_event (ctx, &conn)) >= 0)
-        {
-          const ddsi_guid_prefix_t *guid_prefix;
-          if (((unsigned)idx < num_fixed) || gv->config.many_sockets_mode != DDSI_MSM_MANY_UNICAST)
-            guid_prefix = NULL;
-          else
-            guid_prefix = &lps.ps[(unsigned)idx - num_fixed].guid_prefix;
-          /* Process message and clean out connection if failed or closed */
-          if (!do_packet (thrst, gv, conn, guid_prefix, rbpool) && !conn->m_connless)
-            ddsi_conn_free (conn);
-        }
+        struct ddsi_tran_conn *conn;
+        while (ddsi_sock_waitset_next_event (ctx, &conn) >= 0)
+          dispatch_conn (thrst, gv, conn, rbpool);
       }
     }
-    local_participant_set_fini (&lps);
   }
 
   GVTRACE ("done\n");

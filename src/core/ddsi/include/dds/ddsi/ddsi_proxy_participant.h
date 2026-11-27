@@ -48,6 +48,7 @@ struct ddsi_proxy_participant
   ddsrt_avl_tree_t topics;
 #endif
   ddsi_seqno_t seq; /* sequence number of most recent SPDP message */
+  struct ddsi_spdp_connection *spdp_conns; /* streams carrying SPDP for this participant */
   uint32_t receive_buffer_size; /* assumed size of receive buffer, used to limit bursts involving this proxypp */
   unsigned lease_expired: 1;
   unsigned deleting: 1;

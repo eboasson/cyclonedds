@@ -36,11 +36,33 @@
 #include "ddsi__addrset.h"
 #include "ddsi__spdp_schedule.h"
 
-typedef struct proxy_purge_data {
-  struct ddsi_proxy_participant *proxypp;
-  const ddsi_xlocator_t *loc;
-  ddsrt_wctime_t timestamp;
-} *proxy_purge_data_t;
+/* SPDP and stream close notifications run on the built-in delivery queue.
+   The GC thread may remove a participant's memberships at any time. */
+struct ddsi_spdp_connection {
+  ddsrt_avl_node_t node;
+  uint64_t id;
+  struct ddsi_proxy_participant *pp;
+  struct ddsi_spdp_connection **prev;
+  struct ddsi_spdp_connection *next;
+};
+
+static int compare_connection_id (const void *va, const void *vb)
+{
+  const uint64_t a = *(const uint64_t *) va, b = *(const uint64_t *) vb;
+  return (a > b) - (a < b);
+}
+
+const ddsrt_avl_treedef_t ddsi_spdp_connections_treedef =
+  DDSRT_AVL_TREEDEF_INITIALIZER_ALLOWDUPS (offsetof (struct ddsi_spdp_connection, node), offsetof (struct ddsi_spdp_connection, id), compare_connection_id, 0);
+
+static void remove_connection_locked (struct ddsi_domaingv *gv, struct ddsi_spdp_connection *conn)
+{
+  ddsrt_avl_delete (&ddsi_spdp_connections_treedef, &gv->spdp_connections, conn);
+  *conn->prev = conn->next;
+  if (conn->next)
+    conn->next->prev = conn->prev;
+  ddsrt_free (conn);
+}
 
 #ifdef DDS_HAS_TOPIC_DISCOVERY
 const ddsrt_avl_treedef_t ddsi_proxypp_proxytp_treedef =
@@ -303,6 +325,10 @@ static void free_proxy_participant (struct ddsi_proxy_participant *proxypp)
   ddsi_disconnect_proxy_participant_secure(proxypp);
   ddsi_omg_security_deregister_remote_participant (proxypp);
 #endif
+  ddsrt_mutex_lock (&proxypp->e.gv->participant_set_lock);
+  while (proxypp->spdp_conns)
+    remove_connection_locked (proxypp->e.gv, proxypp->spdp_conns);
+  ddsrt_mutex_unlock (&proxypp->e.gv->participant_set_lock);
   ddsi_unref_addrset (proxypp->as_default);
   ddsi_unref_addrset (proxypp->as_meta);
   ddsi_plist_fini (proxypp->plist);
@@ -337,6 +363,7 @@ bool ddsi_new_proxy_participant (struct ddsi_proxy_participant **proxy_participa
   proxypp->vendor = vendor;
   proxypp->bes = bes;
   proxypp->seq = seq;
+  proxypp->spdp_conns = NULL;
   if (plist->present & PP_CYCLONE_RECEIVE_BUFFER_SIZE)
     proxypp->receive_buffer_size = plist->cyclone_receive_buffer_size;
   else /* default to what we use */
@@ -586,29 +613,67 @@ static void delete_proxy_participant (struct ddsi_proxy_participant *proxypp, dd
   gcreq_proxy_participant (proxypp);
 }
 
-static void purge_helper (const ddsi_xlocator_t *n, void * varg)
+static bool has_connection_locked (const struct ddsi_proxy_participant *pp, uint64_t id)
 {
-  proxy_purge_data_t data = (proxy_purge_data_t) varg;
-  if (ddsi_compare_xlocators (n, data->loc) == 0)
-    ddsi_delete_proxy_participant_by_guid (data->proxypp->e.gv, &data->proxypp->e.guid, data->timestamp, true);
+  for (const struct ddsi_spdp_connection *c = pp->spdp_conns; c; c = c->next)
+    if (c->id == id)
+      return true;
+  return false;
 }
 
-void ddsi_purge_proxy_participants (struct ddsi_domaingv *gv, const ddsi_xlocator_t *loc)
+bool ddsi_proxy_participant_has_connection (const struct ddsi_proxy_participant *pp, uint64_t id)
 {
-  /* FIXME: check whether addr:port can't be reused for a new connection by the time we get here. */
-  /* NOTE: This function exists for the sole purpose of cleaning up after closing a TCP connection in ddsi_tcp_close_conn and the state of the calling thread could be anything at this point. Because of that we do the unspeakable and toggle the thread state conditionally. We can't afford to have it in "asleep", as that causes a race with the garbage collector. */
-  struct ddsi_thread_state * const thrst = ddsi_lookup_thread_state ();
-  struct ddsi_entity_enum_proxy_participant est;
-  struct proxy_purge_data data;
+  ddsrt_mutex_lock (&pp->e.gv->participant_set_lock);
+  const bool found = has_connection_locked (pp, id);
+  ddsrt_mutex_unlock (&pp->e.gv->participant_set_lock);
+  return found;
+}
 
-  ddsi_thread_state_awake (thrst, gv);
-  data.loc = loc;
-  data.timestamp = ddsrt_time_wallclock();
-  ddsi_entidx_enum_proxy_participant_init (&est, gv->entity_index);
-  while ((data.proxypp = ddsi_entidx_enum_proxy_participant_next (&est)) != NULL)
-    ddsi_addrset_forall (data.proxypp->as_meta, purge_helper, &data);
-  ddsi_entidx_enum_proxy_participant_fini (&est);
-  ddsi_thread_state_asleep (thrst);
+bool ddsi_proxy_participant_note_connection (struct ddsi_proxy_participant *proxypp, uint64_t conn_id)
+{
+  assert (conn_id != 0);
+  struct ddsi_domaingv *gv = proxypp->e.gv;
+  ddsrt_mutex_lock (&gv->participant_set_lock);
+  if (has_connection_locked (proxypp, conn_id))
+  {
+    ddsrt_mutex_unlock (&gv->participant_set_lock);
+    return false;
+  }
+  struct ddsi_spdp_connection *conn = ddsrt_malloc (sizeof (*conn));
+  conn->id = conn_id;
+  conn->pp = proxypp;
+  conn->prev = &proxypp->spdp_conns;
+  conn->next = proxypp->spdp_conns;
+  if (conn->next)
+    conn->next->prev = &conn->next;
+  proxypp->spdp_conns = conn;
+  ddsrt_avl_insert (&ddsi_spdp_connections_treedef, &gv->spdp_connections, conn);
+  ddsrt_mutex_unlock (&gv->participant_set_lock);
+  return true;
+}
+
+void ddsi_purge_proxy_participants (struct ddsi_domaingv *gv, uint64_t conn_id)
+{
+  assert (conn_id != 0);
+  const ddsrt_wctime_t timestamp = ddsrt_time_wallclock ();
+  struct ddsi_spdp_connection *conn;
+  ddsrt_mutex_lock (&gv->participant_set_lock);
+  while ((conn = ddsrt_avl_lookup (&ddsi_spdp_connections_treedef, &gv->spdp_connections, &conn_id)) != NULL)
+  {
+    struct ddsi_proxy_participant *pp = conn->pp;
+    remove_connection_locked (gv, conn);
+    if (pp->spdp_conns == NULL)
+    {
+      const ddsi_guid_t guid = pp->e.guid;
+      /* GC may already be retiring this incarnation of the participant. */
+      const bool current = ddsi_entidx_lookup_proxy_participant_guid (gv->entity_index, &guid) == pp;
+      ddsrt_mutex_unlock (&gv->participant_set_lock);
+      if (current)
+        ddsi_delete_proxy_participant_by_guid (gv, &guid, timestamp, true);
+      ddsrt_mutex_lock (&gv->participant_set_lock);
+    }
+  }
+  ddsrt_mutex_unlock (&gv->participant_set_lock);
 }
 
 int ddsi_delete_proxy_participant_by_guid (struct ddsi_domaingv *gv, const struct ddsi_guid *guid, ddsrt_wctime_t timestamp, bool lease_expired)

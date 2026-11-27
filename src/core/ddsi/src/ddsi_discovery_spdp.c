@@ -451,6 +451,8 @@ static enum participant_guid_is_known_result participant_guid_is_known (const st
     if ((lease = ddsrt_atomic_ldvoidp (&proxypp->minl_auto)) != NULL)
       ddsi_lease_renew (lease, ddsrt_time_elapsed ());
     ddsrt_mutex_lock (&proxypp->e.lock);
+    if (rst->conn_id)
+      ddsi_proxy_participant_note_connection (proxypp, rst->conn_id);
     if (seq > proxypp->seq)
     {
       interesting = 1;
@@ -643,6 +645,8 @@ static enum handle_spdp_result handle_spdp_alive (const struct ddsi_receiver_sta
   }
   else
   {
+    if (rst->conn_id)
+      ddsi_proxy_participant_note_connection (proxy_participant, rst->conn_id);
     /* Force transmission of SPDP messages - we're not very careful
        in avoiding the processing of SPDP packets addressed to others
        so filter here */

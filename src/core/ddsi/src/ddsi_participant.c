@@ -25,7 +25,7 @@
 #include "ddsi__discovery_spdp.h"
 #include "ddsi__xevent.h"
 #include "ddsi__lease.h"
-#include "ddsi__receive.h"
+#include "ddsi__sockwaitset.h"
 #include "ddsi__addrset.h"
 #include "ddsi__endpoint.h"
 #include "ddsi__endpoint_match.h"
@@ -694,16 +694,7 @@ void ddsi_unref_participant (struct ddsi_participant *pp, const struct ddsi_guid
     if (--gv->nparticipants == 0)
       ddsrt_cond_broadcast (&gv->participant_set_cond);
     ddsrt_mutex_unlock (&gv->participant_set_lock);
-    if (gv->config.many_sockets_mode == DDSI_MSM_MANY_UNICAST)
-    {
-      ddsrt_atomic_fence_rel ();
-      ddsrt_atomic_inc32 (&gv->participant_set_generation);
-
-      /* Deleting the socket will usually suffice to wake up the
-         receiver threads, but in general, no one cares if it takes a
-         while longer for it to wakeup. */
-      ddsi_conn_free (pp->m_conn);
-    }
+    ddsi_conn_free (pp->m_conn);
 #ifdef DDS_HAS_SECURITY
     ddsi_omg_security_deregister_participant (pp);
 #endif
@@ -896,6 +887,19 @@ dds_return_t ddsi_new_participant (ddsi_guid_t *ppguid, struct ddsi_domaingv *gv
   if (gv->config.many_sockets_mode == DDSI_MSM_MANY_UNICAST)
   {
     assert (pp->m_conn);
+    ppconn->m_dst_prefix = pp->e.guid.prefix;
+    struct ddsi_sock_waitset *ws = gv->recv_threads[0].arg.u.many.ws;
+    if (ddsi_sock_waitset_add (ws, ppconn) < 0)
+    {
+      GVERROR ("ddsi_new_participant("PGUIDFMT") failed to register receive socket\n", PGUID (*ppguid));
+#ifdef DDS_HAS_SECURITY
+      if (pp->sec_attr)
+        ddsi_omg_security_deregister_participant (pp);
+#endif
+      ret = DDS_RETCODE_OUT_OF_RESOURCES;
+      goto not_allowed;
+    }
+    ddsi_sock_waitset_trigger (ws);
     ddsi_conn_locator (pp->m_conn, &pp->m_locator);
   }
 
@@ -933,16 +937,6 @@ dds_return_t ddsi_new_participant (ddsi_guid_t *ppguid, struct ddsi_domaingv *gv
   ddsrt_mutex_lock (&pp->refc_lock);
   pp->state = DDSI_PARTICIPANT_STATE_OPERATIONAL;
   ddsrt_mutex_unlock (&pp->refc_lock);
-
-  /* Signal receive threads if necessary. Must do this after adding it
-     to the entity index, or the receive thread won't find the new
-     participant */
-  if (gv->config.many_sockets_mode == DDSI_MSM_MANY_UNICAST)
-  {
-    ddsrt_atomic_fence ();
-    ddsrt_atomic_inc32 (&gv->participant_set_generation);
-    ddsi_trigger_recv_threads (gv);
-  }
 
   ddsi_builtintopic_write_endpoint (gv->builtin_topic_interface, &pp->e, ddsrt_time_wallclock(), true);
 

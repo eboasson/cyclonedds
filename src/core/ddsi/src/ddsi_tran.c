@@ -130,10 +130,10 @@ void ddsi_conn_free (struct ddsi_tran_conn * conn)
 {
   if (conn)
   {
-    if (! conn->m_closed)
+    if (ddsrt_atomic_cas32 (&conn->m_closed, 0, 1))
     {
-      conn->m_closed = true;
-      /* FIXME: rethink the socket waitset & the deleting of entries; the biggest issue is TCP handling that can open & close sockets at will and yet expects the waitset to wake up at the apprioriate times.  (This pretty much works with the select-based version, but not the kqueue-based one.)  TCP code can also have connections without a socket ...  Calling sockWaitsetRemove here (where there shouldn't be any knowledge of it) at least ensures that it is removed in time and that there can't be aliasing of connections and sockets.   */
+      /* Remove interest before releasing the owner's reference. Any event
+         already selected for dispatch holds its own reference. */
       if (ddsi_conn_handle (conn) != DDSRT_INVALID_SOCKET)
       {
         for (uint32_t i = 0; i < conn->m_base.gv->n_recv_threads; i++)
@@ -160,11 +160,14 @@ void ddsi_conn_free (struct ddsi_tran_conn * conn)
         (conn->m_factory->m_close_conn_fn) (conn);
       }
     }
-    if (ddsrt_atomic_dec32_ov (&conn->m_count) == 1)
-    {
-      (conn->m_factory->m_release_conn_fn) (conn);
-    }
+    ddsi_conn_unref (conn);
   }
+}
+
+void ddsi_conn_unref (struct ddsi_tran_conn *conn)
+{
+  if (ddsrt_atomic_dec32_ov (&conn->m_count) == 1)
+    conn->m_factory->m_release_conn_fn (conn);
 }
 
 void ddsi_conn_add_ref (struct ddsi_tran_conn * conn)
@@ -175,6 +178,11 @@ void ddsi_conn_add_ref (struct ddsi_tran_conn * conn)
 void ddsi_factory_conn_init (const struct ddsi_tran_factory *factory, const struct ddsi_network_interface *interf, struct ddsi_tran_conn * conn)
 {
   ddsrt_atomic_st32 (&conn->m_count, 1);
+  conn->m_read_pending_fn = NULL;
+  ddsrt_atomic_st32 (&conn->m_closed, 0);
+  conn->m_waitset_slot = 0;
+  conn->m_dst_prefix = (ddsi_guid_prefix_t) { .u = { 0 } };
+  conn->m_conn_id = 0;
   conn->m_connless = factory->m_connless;
   conn->m_stream = factory->m_stream;
   conn->m_factory = (struct ddsi_tran_factory *) factory;

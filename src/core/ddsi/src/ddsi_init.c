@@ -1015,6 +1015,11 @@ static int setup_and_start_recv_threads (struct ddsi_domaingv *gv)
         GVERROR ("rtps_init: can't allocate sock waitset for thread %s\n", gv->recv_threads[i].name);
         return -1;
       }
+      if (!ddsi_register_recv_conns (gv, gv->recv_threads[i].arg.u.many.ws))
+      {
+        GVERROR ("rtps_init: can't register domain sockets for thread %s\n", gv->recv_threads[i].name);
+        return -1;
+      }
     }
     if (ddsi_create_thread (&gv->recv_threads[i].thrst, gv, gv->recv_threads[i].name, ddsi_recv_thread, &gv->recv_threads[i].arg) != DDS_RETCODE_OK)
     {
@@ -1487,6 +1492,7 @@ int ddsi_init (struct ddsi_domaingv *gv, struct ddsi_psmx_instance_locators *psm
   make_special_types (gv);
 
   ddsrt_mutex_init (&gv->participant_set_lock);
+  ddsrt_avl_init (&ddsi_spdp_connections_treedef, &gv->spdp_connections);
   ddsrt_cond_init (&gv->participant_set_cond);
   ddsi_lease_management_init (gv);
   gv->deleted_participants = ddsi_deleted_participants_admin_new (&gv->logconfig, gv->config.prune_deleted_ppant.delay);
@@ -1915,9 +1921,8 @@ void ddsi_stop (struct ddsi_domaingv *gv)
 
   /* Stop all I/O */
   ddsi_term_prep (gv);
-  if (gv->config.transport_selector != DDSI_TRANS_NONE)
-    wait_for_receive_threads (gv);
-
+  /* An accept finishing during shutdown can still register a socket or clean
+     up a failed registration using the receive threads' waitsets. */
   if (gv->listen_ts)
   {
     ddsi_listener_unblock (gv->listener);
@@ -1926,6 +1931,8 @@ void ddsi_stop (struct ddsi_domaingv *gv)
   }
   ddsi_listener_free (gv->listener);
   gv->listener = NULL;
+  if (gv->config.transport_selector != DDSI_TRANS_NONE)
+    wait_for_receive_threads (gv);
 
   ddsi_xeventq_stop (gv->xevents);
 
@@ -2104,6 +2111,7 @@ void ddsi_fini (struct ddsi_domaingv *gv)
   ddsi_tkmap_free (gv->m_tkmap);
   ddsi_entity_index_free (gv->entity_index);
   gv->entity_index = NULL;
+  assert (ddsrt_avl_is_empty (&gv->spdp_connections));
   ddsi_deleted_participants_admin_free (gv->deleted_participants);
   ddsi_lease_management_term (gv);
   ddsrt_mutex_destroy (&gv->participant_set_lock);

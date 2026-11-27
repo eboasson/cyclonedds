@@ -31,11 +31,19 @@ struct ddsi_addrset;
 struct ddsi_proxy_endpoint_common;
 struct ddsi_proxy_writer;
 
+extern const ddsrt_avl_treedef_t ddsi_spdp_connections_treedef;
+
 /** @component ddsi_proxy_participant */
 int ddsi_update_proxy_participant_plist_locked (struct ddsi_proxy_participant *proxypp, ddsi_seqno_t seq, const struct ddsi_plist *datap, ddsrt_wctime_t timestamp);
 
 /** @component ddsi_proxy_participant */
-void ddsi_purge_proxy_participants (struct ddsi_domaingv *gv, const ddsi_xlocator_t *loc);
+bool ddsi_proxy_participant_note_connection (struct ddsi_proxy_participant *proxypp, uint64_t conn_id);
+
+/** @component ddsi_proxy_participant */
+bool ddsi_proxy_participant_has_connection (const struct ddsi_proxy_participant *pp, uint64_t id);
+
+/** @component ddsi_proxy_participant */
+void ddsi_purge_proxy_participants (struct ddsi_domaingv *gv, uint64_t conn_id);
 
 /** @component ddsi_proxy_participant */
 dds_return_t ddsi_ref_proxy_participant_begin (struct ddsi_proxy_participant *proxypp, struct ddsi_proxy_endpoint_common *c)

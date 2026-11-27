@@ -21,6 +21,7 @@ struct ddsi_rdata;
 struct ddsi_rmsg;
 struct ddsi_tran_listener;
 struct ddsi_recv_thread_arg;
+struct ddsi_sock_waitset;
 struct ddsi_writer;
 struct ddsi_proxy_reader;
 struct ddsi_network_packet_info;
@@ -40,6 +41,10 @@ void ddsi_gap_info_update(struct ddsi_domaingv *gv, struct ddsi_gap_info *gi, dd
 
 /** @component incoming_rtps */
 struct ddsi_xmsg * ddsi_gap_info_create_gap(struct ddsi_writer *wr, struct ddsi_proxy_reader *prd, struct ddsi_gap_info *gi);
+
+/** @brief Register fixed domain sockets before starting the receiver.
+ * @component incoming_rtps */
+bool ddsi_register_recv_conns (struct ddsi_domaingv *gv, struct ddsi_sock_waitset *ws);
 
 /** @component incoming_rtps */
 void ddsi_trigger_recv_threads (const struct ddsi_domaingv *gv);

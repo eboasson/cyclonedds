@@ -17,6 +17,7 @@
 #include "dds/ddsrt/atomics.h"
 #include "dds/ddsrt/static_assert.h"
 #include "dds/ddsrt/countargs.h"
+#include "dds/ddsi/ddsi_guid.h"
 #include "dds/ddsi/ddsi_locator.h"
 #include "dds/ddsi/ddsi_config.h"
 #include "dds/ddsi/ddsi_tran.h"
@@ -200,6 +201,7 @@ struct ddsi_tran_conn
   /* Functions */
 
   ddsi_tran_read_fn_t m_read_fn;
+  bool (*m_read_pending_fn) (struct ddsi_tran_conn *conn);
   ddsi_tran_write_fn_t m_write_fn;
   ddsi_tran_peer_locator_fn_t m_peer_locator_fn;
   ddsi_tran_disable_multiplexing_fn_t m_disable_multiplexing_fn;
@@ -210,15 +212,16 @@ struct ddsi_tran_conn
   bool m_server;
   bool m_connless;
   bool m_stream;
-  bool m_closed;
+  uint32_t m_waitset_slot; /* registration in the domain receiver, protected by its waitset lock */
+  ddsi_guid_prefix_t m_dst_prefix; /* many-unicast participant, zero on shared sockets */
+  ddsrt_atomic_uint32_t m_closed;
+  uint64_t m_conn_id; /* stable identity of an established stream, zero for other transports */
   ddsrt_atomic_uint32_t m_count;
 
   /* Relationships */
 
   const struct ddsi_network_interface *m_interf;
   struct ddsi_tran_factory * m_factory;
-  struct ddsi_tran_listener * m_listener;
-  struct ddsi_tran_conn * m_conn;
 };
 
 struct ddsi_tran_listener
@@ -231,7 +234,6 @@ struct ddsi_tran_listener
   ddsi_tran_locator_fn_t m_locator_fn;
 
   /* Relationships */
-  struct ddsi_tran_conn * m_connections;
   struct ddsi_tran_factory * m_factory;
   struct ddsi_tran_listener * m_listener;
 };
@@ -440,7 +442,7 @@ inline int ddsi_conn_locator (struct ddsi_tran_conn * conn, ddsi_locator_t * loc
  * @retval other error codes possible as well (from ddsrt) */
 ddsrt_nonnull ((1, 2, 3))
 inline dds_return_t ddsi_conn_write (struct ddsi_tran_conn * conn, const ddsi_locator_t *dst, const ddsi_tran_write_msgfrags_t *msgfrags, uint32_t flags, size_t *bytes_written) {
-  return conn->m_closed ? DDS_RETCODE_ALREADY_DELETED : (conn->m_write_fn) (conn, dst, msgfrags, flags, bytes_written);
+  return ddsrt_atomic_ld32 (&conn->m_closed) ? DDS_RETCODE_ALREADY_DELETED : (conn->m_write_fn) (conn, dst, msgfrags, flags, bytes_written);
 }
 
 /** @brief Read bytes from an connection that may have SSL enabled
@@ -458,7 +460,12 @@ inline dds_return_t ddsi_conn_write (struct ddsi_tran_conn * conn, const ddsi_lo
  * @retval other error codes possible as well (from ddsrt) */
 ddsrt_nonnull ((1, 2, 6)) ddsrt_attribute_warn_unused_result
 inline dds_return_t ddsi_conn_read (struct ddsi_tran_conn * conn, unsigned char * buf, size_t sz, bool allow_spurious, struct ddsi_network_packet_info *pktinfo, size_t *bytes_read) {
-  return conn->m_closed ? DDS_RETCODE_ALREADY_DELETED : conn->m_read_fn (conn, buf, sz, allow_spurious, pktinfo, bytes_read);
+  if (ddsrt_atomic_ld32 (&conn->m_closed))
+  {
+    *bytes_read = 0;
+    return DDS_RETCODE_ALREADY_DELETED;
+  }
+  return conn->m_read_fn (conn, buf, sz, allow_spurious, pktinfo, bytes_read);
 }
 
 /** @component transport */
@@ -472,6 +479,10 @@ void ddsi_conn_add_ref (struct ddsi_tran_conn * conn);
 
 /** @component transport */
 void ddsi_conn_free (struct ddsi_tran_conn * conn);
+
+/** @brief Drop a reference without closing the connection.
+ * @component transport */
+void ddsi_conn_unref (struct ddsi_tran_conn *conn);
 
 /** @component transport */
 int ddsi_conn_join_mc (struct ddsi_tran_conn * conn, const ddsi_locator_t *srcip, const ddsi_locator_t *mcip, const struct ddsi_network_interface *interf);

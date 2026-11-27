@@ -13,10 +13,13 @@
 
 #include "dds/ddsrt/io.h"
 #include "dds/ddsi/ddsi_entity_index.h"
+#include "dds/ddsi/ddsi_iid.h"
 #include "dds/ddsi/ddsi_proxy_participant.h"
 #include "dds/ddsi/ddsi_thread.h"
 #include "dds__guid.h"
 #include "ddsi__addrset.h"
+#include "ddsi__proxy_participant.h"
+#include "ddsi__radmin.h"
 #include "ddsi__tran.h"
 #include "test_common.h"
 #include "tcp_test.h"
@@ -243,4 +246,82 @@ CU_Test (ddsc_tcp, inject_oversize_length)
     }
   };
   do_tcp (do_inject, &arg);
+}
+
+static bool tcp_test_wait_for_proxy (struct ddsi_domaingv *gv, const ddsi_guid_t *guid, bool present)
+{
+  struct ddsi_thread_state * const thrst = ddsi_lookup_thread_state ();
+  const dds_time_t deadline = dds_time () + DDS_SECS (5);
+  do {
+    ddsi_thread_state_awake (thrst, gv);
+    const bool found = ddsi_entidx_lookup_proxy_participant_guid (gv->entity_index, guid) != NULL;
+    ddsi_thread_state_asleep (thrst);
+    if (found == present)
+      return true;
+    dds_sleepfor (DDS_MSECS (10));
+  } while (dds_time () < deadline);
+  return false;
+}
+
+struct extra_stream_arg {
+  struct ddsi_domaingv *gv;
+  ddsi_guid_t guid;
+  ddsrt_atomic_uint32_t result;
+};
+
+static void check_extra_stream (void *arg)
+{
+  struct extra_stream_arg * const a = arg;
+  struct ddsi_proxy_participant *pp = ddsi_entidx_lookup_proxy_participant_guid (a->gv->entity_index, &a->guid);
+  bool retained = false;
+  if (pp)
+  {
+    /* Record duplicate announcements on a second stream, then close that stream.
+       The original stream must still own the discovery association. */
+    const uint64_t id = ddsi_iid_gen ();
+    ddsi_proxy_participant_note_connection (pp, id);
+    ddsi_proxy_participant_note_connection (pp, id);
+    ddsi_purge_proxy_participants (a->gv, id);
+    retained = ddsi_entidx_lookup_proxy_participant_guid (a->gv->entity_index, &a->guid) == pp;
+  }
+  ddsrt_atomic_st32 (&a->result, retained ? 1 : 2);
+}
+
+static void check_disconnect (dds_entity_t rd, dds_entity_t wr, void *arg)
+{
+  (void) arg;
+  struct ddsi_domaingv * const gv = get_domaingv (wr);
+  char peer[DDSI_LOCSTRLEN];
+  char *config;
+  (void) ddsrt_asprintf (&config,
+    "<General><Transport>tcp</Transport><Interfaces><NetworkInterface address=\"127.0.0.1\"/>"
+    "</Interfaces></General><Discovery><ExternalDomainId>0</ExternalDomainId><Tag>${CYCLONEDDS_PID}</Tag>"
+    "<LeaseDuration>120 s</LeaseDuration><Peers><Peer address=\"%s\"/></Peers></Discovery><TCP><Port>-1</Port></TCP>",
+    ddsi_locator_to_string (peer, sizeof (peer), &gv->loc_meta_uc));
+  const dds_entity_t domain = dds_create_domain (2, config);
+  ddsrt_free (config);
+  CU_ASSERT_GT_FATAL (domain, 0);
+  const dds_entity_t pp = dds_create_participant (2, NULL, NULL);
+  CU_ASSERT_GT_FATAL (pp, 0);
+  dds_guid_t guid;
+  CU_ASSERT_EQ_FATAL (dds_get_guid (pp, &guid), DDS_RETCODE_OK);
+  const ddsi_guid_t ddsi_guid = dds_guid_to_ddsi_guid (guid);
+  CU_ASSERT_FATAL (tcp_test_wait_for_proxy (gv, &ddsi_guid, true));
+  struct extra_stream_arg extra = { .gv = gv, .guid = ddsi_guid };
+  ddsi_dqueue_enqueue_callback (gv->builtins_dqueue, check_extra_stream, &extra);
+  while (ddsrt_atomic_ld32 (&extra.result) == 0)
+    dds_sleepfor (DDS_MSECS (1));
+  CU_ASSERT_EQ_FATAL (ddsrt_atomic_ld32 (&extra.result), 1);
+
+  /* Suppress the SPDP dispose. Closing the stream must remove this participant
+     before its lease expires, while the other client's stream remains usable. */
+  CU_ASSERT_EQ_FATAL (dds_domain_set_deafmute (domain, false, true, DDS_INFINITY), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (dds_delete (domain), DDS_RETCODE_OK);
+  CU_ASSERT (tcp_test_wait_for_proxy (gv, &ddsi_guid, false));
+  tcp_test_basic_write (rd, wr, NULL);
+}
+
+CU_Test (ddsc_tcp, prune_disconnected_peer, .timeout = 30)
+{
+  do_tcp (check_disconnect, NULL);
 }

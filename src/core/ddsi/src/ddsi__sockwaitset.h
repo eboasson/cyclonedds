@@ -12,6 +12,7 @@
 #define DDSI__SOCKWAITSET_H
 
 #include "dds/ddsi/ddsi_sockwaitset.h"
+#include "dds/ddsrt/time.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -36,7 +37,7 @@ struct ddsi_sock_waitset * ddsi_sock_waitset_new (void);
  * @brief Frees the waitset
  * @component socket_waitset
  *
- * Any connections associated with it will be closed.
+ * The caller retains ownership of registered connections.
  *
  * @param ws    The socket waitset
  */
@@ -46,19 +47,10 @@ void ddsi_sock_waitset_free (struct ddsi_sock_waitset * ws);
  * @brief Triggers the waitset
  * @component socket_waitset
  *
- * Triggers the waitset, from any thread. It is level triggered, when
- * called while no thread is waiting in ddsi_sock_waitset_wait the
- * trigger will cause an (early) wakeup on the next call to
- * ddsi_sock_waitset_wait. Returns DDS_RETCODE_OK if successfully
- * triggered, DDS_RETCODE_BAD_PARAMETER if an error occurs.
- *
- * Triggering a waitset may require resources and they may be counted.
- * Do not trigger a waitset arbitrarily often without ensuring
- * ddsi_sock_waitset_wait is called often enough to let it release any
- * resources used.
- *
- * Shared state updates preceding struct ddsi_sock_waitset *rigger are
- * visible following ddsi_sock_waitset_wait.
+ * Wakes the receive thread from any thread. A trigger issued before the
+ * next wait remains pending. Multiple triggers may share one wakeup.
+ * Shared state updates preceding the trigger are visible to the receiver
+ * after it processes the wakeup.
  *
  * @param ws    The socket waitset
  */
@@ -80,18 +72,10 @@ void ddsi_sock_waitset_trigger (struct ddsi_sock_waitset * ws);
  */
 int ddsi_sock_waitset_add (struct ddsi_sock_waitset * ws, struct ddsi_tran_conn * conn);
 
-/**
- * @brief Drops all connections from the waitset from index onwards.
- * @component socket_waitset
- *
- * Index 0 corresponds to the first connection added to the waitset, index 1 to the
- * second, etc. Behaviour is undefined when called after a successful wait but before
- * all events had been enumerated.
- *
- * @param ws        The socket waitset
- * @param index     Index of first connection to be dropped
- */
-void ddsi_sock_waitset_purge (struct ddsi_sock_waitset * ws, unsigned index);
+/** @brief Pause or resume readiness notifications while keeping an existing
+ * registration. Called by the receiver between dispatches for that connection.
+ * @component socket_waitset */
+bool ddsi_sock_waitset_set_read_enabled (struct ddsi_sock_waitset *ws, struct ddsi_tran_conn *conn, bool enabled);
 
 /**
  * @brief Waits until some of the connections in WS have data to be read.
@@ -103,7 +87,7 @@ void ddsi_sock_waitset_purge (struct ddsi_sock_waitset * ws, unsigned index);
  * If a context is returned it must be enumerated before ddsi_sock_waitset_wait
  * may be called again.
  *
- * Shared state updates preceding struct ddsi_sock_waitset *rigger are visible
+ * Shared state updates preceding ddsi_sock_waitset_trigger are visible
  * following ddsi_sock_waitset_wait.
  *
  * @param ws The socket waitset
@@ -111,19 +95,22 @@ void ddsi_sock_waitset_purge (struct ddsi_sock_waitset * ws, unsigned index);
  */
 struct ddsi_sock_waitset_ctx * ddsi_sock_waitset_wait (struct ddsi_sock_waitset * ws);
 
+/** @brief As ddsi_sock_waitset_wait, with a monotonic deadline. An expired wait can return no events.
+ * @component socket_waitset */
+struct ddsi_sock_waitset_ctx *ddsi_sock_waitset_wait_until (struct ddsi_sock_waitset *ws, ddsrt_mtime_t deadline);
+
 /**
  * @component socket_waitset
  *
- * Returns the index of the next triggered connection in the waitset contect
- * ctx, or -1 if the set of available events has been exhausted. Index 0 is
- * the first connection added to the waitset, index 1 the second, &c.
+ * Returns a nonnegative registration index for the next triggered connection
+ * in ctx, or -1 if the set of available events has been exhausted.
  *
  * Following a call to ddsi_sock_waitset_wait on waitset that returned a context,
  * one MUST enumerate all available events before ddsi_sock_waitset_wait may be
  * called again.
  *
  * If the return value is >= 0, *conn contains the connection on which data is
- * available.
+ * available. The caller owns a reference and must call ddsi_conn_unref after dispatch.
  *
  * @param ctx   Socket waitset context
  * @param conn  Connection
