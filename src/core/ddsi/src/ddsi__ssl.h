@@ -43,13 +43,22 @@ SSL *ddsi_ssl_new (const struct ddsi_domaingv *gv, struct ddsi_ssl_ctx *ctx, dds
  * @component legacy_ssl */
 dds_return_t ddsi_ssl_handshake (const struct ddsi_domaingv *gv, SSL *ssl, bool *want_read);
 
+/** @brief Make at least one plaintext byte available. Retry with the same probe.
+ * @component legacy_ssl */
+dds_return_t ddsi_ssl_peek (const struct ddsi_domaingv *gv, SSL *ssl, unsigned char *probe, bool *want_read);
+
 /** @brief Read application data. A successful zero-length result for a nonempty request is EOF.
  * @component legacy_ssl */
 dds_return_t ddsi_ssl_read (const struct ddsi_domaingv *gv, SSL *ssl, void *buf, size_t len, size_t *n, bool *want_read);
 
-/** @brief Write application data. On TRY_AGAIN retry with the same buffer and length.
+/** @brief Encrypt one application record. Flush its ciphertext before the next record.
+ * On TRY_AGAIN retry with the same buffer and length.
  * @component legacy_ssl */
 dds_return_t ddsi_ssl_write (const struct ddsi_domaingv *gv, SSL *ssl, const void *buf, size_t len, size_t *n, bool *want_read);
+
+/** @brief Drain buffered ciphertext to the nonblocking socket. TRY_AGAIN requests writability.
+ * @component legacy_ssl */
+dds_return_t ddsi_ssl_flush (const struct ddsi_domaingv *gv, SSL *ssl);
 
 /** @brief Attempt close_notify once on an orderly, nonblocking connection before closing its socket.
  * @component legacy_ssl */

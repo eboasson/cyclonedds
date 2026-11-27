@@ -14,8 +14,12 @@
 
 #include "dds/ddsrt/heap.h"
 #include "dds/ddsrt/io.h"
+#include "dds/ddsi/ddsi_entity_index.h"
+#include "dds/ddsi/ddsi_protocol.h"
 #include "dds/ddsi/ddsi_proxy_participant.h"
+#include "dds/ddsi/ddsi_thread.h"
 #include "dds__guid.h"
+#include "ddsi__addrset.h"
 #include "ddsi__tran.h"
 #include "test_common.h"
 #include "tcp_test.h"
@@ -136,6 +140,74 @@ CU_Test (ddsc_tcp, tls_connect_timeout, .timeout = 10)
   }
   CU_ASSERT_EQ (dds_delete (domain), DDS_RETCODE_OK);
   CU_ASSERT_EQ (ddsrt_close (listener), DDS_RETCODE_OK);
+}
+
+struct duplex_writer {
+  ddsi_xlocator_t peer;
+  ddsrt_atomic_uint32_t *ready;
+};
+
+static uint32_t write_tls_frames (void *arg)
+{
+  struct duplex_writer *wr = arg;
+  /* A maximal RTPS frame spanning four TLS records, consisting entirely of
+     PAD after the length submessage. The wire length is big endian. */
+  unsigned char *frame = ddsrt_calloc (1, 65536);
+  const unsigned char hdr[] = {
+    'R','T','P','S', 2,3, 1,16, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+    DDSI_RTPS_SMID_ADLINK_MSG_LEN, 0,0,4, 0,1,0,0, DDSI_RTPS_SMID_PAD, 0,0,0
+  };
+  memcpy (frame, hdr, sizeof (hdr));
+  DDSI_DECL_CONST_TRAN_WRITE_MSGFRAGS_PTR (msg, ((ddsrt_iovec_t){ .iov_base = frame, .iov_len = 65536 }));
+  ddsrt_atomic_inc32 (wr->ready);
+  while (ddsrt_atomic_ld32 (wr->ready) != 2)
+    dds_sleepfor (DDS_MSECS (1));
+  uint32_t sent = 0;
+  while (sent < 128)
+  {
+    size_t n;
+    if (ddsi_conn_write (wr->peer.conn, &wr->peer.c, msg, DDSI_TRAN_NO_CONNECT, &n) != DDS_RETCODE_OK || n != 65536)
+      break;
+    sent++;
+  }
+  ddsrt_free (frame);
+  return sent;
+}
+
+static void transfer_both_directions (dds_entity_t rd, dds_entity_t wr, void *arg)
+{
+  (void) arg;
+  struct ddsi_domaingv *server = get_domaingv (wr);
+  struct ddsi_domaingv *client = get_domaingv (rd);
+  dds_guid_t guid;
+  CU_ASSERT_EQ_FATAL (dds_get_guid (dds_get_participant (rd), &guid), DDS_RETCODE_OK);
+  const ddsi_guid_t client_guid = dds_guid_to_ddsi_guid (guid);
+  ddsrt_atomic_uint32_t ready = DDSRT_ATOMIC_UINT32_INIT (0);
+  struct duplex_writer dirs[2] = {
+    { .peer = { .conn = client->xmit_conns_meta[0], .c = server->loc_meta_uc }, .ready = &ready },
+    { .ready = &ready }
+  };
+  struct ddsi_thread_state *thrst = ddsi_lookup_thread_state ();
+  ddsi_thread_state_awake (thrst, server);
+  struct ddsi_proxy_participant *pp = ddsi_entidx_lookup_proxy_participant_guid (server->entity_index, &client_guid);
+  if (pp)
+    ddsi_addrset_any_uc (pp->as_default, &dirs[1].peer);
+  ddsi_thread_state_asleep (thrst);
+  CU_ASSERT_NEQ_FATAL (dirs[1].peer.conn, NULL);
+  ddsrt_threadattr_t attr;
+  ddsrt_threadattr_init (&attr);
+  ddsrt_thread_t other;
+  CU_ASSERT_EQ_FATAL (ddsrt_thread_create (&other, "tls-writer", &attr, write_tls_frames, &dirs[0]), DDS_RETCODE_OK);
+  uint32_t count = write_tls_frames (&dirs[1]);
+  CU_ASSERT_EQ (count, 128);
+  CU_ASSERT_EQ_FATAL (ddsrt_thread_join (other, &count), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (count, 128);
+  tcp_test_basic_write (rd, wr, NULL);
+}
+
+CU_Test (ddsc_tcp, tls_bidirectional, .timeout = 30)
+{
+  tcp_test_run_config (TLS_TEST_OPTIONS, transfer_both_directions, NULL);
 }
 
 CU_Test (ddsc_tcp, tls_parallel_connect_spdp, .timeout = 20)

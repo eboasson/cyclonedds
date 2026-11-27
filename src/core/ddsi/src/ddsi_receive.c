@@ -58,6 +58,9 @@
 #include "ddsi__vendor.h"
 #include "ddsi__hbcontrol.h"
 #include "ddsi__sockwaitset.h"
+#ifdef DDS_HAS_TCP
+#include "ddsi__tcp.h"
+#endif
 
 #include "dds/cdr/dds_cdrstream.h"
 #include "dds__whc.h"
@@ -3309,57 +3312,6 @@ void ddsi_handle_rtps_message (struct ddsi_thread_state * const thrst, struct dd
   handle_rtps_message (thrst, gv, conn, guidprefix, rbpool, rmsg, sz, pktinfo);
 }
 
-ddsrt_nonnull_all ddsrt_attribute_warn_unused_result
-static dds_return_t read_packet_from_stream (struct ddsi_domaingv *gv, struct ddsi_tran_conn *conn, struct ddsi_rmsg *rmsg, size_t maxsz, struct ddsi_network_packet_info *pktinfo, size_t *bytes_read)
-{
-  // Streams are sequences of RTPS messages, where the first submessage of each message
-  // must be a ADLINK_MSG_LEN with the "length" field the total RTPS message size.
-  //
-  // FIXME: We ought to keep enough state for reading messages in multiple rounds
-  //
-  // Note that we can't fix that until we stop using a ddsi_rmsg to buffer incoming data.
-
-  assert (conn->m_stream);
-
-  const size_t ddsi_msg_len_size = 8;
-  const size_t stream_hdr_size = DDSI_RTPS_MESSAGE_HEADER_SIZE + ddsi_msg_len_size;
-  unsigned char * const buff = (unsigned char *) DDSI_RMSG_PAYLOAD (rmsg);
-  size_t sz;
-  dds_return_t rc;
-
-  rc = ddsi_conn_read (conn, buff, stream_hdr_size, true, pktinfo, &sz);
-  if (rc != DDS_RETCODE_OK) // spurious reads if rc=TRY_AGAIN & sz=0
-    return rc;
-
-  // Errors or incorrect size: signal failure so connection will be dropped
-  // don't report: this is typically the path taken if the connection was dropped
-  if ((size_t) sz != stream_hdr_size)
-    return DDS_RETCODE_ERROR;
-
-  // First submessage following header should be ADLINK_MSG_LEN. The RTPS message
-  // header and this submessage's octets-to-next-header will checked by handle_rtps_message()
-  ddsi_rtps_header_t * const hdr = (ddsi_rtps_header_t *) buff;
-  ddsi_rtps_msg_len_t * const ml = (ddsi_rtps_msg_len_t *) (hdr + 1);
-  if (ml->smhdr.submessageId != DDSI_RTPS_SMID_ADLINK_MSG_LEN)
-    goto framing_error;
-
-  if (smhdr_bswap_needed (&ml->smhdr))
-    ml->length = ddsrt_bswap4u (ml->length);
-  if (ml->length < stream_hdr_size || ml->length > maxsz)
-    goto framing_error;
-
-  rc = ddsi_conn_read (conn, buff + stream_hdr_size, ml->length - stream_hdr_size, false, NULL, &sz);
-  if (rc != DDS_RETCODE_OK || sz != ml->length - stream_hdr_size)
-    return DDS_RETCODE_ERROR;
-
-  *bytes_read = ml->length;
-  return DDS_RETCODE_OK;
-
-framing_error:
-  GVTRACE ("framing error, dropping connection\n");
-  return DDS_RETCODE_ERROR;
-}
-
 static bool do_packet (struct ddsi_thread_state * const thrst, struct ddsi_domaingv *gv, struct ddsi_tran_conn * conn, const ddsi_guid_prefix_t *guidprefix, struct ddsi_rbufpool *rbpool)
 {
   /* UDP max packet size is 64kB, we always limit RTPS messages always to 64kB */
@@ -3372,10 +3324,7 @@ static bool do_packet (struct ddsi_thread_state * const thrst, struct ddsi_domai
   if (rmsg == NULL)
     return false;
 
-  if (!conn->m_stream)
-    rc = ddsi_conn_read (conn, DDSI_RMSG_PAYLOAD (rmsg), maxsz, true, &pktinfo, &sz);
-  else
-    rc = read_packet_from_stream (gv, conn, rmsg, maxsz, &pktinfo, &sz);
+  rc = ddsi_conn_read (conn, DDSI_RMSG_PAYLOAD (rmsg), maxsz, true, &pktinfo, &sz);
   if (rc == DDS_RETCODE_TRY_AGAIN)
   {
     ddsi_rmsg_commit (rmsg);
@@ -3516,7 +3465,20 @@ uint32_t ddsi_recv_thread (void *vrecv_thread_arg)
     while (ddsrt_atomic_ld32 (&gv->rtps_keepgoing))
     {
       LOG_THREAD_CPUTIME (&gv->logconfig, next_thread_cputime);
-      struct ddsi_sock_waitset_ctx *ctx = ddsi_sock_waitset_wait (waitset);
+      ddsrt_mtime_t deadline = DDSRT_MTIME_NEVER;
+#ifdef DDS_HAS_TCP
+      if (gv->m_factory->m_stream)
+      {
+        struct ddsi_tran_conn *retry;
+        deadline = ddsi_tcp_next_read_deadline (gv->m_factory, &retry);
+        if (retry)
+        {
+          dispatch_conn (thrst, gv, retry, rbpool);
+          continue;
+        }
+      }
+#endif
+      struct ddsi_sock_waitset_ctx *ctx = ddsi_sock_waitset_wait_until (waitset, deadline);
       if (ctx != NULL)
       {
         struct ddsi_tran_conn *conn;

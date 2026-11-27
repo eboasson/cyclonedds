@@ -307,8 +307,30 @@ dds_return_t ddsi_ssl_handshake (const struct ddsi_domaingv *gv, SSL *ssl, bool 
   const int ret = SSL_do_handshake (ssl);
   if (ret != 1)
     return ssl_io_error (gv, ssl, ret, want_read, "handshake", DDS_RETCODE_ERROR);
+  /* Separate a completed TLS write from draining its ciphertext to the socket.
+     A writer flushing a full socket can then let SSL_read decrypt incoming
+     records. Only one application record is submitted between flushes. */
+  BIO *out = SSL_get_wbio (ssl);
+  BIO *buf = BIO_new (BIO_f_buffer ());
+  if (!buf || BIO_set_write_buffer_size (buf, 32768) <= 0 || !BIO_up_ref (out))
+  {
+    BIO_free (buf);
+    log_ssl_errors (gv);
+    return DDS_RETCODE_OUT_OF_RESOURCES;
+  }
+  BIO_push (buf, out);
+  SSL_set0_wbio (ssl, buf);
   report_tls_peer (gv, ssl);
   return DDS_RETCODE_OK;
+}
+
+dds_return_t ddsi_ssl_peek (const struct ddsi_domaingv *gv, SSL *ssl, unsigned char *probe, bool *want_read)
+{
+  ERR_clear_error ();
+  const int ret = SSL_peek (ssl, probe, 1);
+  if (ret == 1)
+    return DDS_RETCODE_OK;
+  return ssl_io_error (gv, ssl, ret, want_read, "peek", DDS_RETCODE_NO_CONNECTION);
 }
 
 dds_return_t ddsi_ssl_read (const struct ddsi_domaingv *gv, SSL *ssl, void *buf, size_t len, size_t *n, bool *want_read)
@@ -339,11 +361,26 @@ dds_return_t ddsi_ssl_write (const struct ddsi_domaingv *gv, SSL *ssl, const voi
   return DDS_RETCODE_OK;
 }
 
+dds_return_t ddsi_ssl_flush (const struct ddsi_domaingv *gv, SSL *ssl)
+{
+  BIO *out = SSL_get_wbio (ssl);
+  if (BIO_ctrl_wpending (out) == 0)
+    return DDS_RETCODE_OK;
+  ERR_clear_error ();
+  if (BIO_flush (out) > 0)
+    return DDS_RETCODE_OK;
+  if (BIO_should_retry (out))
+    return DDS_RETCODE_TRY_AGAIN;
+  log_ssl_errors (gv);
+  return DDS_RETCODE_ERROR;
+}
+
 void ddsi_ssl_shutdown (SSL *ssl)
 {
   ERR_clear_error ();
   /* The TCP owner closes the nonblocking socket immediately after this attempt. */
   (void) SSL_shutdown (ssl);
+  (void) BIO_flush (SSL_get_wbio (ssl));
   ERR_clear_error ();
 }
 

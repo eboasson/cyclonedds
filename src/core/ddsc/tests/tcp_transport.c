@@ -110,3 +110,93 @@ void tcp_test_connect_to_listener (ddsrt_socket_t *sock, const ddsi_locator_t *l
   CU_ASSERT_EQ_FATAL (ddsrt_socket (sock, AF_INET, SOCK_STREAM, 0), DDS_RETCODE_OK);
   CU_ASSERT_EQ_FATAL (ddsrt_connect (*sock, (struct sockaddr *) &addr, sizeof (addr)), DDS_RETCODE_OK);
 }
+
+static void trace_test_frames (void *arg, const dds_log_data_t *data)
+{
+  if (strstr (data->message, "HDR(aaaaaaaa:aaaaaaaa:aaaaaaaa ") != NULL)
+    ddsrt_atomic_or32 (arg, 1);
+  if (strstr (data->message, "HDR(bbbbbbbb:bbbbbbbb:bbbbbbbb ") != NULL)
+    ddsrt_atomic_or32 (arg, 2);
+}
+
+static void send_frame_part (ddsrt_socket_t sock, const unsigned char *buf, size_t size)
+{
+  while (size)
+  {
+    size_t n;
+    CU_ASSERT_EQ_FATAL (ddsrt_send (sock, buf, size, 0, &n), DDS_RETCODE_OK);
+    CU_ASSERT_GT_FATAL (n, 0);
+    buf += n;
+    size -= n;
+  }
+}
+
+static bool wait_for_frames (const ddsrt_atomic_uint32_t *flags, uint32_t mask)
+{
+  const ddsrt_mtime_t deadline = ddsrt_mtime_add_duration (ddsrt_time_monotonic (), DDS_SECS (3));
+  while ((ddsrt_atomic_ld32 (flags) & mask) != mask && ddsrt_time_monotonic ().v < deadline.v)
+    dds_sleepfor (DDS_MSECS (5));
+  return (ddsrt_atomic_ld32 (flags) & mask) == mask;
+}
+
+CU_Test (ddsc_tcp, interleaved_frame_reads, .timeout = 20)
+{
+  const dds_entity_t server = dds_create_domain (0,
+    "<General><Transport>tcp</Transport><Interfaces><NetworkInterface address=\"127.0.0.1\"/>"
+    "</Interfaces></General><Discovery><Peers AddLocalhost=\"false\"/></Discovery>"
+    "<TCP><Port>0</Port><ReadTimeout>10 s</ReadTimeout></TCP>"
+    "<Tracing><Category>trace</Category><OutputFile>stdout</OutputFile></Tracing>");
+  CU_ASSERT_GT_FATAL (server, 0);
+  struct ddsi_domaingv *gv = get_domaingv (server);
+  ddsrt_atomic_uint32_t flags = DDSRT_ATOMIC_UINT32_INIT (0);
+  dds_set_trace_sink (trace_test_frames, &flags);
+  ddsrt_socket_t slow, fast;
+  tcp_test_connect_to_listener (&slow, &gv->loc_meta_uc);
+  tcp_test_connect_to_listener (&fast, &gv->loc_meta_uc);
+  unsigned char frame[32] = {
+    'R','T','P','S', 2,3, 1,16, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+    DDSI_RTPS_SMID_ADLINK_MSG_LEN, 0,0,4, 0,0,0,32, DDSI_RTPS_SMID_PAD, 0,0,0
+  };
+  memset (frame + 8, 0xaa, 12);
+  send_frame_part (slow, frame, 3);
+  /* Send a whole frame on another stream before finishing the first header. */
+  memset (frame + 8, 0xbb, 12);
+  send_frame_part (fast, frame, sizeof (frame));
+  bool first = wait_for_frames (&flags, 2);
+  memset (frame + 8, 0xaa, 12);
+  send_frame_part (slow, frame + 3, 27);
+  /* At this point the length is known, with two bytes of body outstanding. */
+  ddsrt_atomic_st32 (&flags, 0);
+  memset (frame + 8, 0xbb, 12);
+  send_frame_part (fast, frame, sizeof (frame));
+  bool second = wait_for_frames (&flags, 2);
+  send_frame_part (slow, frame + 30, 2);
+  bool resumed = wait_for_frames (&flags, 1);
+  dds_set_trace_sink (NULL, NULL);
+  CU_ASSERT (first);
+  CU_ASSERT (second);
+  CU_ASSERT (resumed);
+  CU_ASSERT_EQ (ddsrt_close (slow), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (ddsrt_close (fast), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (dds_delete (server), DDS_RETCODE_OK);
+}
+
+CU_Test (ddsc_tcp, incomplete_frame_timeout, .timeout = 5)
+{
+  const dds_entity_t server = dds_create_domain (0,
+    "<General><Transport>tcp</Transport><Interfaces><NetworkInterface address=\"127.0.0.1\"/>"
+    "</Interfaces></General><Discovery><Peers AddLocalhost=\"false\"/></Discovery>"
+    "<TCP><Port>0</Port><ReadTimeout>100 ms</ReadTimeout></TCP>");
+  CU_ASSERT_GT_FATAL (server, 0);
+  ddsrt_socket_t sock;
+  tcp_test_connect_to_listener (&sock, &get_domaingv (server)->loc_meta_uc);
+  const ddsrt_mtime_t start = ddsrt_time_monotonic ();
+  send_frame_part (sock, (const unsigned char *) "RTPS", 4);
+  unsigned char byte;
+  size_t n;
+  CU_ASSERT_EQ_FATAL (ddsrt_recv (sock, &byte, 1, 0, &n), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (n, 0);
+  CU_ASSERT_GEQ (ddsrt_time_monotonic ().v - start.v, DDS_MSECS (100));
+  CU_ASSERT_EQ (ddsrt_close (sock), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (dds_delete (server), DDS_RETCODE_OK);
+}

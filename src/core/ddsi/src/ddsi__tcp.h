@@ -12,6 +12,7 @@
 #define DDSI__TCP_H
 
 #include "dds/ddsi/ddsi_tran.h"
+#include "dds/ddsrt/time.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -30,6 +31,12 @@ bool ddsi_tcp_start_connector (struct ddsi_tran_factory *factory);
 
 /** @component tcp_transport */
 void ddsi_tcp_stop_connector (struct ddsi_tran_factory *factory);
+
+/** @brief Return the first receive deadline and a connection due for service, if any.
+ * Called only by the domain's TCP receiver. A non-null output transfers a
+ * reference to the caller, just like a connection returned by the waitset.
+ * @component tcp_transport */
+ddsrt_mtime_t ddsi_tcp_next_read_deadline (struct ddsi_tran_factory *factory, struct ddsi_tran_conn **due);
 
 /** @component tcp_transport
     Accept a private stream without publishing it to RTPS. The caller owns
