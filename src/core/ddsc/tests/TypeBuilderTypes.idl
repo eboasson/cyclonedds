@@ -581,6 +581,12 @@ module TypeBuilderTypes {
     @try_construct(TRIM) sequence<@try_construct(USE_DEFAULT) t51_1, 1> f9;
   };
 
+  typedef sequence<long, 2> t52_seq_array[2];
+  @nested @final union t52_choice switch (long) {
+    case 0: @try_construct(TRIM) t52_seq_array trimmed;
+    case 1: @try_construct(USE_DEFAULT) t52_seq_array defaulted;
+  };
+
   struct t52 {
     @try_construct(TRIM) sequence<sequence<t51_1, 1>, 1> f1[2][2];
     sequence<@try_construct(TRIM) sequence<t51_1, 1>, 1> f2[2][2];
@@ -590,6 +596,9 @@ module TypeBuilderTypes {
     sequence<@try_construct(TRIM) sequence<@try_construct(TRIM) t51_1, 1>, 1> f6[2][2];
     @try_construct(TRIM) sequence<sequence<@try_construct(TRIM) t51_1, 1>, 1> f7[2][2];
     @try_construct(TRIM) sequence<@try_construct(TRIM) sequence<@try_construct(TRIM) t51_1, 1>, 1> f8[2][2];
+    @try_construct(TRIM) t52_seq_array trimmed;
+    @try_construct(USE_DEFAULT) t52_seq_array defaulted;
+    t52_choice choice;
   };
 
   // unions with 64-bit and bitmask discriminants (FIXME: only half-heartedly supported)

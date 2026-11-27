@@ -1809,10 +1809,11 @@ emit_sequence(
         opcode |= DDS_OP_FLAG_MU;
     }
 
-    // See if try-construct is set
-    idl_try_construct_t tc = IDL_DISCARD;
-    struct stack_type *owner = descriptor->type_stack;
-    while (idl_is_array (owner->node))
+    /* Array frames hold declarators, even when the dimensions come from a
+       typedef. The enclosing member, case or sequence supplies try-construct. */
+    idl_try_construct_t tc;
+    const struct stack_type *owner = stype;
+    while (idl_is_declarator (owner->node))
       owner = owner->previous;
     if (idl_is_struct (owner->node))
     {
@@ -1826,23 +1827,11 @@ emit_sequence(
       idl_case_t *m = (idl_case_t *) owner->fields->node;
       tc = m->try_construct.value;
     }
-    else if (idl_is_sequence (owner->node))
-    {
-      idl_sequence_t *m = (idl_sequence_t *) owner->node;
-      tc = m->elem_try_construct.value;
-    }
     else
     {
-      // FIXME: at least
-      //   typedef long arr_def[300];
-      //   typedef sequence<arr_def> seq_arr_def[2];
-      //   struct {
-      //     seq_arr_def f16;
-      //   }
-      // gets here with owner->node a declarator, and that probably means
-      // we may be missing a try_construct ...
-
-      //printf ("W %"PRIx64"\n", ((idl_node_t *) owner->node)->mask);
+      assert (idl_is_sequence (owner->node));
+      idl_sequence_t *m = (idl_sequence_t *) owner->node;
+      tc = m->elem_try_construct.value;
     }
     set_try_construct (&opcode, node, tc, false);
 
