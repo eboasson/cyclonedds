@@ -1009,7 +1009,13 @@ Internal/ExtendedPacketInfo:</p>
           xsd:boolean
         }?
         & [ a:documentation [ xml:lang="en" """
-<p>The set of ciphers used by SSL/TLS</p>
+<p>The colon-separated OpenSSL cipher suites for TLS 1.3. An empty value uses the OpenSSL defaults.</p>
+<p>The default value is: <code>&lt;empty&gt;</code></p>""" ] ]
+        element CipherSuites {
+          text
+        }?
+        & [ a:documentation [ xml:lang="en" """
+<p>The OpenSSL cipher list for TLS 1.2.</p>
 <p>The default value is: <code>ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH</code></p>""" ] ]
         element Ciphers {
           text
@@ -1470,9 +1476,9 @@ MIIEpAIBAAKCAQEA3HIh...AOBaaqSV37XBUJg==<br>
   memsize = xsd:token { pattern = "0|(\d+(\.\d*)?([Ee][\-+]?\d+)?|\.\d+([Ee][\-+]?\d+)?) *([kMG]i?)?B" }
   maybe_memsize = xsd:token { pattern = "default|0|(\d+(\.\d*)?([Ee][\-+]?\d+)?|\.\d+([Ee][\-+]?\d+)?) *([kMG]i?)?B" }
 }
-# generated from ddsi_config.h[158c45a21ff482bdf9363c12efc5e5e96d0c9827]
+# generated from ddsi_config.h[92e18ce8199f533aafe79cb167fde8a805c73501]
 # generated from ddsi_config.c[7966a1299fb24d205f99f242ee09bf48824daadb]
-# generated from ddsi__cfgelems.h[3383bfd0af910c73f41bed190f7d377c98cc125c]
+# generated from ddsi__cfgelems.h[13f7bea9d284e064ab8e2765a9c44d09e1f205c0]
 # generated from cfgunits.h[05f093223fce107d24dd157ebaafa351dc9df752]
 # generated from _confgen.h[e0b7a072621df43c0e7419d52359ddf4b98b202f]
 # generated from _confgen.c[c08a605e3ac6161fd675369a295e7637e6d653ac]

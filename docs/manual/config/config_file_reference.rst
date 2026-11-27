@@ -2084,7 +2084,7 @@ The default value is: ``<empty>``
 //CycloneDDS/Domain/SSL
 =======================
 
-Children: :ref:`CertificateVerification<//CycloneDDS/Domain/SSL/CertificateVerification>`, :ref:`Ciphers<//CycloneDDS/Domain/SSL/Ciphers>`, :ref:`Enable<//CycloneDDS/Domain/SSL/Enable>`, :ref:`EntropyFile<//CycloneDDS/Domain/SSL/EntropyFile>`, :ref:`KeyPassphrase<//CycloneDDS/Domain/SSL/KeyPassphrase>`, :ref:`KeystoreFile<//CycloneDDS/Domain/SSL/KeystoreFile>`, :ref:`MinimumTLSVersion<//CycloneDDS/Domain/SSL/MinimumTLSVersion>`, :ref:`SelfSignedCertificates<//CycloneDDS/Domain/SSL/SelfSignedCertificates>`, :ref:`VerifyClient<//CycloneDDS/Domain/SSL/VerifyClient>`
+Children: :ref:`CertificateVerification<//CycloneDDS/Domain/SSL/CertificateVerification>`, :ref:`CipherSuites<//CycloneDDS/Domain/SSL/CipherSuites>`, :ref:`Ciphers<//CycloneDDS/Domain/SSL/Ciphers>`, :ref:`Enable<//CycloneDDS/Domain/SSL/Enable>`, :ref:`EntropyFile<//CycloneDDS/Domain/SSL/EntropyFile>`, :ref:`KeyPassphrase<//CycloneDDS/Domain/SSL/KeyPassphrase>`, :ref:`KeystoreFile<//CycloneDDS/Domain/SSL/KeystoreFile>`, :ref:`MinimumTLSVersion<//CycloneDDS/Domain/SSL/MinimumTLSVersion>`, :ref:`SelfSignedCertificates<//CycloneDDS/Domain/SSL/SelfSignedCertificates>`, :ref:`VerifyClient<//CycloneDDS/Domain/SSL/VerifyClient>`
 
 The SSL element allows specifying various parameters related to using SSL/TLS for DDSI over TCP.
 
@@ -2101,6 +2101,18 @@ If disabled this allows SSL connections to occur even if an X509 certificate fai
 The default value is: ``true``
 
 
+.. _`//CycloneDDS/Domain/SSL/CipherSuites`:
+
+//CycloneDDS/Domain/SSL/CipherSuites
+------------------------------------
+
+Text
+
+The colon-separated OpenSSL cipher suites for TLS 1.3. An empty value uses the OpenSSL defaults.
+
+The default value is: ``<empty>``
+
+
 .. _`//CycloneDDS/Domain/SSL/Ciphers`:
 
 //CycloneDDS/Domain/SSL/Ciphers
@@ -2108,7 +2120,7 @@ The default value is: ``true``
 
 Text
 
-The set of ciphers used by SSL/TLS
+The OpenSSL cipher list for TLS 1.2.
 
 The default value is: ``ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH``
 
@@ -3020,9 +3032,9 @@ The categorisation of tracing output is incomplete and hence most of the verbosi
 The default value is: ``none``
 
 ..
-   generated from ddsi_config.h[158c45a21ff482bdf9363c12efc5e5e96d0c9827]
+   generated from ddsi_config.h[92e18ce8199f533aafe79cb167fde8a805c73501]
    generated from ddsi_config.c[7966a1299fb24d205f99f242ee09bf48824daadb]
-   generated from ddsi__cfgelems.h[3383bfd0af910c73f41bed190f7d377c98cc125c]
+   generated from ddsi__cfgelems.h[13f7bea9d284e064ab8e2765a9c44d09e1f205c0]
    generated from cfgunits.h[05f093223fce107d24dd157ebaafa351dc9df752]
    generated from _confgen.h[e0b7a072621df43c0e7419d52359ddf4b98b202f]
    generated from _confgen.c[c08a605e3ac6161fd675369a295e7637e6d653ac]

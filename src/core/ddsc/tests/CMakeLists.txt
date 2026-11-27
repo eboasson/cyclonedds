@@ -103,6 +103,7 @@ set(ddsc_test_sources
     "take_instance.c"
     "take_next_instance.c"
     "tcp.c"
+    "tcp_test.h"
     "time.c"
     "time_based_filter.c"
     "topic.c"
@@ -132,6 +133,12 @@ set(ddsc_test_sources
   )
 
 # CUnit discovers tests from source without evaluating preprocessor guards.
+if(ENABLE_TCP)
+  if(ENABLE_TCP_TLS)
+    list(APPEND ddsc_test_sources "tcp_tls.c")
+  endif()
+endif()
+
 if(ENABLE_NETWORK_PARTITIONS)
   list(APPEND ddsc_test_sources "nwpart.c")
 endif()
@@ -179,6 +186,20 @@ if(ENABLE_QOS_PROVIDER)
 endif()
 
 add_cunit_executable(cunit_ddsc ${ddsc_test_sources})
+
+if(ENABLE_TCP AND ENABLE_TCP_TLS)
+  # OpenSSL reads the leaf certificate, private key and trust anchors from
+  # one PEM file. Reuse the long-lived test identity and its matching CA.
+  set(tls_identity_dir "${PROJECT_SOURCE_DIR}/src/security/builtin_plugins/tests/validate_local_identity/etc")
+  set(tls_keystore "${CMAKE_CURRENT_BINARY_DIR}/tcp-test-keystore.pem")
+  foreach(part identity_certificate private_key identity_ca)
+    file(READ "${tls_identity_dir}/${part}" contents)
+    string(APPEND tls_keystore_contents "${contents}\n")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${tls_identity_dir}/${part}")
+  endforeach()
+  file(GENERATE OUTPUT "${tls_keystore}" CONTENT "${tls_keystore_contents}")
+  set_property(SOURCE tcp_tls.c APPEND PROPERTY COMPILE_DEFINITIONS TCP_TEST_KEYSTORE="${tls_keystore}")
+endif()
 
 if(MSVC)
   # ignore warning 5286 and 5287 about enum type conversion

@@ -1988,7 +1988,13 @@ static struct cfgelem ssl_cfgelems[] = {
   STRING("Ciphers", NULL, 1, "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH",
     MEMBER(ssl_ciphers),
     FUNCTIONS(0, uf_string, ff_free, pf_string),
-    DESCRIPTION("<p>The set of ciphers used by SSL/TLS</p>")),
+    DESCRIPTION("<p>The OpenSSL cipher list for TLS 1.2.</p>")),
+  STRING("CipherSuites", NULL, 1, "",
+    MEMBER(ssl_ciphersuites),
+    FUNCTIONS(0, uf_string, ff_free, pf_string),
+    DESCRIPTION(
+      "<p>The colon-separated OpenSSL cipher suites for TLS 1.3. An empty value "
+      "uses the OpenSSL defaults.</p>")),
   STRING("EntropyFile", NULL, 1, "",
     MEMBER(ssl_rand_file),
     FUNCTIONS(0, uf_string, ff_free, pf_string),

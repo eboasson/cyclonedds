@@ -1422,7 +1422,7 @@ The default value is: `<empty>`
 
 
 ### //CycloneDDS/Domain/SSL
-Children: [CertificateVerification](#cycloneddsdomainsslcertificateverification), [Ciphers](#cycloneddsdomainsslciphers), [Enable](#cycloneddsdomainsslenable), [EntropyFile](#cycloneddsdomainsslentropyfile), [KeyPassphrase](#cycloneddsdomainsslkeypassphrase), [KeystoreFile](#cycloneddsdomainsslkeystorefile), [MinimumTLSVersion](#cycloneddsdomainsslminimumtlsversion), [SelfSignedCertificates](#cycloneddsdomainsslselfsignedcertificates), [VerifyClient](#cycloneddsdomainsslverifyclient)
+Children: [CertificateVerification](#cycloneddsdomainsslcertificateverification), [CipherSuites](#cycloneddsdomainsslciphersuites), [Ciphers](#cycloneddsdomainsslciphers), [Enable](#cycloneddsdomainsslenable), [EntropyFile](#cycloneddsdomainsslentropyfile), [KeyPassphrase](#cycloneddsdomainsslkeypassphrase), [KeystoreFile](#cycloneddsdomainsslkeystorefile), [MinimumTLSVersion](#cycloneddsdomainsslminimumtlsversion), [SelfSignedCertificates](#cycloneddsdomainsslselfsignedcertificates), [VerifyClient](#cycloneddsdomainsslverifyclient)
 
 The SSL element allows specifying various parameters related to using SSL/TLS for DDSI over TCP.
 
@@ -1435,10 +1435,18 @@ If disabled this allows SSL connections to occur even if an X509 certificate fai
 The default value is: `true`
 
 
+#### //CycloneDDS/Domain/SSL/CipherSuites
+Text
+
+The colon-separated OpenSSL cipher suites for TLS 1.3. An empty value uses the OpenSSL defaults.
+
+The default value is: `<empty>`
+
+
 #### //CycloneDDS/Domain/SSL/Ciphers
 Text
 
-The set of ciphers used by SSL/TLS
+The OpenSSL cipher list for TLS 1.2.
 
 The default value is: `ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH`
 
@@ -2113,9 +2121,9 @@ While none prevents any message from being written to a DDSI2 log file.
 The categorisation of tracing output is incomplete and hence most of the verbosity levels and categories are not of much use in the current release. This is an ongoing process and here we describe the target situation rather than the current situation. Currently, the most useful verbosity levels are config, fine and finest.
 
 The default value is: `none`
-<!--- generated from ddsi_config.h[158c45a21ff482bdf9363c12efc5e5e96d0c9827] -->
+<!--- generated from ddsi_config.h[92e18ce8199f533aafe79cb167fde8a805c73501] -->
 <!--- generated from ddsi_config.c[7966a1299fb24d205f99f242ee09bf48824daadb] -->
-<!--- generated from ddsi__cfgelems.h[3383bfd0af910c73f41bed190f7d377c98cc125c] -->
+<!--- generated from ddsi__cfgelems.h[13f7bea9d284e064ab8e2765a9c44d09e1f205c0] -->
 <!--- generated from cfgunits.h[05f093223fce107d24dd157ebaafa351dc9df752] -->
 <!--- generated from _confgen.h[e0b7a072621df43c0e7419d52359ddf4b98b202f] -->
 <!--- generated from _confgen.c[c08a605e3ac6161fd675369a295e7637e6d653ac] -->

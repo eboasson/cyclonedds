@@ -392,6 +392,7 @@ struct ddsi_config
   char * ssl_rand_file;
   char * ssl_key_pass;
   char * ssl_ciphers;
+  char * ssl_ciphersuites;
   struct ddsi_config_ssl_min_version ssl_min_version;
 #endif
 

@@ -104,14 +104,15 @@ void ddsi_config_init_default (struct ddsi_config *cfg)
   cfg->ssl_keystore = "keystore";
   cfg->ssl_key_pass = "secret";
   cfg->ssl_ciphers = "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH";
+  cfg->ssl_ciphersuites = "";
   cfg->ssl_rand_file = "";
   cfg->ssl_min_version.major = 1;
   cfg->ssl_min_version.minor = 3;
 #endif /* DDS_HAS_TCP_TLS */
 }
-/* generated from ddsi_config.h[158c45a21ff482bdf9363c12efc5e5e96d0c9827] */
+/* generated from ddsi_config.h[92e18ce8199f533aafe79cb167fde8a805c73501] */
 /* generated from ddsi_config.c[7966a1299fb24d205f99f242ee09bf48824daadb] */
-/* generated from ddsi__cfgelems.h[3383bfd0af910c73f41bed190f7d377c98cc125c] */
+/* generated from ddsi__cfgelems.h[13f7bea9d284e064ab8e2765a9c44d09e1f205c0] */
 /* generated from cfgunits.h[05f093223fce107d24dd157ebaafa351dc9df752] */
 /* generated from _confgen.h[e0b7a072621df43c0e7419d52359ddf4b98b202f] */
 /* generated from _confgen.c[c08a605e3ac6161fd675369a295e7637e6d653ac] */

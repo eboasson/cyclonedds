@@ -9,22 +9,17 @@
 // SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 
 #include <stdio.h>
-#include <ctype.h>
+#include <string.h>
 
-#include "dds/ddsi/ddsi_protocol.h"
-#include "dds/ddsi/ddsi_thread.h"
-#include "dds/ddsrt/time.h"
-#include "dds__guid.h"
-#include "ddsi__tran.h"
-#include "test_common.h"
+#include "dds/ddsrt/io.h"
 #include "dds/ddsi/ddsi_entity_index.h"
 #include "dds/ddsi/ddsi_proxy_participant.h"
-#include "dds/ddsi/ddsi_addrset.h"
-
-#include "dds/dds.h"
-#include "dds/ddsrt/io.h"
-#include "dds/ddsrt/heap.h"
+#include "dds/ddsi/ddsi_thread.h"
+#include "dds__guid.h"
 #include "ddsi__addrset.h"
+#include "ddsi__tran.h"
+#include "test_common.h"
+#include "tcp_test.h"
 
 static ddsrt_atomic_uint32_t framing_errors;
 
@@ -36,7 +31,7 @@ static void scan_for_framing_error (void *ptr, const dds_log_data_t *data)
     ddsrt_atomic_or32 (&framing_errors, 1u << data->domid);
 }
 
-static void do_tcp (void (*action) (dds_entity_t rd, dds_entity_t wr, void *arg), void *arg)
+void tcp_test_run_config (const char *extra, void (*action) (dds_entity_t rd, dds_entity_t wr, void *arg), void *arg)
 {
   const char *config_fmt =
     "<General>"
@@ -54,7 +49,7 @@ static void do_tcp (void (*action) (dds_entity_t rd, dds_entity_t wr, void *arg)
     "</Discovery>"
     "<TCP>"
     "  <Port>%d</Port>"
-    "</TCP>"
+    "</TCP>%s"
     "<Tracing><Category>trace,tcp</Category><OutputFile>stdout</OutputFile></Tracing>";
 
   ddsrt_atomic_st32 (&framing_errors, 0);
@@ -63,7 +58,7 @@ static void do_tcp (void (*action) (dds_entity_t rd, dds_entity_t wr, void *arg)
 
   // Start up a new domain listening to an ephemeral TCP port
   char *configs = NULL;
-  (void) ddsrt_asprintf (&configs, config_fmt, "", 0);
+  (void) ddsrt_asprintf (&configs, config_fmt, "", 0, extra);
   const dds_entity_t doms = dds_create_domain (0, configs);
   ddsrt_free (configs);
 
@@ -78,7 +73,7 @@ static void do_tcp (void (*action) (dds_entity_t rd, dds_entity_t wr, void *arg)
   char *peerstr = NULL;
   (void) ddsrt_asprintf (&peerstr, "<Peer address=\"%s\"/>", ddsi_locator_to_string (peerlocbuf, sizeof (peerlocbuf), &gvs->loc_meta_uc));
   char *configc = NULL;
-  (void) ddsrt_asprintf (&configc, config_fmt, peerstr, -1);
+  (void) ddsrt_asprintf (&configc, config_fmt, peerstr, -1, extra);
   const dds_entity_t domc = dds_create_domain (1, configc);
   CU_ASSERT_GT_FATAL (domc, 0);
   ddsrt_free (configc);
@@ -117,7 +112,12 @@ static void do_tcp (void (*action) (dds_entity_t rd, dds_entity_t wr, void *arg)
   dds_set_trace_sink (scan_for_framing_error, NULL);
 }
 
-static void do_basic_write (dds_entity_t rd, dds_entity_t wr, void *varg)
+static void do_tcp (void (*action) (dds_entity_t rd, dds_entity_t wr, void *arg), void *arg)
+{
+  tcp_test_run_config ("", action, arg);
+}
+
+void tcp_test_basic_write (dds_entity_t rd, dds_entity_t wr, void *varg)
 {
   (void) varg;
 
@@ -147,7 +147,7 @@ static void do_basic_write (dds_entity_t rd, dds_entity_t wr, void *varg)
 
 CU_Test (ddsc_tcp, basic)
 {
-  do_tcp (do_basic_write, NULL);
+  do_tcp (tcp_test_basic_write, NULL);
 }
 
 struct inject_arg {

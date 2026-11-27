@@ -64,9 +64,6 @@ typedef struct ddsi_tcp_conn {
 typedef struct ddsi_tcp_listener {
   struct ddsi_tran_listener m_base;
   ddsrt_socket_t m_sock;
-#ifdef DDS_HAS_TCP_TLS
-  BIO * m_bio;
-#endif
 } *ddsi_tcp_listener_t;
 
 struct ddsi_tran_factory_tcp {
@@ -76,7 +73,7 @@ struct ddsi_tran_factory_tcp {
   ddsrt_avl_tree_t ddsi_tcp_cache_g;
   struct ddsi_tcp_conn ddsi_tcp_conn_client;
 #ifdef DDS_HAS_TCP_TLS
-  struct ddsi_ssl_plugins ddsi_tcp_ssl_plugin;
+  struct ddsi_ssl_ctx *ssl_ctx;
 #endif
 };
 
@@ -276,25 +273,28 @@ static dds_return_t ddsi_tcp_conn_connect (ddsi_tcp_conn_t conn, const struct so
   if (ret != DDS_RETCODE_OK)
     goto fail_w_socket;
 
-  ddsi_tcp_conn_set_socket (conn, sock);
 #ifdef DDS_HAS_TCP_TLS
-  if (fact->ddsi_tcp_ssl_plugin.connect)
+  if (fact->ssl_ctx)
   {
-    conn->m_ssl = (fact->ddsi_tcp_ssl_plugin.connect) (conn->m_base.m_base.gv, sock);
+    bool want_read;
+    conn->m_ssl = ddsi_ssl_new (gv, fact->ssl_ctx, sock, false);
     if (conn->m_ssl == NULL)
     {
-      ddsi_tcp_conn_set_socket (conn, DDSRT_INVALID_SOCKET);
+      ret = DDS_RETCODE_ERROR;
       goto fail_w_socket;
     }
+    if ((ret = ddsi_ssl_handshake (gv, conn->m_ssl, &want_read)) != DDS_RETCODE_OK)
+      goto fail_w_ssl;
   }
 #endif
+  if ((ret = ddsrt_setsocknonblocking (sock, true)) != DDS_RETCODE_OK)
+    goto fail_w_ssl;
+  ddsi_tcp_conn_set_socket (conn, sock);
 
   sockaddr_to_string_with_port(buff, sizeof(buff), (struct sockaddr *) msg_name);
   GVLOG (DDS_LC_TCP, "tcp connect socket %"PRIdSOCK" port %u to %s\n", sock, get_socket_port (gv, sock), buff);
 
   /* Also may need to receive on connection so add to waitset */
-
-  (void)ddsrt_setsocknonblocking(conn->m_sock, true);
 
   assert (conn->m_base.m_base.gv->n_recv_threads > 0);
   assert (conn->m_base.m_base.gv->recv_threads[0].arg.mode == DDSI_RTM_MANY);
@@ -302,6 +302,11 @@ static dds_return_t ddsi_tcp_conn_connect (ddsi_tcp_conn_t conn, const struct so
   ddsi_sock_waitset_trigger (conn->m_base.m_base.gv->recv_threads[0].arg.u.many.ws);
   return DDS_RETCODE_OK;
 
+fail_w_ssl:
+#ifdef DDS_HAS_TCP_TLS
+  SSL_free (conn->m_ssl);
+  conn->m_ssl = NULL;
+#endif
 fail_w_socket:
   ddsi_tcp_sock_free (gv, sock, NULL);
   return ret;
@@ -434,8 +439,8 @@ static dds_return_t ddsi_tcp_conn_read_plain (ddsi_tcp_conn_t tcp, void * buf, s
 ddsrt_nonnull ((1, 2)) ddsrt_attribute_warn_unused_result
 static dds_return_t ddsi_tcp_conn_read_ssl (ddsi_tcp_conn_t tcp, void * buf, size_t len, size_t *bytes_read)
 {
-  struct ddsi_tran_factory_tcp * const fact = (struct ddsi_tran_factory_tcp *) tcp->m_base.m_factory;
-  return (fact->ddsi_tcp_ssl_plugin.read) (tcp->m_ssl, buf, len, bytes_read);
+  bool want_read;
+  return ddsi_ssl_read (tcp->m_base.m_base.gv, tcp->m_ssl, buf, len, bytes_read, &want_read);
 }
 #endif
 
@@ -497,7 +502,7 @@ static dds_return_t ddsi_tcp_conn_read (struct ddsi_tran_conn * conn, unsigned c
   size_t pos = 0;
 
 #ifdef DDS_HAS_TCP_TLS
-  if (fact->ddsi_tcp_ssl_plugin.read)
+  if (tcp->m_ssl)
     rd = ddsi_tcp_conn_read_ssl;
 #endif
 
@@ -589,8 +594,8 @@ static dds_return_t ddsi_tcp_conn_write_plain (ddsi_tcp_conn_t conn, const void 
 ddsrt_nonnull ((1, 2))
 static dds_return_t ddsi_tcp_conn_write_ssl (ddsi_tcp_conn_t conn, const void * buf, size_t len, size_t *bytes_written)
 {
-  struct ddsi_tran_factory_tcp * const fact = (struct ddsi_tran_factory_tcp *) conn->m_base.m_factory;
-  return (fact->ddsi_tcp_ssl_plugin.write) (conn->m_ssl, buf, len, bytes_written);
+  bool want_read;
+  return ddsi_ssl_write (conn->m_base.m_base.gv, conn->m_ssl, buf, len, bytes_written, &want_read);
 }
 #endif
 
@@ -761,11 +766,10 @@ static dds_return_t ddsi_tcp_conn_write_msg_piecewise (struct ddsi_tran_factory_
 {
   dds_return_t (*wr) (ddsi_tcp_conn_t, const void *, size_t, size_t *) = ddsi_tcp_conn_write_plain;
 #ifdef DDS_HAS_TCP_TLS
-  if (fact->ddsi_tcp_ssl_plugin.write)
+  if (conn->m_ssl)
     wr = ddsi_tcp_conn_write_ssl;
-#else
-  (void) fact;
 #endif
+  (void) fact;
 
   size_t blockidx = 0, nwritten;
   dds_return_t rc;
@@ -853,6 +857,11 @@ static dds_return_t ddsi_tcp_conn_write (struct ddsi_tran_conn * base, const dds
   }
 
   assert (conn->m_sock != DDSRT_INVALID_SOCKET);
+#ifdef DDS_HAS_TCP_TLS
+  if (conn->m_ssl)
+    rc = ddsi_tcp_conn_write_msg_piecewise (fact, conn, &msg, &cursor);
+  else
+#endif
   if ((rc = ddsi_tcp_conn_write_msg (conn, &msg, &cursor)) == DDS_RETCODE_OK)
   {
     // Write didn't fail but we did not necessarily write everything. If not, try to complete it
@@ -909,20 +918,8 @@ DDSRT_WARNING_GNUC_OFF (analyzer-fd-leak)
 #endif
 static int ddsi_tcp_listen (struct ddsi_tran_listener * listener)
 {
-#ifdef DDS_HAS_TCP_TLS
-  struct ddsi_tran_factory_tcp * const fact = (struct ddsi_tran_factory_tcp *) listener->m_factory;
-#endif
   ddsi_tcp_listener_t tl = (ddsi_tcp_listener_t) listener;
-  int ret = listen (tl->m_sock, 4);
-
-#ifdef DDS_HAS_TCP_TLS
-  if ((ret == 0) && fact->ddsi_tcp_ssl_plugin.listen)
-  {
-    tl->m_bio = (fact->ddsi_tcp_ssl_plugin.listen) (tl->m_sock);
-  }
-#endif
-
-  return ret;
+  return listen (tl->m_sock, 4);
 }
 #if defined __GNUC__ && __GNUC__ >= 13
 DDSRT_WARNING_GNUC_ON (analyzer-fd-leak)
@@ -945,20 +942,7 @@ static struct ddsi_tran_conn * ddsi_tcp_accept (struct ddsi_tran_listener * list
 
   memset (&addr, 0, sizeof(addr));
   do {
-#ifdef DDS_HAS_TCP_TLS
-    if (fact->ddsi_tcp_ssl_plugin.accept)
-    {
-      ssl = (fact->ddsi_tcp_ssl_plugin.accept) (listener->m_base.gv, tl->m_bio, &sock);
-      if (ssl == NULL) {
-        assert(sock == DDSRT_INVALID_SOCKET);
-        rc = DDS_RETCODE_ERROR;
-      }
-    }
-    else
-#endif
-    {
-      rc = ddsrt_accept(tl->m_sock, NULL, NULL, &sock);
-    }
+    rc = ddsrt_accept(tl->m_sock, NULL, NULL, &sock);
     if (!ddsrt_atomic_ld32(&gv->rtps_keepgoing))
     {
       ddsi_tcp_sock_free (gv, sock, NULL);
@@ -982,7 +966,27 @@ static struct ddsi_tran_conn * ddsi_tcp_accept (struct ddsi_tran_listener * list
     sockaddr_to_string_with_port(buff, sizeof(buff), &addr.a);
     GVLOG (DDS_LC_TCP, "tcp accept new socket %"PRIdSOCK" on socket %"PRIdSOCK" from %s\n", sock, tl->m_sock, buff);
 
-    (void)ddsrt_setsocknonblocking (sock, true);
+#ifdef DDS_HAS_TCP_TLS
+    if (fact->ssl_ctx)
+    {
+      bool want_read;
+      ssl = ddsi_ssl_new (gv, fact->ssl_ctx, sock, true);
+      if (ssl == NULL || ddsi_ssl_handshake (gv, ssl, &want_read) != DDS_RETCODE_OK)
+      {
+        SSL_free (ssl);
+        ddsi_tcp_sock_free (gv, sock, NULL);
+        return NULL;
+      }
+    }
+#endif
+    if (ddsrt_setsocknonblocking (sock, true) != DDS_RETCODE_OK)
+    {
+#ifdef DDS_HAS_TCP_TLS
+      SSL_free (ssl);
+#endif
+      ddsi_tcp_sock_free (gv, sock, NULL);
+      return NULL;
+    }
     tcp = ddsi_tcp_new_conn (fact, NULL, sock, true, &addr.a);
 #ifdef DDS_HAS_TCP_TLS
     tcp->m_ssl = ssl;
@@ -1110,15 +1114,9 @@ static void ddsi_tcp_conn_delete (ddsi_tcp_conn_t conn)
   GVLOG (DDS_LC_TCP, "tcp free %s connection on socket %"PRIdSOCK" to %s (%p)\n", conn->m_base.m_server ? "server" : "client", conn->m_sock, buff, (void *) conn);
 
 #ifdef DDS_HAS_TCP_TLS
-  if (fact->ddsi_tcp_ssl_plugin.ssl_free)
-  {
-    (fact->ddsi_tcp_ssl_plugin.ssl_free) (conn->m_ssl);
-  }
-  else
+  SSL_free (conn->m_ssl);
 #endif
-  {
-    ddsi_tcp_sock_free (gv, conn->m_sock, "connection");
-  }
+  ddsi_tcp_sock_free (gv, conn->m_sock, "connection");
   ddsrt_mutex_destroy (&conn->m_mutex);
   ddsrt_free (conn);
 }
@@ -1204,13 +1202,6 @@ static void ddsi_tcp_release_listener (struct ddsi_tran_listener * listener)
 {
   ddsi_tcp_listener_t tl = (ddsi_tcp_listener_t) listener;
   struct ddsi_domaingv const * const gv = tl->m_base.m_base.gv;
-#ifdef DDS_HAS_TCP_TLS
-  struct ddsi_tran_factory_tcp * const fact = (struct ddsi_tran_factory_tcp *) listener->m_factory;
-  if (fact->ddsi_tcp_ssl_plugin.bio_vfree)
-  {
-    (fact->ddsi_tcp_ssl_plugin.bio_vfree) (tl->m_bio);
-  }
-#endif
   ddsi_tcp_sock_free (gv, tl->m_sock, "listener");
   ddsrt_free (tl);
 }
@@ -1234,10 +1225,7 @@ static void ddsi_tcp_release_factory (struct ddsi_tran_factory *fact_cmn)
   ddsrt_avl_free (&ddsi_tcp_treedef, &fact->ddsi_tcp_cache_g, ddsi_tcp_release_factory_free_cache_node);
   ddsrt_mutex_destroy (&fact->ddsi_tcp_cache_lock_g);
 #ifdef DDS_HAS_TCP_TLS
-  if (fact->ddsi_tcp_ssl_plugin.fini)
-  {
-    (fact->ddsi_tcp_ssl_plugin.fini) ();
-  }
+  ddsi_ssl_ctx_free (fact->ssl_ctx);
 #endif
   GVLOG (DDS_LC_CONFIG, "tcp de-initialized\n");
   ddsrt_free (fact);
@@ -1363,18 +1351,17 @@ int ddsi_tcp_init (struct ddsi_domaingv *gv)
   }
 #endif
 
-  ddsi_factory_add (gv, &fact->fact);
-
   memset (&fact->ddsi_tcp_conn_client, 0, sizeof (fact->ddsi_tcp_conn_client));
   ddsi_tcp_base_init (fact, NULL, &fact->ddsi_tcp_conn_client.m_base);
 
 #ifdef DDS_HAS_TCP_TLS
   if (gv->config.ssl_enable)
   {
-    ddsi_ssl_config_plugin (&fact->ddsi_tcp_ssl_plugin);
-    if (! fact->ddsi_tcp_ssl_plugin.init (gv))
+    fact->ssl_ctx = ddsi_ssl_ctx_new (gv);
+    if (fact->ssl_ctx == NULL)
     {
       GVERROR ("Failed to initialize OpenSSL\n");
+      ddsrt_free (fact);
       return -1;
     }
   }
@@ -1382,6 +1369,7 @@ int ddsi_tcp_init (struct ddsi_domaingv *gv)
 
   ddsrt_avl_init (&ddsi_tcp_treedef, &fact->ddsi_tcp_cache_g);
   ddsrt_mutex_init (&fact->ddsi_tcp_cache_lock_g);
+  ddsi_factory_add (gv, &fact->fact);
 
   GVLOG (DDS_LC_CONFIG, "tcp initialized\n");
   return 0;
