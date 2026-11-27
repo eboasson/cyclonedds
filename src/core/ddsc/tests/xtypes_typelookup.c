@@ -80,21 +80,8 @@ static ddsrt_thread_local struct {
   bool failed;
 } scc_reply_alloc_failure;
 
-static ddsrt_thread_local ddsrt_mutex_t *typeobj_copy_lock;
-static ddsrt_thread_local void *typeobj_copied_under_lock;
-
 static void *scc_reply_test_malloc (size_t size)
 {
-  if (typeobj_copy_lock != NULL && size == sizeof (ddsi_typeobj_t))
-  {
-    void *ptr = malloc (size);
-    if (ddsrt_mutex_trylock (typeobj_copy_lock))
-      ddsrt_mutex_unlock (typeobj_copy_lock);
-    else
-      typeobj_copied_under_lock = ptr;
-    typeobj_copy_lock = NULL;
-    return ptr;
-  }
   if (scc_reply_alloc_failure.mode == SCC_REPLY_ALLOC_CACHE_ENTRY &&
       size == sizeof (struct scc_reply_cache_entry_layout))
   {
@@ -449,7 +436,7 @@ CU_Test(ddsc_typelookup, get_typeobj, .init = typelookup_init, .fini = typelooku
 }
 
 
-CU_Test(ddsc_typelookup, get_typeobj_partially_resolved, .init = typelookup_alloc_failure_init, .fini = typelookup_alloc_failure_fini)
+CU_Test(ddsc_typelookup, get_typeobj_partially_resolved, .init = typelookup_init, .fini = typelookup_fini)
 {
   struct ddsi_domaingv *gv = get_domaingv (g_participant1);
   ddsi_typemap_t *map = ddsi_typemap_deser (XSpace_dep_test_desc.type_mapping.data, XSpace_dep_test_desc.type_mapping.sz);
@@ -470,15 +457,9 @@ CU_Test(ddsc_typelookup, get_typeobj_partially_resolved, .init = typelookup_allo
   CU_ASSERT_EQ (type->state, DDSI_TYPE_PARTIAL_RESOLVED);
   ddsrt_mutex_unlock (&gv->typelib_lock);
 
-  /* A later reply can still invalidate this parent's dependency. Check that
-     the public lookup copies the parent while validation is excluded. */
-  typeobj_copy_lock = &gv->typelib_lock;
-  typeobj_copied_under_lock = NULL;
   dds_return_t ret = dds_get_typeobj (g_participant1, &id, 0, &obj);
-  typeobj_copy_lock = NULL;
   CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
   CU_ASSERT_NEQ_FATAL (obj, NULL);
-  CU_ASSERT_EQ (obj, typeobj_copied_under_lock);
   ddsi_typeid_t copied_id;
   CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&obj->x, &copied_id), DDS_RETCODE_OK);
   CU_ASSERT_EQ (ddsi_typeid_compare (&copied_id, &id), 0);
@@ -487,6 +468,136 @@ CU_Test(ddsc_typelookup, get_typeobj_partially_resolved, .init = typelookup_allo
   ddsi_type_unref (gv, type);
   ddsi_typemap_fini (map);
   ddsrt_free (map);
+}
+
+struct typeobj_copy_lock_check {
+  ddsrt_mutex_t *lock;
+  uint32_t n_checks;
+  uint32_t n_unlocked;
+  dds_return_t ret;
+};
+
+static ddsrt_thread_local struct typeobj_copy_lock_check *typeobj_copy_check;
+
+static uint32_t typeobj_copy_trylock (void *arg)
+{
+  ddsrt_mutex_t * const lock = arg;
+  if (!ddsrt_mutex_trylock (lock))
+    return 0;
+  ddsrt_mutex_unlock (lock);
+  return 1;
+}
+
+static void typeobj_copy_check_lock (void)
+{
+  struct typeobj_copy_lock_check * const check = typeobj_copy_check;
+  if (check == NULL)
+    return;
+
+  /* Thread creation also allocates. Only observe allocations in the copy,
+     and wait for the helper to finish before allowing the copy to proceed. */
+  typeobj_copy_check = NULL;
+  ddsrt_threadattr_t attr;
+  ddsrt_threadattr_init (&attr);
+  ddsrt_thread_t thread;
+  dds_return_t ret = ddsrt_thread_create (&thread, "typeobj_lock", &attr, typeobj_copy_trylock, check->lock);
+  if (ret == DDS_RETCODE_OK)
+  {
+    uint32_t unlocked;
+    ret = ddsrt_thread_join (thread, &unlocked);
+    if (ret != DDS_RETCODE_OK)
+      abort (); /* The helper may still be accessing the mutex. */
+    check->n_checks++;
+    check->n_unlocked += unlocked;
+  }
+  else
+    check->ret = ret;
+  typeobj_copy_check = check;
+}
+
+static void *typeobj_copy_malloc (size_t size)
+{
+  typeobj_copy_check_lock ();
+  return malloc (size);
+}
+
+static void *typeobj_copy_calloc (size_t count, size_t size)
+{
+  typeobj_copy_check_lock ();
+  return calloc (count, size);
+}
+
+static void *typeobj_copy_realloc (void *ptr, size_t size)
+{
+  typeobj_copy_check_lock ();
+  return realloc (ptr, size);
+}
+
+CU_Test(ddsc_typelookup, get_typeobj_copy_locked)
+{
+  /* This library is never published to domain threads. During each copy
+     allocation only the copying thread and its helper can access the mutex,
+     so contention cannot be caused by an unrelated lock holder. */
+  struct ddsi_domaingv gv = { 0 };
+  ddsrt_mutex_init (&gv.typelib_lock);
+  ddsrt_cond_etime_init (&gv.typelib_resolved_cond);
+  ddsrt_avl_init (ddsi_get_typelib_treedef (), &gv.typelib);
+  ddsrt_avl_init (ddsi_get_typedeps_treedef (), &gv.typedeps);
+  ddsrt_avl_init (ddsi_get_typedeps_reverse_treedef (), &gv.typedeps_reverse);
+
+  ddsi_typemap_t *map = ddsi_typemap_deser (XSpace_dep_test_desc.type_mapping.data, XSpace_dep_test_desc.type_mapping.sz);
+  CU_ASSERT_NEQ_FATAL (map, NULL);
+  const DDS_XTypes_TypeIdentifierTypeObjectPair *parent = &map->x.identifier_object_pair_minimal._buffer[0];
+  const ddsi_typeid_t id = { .x = parent->type_identifier };
+  struct ddsi_type *type;
+  ddsrt_mutex_lock (&gv.typelib_lock);
+  CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (&gv, &type, &id), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (ddsi_type_add_typeobj (&gv, type, &parent->type_object), DDS_RETCODE_OK);
+  CU_ASSERT_EQ (type->state, DDSI_TYPE_PARTIAL_RESOLVED);
+  ddsrt_mutex_unlock (&gv.typelib_lock);
+
+  for (uint32_t locked = 0; locked < 2; locked++)
+  {
+    struct typeobj_copy_lock_check check = { .lock = &gv.typelib_lock };
+    ddsrt_set_allocator ((ddsrt_allocation_ops_t) {
+      .malloc = typeobj_copy_malloc,
+      .calloc = typeobj_copy_calloc,
+      .realloc = typeobj_copy_realloc
+    });
+    typeobj_copy_check = &check;
+    ddsi_typeobj_t *obj = NULL;
+    dds_return_t ret = DDS_RETCODE_OK;
+    if (locked)
+      ret = ddsi_wait_for_typeobj (&gv, &id, (ddsrt_etime_t) { 0 }, &obj);
+    else
+    {
+      /* Negative control: deliberately copy without locking. No other thread
+         touches the type, and the helper must acquire the mutex every time. */
+      obj = ddsi_type_get_typeobj (&gv, type);
+    }
+    typeobj_copy_check = NULL;
+    ddsrt_set_allocator ((ddsrt_allocation_ops_t) { 0 });
+
+    CU_ASSERT_EQ_FATAL (ret, DDS_RETCODE_OK);
+    CU_ASSERT_NEQ_FATAL (obj, NULL);
+    CU_ASSERT_EQ (check.ret, DDS_RETCODE_OK);
+    /* Observe the nested allocations as well as the TypeObject allocation. */
+    CU_ASSERT_GT (check.n_checks, 1);
+    CU_ASSERT_EQ (check.n_unlocked, locked ? 0 : check.n_checks);
+    ddsi_typeid_t copied_id;
+    CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&obj->x, &copied_id), DDS_RETCODE_OK);
+    CU_ASSERT_EQ (ddsi_typeid_compare (&copied_id, &id), 0);
+    dds_free_typeobj (obj);
+  }
+
+  ddsi_type_unref (&gv, type);
+  CU_ASSERT (ddsrt_avl_is_empty (&gv.typelib));
+  CU_ASSERT (ddsrt_avl_is_empty (&gv.typedeps));
+  CU_ASSERT (ddsrt_avl_is_empty (&gv.typedeps_reverse));
+  ddsi_typemap_fini (map);
+  ddsrt_free (map);
+  ddsrt_cond_etime_destroy (&gv.typelib_resolved_cond);
+  ddsrt_mutex_destroy (&gv.typelib_lock);
 }
 
 CU_Test(ddsc_typelookup, api_resolve, .init = typelookup_init, .fini = typelookup_fini)
