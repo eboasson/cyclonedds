@@ -202,7 +202,7 @@ CU_Test(ddsc_serdata, key_write_xcdrv)
 }
 #undef D
 
-static void check_direct_union_keyhash (const dds_topic_descriptor_t *topic, const void *sample, void *decoded,
+static void check_direct_keyhash (const dds_topic_descriptor_t *topic, const void *sample, void *decoded,
     const unsigned char expected[DDS_FIXED_KEY_MAX_SIZE], size_t key_size)
 {
   const struct dds_cdrstream_allocator *allocator = &dds_cdrstream_default_allocator;
@@ -246,7 +246,7 @@ CU_Test(ddsc_serdata, keyhash_projection)
   };
   const unsigned char ordered_key[DDS_FIXED_KEY_MAX_SIZE] = { 's',1,0,0,SER64BE(UINT64_C(0x1122334455667788)) };
   SerdataKeyOrderedChoice ordered_out = { 0 };
-  check_direct_union_keyhash (&SerdataKeyOrderedChoice_desc, &ordered, &ordered_out, ordered_key, 12);
+  check_direct_keyhash (&SerdataKeyOrderedChoice_desc, &ordered, &ordered_out, ordered_key, 12);
   CU_ASSERT_EQ (ordered_out.u._d, 's');
   CU_ASSERT_EQ (ordered_out.u._u.fields.a, ordered.u._u.fields.a);
   CU_ASSERT_EQ (ordered_out.u._u.fields.b, 0);
@@ -258,7 +258,7 @@ CU_Test(ddsc_serdata, keyhash_projection)
   // The array's DHEADER remains. Each mutable union is represented by its discriminator and selected arm.
   const unsigned char choices_key[DDS_FIXED_KEY_MAX_SIZE] = { SER_DHEADERBE(4),'a','x','a','y' };
   SerdataKeyMutableChoices choices_out = { 0 };
-  check_direct_union_keyhash (&SerdataKeyMutableChoices_desc, &choices, &choices_out, choices_key, 8);
+  check_direct_keyhash (&SerdataKeyMutableChoices_desc, &choices, &choices_out, choices_key, 8);
   for (size_t i = 0; i < 2; i++)
   {
     CU_ASSERT_EQ (choices_out.choices[i]._d, choices.choices[i]._d);
@@ -274,12 +274,53 @@ CU_Test(ddsc_serdata, keyhash_shared_collection_and_union_layout)
   // Both occurrences of the appendable struct contribute just their two key octets.
   const unsigned char key[DDS_FIXED_KEY_MAX_SIZE] = { SER_DHEADERBE(2), 1, 2, 'v', 3, 4, 0, 0, 0, SER32BE(5) };
   SerdataKeySharedLayout out = { 0 };
-  check_direct_union_keyhash (&SerdataKeySharedLayout_desc, &sample, &out, key, sizeof (key));
+  check_direct_keyhash (&SerdataKeySharedLayout_desc, &sample, &out, key, sizeof (key));
   CU_ASSERT_MEMEQ (out.elements, sizeof (out.elements), sample.elements, sizeof (sample.elements));
   CU_ASSERT_EQ (out.choice._d, 'v');
   CU_ASSERT_EQ (out.choice._u.fields.x, 3);
   CU_ASSERT_EQ (out.choice._u.fields.y, 4);
   CU_ASSERT_EQ (out.tail, 5);
+}
+
+CU_Test(ddsc_serdata, keyhash_collection_member_order)
+{
+  const SerdataKeyElementArray sample = { .elements = { { 1, 2, 3 }, { 4, 5, 6 } } };
+  const unsigned char canonical[16] = { SER_DHEADERBE(4), 3, 1, 6, 4 };
+  SerdataKeyElementArray out = { 0 };
+  check_direct_keyhash (&SerdataKeyElementArray_desc, &sample, &out, canonical, 8);
+  CU_ASSERT_EQ (out.elements[0].first, 1);
+  CU_ASSERT_EQ (out.elements[1].last, 6);
+
+#ifdef DDS_HAS_TYPELIB
+  const dds_entity_t pp = create_pp (0);
+  const dds_entity_t tp = dds_create_topic (pp, &SerdataKeyElementArray_desc, "KeyCollectionOrder", NULL, NULL);
+  CU_ASSERT_GT_FATAL (tp, 0);
+  dds_typeinfo_t *type_info;
+  CU_ASSERT_EQ_FATAL (dds_get_typeinfo (tp, &type_info), DDS_RETCODE_OK);
+  dds_topic_descriptor_t *generated;
+  CU_ASSERT_EQ_FATAL (dds_create_topic_descriptor (DDS_FIND_SCOPE_LOCAL_DOMAIN, pp, type_info, 0, &generated), DDS_RETCODE_OK);
+  out = (SerdataKeyElementArray) { 0 };
+  check_direct_keyhash (generated, &sample, &out, canonical, 8);
+  dds_delete_topic_descriptor (generated);
+  dds_free_typeinfo (type_info);
+  dds_delete (DDS_CYCLONEDDS_HANDLE);
+#endif
+
+  // A descriptor without element member IDs can still write its historical key.
+  const struct dds_cdrstream_allocator *allocator = &dds_cdrstream_default_allocator;
+  const dds_topic_descriptor_t *topic = &SerdataKeyElementArray_desc;
+  struct dds_cdrstream_desc legacy;
+  CU_ASSERT_EQ_FATAL (dds_cdrstream_desc_init (&legacy, allocator, topic->m_size, topic->m_align,
+      topic->m_flagset, topic->m_ops, topic->m_keys, topic->m_nkeys), DDS_RETCODE_OK);
+  const unsigned char definition_order[] = { SER_DHEADERBE(4), 1, 3, 4, 6 };
+  dds_ostreamBE_t os;
+  dds_ostreamBE_init (&os, allocator, 0, DDSI_RTPS_CDR_ENC_VERSION_2);
+  CU_ASSERT (dds_stream_write_keyBE (&os, DDS_CDR_KEY_SERIALIZATION_KEYHASH, allocator, (const char *) &sample, &legacy));
+  CU_ASSERT_MEMEQ (os.x.m_buffer, os.x.m_index, definition_order, sizeof (definition_order));
+  out = (SerdataKeyElementArray) { 0 };
+  CU_ASSERT (!dds_stream_read_keyhash (canonical, &out, allocator, &legacy, DDS_STREAM_NORMALIZE_FLAG_NONE));
+  dds_ostreamBE_fini (&os, allocator);
+  dds_cdrstream_desc_fini (&legacy, allocator);
 }
 
 CU_Test(ddsc_serdata, keys_wstring_fixed_endian)
@@ -1573,7 +1614,7 @@ CU_Test(ddsc_serdata, key_serialization)
           SER_DHEADER(20), SER32(2), SER_DHEADER(4), SER32(5), SER_DHEADER(4), SER32(7),
         }, 24
       } },
-      KEYHASH(SIZE_MAX, SER_DHEADERBE(20), SER32BE(2), SER_DHEADERBE(4), SER32BE(5), SER_DHEADERBE(4), SER32BE(7))
+      KEYHASH(SIZE_MAX, SER_DHEADERBE(12), SER32BE(2), SER32BE(5), SER32BE(7))
     },
     { &SerdataKeySequenceNested_desc, init_SerdataKeySequenceNested,
       { {

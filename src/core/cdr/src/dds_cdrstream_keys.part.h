@@ -108,10 +108,6 @@ static bool dds_stream_write_keyBO_restrict (RESTRICT_OSTREAM_T *os, enum dds_cd
        type with final extensibility: iterate over keys in key descriptor. Depending on the output
        kind (for a key-only sample or keyhash), use the specific key-list from the descriptor. */
 
-    /* FIXME: a known issue in this implementation is that in case of key-hash CDR output, for key
-       members that are of a collection type (array/seq), and the element type is an aggregated type,
-       the members are not ordered by their member ID, but included in definition order. As a result,
-       the CDR used for calculating the key-hash may be incorrect. */
     bool use_memberid_order = (ser_kind == DDS_CDR_KEY_SERIALIZATION_KEYHASH);
     const enum cdr_data_kind cdr_kind = use_memberid_order && desc->member_ids.keyhash_needs_projection ? CDR_KIND_KEYHASH : CDR_KIND_KEY;
     struct dds_cdrstream_desc_key *keylist = use_memberid_order ? desc->keys.keys : desc->keys.keys_definition_order;

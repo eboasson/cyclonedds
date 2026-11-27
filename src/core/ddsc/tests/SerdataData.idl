@@ -99,6 +99,10 @@ struct SerdataUnionElement {
     @id(2) uint8 ignored;
     @key @id(1) uint8 last;
 };
+@final
+struct SerdataKeyElementArray {
+    @key SerdataUnionElement elements[2];
+};
 @nested @final
 union SerdataAggregateChoice switch (char) {
     case 's': SerdataKeyOrderAppendable fields;

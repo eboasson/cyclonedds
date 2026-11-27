@@ -37,6 +37,11 @@ Limitations on backwards compatibility:
   see a different value after upgrading. When a dispose or unregister
   supplies only a key hash, the C binding now decodes recoverable keys
   using the same XCDR2 rules.
+* Regenerate C topic descriptors for key collections of structs to use
+  canonical member-ID order and omit struct headers in the RTPS key
+  hash. Older descriptors that omit the necessary member IDs retain
+  their historical write order and decline ambiguous key-hash-only
+  disposals and unregistrations.
 
 `V0.7.0 (2020-08-06) <https://github.com/eclipse-cyclonedds/cyclonedds/compare/V0.6.0...0.7.0>`_
 -----------------------------------------------------------------------------------------------

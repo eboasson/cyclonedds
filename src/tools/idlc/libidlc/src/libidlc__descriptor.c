@@ -2795,7 +2795,6 @@ static idl_retcode_t get_ctype_keys_adr(const idl_pstate_t *pstate, struct descr
 
     case DDS_OP_VAL_ARR: case DDS_OP_VAL_SEQ: case DDS_OP_VAL_BSQ: {
       const enum dds_stream_typecode subtype = DDS_OP_SUBTYPE(inst->data.opcode.code);
-      const enum key_scope element_scope = scope == KEY_UNION_ARM ? KEY_UNION_ARM : KEY_COLLECTION;
       switch (subtype) {
         case DDS_OP_VAL_BLN: case DDS_OP_VAL_1BY: case DDS_OP_VAL_WCHAR: case DDS_OP_VAL_2BY: case DDS_OP_VAL_4BY: case DDS_OP_VAL_8BY:
         case DDS_OP_VAL_ENU: case DDS_OP_VAL_BMK: case DDS_OP_VAL_BST: case DDS_OP_VAL_STR: case DDS_OP_VAL_BWSTR: case DDS_OP_VAL_WSTR: case DDS_OP_VAL_16BY:
@@ -2811,7 +2810,7 @@ static idl_retcode_t get_ctype_keys_adr(const idl_pstate_t *pstate, struct descr
           if (!(DDS_OP_FLAGS(elem_insn->data.opcode.code) & DDS_OP_FLAG_KEY))
             elem_insn->data.opcode.code |= DDS_OP_FLAG_KEY;
 
-          if ((ret = get_ctype_keys_adr(pstate, descriptor, offs + elem_insn_offs, base_type_ops_offs, elem_insn, ctype, NULL, NULL, element_scope)))
+          if ((ret = get_ctype_keys_adr(pstate, descriptor, offs + elem_insn_offs, base_type_ops_offs, elem_insn, ctype, NULL, NULL, KEY_PROJECTED)))
             return ret;
           break;
         }
@@ -2823,7 +2822,7 @@ static idl_retcode_t get_ctype_keys_adr(const idl_pstate_t *pstate, struct descr
           const idl_node_t *node = ctype->instructions.table[elem_offs].data.inst_offset.node;
           struct constructed_type *csubtype = find_ctype(descriptor, node);
           assert(csubtype);
-          if ((ret = get_ctype_keys(pstate, descriptor, csubtype, NULL, NULL, true, 0, element_scope)))
+          if ((ret = get_ctype_keys(pstate, descriptor, csubtype, NULL, NULL, true, 0, KEY_PROJECTED)))
             return ret;
           break;
         }
@@ -2861,11 +2860,10 @@ static idl_retcode_t get_ctype_keys(const idl_pstate_t *pstate, struct descripto
   const bool union_cases = is_union && parent_is_key && !((const idl_union_t *)ctype->node)->switch_type_spec->key.value;
   const bool implicit_struct = parent_is_key && !is_union &&
     ((pstate->config.flags & IDL_FLAG_KEYLIST) ? !ctype->has_key_member : idl_is_keyless(ctype->node, false));
-  /* Revisit a collection element if a union arm also needs its member IDs. */
   if (!collect_offsets && parent_is_key) {
-    if (ctype->projected_key >= scope)
+    if (ctype->projected_key)
       return IDL_RETCODE_OK;
-    ctype->projected_key = scope;
+    ctype->projected_key = true;
   }
 
   for (uint32_t offs = 0; offs < ctype->instructions.count; offs++) {
@@ -2900,7 +2898,7 @@ static idl_retcode_t get_ctype_keys(const idl_pstate_t *pstate, struct descripto
           }
           struct constructed_type *arm = find_ctype(descriptor, node);
           assert(arm);
-          if ((ret = get_ctype_keys(pstate, descriptor, arm, NULL, NULL, true, 0, KEY_UNION_ARM)))
+          if ((ret = get_ctype_keys(pstate, descriptor, arm, NULL, NULL, true, 0, KEY_PROJECTED)))
             goto err;
         }
         break;
@@ -2912,7 +2910,7 @@ static idl_retcode_t get_ctype_keys(const idl_pstate_t *pstate, struct descripto
                they never add independent top-level key offsets. */
             if (union_cases) {
               inst->data.opcode.code |= DDS_OP_FLAG_KEY;
-              if ((ret = get_ctype_keys_adr(pstate, descriptor, offs, 0, inst, ctype, NULL, NULL, KEY_UNION_ARM)))
+              if ((ret = get_ctype_keys_adr(pstate, descriptor, offs, 0, inst, ctype, NULL, NULL, KEY_PROJECTED)))
                 goto err;
             }
             break;
@@ -3174,7 +3172,7 @@ static idl_retcode_t get_ctype_memberids_adr(const idl_pstate_t *pstate, struct 
 
   /* Mutable encoding does not need a MID table, because
      it uses PLM ops as part of the type's ops */
-  const bool ordered_key_member = ctype->projected_key == KEY_UNION_ARM && idl_is_struct(ctype->node) &&
+  const bool ordered_key_member = ctype->projected_key && idl_is_struct(ctype->node) &&
     inst_offs->data.offset.member && (inst->data.opcode.code & DDS_OP_FLAG_KEY) && !(inst->data.opcode.code & DDS_OP_FLAG_BASE);
   if (((inst->data.opcode.code & DDS_OP_FLAG_OPT) || ordered_key_member) && !is_mutable_member)
   {

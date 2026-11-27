@@ -169,6 +169,7 @@ struct dds_cdrstream_desc_mid_table {
   bool has_special_defaults;
   bool keyhash_needs_projection; /* strip nested union headers or use canonical struct layouts */
   bool has_keyholder_layouts;    /* at least one struct needs a separate member traversal */
+  bool keyhash_order_unknown;    /* legacy collection element lacks IDs needed to recover a peer key */
 };
 
 struct dds_cdrstream_desc_enum_value_set {
@@ -184,7 +185,7 @@ struct dds_cdrstream_desc_mid {
   uint32_t mid;
   const struct dds_cdrstream_desc_enum_value_set *enum_value_set;
   struct dds_cdrstream_keyholder_layout *keyholder;
-  bool keyholder_checked;
+  uint8_t keyholder_checked;     /* strongest member-ID policy used to visit this struct */
 };
 
 struct dds_cdrstream_desc {
@@ -935,9 +936,9 @@ DDS_EXPORT dds_return_t dds_cdrstream_desc_init_with_nops (struct dds_cdrstream_
  * derived from the operations rather than supplied as a word count. That means
  * some descriptor features are unavailable; in particular, appendable types in
  * XCDR1 mode are not supported for descriptors constructed with this function.
- * If a union key selects a struct arm whose canonical ordering requires the
- * member-ID table, use @ref dds_cdrstream_desc_init_with_nops with the full
- * operation word count.
+ * For struct elements of key collections and struct arms of union keys, use
+ * @ref dds_cdrstream_desc_init_with_nops with the full operation word count
+ * to include the member-ID table used for canonical KeyHash ordering.
  *
  * @param desc       descriptor to initialize
  * @param allocator  allocator used for descriptor storage

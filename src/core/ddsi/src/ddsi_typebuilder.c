@@ -141,7 +141,7 @@ struct typebuilder_struct
   uint32_t n_members;
   struct typebuilder_struct_member *members;
   bool base_is_key;
-  bool key_in_union_arm;
+  bool needs_key_member_ids;
 };
 
 struct typebuilder_union_member
@@ -278,7 +278,7 @@ struct visited_aggrtype {
 enum implicit_key_scope {
   IMPLICIT_KEY_NONE,
   IMPLICIT_KEY_MEMBER,
-  IMPLICIT_KEY_UNION_ARM
+  IMPLICIT_KEY_PROJECTED
 };
 
 struct visited_implicit_keys {
@@ -2349,7 +2349,8 @@ static void set_implicit_keys_type (struct typebuilder_type *type, enum implicit
       set_implicit_keys_aggrtype (type->args.external_type_args.external_type.type, false, scope, visited_implicit_keys);
       break;
     case DDS_OP_VAL_SEQ: case DDS_OP_VAL_BSQ: case DDS_OP_VAL_ARR:
-      set_implicit_keys_type (type->args.collection_args.element_type.type, scope, visited_implicit_keys);
+      set_implicit_keys_type (type->args.collection_args.element_type.type,
+        scope == IMPLICIT_KEY_NONE ? IMPLICIT_KEY_NONE : IMPLICIT_KEY_PROJECTED, visited_implicit_keys);
       break;
     default:
       break;
@@ -2359,8 +2360,8 @@ static void set_implicit_keys_type (struct typebuilder_type *type, enum implicit
 static void set_implicit_keys_struct (struct typebuilder_struct *tb_struct, bool has_explicit_key, bool is_toplevel, enum implicit_key_scope scope, struct visited_implicit_keys *visited_implicit_keys)
 {
   const enum implicit_key_scope member_scope = is_toplevel && scope == IMPLICIT_KEY_NONE ? IMPLICIT_KEY_MEMBER : scope;
-  if (scope == IMPLICIT_KEY_UNION_ARM)
-    tb_struct->key_in_union_arm = true;
+  if (scope == IMPLICIT_KEY_PROJECTED)
+    tb_struct->needs_key_member_ids = true;
   for (uint32_t n = 0; n < tb_struct->n_members; n++)
   {
     if (scope != IMPLICIT_KEY_NONE && !has_explicit_key)
@@ -2395,7 +2396,7 @@ static void set_implicit_keys_aggrtype (struct typebuilder_aggregated_type *tb_a
       {
         tb_aggrtype->detail._union.key_includes_cases = true;
         for (uint32_t n = 0; n < tb_aggrtype->detail._union.n_cases; n++)
-          set_implicit_keys_type (&tb_aggrtype->detail._union.cases[n].type, IMPLICIT_KEY_UNION_ARM, &visited);
+          set_implicit_keys_type (&tb_aggrtype->detail._union.cases[n].type, IMPLICIT_KEY_PROJECTED, &visited);
       }
       break;
     default:
@@ -2438,7 +2439,7 @@ static dds_return_t add_memberids_struct (struct typebuilder_data *tbd, struct t
   for (uint32_t n = 0; n < tb_struct->n_members; n++)
   {
     struct typebuilder_struct_member *member = &tb_struct->members[n];
-    if ((member->is_optional || (tb_struct->key_in_union_arm && member->is_key)) && !is_mutable_struct)
+    if ((member->is_optional || (tb_struct->needs_key_member_ids && member->is_key)) && !is_mutable_struct)
     {
       const uint32_t insn_offs = member->parent->insn_offs + member->insn_offs;
       assert (insn_offs <= DDS_KOF_OFFSET_MASK);

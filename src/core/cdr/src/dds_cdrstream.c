@@ -7582,7 +7582,7 @@ static const uint32_t *keyhash_member (const struct dds_cdrstream_desc *desc, ui
 
 bool dds_stream_read_keyhash (const unsigned char keyhash[DDS_FIXED_KEY_MAX_SIZE], void *sample, const struct dds_cdrstream_allocator *allocator, const struct dds_cdrstream_desc *desc, uint32_t flags)
 {
-  if (!(desc->flagset & DDS_TOPIC_FIXED_KEY_XCDR2_KEYHASH))
+  if (!(desc->flagset & DDS_TOPIC_FIXED_KEY_XCDR2_KEYHASH) || desc->member_ids.keyhash_order_unknown)
     return false;
 
   union { unsigned char data[DDS_FIXED_KEY_MAX_SIZE]; uint32_t align; } buf;
@@ -8575,6 +8575,13 @@ static void add_key_size_for_elements (struct key_props *k, const uint32_t *elem
   k->path = path.parent;
 }
 
+enum keyholder_id_policy {
+  KEYHOLDER_ALLOW_MISSING_IDS = 1, /* legacy collection elements */
+  KEYHOLDER_REQUIRE_IDS            /* struct arm of a whole-union key */
+};
+
+static void add_keyholder_layout (struct keyholder_builder *builder, const uint32_t *ops, enum keyholder_id_policy id_policy);
+
 static const uint32_t *dds_stream_key_size_collection (const uint32_t *ops, uint32_t insn, struct key_props *k)
 {
   const enum dds_stream_typecode type = DDS_OP_TYPE (insn);
@@ -8626,7 +8633,10 @@ static const uint32_t *dds_stream_key_size_collection (const uint32_t *ops, uint
     }
     case DDS_SOP_VAL_SEQ: case DDS_SOP_VAL_BSQ: case DDS_SOP_VAL_ARR: case DDS_SOP_VAL_UNI: case DDS_SOP_VAL_STU: {
       const uint32_t insn_op = type == DDS_SOP_VAL_BSQ ? 4 : 3;
-      add_key_size_for_elements (k, ops + DDS_OP_ADR_JSR (ops[insn_op]), bound, subtype);
+      const uint32_t *element_ops = ops + DDS_OP_ADR_JSR (ops[insn_op]);
+      if (k->builder && subtype == DDS_SOP_VAL_STU)
+        add_keyholder_layout (k->builder, element_ops, KEYHOLDER_ALLOW_MISSING_IDS);
+      add_key_size_for_elements (k, element_ops, bound, subtype);
       break;
     }
     case DDS_SOP_VAL_EXT:
@@ -8634,8 +8644,6 @@ static const uint32_t *dds_stream_key_size_collection (const uint32_t *ops, uint
   }
   return dds_stream_skip_adr_insns (insn, ops);
 }
-
-static void add_keyholder_layout (struct keyholder_builder *builder, const uint32_t *ops);
 
 /* A union arm can reach a struct directly or through nested collections. */
 static const uint32_t *keyholder_struct_type (enum dds_stream_typecode type, const uint32_t *ops)
@@ -8697,7 +8705,7 @@ static void add_key_size_for_union_cases (struct key_props *k, const uint32_t *o
         {
           const uint32_t *struct_ops = keyholder_struct_type (type, value_ops);
           if (struct_ops)
-            add_keyholder_layout (k->builder, struct_ops);
+            add_keyholder_layout (k->builder, struct_ops, KEYHOLDER_REQUIRE_IDS);
         }
         add_key_size_for_elements (k, value_ops, 1, type);
         break;
@@ -9163,6 +9171,8 @@ struct keyholder_members {
   struct keyholder_member *members;
   uint32_t n, last_id;
   bool reorder;
+  bool missing_ids;
+  enum keyholder_id_policy id_policy;
 };
 
 static void mark_keyholder_checked (struct keyholder_members *fields)
@@ -9172,7 +9182,7 @@ static void mark_keyholder_checked (struct keyholder_members *fields)
     struct dds_cdrstream_desc_mid_table *table = fields->builder->table;
     fields->meta = dds_stream_get_op_meta (fields->builder->allocator, table, (uint32_t) (fields->struct_ops - table->op0));
   }
-  fields->meta->keyholder_checked = true;
+  fields->meta->keyholder_checked = (uint8_t) fields->id_policy;
 }
 
 /* Flatten inherited members into the derived struct's scope. The first pass
@@ -9219,7 +9229,11 @@ static const uint32_t *collect_keyholder_members (struct keyholder_members *fiel
         continue;
       }
       if ((*op & DDS_OP_FLAG_KEY) && !find_member_id (fields->builder->table, op, &id))
-        return NULL;
+      {
+        if (fields->id_policy == KEYHOLDER_REQUIRE_IDS)
+          return NULL;
+        fields->missing_ids = true;
+      }
     }
     if (*op & DDS_OP_FLAG_KEY)
     {
@@ -9236,7 +9250,7 @@ static const uint32_t *collect_keyholder_members (struct keyholder_members *fiel
           /* Mark the containing struct before descending through a recursive
              sequence. Shared subtypes then only need to be inspected once. */
           mark_keyholder_checked (fields);
-          add_keyholder_layout (fields->builder, nested);
+          add_keyholder_layout (fields->builder, nested, fields->id_policy);
           if (fields->builder->ret != DDS_RETCODE_OK)
             return NULL;
         }
@@ -9253,17 +9267,17 @@ static int compare_keyholder_members (const void *va, const void *vb)
   return (a->id > b->id) - (a->id < b->id);
 }
 
-static void add_keyholder_layout (struct keyholder_builder *builder, const uint32_t *ops)
+static void add_keyholder_layout (struct keyholder_builder *builder, const uint32_t *ops, enum keyholder_id_policy id_policy)
 {
   if (builder->ret != DDS_RETCODE_OK || union_value_adr (ops))
     return;
   struct dds_cdrstream_desc_mid_table *table = builder->table;
   struct dds_cdrstream_desc_mid key = { .adr_offs = (uint32_t) (ops - table->op0) };
   struct dds_cdrstream_desc_mid *m = table->table ? ddsrt_hh_lookup (table->table, &key) : NULL;
-  if (m && m->keyholder_checked)
+  if (m && m->keyholder_checked >= id_policy)
     return;
 
-  struct keyholder_members fields = { .builder = builder, .struct_ops = ops, .meta = m };
+  struct keyholder_members fields = { .builder = builder, .struct_ops = ops, .meta = m, .id_policy = id_policy };
   const uint32_t *end = collect_keyholder_members (&fields, ops, 0);
   if (end == NULL)
   {
@@ -9271,10 +9285,15 @@ static void add_keyholder_layout (struct keyholder_builder *builder, const uint3
       builder->ret = DDS_RETCODE_BAD_PARAMETER; /* Missing member IDs for canonical ordering. */
     return;
   }
-  if (DDS_OP (*ops) != DDS_OP_DLC && DDS_OP (*ops) != DDS_OP_PLC && !fields.reorder)
+  const bool has_header = DDS_OP (*ops) == DDS_OP_DLC || DDS_OP (*ops) == DDS_OP_PLC;
+  if (fields.missing_ids || (fields.meta && fields.meta->keyholder) || (!has_header && !fields.reorder))
   {
+    /* Older collection descriptors omit member IDs. Preserve their writer's
+       layout, and decline to reconstruct a peer key when it can differ. */
+    if (fields.missing_ids && (has_header || fields.n > 1))
+      table->keyhash_order_unknown = true;
     if (fields.meta)
-      fields.meta->keyholder_checked = true;
+      mark_keyholder_checked (&fields);
     return;
   }
   struct dds_cdrstream_keyholder_layout *layout = builder->allocator->malloc (sizeof (*layout) + fields.n * sizeof (layout->members[0]));
@@ -9431,6 +9450,7 @@ dds_return_t dds_cdrstream_desc_init_with_nops (struct dds_cdrstream_desc *desc,
   desc->member_ids.has_special_defaults = false;
   desc->member_ids.keyhash_needs_projection = false;
   desc->member_ids.has_keyholder_layouts = false;
+  desc->member_ids.keyhash_order_unknown = false;
   if (counted_ops < nops)
   {
     const uint32_t *aop = desc->ops.ops + counted_ops;
