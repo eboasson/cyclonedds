@@ -73,6 +73,10 @@ module CdrStreamKeySize {
   @topic @final struct empty_key_array { @key empty_key_element elements[17]; };
   @topic @final struct empty_key_bseq { @key sequence<empty_key_element, 17> elements; };
   @topic @final struct empty_key_seq { @key sequence<empty_key_element> elements; };
+  @nested @final struct empty_external_leaf { @key empty_key_marker marker; octet payload[512]; };
+  @nested @final struct empty_external_middle { @key @external empty_external_leaf leaf; };
+  @nested @final struct empty_external_element { @key @external empty_external_middle middle; };
+  @topic @final struct empty_external_seq { @key sequence<empty_external_element> elements; };
 
   // unions
   @final union t47 switch (@key long) {

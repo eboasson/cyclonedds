@@ -1642,6 +1642,98 @@ CU_Test(ddsc_cdrstream, key_size)
 #undef VAR
 #undef D
 
+static void write_empty_sequence_keyhash (unsigned char hash[DDS_FIXED_KEY_MAX_SIZE], const void *src, const struct dds_cdrstream_desc *desc)
+{
+  const struct dds_cdrstream_allocator *a = &dds_cdrstream_default_allocator;
+  dds_ostreamBE_t os;
+  dds_ostreamBE_init (&os, a, 0, XCDR2);
+  CU_ASSERT_FATAL (dds_stream_write_keyBE (&os, DDS_CDR_KEY_SERIALIZATION_KEYHASH, a, src, desc));
+  CU_ASSERT_EQ_FATAL (os.x.m_index, 8);
+  memcpy (hash, os.x.m_buffer, os.x.m_index);
+  dds_ostreamBE_fini (&os, a);
+}
+
+CU_Test(ddsc_cdrstream, direct_keyhash_empty_sequence_budget)
+{
+  const struct dds_cdrstream_allocator *a = &dds_cdrstream_default_allocator;
+  struct dds_cdrstream_desc desc;
+  CU_ASSERT_EQ_FATAL (dds_cdrstream_desc_from_topic_desc (&desc, &CdrStreamKeySize_empty_key_seq_desc), DDS_RETCODE_OK);
+  const uint32_t limit = 65536 / sizeof (CdrStreamKeySize_empty_key_element);
+  for (uint32_t n = limit; n <= limit + 1; n++)
+  {
+    CdrStreamKeySize_empty_key_seq src = { .elements = {
+      ._length = n, ._maximum = n, ._buffer = ddsrt_calloc (n, sizeof (*src.elements._buffer)) } };
+    unsigned char hash[DDS_FIXED_KEY_MAX_SIZE] = { 0 };
+    write_empty_sequence_keyhash (hash, &src, &desc);
+    ddsrt_free (src.elements._buffer);
+
+    CdrStreamKeySize_empty_key_seq dst = { 0 };
+    CU_ASSERT_EQ (dds_stream_read_keyhash (hash, &dst, a, &desc, DDS_STREAM_NORMALIZE_FLAG_NONE), n == limit);
+    CU_ASSERT_EQ (dst.elements._maximum, n == limit ? n : 0);
+    dds_stream_free_sample (&dst, a, desc.ops.ops);
+  }
+  dds_cdrstream_desc_fini (&desc, a);
+}
+
+CU_Test(ddsc_cdrstream, direct_keyhash_empty_external_sequence_budget)
+{
+  const struct dds_cdrstream_allocator *a = &dds_cdrstream_default_allocator;
+  struct dds_cdrstream_desc desc;
+  CU_ASSERT_EQ_FATAL (dds_cdrstream_desc_from_topic_desc (&desc, &CdrStreamKeySize_empty_external_seq_desc), DDS_RETCODE_OK);
+  CdrStreamKeySize_empty_external_leaf leaf = { .payload = { 1 } };
+  CdrStreamKeySize_empty_external_middle middle = { .leaf = &leaf };
+  const uint32_t limit = 65536 / (sizeof (CdrStreamKeySize_empty_external_element) + sizeof (middle) + sizeof (leaf));
+  for (uint32_t n = limit; n <= limit + 1; n++)
+  {
+    CdrStreamKeySize_empty_external_seq src = { .elements = {
+      ._length = n, ._maximum = n, ._buffer = ddsrt_malloc (n * sizeof (*src.elements._buffer)) } };
+    for (uint32_t i = 0; i < n; i++)
+      src.elements._buffer[i].middle = &middle;
+    unsigned char hash[DDS_FIXED_KEY_MAX_SIZE] = { 0 };
+    write_empty_sequence_keyhash (hash, &src, &desc);
+    ddsrt_free (src.elements._buffer);
+
+    CdrStreamKeySize_empty_external_seq dst = { 0 };
+    CU_ASSERT_EQ_FATAL (dds_stream_read_keyhash (hash, &dst, a, &desc, DDS_STREAM_NORMALIZE_FLAG_NONE), n == limit);
+    CU_ASSERT_EQ_FATAL (dst.elements._length, n == limit ? n : 0);
+    for (uint32_t i = 0; i < dst.elements._length; i++)
+    {
+      CU_ASSERT_FATAL (dst.elements._buffer[i].middle != NULL);
+      CU_ASSERT_FATAL (dst.elements._buffer[i].middle->leaf != NULL);
+      CU_ASSERT_EQ (dst.elements._buffer[i].middle->leaf->payload[0], 0);
+    }
+    dds_stream_free_sample (&dst, a, desc.ops.ops);
+  }
+  dds_cdrstream_desc_fini (&desc, a);
+}
+
+CU_Test(ddsc_cdrstream, direct_keyhash_zero_stride_sequence)
+{
+  /* A dynamically built descriptor can assign zero native size to an empty
+     nested struct. A nonempty sequence then has no addressable storage. */
+  static const uint32_t ops[] = {
+    DDS_OP_ADR | DDS_OP_FLAG_KEY | DDS_OP_TYPE_SEQ | DDS_OP_SUBTYPE_STU, 0, 0, (4u << 16) + 5u,
+    DDS_OP_RTS, DDS_OP_RTS
+  };
+  static const dds_key_descriptor_t keys[] = { { .m_name = "elements", .m_offset = 0, .m_idx = 0 } };
+  const struct dds_cdrstream_allocator *a = &dds_cdrstream_default_allocator;
+  struct dds_cdrstream_desc desc;
+  CU_ASSERT_EQ_FATAL (dds_cdrstream_desc_init_with_nops (&desc, a, sizeof (dds_sequence_t), dds_alignof (dds_sequence_t), 0,
+    ops, sizeof (ops) / sizeof (ops[0]), keys, 1), DDS_RETCODE_OK);
+  for (uint32_t n = 0; n <= 1; n++)
+  {
+    uint8_t placeholder = 0;
+    dds_sequence_t src = { ._length = n, ._maximum = n, ._buffer = &placeholder }, dst = { 0 };
+    unsigned char hash[DDS_FIXED_KEY_MAX_SIZE] = { 0 };
+    write_empty_sequence_keyhash (hash, &src, &desc);
+    CU_ASSERT_EQ (dds_stream_read_keyhash (hash, &dst, a, &desc, DDS_STREAM_NORMALIZE_FLAG_NONE), n == 0);
+    CU_ASSERT_EQ (dst._length, 0);
+    CU_ASSERT (dst._buffer == NULL);
+    dds_stream_free_sample (&dst, a, desc.ops.ops);
+  }
+  dds_cdrstream_desc_fini (&desc, a);
+}
+
 #define D(n) (&CdrStreamKeyExt_ ## n ## _desc)
 CU_Test(ddsc_cdrstream, key_flags_ext)
 {

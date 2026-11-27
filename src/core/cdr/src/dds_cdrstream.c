@@ -221,6 +221,7 @@ enum tryconstruct {
 };
 
 #define NORMALIZE_MAX_DEPTH 100   // max nesting for recursive types in normalize (also limits TypeObject nesting)
+#define KEYHASH_EMPTY_SEQUENCE_BYTES (64u * 1024u)
 /* Descriptor initialization bounds each mutable type, including inherited
    members, so its required-member and duplicate-detection masks always fit. */
 #define MUTABLE_MEMBER_LIMIT 512
@@ -236,6 +237,8 @@ struct normalize_state {
   enum dds_cdr_enc_version xcdr_version; // CDR version (XCDR1 or XCDR2)
   enum cdr_data_kind cdr_kind;    // key or data
   uint32_t normalize_flags;
+  uint32_t *empty_sequence_budget; // shared by nested scopes during direct KeyHash recovery
+  uint32_t *sequence_element_size; // native bytes including any external aggregate members
   const struct dds_cdrstream_desc_mid_table *mid_table;
 #ifndef NDEBUG
   const void *stack_witness;
@@ -5219,9 +5222,10 @@ static enum dds_stream_normalize_result normalize_seq_arr_body (struct normalize
     }
     case DDS_SOP_VAL_SEQ: case DDS_SOP_VAL_BSQ: case DDS_SOP_VAL_ARR:
     case DDS_SOP_VAL_UNI: case DDS_SOP_VAL_STU: {
-      if (DDS_OP_TYPE (**ops) != DDS_SOP_VAL_ARR) {
-        const uint32_t elem_size = (*ops)[2 + x0 - x1];
-        if (num > UINT32_MAX / elem_size)
+      const bool sequence = DDS_OP_TYPE (**ops) != DDS_SOP_VAL_ARR;
+      const uint32_t elem_size = sequence ? (*ops)[2 + x0] : 0;
+      if (sequence) {
+        if (elem_size == 0 || num > UINT32_MAX / elem_size)
           return normalize_error ();
       }
       if (DDS_OP_ADR_JSR ((*ops)[3 + x0 - x1]) <= 0 && st1->depth++ >= NORMALIZE_MAX_DEPTH)
@@ -5231,9 +5235,26 @@ static enum dds_stream_normalize_result normalize_seq_arr_body (struct normalize
       *ops += jmp ? jmp : 4 + x0;
       for (uint32_t i = 0; i < num; i++)
       {
+        if (sequence && st1->sequence_element_size)
+          *st1->sequence_element_size = elem_size;
+        const uint32_t start = *off;
         uint32_t const * jsr_ops1 = jsr_ops;
         if ((res = stream_normalize_data_impl (st1, off, &jsr_ops1, key_scope_for_type (subtype))) != DDS_STREAM_NORMALIZE_SUCCESS)
           return res;
+        if (*off == start)
+        {
+          /* Identical elements at an unchanged offset have no more bytes to
+             validate. A direct KeyHash can encode any number of these in its
+             length word, so also bound their native sequence storage. */
+          if (sequence && st1->empty_sequence_budget)
+          {
+            const uint32_t native_size = *st1->sequence_element_size;
+            if (num > *st1->empty_sequence_budget / native_size)
+              return normalize_error ();
+            *st1->empty_sequence_budget -= num * native_size;
+          }
+          break;
+        }
       }
       break;
     }
@@ -5285,6 +5306,9 @@ static enum dds_stream_normalize_result normalize_seq (struct normalize_state co
       }
     }
   }
+  uint32_t native_size;
+  if (st1.empty_sequence_budget)
+    st1.sequence_element_size = &native_size;
   return normalize_seq_arr_body (&st1, off, ops, num, flags);
 }
 
@@ -5874,6 +5898,14 @@ static enum dds_stream_normalize_result stream_normalize_adr_impl (struct normal
     }
     case DDS_SOP_VAL_EXT: {
       const uint32_t jmp = DDS_OP_ADR_JMP ((*ops)[2]);
+      if (st->sequence_element_size && op_type_external (**ops))
+      {
+        /* A zero-width struct key can still allocate its external members.
+           Other external values consume wire bytes in XCDR2. */
+        const uint32_t sz = get_adr_type_size (**ops, *ops);
+        const uint32_t prev = *st->sequence_element_size;
+        *st->sequence_element_size = sz > UINT32_MAX - prev ? UINT32_MAX : prev + sz;
+      }
       if (DDS_OP_ADR_JSR ((*ops)[2]) > 0)
       {
         const uint32_t *jsr_ops = *ops + DDS_OP_ADR_JSR ((*ops)[2]);
@@ -7555,6 +7587,7 @@ bool dds_stream_read_keyhash (const unsigned char keyhash[DDS_FIXED_KEY_MAX_SIZE
 
   union { unsigned char data[DDS_FIXED_KEY_MAX_SIZE]; uint32_t align; } buf;
   memcpy (buf.data, keyhash, sizeof (buf.data));
+  uint32_t empty_sequence_budget = KEYHASH_EMPTY_SEQUENCE_BYTES;
   const enum cdr_data_kind cdr_kind = desc->member_ids.keyhash_needs_projection ? CDR_KIND_KEYHASH : CDR_KIND_KEY;
   const struct normalize_state st = {
     .data = buf.data,
@@ -7564,6 +7597,7 @@ bool dds_stream_read_keyhash (const unsigned char keyhash[DDS_FIXED_KEY_MAX_SIZE
     .xcdr_version = DDSI_RTPS_CDR_ENC_VERSION_2,
     .cdr_kind = cdr_kind,
     .normalize_flags = flags,
+    .empty_sequence_budget = &empty_sequence_budget,
     .mid_table = &desc->member_ids
 #ifndef NDEBUG
     , .stack_witness = &st

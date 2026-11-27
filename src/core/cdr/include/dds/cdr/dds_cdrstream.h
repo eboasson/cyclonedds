@@ -775,6 +775,9 @@ DDS_EXPORT void dds_stream_read_key (dds_istream_t *is, char *sample, const stru
  * The caller supplies 16 readable bytes with arbitrary contents. The decoder
  * checks that the type supports a direct KeyHash and that the bytes match its
  * canonical big-endian PLAIN_CDR2 key-holder, padded with zeros to 16 bytes.
+ * For sequences whose elements occupy zero key-holder bytes, recovery allows
+ * up to 64 KiB of native storage for those elements in total per KeyHash,
+ * including their external fields.
  *
  * On failure, @p sample may be partially populated. On either outcome the
  * caller must free its contents with @ref dds_stream_free_sample using the
