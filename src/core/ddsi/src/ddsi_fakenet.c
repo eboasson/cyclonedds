@@ -1385,6 +1385,7 @@ static void add_membership (struct fake_socket *s, const struct ip_mreq *mreq)
   s->memberships = m;
 }
 
+#if defined (DDSRT_HAVE_SSM) && (defined (IP_ADD_SOURCE_MEMBERSHIP) || defined (MCAST_JOIN_SOURCE_GROUP))
 static void add_membership_addr_ifindex (struct fake_socket *s, struct in_addr group, struct in_addr interf, uint32_t if_index)
 {
   struct ip_mreq mreq;
@@ -1395,6 +1396,7 @@ static void add_membership_addr_ifindex (struct fake_socket *s, struct in_addr g
   if (s->memberships && if_index != 0)
     s->memberships->if_index = if_index;
 }
+#endif
 
 static void drop_membership (struct fake_socket *s, const struct ip_mreq *mreq)
 {
@@ -1412,6 +1414,7 @@ static void drop_membership (struct fake_socket *s, const struct ip_mreq *mreq)
   }
 }
 
+#if defined (DDSRT_HAVE_SSM) && (defined (IP_DROP_SOURCE_MEMBERSHIP) || defined (MCAST_LEAVE_SOURCE_GROUP))
 static void drop_membership_addr_ifindex (struct fake_socket *s, struct in_addr group, struct in_addr interf, uint32_t if_index)
 {
   struct fake_membership **pm = &s->memberships;
@@ -1428,6 +1431,7 @@ static void drop_membership_addr_ifindex (struct fake_socket *s, struct in_addr 
     pm = &m->next;
   }
 }
+#endif
 
 static void set_multicast_if (struct fake_socket *s, const void *optval, socklen_t optlen)
 {

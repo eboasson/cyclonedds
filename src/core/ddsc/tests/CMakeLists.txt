@@ -75,7 +75,8 @@ set(ddsc_test_sources
     "loan.c"
     "multi_sertype.c"
     "netstat.c"
-    "nwpart.c"
+    "network_address.c"
+    "nwpart_test.h"
     "participant.c"
     "pcap.c"
     "pp_lease_dur.c"
@@ -129,6 +130,11 @@ set(ddsc_test_sources
     "serdata_keys.c"
     "sertype.c"
   )
+
+# CUnit discovers tests from source without evaluating preprocessor guards.
+if(ENABLE_NETWORK_PARTITIONS)
+  list(APPEND ddsc_test_sources "nwpart.c")
+endif()
 
 if(ENABLE_LIFESPAN)
   list(APPEND ddsc_test_sources "lifespan.c")

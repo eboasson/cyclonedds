@@ -125,6 +125,9 @@ DDS_EXPORT dds_return_t ddsi_new_proxy_writer (struct ddsi_proxy_writer **proxy_
  * @brief To create a new proxy reader
  * @component ddsi_proxy_endpoint
  *
+ * When SSM is enabled, the additional favours_ssm parameter indicates
+ * whether the proxy reader favors source-specific multicast.
+ *
  * @param proxy_reader  out parameter for the created proxy reader
  * @param gv            domain globals
  * @param ppguid        the proxy participant is determined from the GUID and must exist
@@ -133,7 +136,6 @@ DDS_EXPORT dds_return_t ddsi_new_proxy_writer (struct ddsi_proxy_writer **proxy_
  * @param plist         parameter list
  * @param timestamp     timestamp to be used as creation time for the proxy reader
  * @param seq           sequence number
- * @param favours_ssm   indicates if the proxy reader favors ssm
  * @return int
  */
 DDS_EXPORT dds_return_t ddsi_new_proxy_reader (struct ddsi_proxy_reader **proxy_reader, struct ddsi_domaingv *gv, const struct ddsi_guid *ppguid, const struct ddsi_guid *guid, struct ddsi_addrset *as, const struct ddsi_plist *plist, ddsrt_wctime_t timestamp, ddsi_seqno_t seq

@@ -449,6 +449,9 @@ static bool is_onlylocal_endpoint (struct ddsi_participant *pp, const char *topi
 #ifdef DDS_HAS_NETWORK_PARTITIONS
   if (ddsi_is_ignored_nwpart (pp->e.gv, xqos, topic_name))
     return true;
+#else
+  DDSRT_UNUSED_ARG (topic_name);
+  DDSRT_UNUSED_ARG (xqos);
 #endif
   return false;
 }
