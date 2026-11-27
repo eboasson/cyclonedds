@@ -179,7 +179,7 @@ extern "C" {
  *
  * For DLC instructions, this is an unsigned offset from the DLC instruction to
  * the first instruction past the required prefix in the delimited scope. This
- * prefix covers the first member, if any, and all key or non-optional
+ * prefix covers the first member, if any, and all declared key or non-optional
  * must-understand members. A value of 0 means there is no required prefix.
  */
 #define DDS_OP_DLC_REQUIRED_PREFIX(o) ((uint16_t) ((o) & DDS_OP_JMP_MASK))
@@ -388,7 +388,7 @@ enum dds_stream_opcode {
      where
        e = (unsigned 16 bits) offset to first instruction past the required
            prefix in the delimited scope, from the start of the DLC instruction.
-           The prefix covers the first member, if any, and all key or
+           The prefix covers the first member, if any, and all declared key or
            non-optional must-understand members. A value of 0 means there is no
            required prefix.
   */

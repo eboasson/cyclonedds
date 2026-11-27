@@ -1058,6 +1058,35 @@ module TypeBuilderTypes {
     @key t84_choice choice;
   };
 
+  @nested @appendable struct t85_short { long first; };
+  @nested @appendable struct t85_long { long first; long added; };
+  @mutable struct t85_plain_writer {
+    t85_short ordinary;
+    @key t85_long key_fields;
+  };
+  @mutable struct t85_plain_reader {
+    t85_long ordinary;
+    @key t85_long key_fields;
+  };
+  @nested @final union t85_choice switch (long) {
+    case 1: t85_long fields;
+  };
+  @mutable struct t85_writer {
+    t85_short ordinary;
+    @key t85_choice choice;
+  };
+  @mutable struct t85_reader {
+    t85_long ordinary;
+    @key t85_choice choice;
+  };
+  @nested @final union t85_short_choice switch (long) {
+    case 1: t85_short fields;
+  };
+  @mutable struct t85_short_key {
+    t85_long ordinary;
+    @key t85_short_choice choice;
+  };
+
   /* Both derived types embed the complete, padded BaseSample (#2510). */
   @mutable @data_representation(XCDR2)
   struct BaseBaseSample {

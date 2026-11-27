@@ -845,9 +845,9 @@ ctype_dlc_has_required_prefix (const struct constructed_type *ctype)
 }
 
 static idl_retcode_t
-appendable_member_is_required (const struct descriptor *descriptor, struct constructed_type *ctype, uint32_t offs, uint32_t insn, bool *required)
+appendable_member_is_required (const struct descriptor *descriptor, struct constructed_type *ctype, uint32_t offs, uint32_t insn, bool has_declared_key, bool *required)
 {
-  if ((insn & DDS_OP_FLAG_KEY) || ((insn & DDS_OP_FLAG_MU) && !(insn & DDS_OP_FLAG_OPT)))
+  if ((has_declared_key && (insn & DDS_OP_FLAG_KEY)) || ((insn & DDS_OP_FLAG_MU) && !(insn & DDS_OP_FLAG_OPT)))
   {
     *required = true;
     return IDL_RETCODE_OK;
@@ -879,6 +879,7 @@ set_ctype_dlc_required_prefix (const struct descriptor *descriptor, struct const
   if (DDS_OP (dlc->data.opcode.code) != DDS_OP_DLC)
     return IDL_RETCODE_OK;
 
+  const bool has_declared_key = !idl_is_keyless (ctype->node, false);
   bool seen_member = false;
   uint32_t required_prefix = 0;
   for (uint32_t offs = 1; offs < ctype->instructions.count; )
@@ -896,7 +897,7 @@ set_ctype_dlc_required_prefix (const struct descriptor *descriptor, struct const
         idl_retcode_t ret;
         if (!seen_member)
           required = true;
-        else if ((ret = appendable_member_is_required (descriptor, ctype, offs, insn, &required)) != IDL_RETCODE_OK)
+        else if ((ret = appendable_member_is_required (descriptor, ctype, offs, insn, has_declared_key, &required)) != IDL_RETCODE_OK)
           return ret;
         if (required)
           required_prefix = next_offs;

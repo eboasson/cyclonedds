@@ -586,6 +586,73 @@ CU_Test (ddsc_xtypes_assignability, type_widening, .init = xtypes_assignability_
 }
 #undef D
 
+static void init_shared_appendable_plain (void *ptr)
+{
+  TypeBuilderTypes_t85_plain_writer *wr = ptr;
+  *wr = (TypeBuilderTypes_t85_plain_writer) { .ordinary = { 12 }, .key_fields = { 34, 56 } };
+}
+
+static void check_shared_appendable_plain (void *writer, void *reader)
+{
+  const TypeBuilderTypes_t85_plain_writer *wr = writer;
+  const TypeBuilderTypes_t85_plain_reader *rd = reader;
+  CU_ASSERT_EQ (rd->ordinary.first, wr->ordinary.first);
+  CU_ASSERT_EQ (rd->ordinary.added, 0);
+  CU_ASSERT_EQ (rd->key_fields.first, wr->key_fields.first);
+  CU_ASSERT_EQ (rd->key_fields.added, wr->key_fields.added);
+}
+
+CU_Test (ddsc_xtypes_assignability, shared_appendable_in_struct_key, .init = xtypes_assignability_init, .fini = xtypes_assignability_fini)
+{
+  do_test (&TypeBuilderTypes_t85_plain_reader_desc, NULL, &TypeBuilderTypes_t85_plain_writer_desc, NULL,
+           true, init_shared_appendable_plain, true, check_shared_appendable_plain);
+}
+
+static void init_shared_appendable (void *ptr)
+{
+  TypeBuilderTypes_t85_writer *wr = ptr;
+  *wr = (TypeBuilderTypes_t85_writer) { .ordinary = { 12 }, .choice = { ._d = 1, ._u.fields = { 34, 56 } } };
+}
+
+static void check_shared_appendable (void *writer, void *reader)
+{
+  const TypeBuilderTypes_t85_writer *wr = writer;
+  const TypeBuilderTypes_t85_reader *rd = reader;
+  CU_ASSERT_EQ (rd->ordinary.first, wr->ordinary.first);
+  CU_ASSERT_EQ (rd->ordinary.added, 0);
+  CU_ASSERT_EQ (rd->choice._d, wr->choice._d);
+  CU_ASSERT_EQ (rd->choice._u.fields.first, wr->choice._u.fields.first);
+  CU_ASSERT_EQ (rd->choice._u.fields.added, wr->choice._u.fields.added);
+}
+
+CU_Test (ddsc_xtypes_assignability, shared_appendable_in_union_key, .init = xtypes_assignability_init, .fini = xtypes_assignability_fini)
+{
+  do_test (&TypeBuilderTypes_t85_reader_desc, NULL, &TypeBuilderTypes_t85_writer_desc, NULL,
+           true, init_shared_appendable, true, check_shared_appendable);
+}
+
+CU_Test (ddsc_xtypes_assignability, require_appendable_union_key_fields)
+{
+  const TypeBuilderTypes_t85_short_key sample = { .ordinary = { 12, 34 }, .choice = { ._d = 1, ._u.fields = { 56 } } };
+  struct dds_cdrstream_desc wr, rd;
+  CU_ASSERT_EQ_FATAL (dds_cdrstream_desc_from_topic_desc (&wr, &TypeBuilderTypes_t85_short_key_desc), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (dds_cdrstream_desc_from_topic_desc (&rd, &TypeBuilderTypes_t85_reader_desc), DDS_RETCODE_OK);
+  for (unsigned int key_only = 0; key_only <= 1; key_only++)
+  {
+    dds_ostream_t os;
+    dds_ostream_init (&os, &dds_cdrstream_default_allocator, 0, DDSI_RTPS_CDR_ENC_VERSION_2);
+    if (key_only)
+      CU_ASSERT_FATAL (dds_stream_write_key (&os, DDS_CDR_KEY_SERIALIZATION_SAMPLE, &dds_cdrstream_default_allocator, (const char *) &sample, &wr));
+    else
+      CU_ASSERT_FATAL (dds_stream_write_sample (&os, &dds_cdrstream_default_allocator, &sample, &wr));
+    uint32_t size;
+    CU_ASSERT_EQ (dds_stream_normalize (os.m_buffer, os.m_index, false, DDSI_RTPS_CDR_ENC_VERSION_2, &rd, key_only != 0, &size), DDS_STREAM_NORMALIZE_ERROR);
+    dds_ostream_fini (&os, &dds_cdrstream_default_allocator);
+  }
+  dds_cdrstream_desc_fini (&rd, &dds_cdrstream_default_allocator);
+  dds_cdrstream_desc_fini (&wr, &dds_cdrstream_default_allocator);
+}
+
 /* Type consistency enforcement policy test case for force_type_validation */
 CU_Test (ddsc_xtypes_assignability, type_consistency_enforcement_force_validation, .init = xtypes_assignability_init, .fini = xtypes_assignability_fini)
 {

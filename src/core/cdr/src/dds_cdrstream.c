@@ -233,6 +233,7 @@ struct normalize_state {
   uint32_t depth;                 // recursion depth for recursive types
   bool bswap;                     // whether byteswap is needed
   bool dheader;                   // whether size is constrained because of a dheader
+  bool outside_key;               // a containing field or union arm is excluded from the topic key
   uint32_t max_align_lg2;         // lg2 of max align in stream (3 for XCDR1, 2 for XCDR2)
   enum dds_cdr_enc_version xcdr_version; // CDR version (XCDR1 or XCDR2)
   enum cdr_data_kind cdr_kind;    // key or data
@@ -5476,8 +5477,16 @@ static enum dds_stream_normalize_result normalize_union_case_value (struct norma
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
-static enum dds_stream_normalize_result normalize_uni (struct normalize_state const * const st, uint32_t * restrict const off, uint32_t const * * const ops, bool mutable_union)
+static enum dds_stream_normalize_result normalize_uni (struct normalize_state const *st, uint32_t * restrict const off, uint32_t const * * const ops, bool mutable_union)
 {
+  struct normalize_state arm;
+  if (st->cdr_kind == CDR_KIND_DATA && !st->outside_key && (**ops & DDS_OP_FLAG_KEY))
+  {
+    /* A keyed discriminator excludes the arm from the topic key. */
+    arm = *st;
+    arm.outside_key = true;
+    st = &arm;
+  }
   if (mutable_union)
     return normalize_mutable_uni (st, off, ops);
 
@@ -5937,8 +5946,19 @@ static enum dds_stream_normalize_result stream_normalize_adr_impl (struct normal
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
-static enum dds_stream_normalize_result stream_normalize_adr (struct normalize_state const * const st, uint32_t * restrict const off, uint32_t const * * const ops, const enum cdr_member_scope scope)
+static enum dds_stream_normalize_result stream_normalize_adr (struct normalize_state const *st, uint32_t * restrict const off, uint32_t const * * const ops, const enum cdr_member_scope scope)
 {
+  const enum dds_stream_typecode type = DDS_OP_TYPE (**ops);
+  struct normalize_state ordinary;
+  if (st->cdr_kind == CDR_KIND_DATA && !st->outside_key && !(**ops & DDS_OP_FLAG_KEY) &&
+      (type == DDS_SOP_VAL_EXT || type == DDS_SOP_VAL_SEQ || type == DDS_SOP_VAL_BSQ || type == DDS_SOP_VAL_ARR))
+  {
+    /* A shared aggregate can also occur in a key. Its implicit key fields
+       impose no presence requirement along this ordinary member path. */
+    ordinary = *st;
+    ordinary.outside_key = true;
+    st = &ordinary;
+  }
   if (st->cdr_kind != CDR_KIND_DATA && !member_is_selected_key (**ops, scope))
   {
     *ops = dds_stream_skip_adr_insns (**ops, *ops);
@@ -6011,7 +6031,10 @@ static enum dds_stream_normalize_result stream_normalize_delimited_impl (struct 
   const uint32_t *required_end = dlc_ops + required_prefix;
   (*ops)++; /* skip DLC op */
   uint32_t insn;
-  while ((insn = **ops) != DDS_OP_RTS && (*off < st1.size || (required_prefix && *ops < required_end)))
+  /* A keyless struct used as a key contributes all its members. Its
+     implicit keys extend the declared prefix only on the selected path. */
+  while ((insn = **ops) != DDS_OP_RTS && (*off < st1.size || *ops < required_end ||
+         (!st->outside_key && DDS_OP (insn) == DDS_OP_ADR && (insn & DDS_OP_FLAG_KEY))))
   {
     const uint32_t *ops0 = *ops;
     switch (DDS_OP (insn))

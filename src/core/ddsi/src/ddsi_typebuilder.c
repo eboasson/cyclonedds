@@ -1994,7 +1994,7 @@ static dds_return_t typebuilder_set_dlc_required_prefix_aggrtype (struct typebui
         const struct typebuilder_struct_member *mem = &tb_struct->members[m];
         const uint32_t adr_insn_offs = parent_insn_offs + mem->insn_offs;
         const uint32_t next_insn_offs = adr_insn_offs + typebuilder_skip_adr_insns (&ops->ops[adr_insn_offs]);
-        if (!seen_member || mem->is_key || (mem->is_must_understand && !mem->is_optional))
+        if (!seen_member || (tb_aggrtype->has_explicit_key && mem->is_key) || (mem->is_must_understand && !mem->is_optional))
           required_prefix = next_insn_offs - parent_insn_offs;
         seen_member = true;
       }
