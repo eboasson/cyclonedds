@@ -192,6 +192,12 @@ static uint32_t type_code_to_op_type (enum dds_stream_typecode type_code)
   return (uint32_t) type_code << 16u;
 }
 
+enum implicit_key_scope {
+  IMPLICIT_KEY_NONE,
+  IMPLICIT_KEY_MEMBER,
+  IMPLICIT_KEY_PROJECTED
+};
+
 struct typebuilder_aggregated_type
 {
   char *type_name;
@@ -202,6 +208,7 @@ struct typebuilder_aggregated_type
   uint32_t size;              // size of this aggregated type, including padding at the end
   uint32_t align;             // max alignment for this aggregated type
   uint32_t insn_offs;         // index in ops array of first instruction for this type
+  bool implicit_keys_visited[2][IMPLICIT_KEY_PROJECTED + 1]; // indexed by is_toplevel and scope
   bool has_explicit_key;      // has the @key annotation set on one or more members
   union {
     struct typebuilder_struct _struct;
@@ -275,28 +282,14 @@ struct visited_aggrtype {
   struct visited_aggrtype *next;
 };
 
-enum implicit_key_scope {
-  IMPLICIT_KEY_NONE,
-  IMPLICIT_KEY_MEMBER,
-  IMPLICIT_KEY_PROJECTED
-};
-
-struct visited_implicit_keys {
-  const struct typebuilder_aggregated_type *aggrtype;
-  bool is_toplevel;
-  enum implicit_key_scope scope;
-  struct visited_implicit_keys *next;
-};
-
 DDSI_LIST_DECLS_TMPL(static, typebuilder_dep_types, struct typebuilder_aggregated_type *, ddsrt_attribute_unused)
 DDSI_LIST_CODE_TMPL(static, typebuilder_dep_types, struct typebuilder_aggregated_type *, NULL, ddsrt_malloc, ddsrt_free)
 
 static dds_return_t typebuilder_add_aggrtype (struct typebuilder_data *tbd, struct typebuilder_aggregated_type *tb_aggrtype, const struct ddsi_type *type);
 static dds_return_t typebuilder_add_type (struct typebuilder_data *tbd, struct typebuilder_type *tb_type, const struct ddsi_type *type, bool is_ext, bool use_ext_type, enum typebuilder_try_construct tc);
-static dds_return_t resolve_ops_offsets_aggrtype (const struct typebuilder_aggregated_type *tb_aggrtype, struct typebuilder_ops *ops, struct visited_aggrtype *visited_aggrtypes);
 static dds_return_t typebuilder_set_dlc_required_prefixes (struct typebuilder_data *tbd, struct typebuilder_ops *ops);
 static dds_return_t get_keys_aggrtype (struct typebuilder_data *tbd, struct typebuilder_key_path *path, const struct typebuilder_aggregated_type *tb_aggrtype, bool parent_key);
-static void set_implicit_keys_aggrtype (struct typebuilder_aggregated_type *tb_aggrtype, bool is_toplevel, enum implicit_key_scope scope, struct visited_implicit_keys *visited_implicit_keys);
+static void set_implicit_keys_aggrtype (struct typebuilder_aggregated_type *tb_aggrtype, bool is_toplevel, enum implicit_key_scope scope);
 
 static void typebuilder_layout_cache_fini (struct typebuilder_layout_cache *cache);
 
@@ -457,26 +450,6 @@ static uint32_t get_tryconstruct_flags (enum typebuilder_try_construct tc, bool 
 static void align_to (uint32_t *offs, uint32_t align)
 {
   *offs = (*offs + align - 1) & ~(align - 1);
-}
-
-static bool visited_aggrtype_contains (const struct visited_aggrtype *visited_aggrtypes, const struct typebuilder_aggregated_type *tb_aggrtype)
-{
-  for (const struct visited_aggrtype *va = visited_aggrtypes; va; va = va->next)
-  {
-    if (va->aggrtype == tb_aggrtype)
-      return true;
-  }
-  return false;
-}
-
-static bool visited_implicit_keys_contains (const struct visited_implicit_keys *visited_implicit_keys, const struct typebuilder_aggregated_type *tb_aggrtype, bool is_toplevel, enum implicit_key_scope scope)
-{
-  for (const struct visited_implicit_keys *vk = visited_implicit_keys; vk; vk = vk->next)
-  {
-    if (vk->aggrtype == tb_aggrtype && vk->is_toplevel == is_toplevel && vk->scope == scope)
-      return true;
-  }
-  return false;
 }
 
 static struct typebuilder_aggregated_type *typebuilder_find_aggrtype (struct typebuilder_data *tbd, const struct ddsi_type *type)
@@ -1762,82 +1735,60 @@ static dds_return_t typebuilder_get_ops (struct typebuilder_data *tbd, struct ty
   return ret;
 }
 
-static dds_return_t resolve_ops_offsets_type (struct typebuilder_type *tb_type, struct typebuilder_ops *ops, struct visited_aggrtype *visited_aggrtypes)
+static void resolve_ops_offsets_type (const struct typebuilder_type *tb_type, struct typebuilder_ops *ops)
 {
-  dds_return_t ret = DDS_RETCODE_OK;
-  uint32_t ref_op = 0, offs_base = 0, offs_target = 0;
-  bool update_offs = false;
   switch (tb_type->type_code)
   {
     case DDS_OP_VAL_ARR:
     case DDS_OP_VAL_BSQ:
-    case DDS_OP_VAL_SEQ: {
-      struct typebuilder_type *element_type = tb_type->args.collection_args.element_type.type;
-      assert (element_type);
-      ret = resolve_ops_offsets_type (element_type, ops, visited_aggrtypes);
+    case DDS_OP_VAL_SEQ:
+      resolve_ops_offsets_type (tb_type->args.collection_args.element_type.type, ops);
       break;
-    }
     case DDS_OP_VAL_UNI:
     case DDS_OP_VAL_STU:
-    case DDS_OP_VAL_EXT:
-      ref_op = tb_type->args.external_type_args.external_type.ref_insn;
-      offs_base = tb_type->args.external_type_args.external_type.ref_base;
-      offs_target = tb_type->args.external_type_args.external_type.type->insn_offs;
-      ret = resolve_ops_offsets_aggrtype (tb_type->args.external_type_args.external_type.type, ops, visited_aggrtypes);
-      update_offs = true;
+    case DDS_OP_VAL_EXT: {
+      const struct typebuilder_aggregated_type_ref *ref = &tb_type->args.external_type_args.external_type;
+      assert (ref->ref_insn <= INT16_MAX);
+      assert (ref->ref_base <= INT16_MAX);
+      assert (ref->type->insn_offs <= INT16_MAX);
+      const int16_t offs = (int16_t) (ref->type->insn_offs - ref->ref_base);
+      OR_OP (ref->ref_insn, (uint16_t) offs);
       break;
+    }
     default:
-      // no offset updates required for other member types
       break;
   }
-
-  if (update_offs)
-  {
-    assert (ref_op <= INT16_MAX);
-    assert (offs_base <= INT16_MAX);
-    assert (offs_target <= INT16_MAX);
-    int16_t offs = (int16_t) (offs_target - offs_base);
-    OR_OP (ref_op, (uint16_t) offs);
-  }
-
-  return ret;
 }
 
-static dds_return_t resolve_ops_offsets_struct (const struct typebuilder_struct *tb_struct, struct typebuilder_type *tb_base_type, uint16_t extensibility, uint32_t parent_insn_offs, struct typebuilder_ops *ops, struct visited_aggrtype *visited_aggrtypes)
+static void resolve_ops_offsets_struct (const struct typebuilder_aggregated_type *tb_aggrtype, struct typebuilder_ops *ops)
 {
-  dds_return_t ret = DDS_RETCODE_OK;
-  if (extensibility == DDS_XTypes_IS_MUTABLE)
+  const struct typebuilder_struct *tb_struct = &tb_aggrtype->detail._struct;
+  if (tb_aggrtype->extensibility == DDS_XTypes_IS_MUTABLE)
   {
-    if (tb_base_type)
+    if (tb_aggrtype->base_type)
     {
-      uint32_t plm_insn_idx = parent_insn_offs + 1;
+      const uint32_t plm_insn_idx = tb_aggrtype->insn_offs + 1;
       assert (DDS_OP (ops->ops[plm_insn_idx]) == DDS_OP_PLM);
       assert (DDS_PLM_FLAGS (ops->ops[plm_insn_idx]) == DDS_OP_FLAG_BASE);
-      OR_OP (parent_insn_offs + 1, (uint16_t) (tb_base_type->args.external_type_args.external_type.type->insn_offs - plm_insn_idx));
-      struct typebuilder_aggregated_type *base = tb_base_type->args.external_type_args.external_type.type;
-      if ((ret = resolve_ops_offsets_aggrtype (base, ops, visited_aggrtypes)) != DDS_RETCODE_OK)
-        return ret;
+      OR_OP (plm_insn_idx, (uint16_t) (tb_aggrtype->base_type->args.external_type_args.external_type.type->insn_offs - plm_insn_idx));
     }
     for (uint32_t m = 0; m < tb_struct->n_members; m++)
     {
-      struct typebuilder_struct_member *mem = &tb_struct->members[m];
-      uint32_t plm_insn_idx = parent_insn_offs + mem->plm_insn_offs;
+      const struct typebuilder_struct_member *mem = &tb_struct->members[m];
+      const uint32_t plm_insn_idx = tb_aggrtype->insn_offs + mem->plm_insn_offs;
       assert (DDS_OP (ops->ops[plm_insn_idx]) == DDS_OP_PLM);
       assert (ops->ops[plm_insn_idx + 1] == mem->member_id);
       OR_OP (plm_insn_idx, (uint16_t) (mem->insn_offs - mem->plm_insn_offs));
     }
   }
+  else if (tb_aggrtype->base_type)
+    resolve_ops_offsets_type (tb_aggrtype->base_type, ops);
   for (uint32_t m = 0; m < tb_struct->n_members; m++)
-  {
-    if ((ret = resolve_ops_offsets_type (&tb_struct->members[m].type, ops, visited_aggrtypes)) != DDS_RETCODE_OK)
-      return ret;
-  }
-  return ret;
+    resolve_ops_offsets_type (&tb_struct->members[m].type, ops);
 }
 
-static dds_return_t resolve_ops_offsets_union (const struct typebuilder_union *tb_union, struct typebuilder_ops *ops, struct visited_aggrtype *visited_aggrtypes)
+static void resolve_ops_offsets_union (const struct typebuilder_union *tb_union, struct typebuilder_ops *ops)
 {
-  dds_return_t ret = DDS_RETCODE_OK;
   for (uint32_t m = 0; m < tb_union->n_cases; m++)
   {
     /* In case its not the last label and the member type is not an aggregated
@@ -1846,42 +1797,32 @@ static dds_return_t resolve_ops_offsets_union (const struct typebuilder_union *t
        in the current JEQ4) */
     if (!tb_union->cases[m].is_last_label && tb_union->cases[m].type.type_code != DDS_OP_VAL_STU && tb_union->cases[m].type.type_code != DDS_OP_VAL_UNI)
       continue;
-    if ((ret = resolve_ops_offsets_type (&tb_union->cases[m].type, ops, visited_aggrtypes)) != DDS_RETCODE_OK)
-      return ret;
+    resolve_ops_offsets_type (&tb_union->cases[m].type, ops);
   }
-  return ret;
 }
 
-static dds_return_t resolve_ops_offsets_aggrtype (const struct typebuilder_aggregated_type *tb_aggrtype, struct typebuilder_ops *ops, struct visited_aggrtype *visited_aggrtypes)
+static void resolve_ops_offsets_aggrtype (const struct typebuilder_aggregated_type *tb_aggrtype, struct typebuilder_ops *ops)
 {
-  dds_return_t ret = DDS_RETCODE_UNSUPPORTED;
-  if (visited_aggrtype_contains (visited_aggrtypes, tb_aggrtype))
-    return DDS_RETCODE_OK;
-  struct visited_aggrtype visited = { tb_aggrtype, visited_aggrtypes };
-
-  if (tb_aggrtype->base_type && tb_aggrtype->extensibility != DDS_XTypes_IS_MUTABLE) // for mutable types, offset to base is set in PLM list item
-  {
-    if ((ret = resolve_ops_offsets_type (tb_aggrtype->base_type, ops, &visited)) != DDS_RETCODE_OK)
-      return ret;
-  }
-
   switch (tb_aggrtype->kind)
   {
     case DDS_XTypes_TK_STRUCTURE:
-      ret = resolve_ops_offsets_struct (&tb_aggrtype->detail._struct, tb_aggrtype->base_type, tb_aggrtype->extensibility, tb_aggrtype->insn_offs, ops, &visited);
+      resolve_ops_offsets_struct (tb_aggrtype, ops);
       break;
     case DDS_XTypes_TK_UNION:
-      ret = resolve_ops_offsets_union (&tb_aggrtype->detail._union, ops, &visited);
+      resolve_ops_offsets_union (&tb_aggrtype->detail._union, ops);
       break;
     default:
       abort ();
   }
-  return ret;
 }
 
-static dds_return_t typebuilder_resolve_ops_offsets (const struct typebuilder_data *tbd, struct typebuilder_ops *ops)
+static void typebuilder_resolve_ops_offsets (struct typebuilder_data *tbd, struct typebuilder_ops *ops)
 {
-  return resolve_ops_offsets_aggrtype (&tbd->toplevel_type, ops, NULL);
+  /* All aggregate instruction offsets are known after typebuilder_get_ops. */
+  resolve_ops_offsets_aggrtype (&tbd->toplevel_type, ops);
+  struct typebuilder_dep_types_iter it;
+  for (struct typebuilder_aggregated_type *aggr = typebuilder_dep_types_iter_first (&tbd->dep_types, &it); aggr; aggr = typebuilder_dep_types_iter_next (&it))
+    resolve_ops_offsets_aggrtype (aggr, ops);
 }
 
 static uint32_t typebuilder_skip_sequence_insns (const uint32_t *ops)
@@ -2339,25 +2280,25 @@ static dds_return_t typebuilder_get_keys (struct typebuilder_data *tbd, struct t
   return ret;
 }
 
-static void set_implicit_keys_type (struct typebuilder_type *type, enum implicit_key_scope scope, struct visited_implicit_keys *visited_implicit_keys)
+static void set_implicit_keys_type (struct typebuilder_type *type, enum implicit_key_scope scope)
 {
   switch (type->type_code)
   {
     case DDS_OP_VAL_EXT:
     case DDS_OP_VAL_STU:
     case DDS_OP_VAL_UNI:
-      set_implicit_keys_aggrtype (type->args.external_type_args.external_type.type, false, scope, visited_implicit_keys);
+      set_implicit_keys_aggrtype (type->args.external_type_args.external_type.type, false, scope);
       break;
     case DDS_OP_VAL_SEQ: case DDS_OP_VAL_BSQ: case DDS_OP_VAL_ARR:
       set_implicit_keys_type (type->args.collection_args.element_type.type,
-        scope == IMPLICIT_KEY_NONE ? IMPLICIT_KEY_NONE : IMPLICIT_KEY_PROJECTED, visited_implicit_keys);
+        scope == IMPLICIT_KEY_NONE ? IMPLICIT_KEY_NONE : IMPLICIT_KEY_PROJECTED);
       break;
     default:
       break;
   }
 }
 
-static void set_implicit_keys_struct (struct typebuilder_struct *tb_struct, bool has_explicit_key, bool is_toplevel, enum implicit_key_scope scope, struct visited_implicit_keys *visited_implicit_keys)
+static void set_implicit_keys_struct (struct typebuilder_struct *tb_struct, bool has_explicit_key, bool is_toplevel, enum implicit_key_scope scope)
 {
   const enum implicit_key_scope member_scope = is_toplevel && scope == IMPLICIT_KEY_NONE ? IMPLICIT_KEY_MEMBER : scope;
   if (scope == IMPLICIT_KEY_PROJECTED)
@@ -2367,15 +2308,15 @@ static void set_implicit_keys_struct (struct typebuilder_struct *tb_struct, bool
     if (scope != IMPLICIT_KEY_NONE && !has_explicit_key)
       tb_struct->members[n].is_key = true;
 
-    set_implicit_keys_type (&tb_struct->members[n].type, tb_struct->members[n].is_key ? member_scope : IMPLICIT_KEY_NONE, visited_implicit_keys);
+    set_implicit_keys_type (&tb_struct->members[n].type, tb_struct->members[n].is_key ? member_scope : IMPLICIT_KEY_NONE);
   }
 }
 
-static void set_implicit_keys_aggrtype (struct typebuilder_aggregated_type *tb_aggrtype, bool is_toplevel, enum implicit_key_scope scope, struct visited_implicit_keys *visited_implicit_keys)
+static void set_implicit_keys_aggrtype (struct typebuilder_aggregated_type *tb_aggrtype, bool is_toplevel, enum implicit_key_scope scope)
 {
-  if (visited_implicit_keys_contains (visited_implicit_keys, tb_aggrtype, is_toplevel, scope))
+  if (tb_aggrtype->implicit_keys_visited[is_toplevel][scope])
     return;
-  struct visited_implicit_keys visited = { tb_aggrtype, is_toplevel, scope, visited_implicit_keys };
+  tb_aggrtype->implicit_keys_visited[is_toplevel][scope] = true;
 
   switch (tb_aggrtype->kind)
   {
@@ -2386,9 +2327,9 @@ static void set_implicit_keys_aggrtype (struct typebuilder_aggregated_type *tb_a
         struct typebuilder_aggregated_type *base = tb_aggrtype->base_type->args.external_type_args.external_type.type;
         const bool include_base = aggrtype_has_key (base) || (scope != IMPLICIT_KEY_NONE && !has_explicit_key);
         tb_aggrtype->detail._struct.base_is_key |= include_base;
-        set_implicit_keys_aggrtype (base, is_toplevel, include_base ? scope : IMPLICIT_KEY_NONE, &visited);
+        set_implicit_keys_aggrtype (base, is_toplevel, include_base ? scope : IMPLICIT_KEY_NONE);
       }
-      set_implicit_keys_struct (&tb_aggrtype->detail._struct, has_explicit_key, is_toplevel, scope, &visited);
+      set_implicit_keys_struct (&tb_aggrtype->detail._struct, has_explicit_key, is_toplevel, scope);
       break;
     }
     case DDS_XTypes_TK_UNION:
@@ -2396,7 +2337,7 @@ static void set_implicit_keys_aggrtype (struct typebuilder_aggregated_type *tb_a
       {
         tb_aggrtype->detail._union.key_includes_cases = true;
         for (uint32_t n = 0; n < tb_aggrtype->detail._union.n_cases; n++)
-          set_implicit_keys_type (&tb_aggrtype->detail._union.cases[n].type, IMPLICIT_KEY_PROJECTED, &visited);
+          set_implicit_keys_type (&tb_aggrtype->detail._union.cases[n].type, IMPLICIT_KEY_PROJECTED);
       }
       break;
     default:
@@ -2675,9 +2616,10 @@ static dds_return_t get_topic_descriptor (dds_topic_descriptor_t *desc, struct t
   if ((ret = ddsi_type_get_typemap_ser (tbd->gv, tbd->type, &typemap_data, &typemap_sz)) != DDS_RETCODE_OK)
     goto err;
 
-  if ((ret = typebuilder_get_ops (tbd, &ops)) != DDS_RETCODE_OK
-      || (ret = typebuilder_resolve_ops_offsets (tbd, &ops)) != DDS_RETCODE_OK
-      || (ret = typebuilder_set_dlc_required_prefixes (tbd, &ops)) != DDS_RETCODE_OK)
+  if ((ret = typebuilder_get_ops (tbd, &ops)) != DDS_RETCODE_OK)
+    goto err;
+  typebuilder_resolve_ops_offsets (tbd, &ops);
+  if ((ret = typebuilder_set_dlc_required_prefixes (tbd, &ops)) != DDS_RETCODE_OK)
     goto err;
 
   struct dds_key_descriptor *key_desc = NULL;
@@ -2750,7 +2692,7 @@ dds_return_t ddsi_topic_descriptor_from_type (struct ddsi_domaingv *gv, dds_topi
   const struct ddsi_type * unaliased_type = type_unalias (type);
   if ((ret = typebuilder_add_aggrtype (tbd, &tbd->toplevel_type, unaliased_type)) != DDS_RETCODE_OK)
     goto err;
-  set_implicit_keys_aggrtype (&tbd->toplevel_type, true, IMPLICIT_KEY_NONE, NULL);
+  set_implicit_keys_aggrtype (&tbd->toplevel_type, true, IMPLICIT_KEY_NONE);
   if ((ret = get_topic_descriptor (desc, tbd)) != DDS_RETCODE_OK)
     goto err;
 

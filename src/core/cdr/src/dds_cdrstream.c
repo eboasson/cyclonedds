@@ -163,6 +163,7 @@ struct key_props {
   const struct dds_cdrstream_desc_mid_table *mid_table; /* canonical KeyHash sizing */
   struct keyholder_builder *builder; /* prepare projected struct layouts on descriptor initialization */
   const struct key_size_path *path;
+  struct ddsrt_ehh *union_arms;
   uint32_t sz_xcdrv1;
   uint32_t sz_xcdrv2;
   uint32_t supported_data_representations;
@@ -211,6 +212,7 @@ struct dds_cdrstream_ops_info {
   uint32_t supported_data_representations;
   uint32_t descriptor_flags;
   bool mutable_member_counts_within_limit;
+  struct ddsrt_ehh *union_arms;
 };
 
 enum tryconstruct {
@@ -1104,6 +1106,33 @@ size_t dds_stream_check_optimize (const struct dds_cdrstream_desc *desc, enum dd
 #define XCDR2_REP DDS_DATA_REPRESENTATION_FLAG_XCDR2
 #define XCDR12_REP (XCDR1_REP | XCDR2_REP)
 
+/* Union labels may share an entire nested program. Each descriptor pass owns
+   its cache, so a sizing result is valid for one representation and layout. */
+struct union_arm_visit {
+  const uint32_t *ops;
+  uint32_t context;
+  uint32_t end1, end2;
+};
+
+static uint32_t union_arm_hash (const void *v)
+{
+  const struct union_arm_visit *a = v;
+  return ddsrt_mh3 (&a->ops, sizeof (a->ops), a->context);
+}
+
+static bool union_arm_equal (const void *va, const void *vb)
+{
+  const struct union_arm_visit *a = va, *b = vb;
+  return a->ops == b->ops && a->context == b->context;
+}
+
+static struct ddsrt_ehh *union_arm_cache (struct ddsrt_ehh **cache, uint32_t nlabels)
+{
+  if (*cache == NULL && nlabels > 1)
+    *cache = ddsrt_ehh_new (sizeof (struct union_arm_visit), 1, union_arm_hash, union_arm_equal);
+  return *cache;
+}
+
 ddsrt_nonnull_all
 static void dds_stream_get_ops_info1 (const uint32_t *ops, bool top_level_key_scope, struct dds_cdrstream_ops_info *info, bool in_xcdr1_delimited_scope, uint32_t value_bound_xcdrv, uint32_t tail_bound_xcdrv, bool in_recursive);
 
@@ -1236,9 +1265,16 @@ static const uint32_t *dds_stream_get_ops_info_uni (const uint32_t *ops, bool to
         /* fall through */
       case DDS_SOP_VAL_STU: case DDS_SOP_VAL_BST: case DDS_SOP_VAL_BWSTR:
       case DDS_SOP_VAL_ARR: case DDS_SOP_VAL_UNI: case DDS_SOP_VAL_BMK: {
-        bool recursive = DDS_OP_ADR_JSR (jeq_op[0]) <= 0;
         if (!in_recursive)
-          dds_stream_get_ops_info1 (jeq_op + DDS_OP_ADR_JSR (jeq_op[0]), top_level_key_scope && !(valtype == DDS_SOP_VAL_UNI || valtype == DDS_SOP_VAL_STU), info, false, 0, union_bound_xcdrv, recursive);
+        {
+          const uint32_t *target = jeq_op + DDS_OP_ADR_JSR (jeq_op[0]);
+          const bool recursive = DDS_OP_ADR_JSR (jeq_op[0]) <= 0;
+          const bool key_scope = top_level_key_scope && !(valtype == DDS_SOP_VAL_UNI || valtype == DDS_SOP_VAL_STU);
+          const struct union_arm_visit visit = { .ops = target, .context = (union_bound_xcdrv << 2) | ((uint32_t) key_scope << 1) | (uint32_t) recursive };
+          struct ddsrt_ehh *cache = union_arm_cache (&info->union_arms, numcases);
+          if (cache == NULL || ddsrt_ehh_add (cache, &visit))
+            dds_stream_get_ops_info1 (target, key_scope, info, false, 0, union_bound_xcdrv, recursive);
+        }
         break;
       }
       case DDS_SOP_VAL_EXT:
@@ -1446,7 +1482,10 @@ static void dds_stream_get_ops_info (const uint32_t *ops, struct dds_cdrstream_o
   info->supported_data_representations = XCDR12_REP;
   info->descriptor_flags = DDS_TOPIC_FIXED_SIZE;
   info->mutable_member_counts_within_limit = true;
+  info->union_arms = NULL;
   dds_stream_get_ops_info1 (ops, true, info, true, 0, XCDR12_REP, false);
+  if (info->union_arms)
+    ddsrt_ehh_free (info->union_arms);
 }
 
 #ifndef NDEBUG
@@ -8730,7 +8769,26 @@ static void add_key_size_for_union_cases (struct key_props *k, const uint32_t *o
           if (struct_ops)
             add_keyholder_layout (k->builder, struct_ops, KEYHOLDER_REQUIRE_IDS);
         }
-        add_key_size_for_elements (k, value_ops, 1, type);
+        /* Alignment depends on the incoming sizes. Both are capped at 17.
+           The remaining key properties accumulate over the whole pass. */
+        struct union_arm_visit visit = { .ops = value_ops, .context = ((uint32_t) type << 16) | (start1 << 8) | start2 };
+        struct ddsrt_ehh *cache = union_arm_cache (&k->union_arms, ops[2]);
+        const struct union_arm_visit *prior = cache ? ddsrt_ehh_lookup (cache, &visit) : NULL;
+        if (prior)
+        {
+          k->sz_xcdrv1 = prior->end1;
+          k->sz_xcdrv2 = prior->end2;
+        }
+        else
+        {
+          add_key_size_for_elements (k, value_ops, 1, type);
+          if (cache)
+          {
+            visit.end1 = k->sz_xcdrv1;
+            visit.end2 = k->sz_xcdrv2;
+            (void) ddsrt_ehh_add (cache, &visit);
+          }
+        }
         break;
       }
       case DDS_SOP_VAL_EXT:
@@ -9071,6 +9129,8 @@ static uint32_t dds_stream_descriptor_flags_impl (struct dds_cdrstream_desc *des
       .supported_data_representations = ops_info->supported_data_representations,
       .builder = builder };
     (void) dds_stream_key_size (desc->ops.ops, &key_properties, CDR_FIELDS);
+    if (key_properties.union_arms)
+      ddsrt_ehh_free (key_properties.union_arms);
 
     if (keysz_xcdrv1 != NULL)
       *keysz_xcdrv1 = key_props_supports_xcdr1 (&key_properties) ? key_properties.sz_xcdrv1 : 0;
@@ -9097,6 +9157,8 @@ static uint32_t dds_stream_descriptor_flags_impl (struct dds_cdrstream_desc *des
     struct key_props hash_key_properties = {
       .mid_table = may_have_union_headers || desc->member_ids.has_keyholder_layouts ? &desc->member_ids : NULL };
     dds_stream_key_size_keyhash (desc, &hash_key_properties);
+    if (hash_key_properties.union_arms)
+      ddsrt_ehh_free (hash_key_properties.union_arms);
     if (builder)
       builder->table->keyhash_needs_projection = hash_key_properties.stripped_union_header || builder->table->has_keyholder_layouts;
 

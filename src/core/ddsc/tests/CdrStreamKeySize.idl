@@ -93,4 +93,12 @@ module CdrStreamKeySize {
   @topic @final struct t48 {
     @key nested48 t1;
   };
+
+  @nested @final struct shared_leaf { @id(2) octet a; @id(1) octet b; };
+  @nested @final union shared1 switch (char) { case 'a': case 'b': case 'c': shared_leaf v; };
+  @nested @final union shared2 switch (char) { case 'a': case 'b': case 'c': shared1 v; };
+  @nested @final union shared3 switch (char) { case 'a': case 'b': case 'c': shared2 v; };
+  @nested @final union shared4 switch (char) { case 'a': case 'b': case 'c': shared3 v; };
+  @topic @final struct shared_union_key { @key shared4 value; };
+  @topic @final struct shared_union_key_offsets { @key shared4 first; @key octet gap; @key shared4 last; };
 };

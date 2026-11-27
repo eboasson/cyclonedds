@@ -17,6 +17,7 @@
 #include "dds/ddsrt/environ.h"
 #include "dds/ddsrt/bswap.h"
 #include "dds/ddsrt/heap.h"
+#include "dds/ddsrt/hopscotch.h"
 #include "dds/ddsrt/io.h"
 #include "dds/ddsrt/random.h"
 #include "dds/ddsrt/string.h"
@@ -1620,6 +1621,7 @@ CU_Test(ddsc_cdrstream, key_size)
 
     { D(t47), true, true, 4, 4, true },
     { D(t48), true, true, 5, 5, true },
+    { D(shared_union_key_offsets), true, true, 13, 13, true },
   };
 
   for (size_t i = 0; i < sizeof (tests) / sizeof (tests[0]); i++) {
@@ -1768,6 +1770,36 @@ CU_Test(ddsc_cdrstream, key_flags_ext)
   }
 }
 #undef D
+
+static ddsrt_hh_hash_fn layout_hash;
+static uint32_t layout_lookups;
+
+static uint32_t count_layout_lookup (const void *key)
+{
+  layout_lookups++;
+  return layout_hash (key);
+}
+
+CU_Test(ddsc_cdrstream, shared_union_key_size)
+{
+  struct dds_cdrstream_desc desc;
+  CU_ASSERT_EQ_FATAL (dds_cdrstream_desc_from_topic_desc (&desc, &CdrStreamKeySize_shared_union_key_desc), DDS_RETCODE_OK);
+  CU_ASSERT_FATAL (desc.member_ids.has_keyholder_layouts);
+  /* Each of four unions has three labels for the same arm. Count canonical
+     layout lookups on this descriptor only, independently of machine speed. */
+  layout_hash = desc.member_ids.table->hash;
+  desc.member_ids.table->hash = count_layout_lookup;
+  layout_lookups = 0;
+  uint32_t sz1, sz2;
+  const uint32_t flags = dds_stream_descriptor_flags (&desc, 0, &sz1, &sz2);
+  desc.member_ids.table->hash = layout_hash;
+  tprintf ("shared union layout lookups: %"PRIu32"\n", layout_lookups);
+  CU_ASSERT_LEQ (layout_lookups, 8);
+  CU_ASSERT_EQ (sz1, 6);
+  CU_ASSERT_EQ (sz2, 6);
+  CU_ASSERT (flags & DDS_TOPIC_FIXED_KEY_XCDR2_KEYHASH);
+  dds_cdrstream_desc_fini (&desc, &dds_cdrstream_default_allocator);
+}
 
 #define D(n) (&CdrStreamKeyFlags_ ## n ## _desc)
 CU_Test(ddsc_cdrstream, key_flags_various)
