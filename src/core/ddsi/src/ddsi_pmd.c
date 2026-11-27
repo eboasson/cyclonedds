@@ -86,6 +86,9 @@ void ddsi_write_pmd_message (struct ddsi_thread_state * const thrst, struct ddsi
 
 void ddsi_handle_pmd_message (const struct ddsi_receiver_state *rst, struct ddsi_serdata *sample_common)
 {
+  const uint32_t status = sample_common->statusinfo & (DDSI_STATUSINFO_DISPOSE | DDSI_STATUSINFO_UNREGISTER);
+  if (status == 0 && sample_common->kind != SDK_DATA)
+    return;
   /* use sample with knowledge of internal representation: there's a deserialized sample inside already */
   const struct ddsi_serdata_pserop *sample = (const struct ddsi_serdata_pserop *) sample_common;
   ddsi_participant_message_data_t const * const pmd = sample->sample;
@@ -102,7 +105,7 @@ void ddsi_handle_pmd_message (const struct ddsi_receiver_state *rst, struct ddsi
     RSTTRACE (": unknown proxy participant\n");
     return;
   }
-  switch (sample->c.statusinfo & (DDSI_STATUSINFO_DISPOSE | DDSI_STATUSINFO_UNREGISTER))
+  switch (status)
   {
     case 0:
       RSTTRACE (" data %"PRIu32, pmd->value.length);

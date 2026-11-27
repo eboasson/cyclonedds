@@ -109,7 +109,7 @@ void ddsi_handle_auth_handshake_message(const struct ddsi_receiver_state *rst, d
   /* The stateless message type is keyless, so a key-only (dispose/unregister)
      sample has no deserialized content: msg is NULL.  Such a sample can be sent
      by any remote peer, so just drop it rather than dereferencing NULL. */
-  if (msg == NULL)
+  if (sample_common->kind != SDK_DATA || msg == NULL)
   {
     RSTTRACE ("auth handshake message without payload\n");
     return;
@@ -227,7 +227,7 @@ void ddsi_handle_crypto_exchange_message(const struct ddsi_receiver_state *rst, 
 
   /* The volatile secure message type is keyless, so a key-only sample has no
      deserialized content: msg is NULL.  Drop it rather than dereferencing NULL. */
-  if (msg == NULL)
+  if (sample_common->kind != SDK_DATA || msg == NULL)
   {
     GVTRACE ("crypto exchange message without payload\n");
     return;

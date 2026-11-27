@@ -164,15 +164,18 @@ static struct ddsi_serdata *serdata_pserop_from_ser_iov (const struct ddsi_serty
 
 static struct ddsi_serdata *serdata_pserop_from_keyhash (const struct ddsi_sertype *tpcmn, const ddsi_keyhash_t *keyhash)
 {
+  const struct ddsi_sertype_pserop *tp = (const struct ddsi_sertype_pserop *)tpcmn;
   const struct { uint16_t identifier, options; ddsi_keyhash_t kh; } in = { DDSI_RTPS_CDR_BE, 0, *keyhash };
-  const ddsrt_iovec_t iov = { .iov_base = (void *) &in, .iov_len = sizeof (in) };
-  return serdata_pserop_from_ser_iov (tpcmn, SDK_KEY, 1, &iov, sizeof (in) - 4);
+  const ddsrt_iovec_t iov = { .iov_base = (void *) &in, .iov_len = tp->ops_key ? sizeof (in) : 4 };
+  return serdata_pserop_from_ser_iov (tpcmn, SDK_KEY, 1, &iov, iov.iov_len);
 }
 
 static bool serdata_pserop_to_sample (const struct ddsi_serdata *serdata_common, void *sample, void **bufptr, void *buflim)
 {
   const struct ddsi_serdata_pserop *d = (const struct ddsi_serdata_pserop *)serdata_common;
   const struct ddsi_sertype_pserop *tp = (const struct ddsi_sertype_pserop *) d->c.type;
+  if (d->c.kind == SDK_KEY && d->keyless)
+    return true;
   if (bufptr) abort(); else { (void)buflim; } /* FIXME: haven't implemented that bit yet! */
   if (d->c.kind == SDK_KEY)
     memcpy (sample, d->sample, 16);
@@ -214,7 +217,7 @@ static struct ddsi_serdata *serdata_pserop_from_sample (const struct ddsi_sertyp
   struct ddsi_serdata_pserop *d;
   if (kind == SDK_KEY && tp->ops_key == NULL)
   {
-    if ((d = serdata_pserop_new (tp, kind, 0, &header)) == NULL)
+    if ((d = serdata_pserop_new (tp, kind, sizeof (header), &header)) == NULL)
       return NULL;
   }
   else
@@ -224,7 +227,7 @@ static struct ddsi_serdata *serdata_pserop_from_sample (const struct ddsi_sertyp
     if (ddsi_plist_ser_generic (&data, &size, sample, (kind == SDK_DATA) ? tp->ops : tp->ops_key) < 0)
       return NULL;
     const size_t size4 = (size + 3) & ~(size_t)3;
-    if ((d = serdata_pserop_new (tp, kind, size4, &header)) == NULL)
+    if ((d = serdata_pserop_new (tp, kind, sizeof (header) + size4, &header)) == NULL)
     {
       ddsrt_free (data);
       return NULL;
@@ -244,9 +247,13 @@ static struct ddsi_serdata *serdata_pserop_to_untyped (const struct ddsi_serdata
 {
   const struct ddsi_serdata_pserop *d = (const struct ddsi_serdata_pserop *)serdata_common;
   const struct ddsi_sertype_pserop *tp = (const struct ddsi_sertype_pserop *)d->c.type;
-  // The byte span includes the header and data, so base it on the enclosing object.
-  ddsrt_iovec_t iov = { .iov_base = (char *) d + offsetof (struct ddsi_serdata_pserop, identifier), .iov_len = (ddsrt_iov_len_t) (4 + d->pos) };
-  struct ddsi_serdata *dcmn_tl = serdata_pserop_from_ser_iov (&tp->c, SDK_KEY, 1, &iov, iov.iov_len);
+  // An empty key has no payload or encapsulation padding.
+  const struct dds_cdr_header header = { d->identifier, d->keyless ? 0 : d->options };
+  const ddsrt_iovec_t iov[] = {
+    { .iov_base = (void *) &header, .iov_len = sizeof (header) },
+    { .iov_base = (void *) d->data, .iov_len = d->keyless ? 0 : d->pos }
+  };
+  struct ddsi_serdata *dcmn_tl = serdata_pserop_from_ser_iov (&tp->c, SDK_KEY, 2, iov, iov[0].iov_len + iov[1].iov_len);
   assert (dcmn_tl != NULL);
   dcmn_tl->type = NULL;
   return dcmn_tl;
@@ -256,9 +263,10 @@ static bool serdata_pserop_untyped_to_sample (const struct ddsi_sertype *type_co
 {
   const struct ddsi_serdata_pserop *d = (const struct ddsi_serdata_pserop *)serdata_common;
   const struct ddsi_sertype_pserop *tp = (const struct ddsi_sertype_pserop *)type_common;
+  if (tp->ops_key == NULL)
+    return true;
   if (bufptr) abort(); else { (void)buflim; } /* FIXME: haven't implemented that bit yet! */
-  if (tp->ops_key)
-    memcpy (sample, d->sample, 16);
+  memcpy (sample, d->sample, 16);
   return true;
 }
 

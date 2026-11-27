@@ -97,11 +97,15 @@ static void sertype_pserop_free_samples (const struct ddsi_sertype *sertype_comm
     for (size_t i = 0, off = 0; i < count; i++, off += size)
       assert ((char *)ptrs[i] == (char *)ptrs[0] + off);
 #endif
-    char *ptr = ptrs[0];
-    for (size_t i = 0; i < count; i++)
+    // The fixed 16-byte key has no owned fields.
+    if (op & DDS_FREE_CONTENTS_BIT)
     {
-      ddsi_plist_fini_generic (ptr, tp->ops, false);
-      ptr += size;
+      char *ptr = ptrs[0];
+      for (size_t i = 0; i < count; i++)
+      {
+        ddsi_plist_fini_generic (ptr, tp->ops, false);
+        ptr += size;
+      }
     }
     if (op & DDS_FREE_ALL_BIT)
     {

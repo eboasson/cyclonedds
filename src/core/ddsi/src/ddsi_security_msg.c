@@ -174,6 +174,9 @@ int ddsi_volatile_secure_data_filter(struct ddsi_writer *wr, struct ddsi_proxy_r
   assert(prd);
   assert(serdata);
 
+  if (serdata->kind != SDK_DATA)
+    return 0;
+
   /* guid_offset + 4 because 4 bytes header is at 0 */
   struct ddsi_serdata *serdata_ref = ddsi_serdata_to_ser_ref(serdata, guid_offset + 4, sizeof(ddsi_guid_t), &guid_ref);
   assert(guid_ref.iov_len == sizeof(ddsi_guid_t));

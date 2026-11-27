@@ -207,6 +207,25 @@ CU_Test (ddsi_plist_generic, ser_and_deser)
   }
 }
 
+CU_Test (ddsi_plist_generic, print_empty)
+{
+  static const enum ddsi_pserop stop[] = { XSTOP };
+  const enum ddsi_pserop * const descriptors[] = { NULL, stop };
+  for (size_t i = 0; i < sizeof (descriptors) / sizeof (descriptors[0]); i++)
+  {
+    char buf[2];
+    for (size_t size = 0; size <= sizeof (buf); size++)
+    {
+      memset (buf, 'x', sizeof (buf));
+      CU_ASSERT_EQ (ddsi_plist_print_generic (buf, size, NULL, descriptors[i]), 0);
+      CU_ASSERT_EQ (buf[0], size == 0 ? 'x' : '\0');
+      if (size < sizeof (buf))
+        CU_ASSERT_EQ (buf[1], 'x');
+    }
+    CU_ASSERT_EQ (ddsi_plist_print_generic (NULL, 0, NULL, descriptors[i]), 0);
+  }
+}
+
 CU_Test (ddsi_plist_generic, unalias)
 {
   union {

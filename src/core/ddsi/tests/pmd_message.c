@@ -20,6 +20,7 @@
 #include "dds/ddsi/ddsi_thread.h"
 #include "dds/ddsi/ddsi_init.h"
 #include "ddsi__participant.h"
+#include "ddsi__pmd.h"
 #include "ddsi__plist.h"
 #include "ddsi__radmin.h"
 #include "ddsi__xmsg.h"
@@ -158,7 +159,7 @@ static void wait_for_dqueue (void)
   ddsrt_mutex_destroy (&arg.lock);
 }
 
-static void create_fake_proxy_participant (void)
+static ddsi_guid_t create_fake_proxy_participant (void)
 {
   struct ddsi_thread_state * const thrst = ddsi_lookup_thread_state ();
   const uint32_t rport = gv.loc_meta_uc.port;
@@ -236,6 +237,7 @@ static void create_fake_proxy_participant (void)
   ddsi_thread_state_asleep (thrst);
   ddsi_plist_fini (&plist);
   CU_ASSERT_EQ_FATAL (ret, 0);
+  return proxypp_guid;
 }
 
 enum message_variant {
@@ -441,4 +443,30 @@ CU_Test (ddsi_pmd_message, datafrag_inconsistent_size_shrink, .init = setup_and_
   send_pmd_datafrag (2, 31, 32, 1028);
   send_pmd_datafrag (1, 1, 32, 40);
   CU_ASSERT_EQ_FATAL (ddsrt_atomic_ld32 (&logger_arg.match), 0);
+}
+
+CU_Test (ddsi_pmd_message, key_only, .init = setup_and_start, .fini = stop_and_teardown)
+{
+  const ddsi_guid_t guid = create_fake_proxy_participant ();
+  const struct ddsi_receiver_state rst = { .src_guid_prefix = guid.prefix, .gv = &gv };
+  const ddsi_participant_message_data_t pmd = {
+    .participantGuidPrefix = guid.prefix,
+    .kind = DDSI_PARTICIPANT_MESSAGE_DATA_KIND_MANUAL_LIVELINESS_UPDATE
+  };
+  struct ddsi_serdata *key;
+  CU_ASSERT_EQ_FATAL (ddsi_serdata_from_sample_err (&key, gv.pmd_type, SDK_KEY, &pmd), DDS_RETCODE_OK);
+  key->timestamp = ddsrt_time_wallclock ();
+
+  struct ddsi_thread_state * const thrst = ddsi_lookup_thread_state ();
+  ddsi_thread_state_awake (thrst, &gv);
+  ddsrt_atomic_st32 (&logger_arg.match, 0);
+  ddsi_handle_pmd_message (&rst, key);
+  CU_ASSERT_EQ (ddsrt_atomic_ld32 (&logger_arg.match), 0);
+  CU_ASSERT_NEQ (ddsi_entidx_lookup_proxy_participant_guid (gv.entity_index, &guid), NULL);
+
+  key->statusinfo = DDSI_STATUSINFO_DISPOSE | DDSI_STATUSINFO_UNREGISTER;
+  ddsi_handle_pmd_message (&rst, key);
+  CU_ASSERT_EQ (ddsi_entidx_lookup_proxy_participant_guid (gv.entity_index, &guid), NULL);
+  ddsi_thread_state_asleep (thrst);
+  ddsi_serdata_unref (key);
 }

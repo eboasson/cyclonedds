@@ -76,7 +76,8 @@ bool ddsi_plist_equal_generic (const void *srcx, const void *srcy, const enum dd
 /** @component parameter_list */
 size_t ddsi_plist_memsize_generic (const enum ddsi_pserop *desc);
 
-/** @component parameter_list */
+/** @component parameter_list
+ * A NULL descriptor represents an empty value, and src is then ignored. */
 size_t ddsi_plist_print_generic (char * restrict buf, size_t bufsize, const void *src, const enum ddsi_pserop *desc);
 
 #if defined (__cplusplus)

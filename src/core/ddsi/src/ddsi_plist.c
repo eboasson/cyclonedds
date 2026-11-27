@@ -3944,6 +3944,9 @@ void ddsi_plist_log (uint32_t cat, const struct ddsrt_log_cfg *logcfg, const dds
 size_t ddsi_plist_print_generic (char *buf, size_t bufsize, const void *src, const enum ddsi_pserop *desc)
 {
   const size_t bufsize_in = bufsize;
-  (void) print_generic (&buf, &bufsize, src, 0, desc);
+  if (bufsize > 0)
+    buf[0] = 0;
+  if (desc != NULL)
+    (void) print_generic (&buf, &bufsize, src, 0, desc);
   return bufsize_in - bufsize;
 }

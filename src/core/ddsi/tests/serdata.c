@@ -13,6 +13,7 @@
 #include "CUnit/Theory.h"
 #include "dds/ddsrt/bswap.h"
 #include "dds/ddsrt/heap.h"
+#include "dds/ddsrt/string.h"
 #include "dds/cdr/dds_cdrstream.h"
 #include "ddsi__protocol.h"
 #include "ddsi__serdata_plist.h"
@@ -94,6 +95,160 @@ CU_Theory ((bool little_endian, unsigned offset), ddsi_serdata, pserop_header)
   memcpy (wire + sizeof (header), &keyhash, sizeof (keyhash));
   check_header_roundtrip (&type->c, wire, sizeof (header) + sizeof (keyhash));
   ddsi_sertype_unref (&type->c);
+}
+
+struct pserop_message {
+  ddsi_keyhash_t id;
+  uint8_t value;
+};
+
+static struct ddsi_sertype *make_pserop_type (bool keyless, size_t memsize, const enum ddsi_pserop *ops, size_t nops)
+{
+  static const enum ddsi_pserop key_ops[] = { XK, XSTOP };
+  struct ddsi_sertype_pserop *type = ddsrt_calloc (1, sizeof (*type));
+  ddsi_sertype_init (&type->c, "pserop_message", &ddsi_sertype_ops_pserop, &ddsi_serdata_ops_pserop, keyless);
+  type->encoding_format = DDSI_RTPS_CDR_ENC_FORMAT_PLAIN;
+  type->memsize = memsize;
+  type->ops = ops;
+  type->nops = nops;
+  if (!keyless)
+  {
+    type->ops_key = key_ops;
+    type->nops_key = sizeof (key_ops) / sizeof (key_ops[0]);
+  }
+  return &type->c;
+}
+
+static struct ddsi_sertype *make_pserop_message_type (bool keyless)
+{
+  static const enum ddsi_pserop ops[] = { XK, Xo, XSTOP };
+  return make_pserop_type (keyless, sizeof (struct pserop_message), ops, sizeof (ops) / sizeof (ops[0]));
+}
+
+static void check_empty_key (const struct ddsi_sertype *type, const struct ddsi_serdata *key, bool typed)
+{
+  CU_ASSERT_EQ (key->kind, SDK_KEY);
+  CU_ASSERT_EQ (key->type, typed ? type : NULL);
+  CU_ASSERT_EQ (key->hash, type->serdata_basehash);
+  struct dds_cdr_header header;
+  CU_ASSERT_EQ_FATAL (ddsi_serdata_size (key), sizeof (header));
+  ddsi_serdata_to_ser (key, 0, sizeof (header), &header);
+  CU_ASSERT (header.identifier == DDSI_RTPS_CDR_LE || header.identifier == DDSI_RTPS_CDR_BE);
+  CU_ASSERT_EQ (header.options, 0);
+
+  struct pserop_message sample = { .id = keyhash, .value = 99 };
+  static const char expected[] = "(no payload)";
+  char scratch[16], buf[sizeof (expected)], truncated[1] = { '?' };
+  void *ptr = scratch;
+  if (typed)
+  {
+    CU_ASSERT (ddsi_serdata_to_sample (key, &sample, NULL, NULL));
+    CU_ASSERT (ddsi_serdata_to_sample (key, &sample, &ptr, scratch + sizeof (scratch)));
+    CU_ASSERT_EQ (ddsi_serdata_print (key, buf, sizeof (buf)), sizeof (expected) - 1);
+    CU_ASSERT_EQ (ddsi_serdata_print (key, truncated, sizeof (truncated)), sizeof (expected) - 1);
+  }
+  else
+  {
+    CU_ASSERT (ddsi_serdata_untyped_to_sample (type, key, &sample, NULL, NULL));
+    CU_ASSERT (ddsi_serdata_untyped_to_sample (type, key, &sample, &ptr, scratch + sizeof (scratch)));
+    CU_ASSERT_EQ (ddsi_serdata_print_untyped (type, key, buf, sizeof (buf)), sizeof (expected) - 1);
+    CU_ASSERT_EQ (ddsi_serdata_print_untyped (type, key, truncated, sizeof (truncated)), sizeof (expected) - 1);
+  }
+  CU_ASSERT_EQ (memcmp (&sample.id, &keyhash, sizeof (keyhash)), 0);
+  CU_ASSERT_EQ (sample.value, 99);
+  CU_ASSERT (ptr == scratch);
+  CU_ASSERT_STREQ (buf, expected);
+  CU_ASSERT_EQ (truncated[0], '\0');
+}
+
+CU_Test (ddsi_serdata, pserop_keyless)
+{
+  struct ddsi_sertype *type = make_pserop_message_type (true);
+  const struct pserop_message sample = { .id = keyhash, .value = 1 };
+  const ddsi_keyhash_t empty_hash = { { 0 } };
+  struct dds_cdr_header header = { DDSI_RTPS_CDR_BE, 0 };
+  ddsrt_iovec_t iov = { .iov_base = &header, .iov_len = sizeof (header) };
+  struct ddsi_serdata *from_sample, *from_wire, *from_hash;
+  CU_ASSERT_EQ_FATAL (ddsi_serdata_from_sample_err (&from_sample, type, SDK_KEY, &sample), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (ddsi_serdata_from_ser_iov_err (&from_wire, type, SDK_KEY, 1, &iov, iov.iov_len), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (ddsi_serdata_from_keyhash_err (&from_hash, type, &empty_hash), DDS_RETCODE_OK);
+  check_empty_key (type, from_sample, true);
+  check_empty_key (type, from_wire, true);
+  check_empty_key (type, from_hash, true);
+  CU_ASSERT (ddsi_serdata_eqkey (from_sample, from_wire));
+  CU_ASSERT (ddsi_serdata_eqkey (from_sample, from_hash));
+
+  // Exercise both a local sample and incoming data with three bytes of CDR padding.
+  struct {
+    struct dds_cdr_header header;
+    struct pserop_message sample;
+    unsigned char padding[3];
+  } wire = { .header = { DDSI_RTPS_CDR_BE, ddsrt_toBE2u (3) }, .sample = { .value = 2 } };
+  DDSRT_STATIC_ASSERT (sizeof (wire) == 24);
+  iov.iov_base = &wire;
+  iov.iov_len = sizeof (wire);
+  struct ddsi_serdata *data[2];
+  CU_ASSERT_EQ_FATAL (ddsi_serdata_from_sample_err (&data[0], type, SDK_DATA, &sample), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (ddsi_serdata_from_ser_iov_err (&data[1], type, SDK_DATA, 1, &iov, iov.iov_len), DDS_RETCODE_OK);
+  CU_ASSERT (ddsi_serdata_eqkey (data[0], data[1]));
+  for (unsigned i = 0; i < 2; i++)
+  {
+    struct pserop_message decoded;
+    CU_ASSERT_FATAL (ddsi_serdata_to_sample (data[i], &decoded, NULL, NULL));
+    CU_ASSERT_EQ (decoded.value, i + 1);
+    ddsi_keyhash_t actual_hash = keyhash;
+    ddsi_serdata_get_keyhash (data[i], &actual_hash, false);
+    CU_ASSERT_EQ (memcmp (&actual_hash, &empty_hash, sizeof (empty_hash)), 0);
+    struct ddsi_serdata *key = ddsi_serdata_to_untyped (data[i]);
+    CU_ASSERT_NEQ_FATAL (key, NULL);
+    check_empty_key (type, key, false);
+    CU_ASSERT (ddsi_serdata_eqkey (data[i], key));
+    CU_ASSERT_EQ (data[i]->hash, key->hash);
+    ddsi_serdata_unref (key);
+    ddsi_serdata_unref (data[i]);
+  }
+  ddsi_serdata_unref (from_hash);
+  ddsi_serdata_unref (from_wire);
+  ddsi_serdata_unref (from_sample);
+  ddsi_sertype_unref (type);
+}
+
+CU_Test (ddsi_serdata, pserop_print_key)
+{
+  struct ddsi_sertype *type = make_pserop_message_type (false);
+  const struct pserop_message sample = { .id = keyhash, .value = 7 };
+  struct ddsi_serdata *keys[3];
+  CU_ASSERT_EQ_FATAL (ddsi_serdata_from_sample_err (&keys[0], type, SDK_KEY, &sample), DDS_RETCODE_OK);
+  CU_ASSERT_EQ_FATAL (ddsi_serdata_from_keyhash_err (&keys[1], type, &keyhash), DDS_RETCODE_OK);
+  keys[2] = ddsi_serdata_to_untyped (keys[0]);
+  CU_ASSERT_NEQ_FATAL (keys[2], NULL);
+  static const char expected[] = "{01020304:05060708:090a0b0c:0d0e0f10}";
+  char buf[64];
+  for (size_t i = 0; i < sizeof (keys) / sizeof (keys[0]); i++)
+  {
+    CU_ASSERT_EQ (ddsi_serdata_print_untyped (type, keys[i], buf, sizeof (buf)), sizeof (expected) - 1);
+    CU_ASSERT_STREQ (buf, expected);
+    ddsi_serdata_unref (keys[i]);
+  }
+  ddsi_sertype_unref (type);
+}
+
+CU_TheoryDataPoints (ddsi_serdata, pserop_free_key) = {
+  CU_DataPoints (bool, false, true)
+};
+
+CU_Theory ((bool keyless), ddsi_serdata, pserop_free_key)
+{
+  static const enum ddsi_pserop ops[] = { XK, XS, XSTOP };
+  struct {
+    ddsi_keyhash_t id;
+    char *text;
+  } sample = { .id = keyhash, .text = ddsrt_strdup ("non-key field") };
+  struct ddsi_sertype *type = make_pserop_type (keyless, sizeof (sample), ops, sizeof (ops) / sizeof (ops[0]));
+  ddsi_sertype_free_sample (type, &sample, DDS_FREE_KEY);
+  CU_ASSERT_STREQ (sample.text, "non-key field");
+  ddsi_sertype_free_sample (type, &sample, DDS_FREE_CONTENTS);
+  ddsi_sertype_unref (type);
 }
 
 CU_TheoryDataPoints (ddsi_serdata, plist_header) = {

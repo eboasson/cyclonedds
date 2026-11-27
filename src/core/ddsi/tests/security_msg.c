@@ -11,6 +11,12 @@
 #include "CUnit/Theory.h"
 #include "dds/ddsrt/heap.h"
 #include "dds/ddsrt/string.h"
+#include "dds/ddsi/ddsi_domaingv.h"
+#include "dds/ddsi/ddsi_endpoint.h"
+#include "dds/ddsi/ddsi_proxy_endpoint.h"
+#include "dds/ddsi/ddsi_proxy_participant.h"
+#include "ddsi__serdata_pserop.h"
+#include "ddsi__security_exchange.h"
 #include "ddsi__security_msg.h"
 #include "mem_ser.h"
 #include <assert.h>
@@ -316,4 +322,62 @@ CU_Test (ddsi_security_msg, serializer)
   ddsi_participant_generic_message_deinit(&msg_in);
   ddsi_participant_generic_message_deinit(&msg_ser);
   ddsrt_free(data);
+}
+
+static struct ddsi_sertype *make_message_type (void)
+{
+  struct ddsi_sertype_pserop *type = ddsrt_calloc (1, sizeof (*type));
+  ddsi_sertype_init (&type->c, "ParticipantGenericMessage", &ddsi_sertype_ops_pserop, &ddsi_serdata_ops_pserop, true);
+  type->encoding_format = DDSI_RTPS_CDR_ENC_FORMAT_PLAIN;
+  type->memsize = sizeof (ddsi_participant_generic_message_t);
+  type->ops = ddsi_pserop_participant_generic_message;
+  type->nops = ddsi_pserop_participant_generic_message_nops;
+  return &type->c;
+}
+
+CU_Test (ddsi_security_msg, ignore_key_only)
+{
+  struct ddsi_domaingv gv = { 0 };
+  dds_log_cfg_init (&gv.logconfig, 0, 0, stderr, stderr);
+  const struct ddsi_receiver_state rst = { .gv = &gv };
+  const ddsi_entityid_t writer = { .u = DDSI_ENTITYID_P2P_BUILTIN_PARTICIPANT_STATELESS_MESSAGE_WRITER };
+  struct ddsi_sertype *type = make_message_type ();
+  struct ddsi_serdata *key = ddsi_serdata_from_sample (type, SDK_KEY, &test_msg_in);
+  CU_ASSERT_NEQ_FATAL (key, NULL);
+  static const uint32_t status[] = { 0, DDSI_STATUSINFO_DISPOSE, DDSI_STATUSINFO_UNREGISTER, DDSI_STATUSINFO_DISPOSE | DDSI_STATUSINFO_UNREGISTER };
+  for (size_t i = 0; i < sizeof (status) / sizeof (status[0]); i++)
+  {
+    key->statusinfo = status[i];
+    ddsi_handle_auth_handshake_message (&rst, writer, key);
+    ddsi_handle_crypto_exchange_message (&rst, key);
+  }
+  ddsi_serdata_unref (key);
+  ddsi_sertype_unref (type);
+}
+
+CU_Test (ddsi_security_msg, volatile_data_filter)
+{
+  struct ddsi_writer wr = { 0 };
+  struct ddsi_proxy_participant proxypp = { 0 };
+  struct ddsi_proxy_reader prd = { .c.proxypp = &proxypp };
+  struct ddsi_sertype *type = make_message_type ();
+  struct ddsi_serdata *key = ddsi_serdata_from_sample (type, SDK_KEY, &test_msg_in);
+  CU_ASSERT_NEQ_FATAL (key, NULL);
+  CU_ASSERT_EQ (ddsi_volatile_secure_data_filter (&wr, &prd, key), 0);
+  ddsi_serdata_unref (key);
+
+  proxypp.e.guid = test_msg_in.destination_participant_guid;
+  struct ddsi_serdata *data = ddsi_serdata_from_sample (type, SDK_DATA, &test_msg_in);
+  CU_ASSERT_NEQ_FATAL (data, NULL);
+  CU_ASSERT (ddsi_volatile_secure_data_filter (&wr, &prd, data));
+  proxypp.e.guid.prefix.u[0]++;
+  CU_ASSERT_EQ (ddsi_volatile_secure_data_filter (&wr, &prd, data), 0);
+  ddsi_serdata_unref (data);
+
+  const ddsi_participant_generic_message_t broadcast = { .message_class_id = "" };
+  data = ddsi_serdata_from_sample (type, SDK_DATA, &broadcast);
+  CU_ASSERT_NEQ_FATAL (data, NULL);
+  CU_ASSERT (ddsi_volatile_secure_data_filter (&wr, &prd, data));
+  ddsi_serdata_unref (data);
+  ddsi_sertype_unref (type);
 }
