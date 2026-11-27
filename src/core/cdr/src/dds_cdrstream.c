@@ -8637,11 +8637,6 @@ static void add_key_size_for_elements (struct key_props *k, const uint32_t *elem
   k->path = path.parent;
 }
 
-enum keyholder_id_policy {
-  KEYHOLDER_ALLOW_MISSING_IDS = 1, /* legacy collection elements */
-  KEYHOLDER_REQUIRE_IDS            /* struct arm of a whole-union key */
-};
-
 static void add_keyholder_layout (struct keyholder_builder *builder, const uint32_t *ops, enum keyholder_id_policy id_policy);
 
 static const uint32_t *dds_stream_key_size_collection (const uint32_t *ops, uint32_t insn, struct key_props *k)
@@ -8697,7 +8692,7 @@ static const uint32_t *dds_stream_key_size_collection (const uint32_t *ops, uint
       const uint32_t insn_op = type == DDS_SOP_VAL_BSQ ? 4 : 3;
       const uint32_t *element_ops = ops + DDS_OP_ADR_JSR (ops[insn_op]);
       if (k->builder && subtype == DDS_SOP_VAL_STU)
-        add_keyholder_layout (k->builder, element_ops, KEYHOLDER_ALLOW_MISSING_IDS);
+        add_keyholder_layout (k->builder, element_ops, DDS_CDR_KEYHOLDER_ALLOW_MISSING_IDS);
       add_key_size_for_elements (k, element_ops, bound, subtype);
       break;
     }
@@ -8767,7 +8762,7 @@ static void add_key_size_for_union_cases (struct key_props *k, const uint32_t *o
         {
           const uint32_t *struct_ops = keyholder_struct_type (type, value_ops);
           if (struct_ops)
-            add_keyholder_layout (k->builder, struct_ops, KEYHOLDER_REQUIRE_IDS);
+            add_keyholder_layout (k->builder, struct_ops, DDS_CDR_KEYHOLDER_REQUIRE_IDS);
         }
         /* Alignment depends on the incoming sizes. Both are capped at 17.
            The remaining key properties accumulate over the whole pass. */
@@ -9267,7 +9262,7 @@ static void mark_keyholder_checked (struct keyholder_members *fields)
     struct dds_cdrstream_desc_mid_table *table = fields->builder->table;
     fields->meta = dds_stream_get_op_meta (fields->builder->allocator, table, (uint32_t) (fields->struct_ops - table->op0));
   }
-  fields->meta->keyholder_checked = (uint8_t) fields->id_policy;
+  fields->meta->keyholder_checked = fields->id_policy;
 }
 
 /* Flatten inherited members into the derived struct's scope. The first pass
@@ -9315,7 +9310,7 @@ static const uint32_t *collect_keyholder_members (struct keyholder_members *fiel
       }
       if ((*op & DDS_OP_FLAG_KEY) && !find_member_id (fields->builder->table, op, &id))
       {
-        if (fields->id_policy == KEYHOLDER_REQUIRE_IDS)
+        if (fields->id_policy == DDS_CDR_KEYHOLDER_REQUIRE_IDS)
           return NULL;
         fields->missing_ids = true;
       }

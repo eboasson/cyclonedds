@@ -180,12 +180,19 @@ struct dds_cdrstream_desc_enum_value_set {
   uint32_t *values;
 };
 
+/* Ordered by the strength of the member-ID check. */
+enum keyholder_id_policy {
+  DDS_CDR_KEYHOLDER_UNCHECKED = 0,
+  DDS_CDR_KEYHOLDER_ALLOW_MISSING_IDS, /* legacy collection elements */
+  DDS_CDR_KEYHOLDER_REQUIRE_IDS        /* struct arm of a whole-union key */
+};
+
 struct dds_cdrstream_desc_mid {
   uint32_t adr_offs;
   uint32_t mid;
   const struct dds_cdrstream_desc_enum_value_set *enum_value_set;
   struct dds_cdrstream_keyholder_layout *keyholder;
-  uint8_t keyholder_checked;     /* strongest member-ID policy used to visit this struct */
+  enum keyholder_id_policy keyholder_checked; /* strongest member-ID policy used to visit this struct */
 };
 
 struct dds_cdrstream_desc {
