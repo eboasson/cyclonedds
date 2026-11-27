@@ -5171,8 +5171,10 @@ static bool read_and_normalize_collection_dheader (struct normalize_state const 
 #define NORMALIZE_SEQ_ARR_BODY_X0 1u
 #define NORMALIZE_SEQ_ARR_BODY_X1 2u
 
-ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
-static enum dds_stream_normalize_result normalize_seq_arr_body (struct normalize_state * const st1, uint32_t * restrict const off, uint32_t const * * const ops, const uint32_t num, const uint32_t flags)
+/* Sequences supply their own element-size counter. Arrays leave the counter
+   of any enclosing sequence in place for nested external members. */
+ddsrt_attribute_warn_unused_result ddsrt_nonnull ((1, 2, 3))
+static enum dds_stream_normalize_result normalize_seq_arr_body (struct normalize_state * const st1, uint32_t * restrict const off, uint32_t const * * const ops, const uint32_t num, const uint32_t flags, uint32_t * const native_size)
 {
   enum dds_stream_normalize_result res;
   const enum dds_stream_typecode subtype = DDS_OP_SUBTYPE (**ops);
@@ -5262,12 +5264,12 @@ static enum dds_stream_normalize_result normalize_seq_arr_body (struct normalize
     }
     case DDS_SOP_VAL_SEQ: case DDS_SOP_VAL_BSQ: case DDS_SOP_VAL_ARR:
     case DDS_SOP_VAL_UNI: case DDS_SOP_VAL_STU: {
-      const bool sequence = DDS_OP_TYPE (**ops) != DDS_SOP_VAL_ARR;
-      const uint32_t elem_size = sequence ? (*ops)[2 + x0] : 0;
-      if (sequence) {
-        if (elem_size == 0 || num > UINT32_MAX / elem_size)
-          return normalize_error ();
-      }
+      const uint32_t elem_size = native_size ? (*ops)[2 + x0] : 0;
+      if (native_size && (elem_size == 0 || num > UINT32_MAX / elem_size))
+        return normalize_error ();
+      uint32_t * const budget = native_size ? st1->empty_sequence_budget : NULL;
+      if (budget)
+        st1->sequence_element_size = native_size;
       if (DDS_OP_ADR_JSR ((*ops)[3 + x0 - x1]) <= 0 && st1->depth++ >= NORMALIZE_MAX_DEPTH)
         return normalize_recursion_error (st1);
       uint32_t const * const jsr_ops = *ops + DDS_OP_ADR_JSR ((*ops)[3 + x0 - x1]);
@@ -5275,8 +5277,8 @@ static enum dds_stream_normalize_result normalize_seq_arr_body (struct normalize
       *ops += jmp ? jmp : 4 + x0;
       for (uint32_t i = 0; i < num; i++)
       {
-        if (sequence && st1->sequence_element_size)
-          *st1->sequence_element_size = elem_size;
+        if (budget)
+          *native_size = elem_size;
         const uint32_t start = *off;
         uint32_t const * jsr_ops1 = jsr_ops;
         if ((res = stream_normalize_data_impl (st1, off, &jsr_ops1, key_scope_for_type (subtype))) != DDS_STREAM_NORMALIZE_SUCCESS)
@@ -5286,12 +5288,12 @@ static enum dds_stream_normalize_result normalize_seq_arr_body (struct normalize
           /* Identical elements at an unchanged offset have no more bytes to
              validate. A direct KeyHash can encode any number of these in its
              length word, so also bound their native sequence storage. */
-          if (sequence && st1->empty_sequence_budget)
+          if (budget)
           {
-            const uint32_t native_size = *st1->sequence_element_size;
-            if (num > *st1->empty_sequence_budget / native_size)
+            const uint32_t size = *native_size;
+            if (num > *budget / size)
               return normalize_error ();
-            *st1->empty_sequence_budget -= num * native_size;
+            *budget -= num * size;
           }
           break;
         }
@@ -5347,9 +5349,7 @@ static enum dds_stream_normalize_result normalize_seq (struct normalize_state co
     }
   }
   uint32_t native_size;
-  if (st1.empty_sequence_budget)
-    st1.sequence_element_size = &native_size;
-  return normalize_seq_arr_body (&st1, off, ops, num, flags);
+  return normalize_seq_arr_body (&st1, off, ops, num, flags, &native_size);
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
@@ -5360,7 +5360,7 @@ static enum dds_stream_normalize_result normalize_arr (struct normalize_state co
     return normalize_error ();
   const uint32_t num = (*ops)[2];
   const uint32_t flags = NORMALIZE_SEQ_ARR_BODY_X0 | NORMALIZE_SEQ_ARR_BODY_X1;
-  return normalize_seq_arr_body (&st1, off, ops, num, flags);
+  return normalize_seq_arr_body (&st1, off, ops, num, flags, NULL);
 }
 
 ddsrt_attribute_warn_unused_result ddsrt_nonnull_all
