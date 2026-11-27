@@ -3832,25 +3832,35 @@ static dds_return_t wait_for_type_resolved_locked (struct ddsi_domaingv *gv, con
      send the lookup request or wait for the response. */
   ddsi_type_ref_locked (gv, NULL, t);
   dds_return_t ret = DDS_RETCODE_OK;
-  if (t->state == DDSI_TYPE_PARTIAL_RESOLVED && resolved_kind == DDSI_TYPE_INCLUDE_DEPS)
-  {
-    struct ddsi_generic_proxy_endpoint **matches = NULL;
-    uint32_t n_matches = 0;
-    struct ddsi_thread_state *thrst = ddsi_lookup_thread_state ();
-    ddsi_thread_state_awake (thrst, gv);
-    ret = ddsi_type_retry_validation_locked (gv, t, &matches, &n_matches);
-    if (n_matches)
+#ifdef DDS_HAS_TYPE_DISCOVERY
+  bool request_failed = false;
+#endif
+  do {
+    /* A reply received while waiting may have supplied the last definition
+       but run out of validation scratch space in one of its dependents. */
+    if (t->state == DDSI_TYPE_PARTIAL_RESOLVED && resolved_kind == DDSI_TYPE_INCLUDE_DEPS)
     {
-      ddsrt_mutex_unlock (&gv->typelib_lock);
-      for (uint32_t i = 0; i < n_matches; i++)
-        ddsi_update_proxy_endpoint_matching (gv, matches[i]);
-      ddsrt_mutex_lock (&gv->typelib_lock);
+      struct ddsi_generic_proxy_endpoint **matches = NULL;
+      uint32_t n_matches = 0;
+      struct ddsi_thread_state *thrst = ddsi_lookup_thread_state ();
+      ddsi_thread_state_awake (thrst, gv);
+      ret = ddsi_type_retry_validation_locked (gv, t, &matches, &n_matches);
+      if (n_matches)
+      {
+        ddsrt_mutex_unlock (&gv->typelib_lock);
+        for (uint32_t i = 0; i < n_matches; i++)
+          ddsi_update_proxy_endpoint_matching (gv, matches[i]);
+        ddsrt_mutex_lock (&gv->typelib_lock);
+      }
+      ddsi_thread_state_asleep (thrst);
+      ddsrt_free (matches);
     }
-    ddsi_thread_state_asleep (thrst);
-    ddsrt_free (matches);
-  }
-  if (ret == DDS_RETCODE_OK && !ddsi_type_resolved_locked (gv, t, resolved_kind))
-  {
+    if (ret != DDS_RETCODE_OK || ddsi_type_resolved_locked (gv, t, resolved_kind))
+      break;
+#ifndef DDS_HAS_TYPE_DISCOVERY
+    assert (request == DDSI_TYPE_NO_REQUEST);
+    (void) request;
+#endif
     if (t->state == DDSI_TYPE_INVALID)
       ret = DDS_RETCODE_BAD_PARAMETER;
     else if (abstimeout.v == 0)
@@ -3858,27 +3868,17 @@ static dds_return_t wait_for_type_resolved_locked (struct ddsi_domaingv *gv, con
 #ifdef DDS_HAS_TYPE_DISCOVERY
     else if (request == DDSI_TYPE_SEND_REQUEST)
     {
+      request = DDSI_TYPE_NO_REQUEST;
       ddsrt_mutex_unlock (&gv->typelib_lock);
-      const bool requested = ddsi_tl_request_type (gv, type_id, NULL, resolved_kind);
+      request_failed = !ddsi_tl_request_type (gv, type_id, NULL, resolved_kind);
       ddsrt_mutex_lock (&gv->typelib_lock);
-      /* A concurrent reply can invalidate or resolve the type during the request. */
-      if (t->state == DDSI_TYPE_INVALID)
-        ret = DDS_RETCODE_BAD_PARAMETER;
-      else if (!requested && !ddsi_type_resolved_locked (gv, t, resolved_kind))
-        ret = DDS_RETCODE_PRECONDITION_NOT_MET;
     }
-#else
-    assert (request == DDSI_TYPE_NO_REQUEST);
-    (void) request;
+    else if (request_failed)
+      ret = DDS_RETCODE_PRECONDITION_NOT_MET;
 #endif
-    while (ret == DDS_RETCODE_OK && !ddsi_type_resolved_locked (gv, t, resolved_kind))
-    {
-      if (t->state == DDSI_TYPE_INVALID)
-        ret = DDS_RETCODE_BAD_PARAMETER;
-      else if (!ddsrt_cond_etime_waituntil (&gv->typelib_resolved_cond, &gv->typelib_lock, abstimeout))
-        ret = DDS_RETCODE_TIMEOUT;
-    }
-  }
+    else if (!ddsrt_cond_etime_waituntil (&gv->typelib_resolved_cond, &gv->typelib_lock, abstimeout))
+      ret = DDS_RETCODE_TIMEOUT;
+  } while (ret == DDS_RETCODE_OK);
   if (ret == DDS_RETCODE_OK)
     *type = t;
   else

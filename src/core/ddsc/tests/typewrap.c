@@ -1359,11 +1359,27 @@ static void typewrap_validation_retry_init (void)
   typewrap_init ();
 }
 
+struct validation_waiter {
+  struct ddsi_domaingv *gv;
+  const ddsi_typeid_t *id;
+  ddsrt_etime_t deadline;
+  struct ddsi_type *resolved;
+  dds_return_t ret;
+};
+
+static uint32_t validation_wait (void *arg)
+{
+  struct validation_waiter *w = arg;
+  w->ret = ddsi_wait_for_type_resolved (w->gv, w->id, w->deadline, &w->resolved, DDSI_TYPE_INCLUDE_DEPS, DDSI_TYPE_NO_REQUEST);
+  return 0;
+}
+
 CU_TheoryDataPoints (ddsc_typewrap, retry_dependent_validation) = {
+  CU_DataPoints (bool, false, true),
   CU_DataPoints (bool, false, true)
 };
 
-CU_Theory ((bool poll_outer), ddsc_typewrap, retry_dependent_validation,
+CU_Theory ((bool wait_outer, bool wait_before_install), ddsc_typewrap, retry_dependent_validation,
     .init = typewrap_validation_retry_init, .fini = typewrap_allocator_fini)
 {
   const ddsi_typeid_t integer = { .x = { ._d = DDS_XTypes_TK_INT32 } };
@@ -1384,13 +1400,32 @@ CU_Theory ((bool poll_outer), ddsc_typewrap, retry_dependent_validation,
   CU_ASSERT_EQ_FATAL (ddsi_typeobj_get_hash_id (&outer_obj, &outer_id), DDS_RETCODE_OK);
 
   struct ddsi_domaingv *gv = get_domaingv (participant);
-  struct ddsi_type *base, *derived, *outer, *resolved = NULL;
+  struct ddsi_type *base, *derived, *outer;
   ddsrt_mutex_lock (&gv->typelib_lock);
   CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (gv, &base, &base_id), DDS_RETCODE_OK);
   CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (gv, &derived, &derived_id), DDS_RETCODE_OK);
   CU_ASSERT_EQ_FATAL (ddsi_type_ref_id_locked (gv, &outer, &outer_id), DDS_RETCODE_OK);
   CU_ASSERT_EQ_FATAL (ddsi_type_add_typeobj (gv, outer, &outer_obj), DDS_RETCODE_OK);
   CU_ASSERT_EQ_FATAL (ddsi_type_add_typeobj (gv, derived, &derived_obj), DDS_RETCODE_OK);
+  struct validation_waiter w = { .gv = gv, .id = wait_outer ? &outer_id : &derived_id };
+  ddsrt_thread_t thread = { 0 };
+  if (wait_before_install)
+  {
+    struct ddsi_type *target = wait_outer ? outer : derived;
+    const uint32_t refc = target->refc;
+    w.deadline = ddsrt_etime_add_duration (ddsrt_time_elapsed (), DDS_SECS (2));
+    ddsrt_threadattr_t attr;
+    ddsrt_threadattr_init (&attr);
+    CU_ASSERT_EQ_FATAL (ddsrt_thread_create (&thread, "type_wait", &attr, validation_wait, &w), DDS_RETCODE_OK);
+    /* The waiter retains its target under typelib_lock before sleeping. */
+    while (target->refc == refc && ddsrt_time_elapsed ().v < w.deadline.v)
+    {
+      ddsrt_mutex_unlock (&gv->typelib_lock);
+      dds_sleepfor (DDS_MSECS (1));
+      ddsrt_mutex_lock (&gv->typelib_lock);
+    }
+    CU_ASSERT_GT (target->refc, refc);
+  }
   fail_after_type_resolved = base;
   const dds_return_t ret = ddsi_type_add_typeobj (gv, base, &base_obj);
   const bool allocation_failed = fail_after_type_resolved == NULL;
@@ -1402,14 +1437,18 @@ CU_Theory ((bool poll_outer), ddsc_typewrap, retry_dependent_validation,
   CU_ASSERT_EQ (outer->state, DDSI_TYPE_PARTIAL_RESOLVED);
   ddsrt_mutex_unlock (&gv->typelib_lock);
 
-  CU_ASSERT_EQ (ddsi_wait_for_type_resolved (gv, poll_outer ? &outer_id : &derived_id, (ddsrt_etime_t) { 0 }, &resolved,
-      DDSI_TYPE_INCLUDE_DEPS, DDSI_TYPE_NO_REQUEST),
-      DDS_RETCODE_OK);
-  CU_ASSERT_EQ (resolved, poll_outer ? outer : derived);
+  if (wait_before_install)
+  {
+    CU_ASSERT_EQ_FATAL (ddsrt_thread_join (thread, NULL), DDS_RETCODE_OK);
+  }
+  else
+    (void) validation_wait (&w);
+  CU_ASSERT_EQ (w.ret, DDS_RETCODE_OK);
+  CU_ASSERT_EQ (w.resolved, wait_outer ? outer : derived);
   ddsrt_mutex_lock (&gv->typelib_lock);
   CU_ASSERT_EQ (derived->state, DDSI_TYPE_RESOLVED);
   CU_ASSERT_EQ (outer->state, DDSI_TYPE_RESOLVED);
-  ddsi_type_unref_locked (gv, resolved);
+  ddsi_type_unref_locked (gv, w.resolved);
   ddsi_type_unref_locked (gv, outer);
   ddsi_type_unref_locked (gv, derived);
   ddsi_type_unref_locked (gv, base);
